@@ -1,0 +1,6 @@
+@ai_speis_be_HostAddress = http://localhost:5274
+
+GET {{ai_speis_be_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
