@@ -4,7 +4,7 @@ export const ADMIN_MENU_ITEMS = [
   {
     id: 'dashboard',
     label: 'Overview',
-    icon: 'Dashboard',
+    icon: 'LayoutDashboard',
     path: '/admin/dashboard',
   },
   {

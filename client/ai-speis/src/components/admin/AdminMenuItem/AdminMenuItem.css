@@ -1,28 +1,48 @@
 .admin-menu-item {
+  width: 100%;
+  min-height: 44px;
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  padding: 12px var(--spacing-lg);
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
   color: var(--text-secondary);
+  border: 0;
+  border-radius: var(--border-radius);
   cursor: pointer;
   transition: all var(--transition-fast);
-  border-left: 4px solid transparent;
-  margin: 4px 0;
+  margin: 2px 0;
   white-space: nowrap;
-  font-size: var(--body-md);
+  font-size: var(--button-size);
+  font-weight: var(--fw-medium);
+  text-align: left;
   position: relative;
 }
 
 .admin-menu-item:hover {
-  background-color: var(--primary-xlight);
+  background-color: rgba(255, 255, 255, 0.72);
   color: var(--text-primary);
 }
 
 .admin-menu-item.active {
   background-color: var(--primary-light);
   color: var(--primary-dark);
-  border-left-color: var(--primary);
-  font-weight: var(--fw-bold);
+  font-weight: var(--fw-semibold);
+}
+
+.admin-menu-item.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  width: 4px;
+  height: 24px;
+  border-radius: 0 4px 4px 0;
+  background: var(--primary-dark);
+}
+
+.admin-menu-item:focus-visible {
+  outline: 3px solid rgba(111, 182, 232, 0.32);
+  outline-offset: 1px;
 }
 
 .admin-menu-item .menu-icon-wrapper {
@@ -44,7 +64,7 @@
   border-radius: 50%;
   background-color: var(--error);
   position: absolute;
-  right: var(--spacing-lg);
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
 }

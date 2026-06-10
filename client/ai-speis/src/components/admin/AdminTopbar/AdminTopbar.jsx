@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Search, Bell, Settings, User } from 'lucide-react';
+import { Search, Bell, ChevronDown, Menu, User } from 'lucide-react';
 import './AdminTopbar.css';
 
-function AdminTopbar() {
+function AdminTopbar({ onMenuClick }) {
   const [searchValue, setSearchValue] = useState('');
 
   const handleSearchChange = (e) => {
@@ -19,10 +19,6 @@ function AdminTopbar() {
     console.log('Notification clicked');
   };
 
-  const handleSettingsClick = () => {
-    console.log('Settings clicked');
-  };
-
   const handleProfileClick = () => {
     console.log('Profile clicked');
   };
@@ -30,6 +26,14 @@ function AdminTopbar() {
   return (
     <div className="admin-topbar">
       <div className="topbar-left">
+        <button
+          className="mobile-menu-btn"
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Open navigation"
+        >
+          <Menu size={22} />
+        </button>
         <div className="search-container">
           <Search size={18} className="search-icon" />
           <input
@@ -53,14 +57,6 @@ function AdminTopbar() {
           <span className="badge"></span>
         </button>
 
-        <button
-          className="topbar-icon-btn settings-btn"
-          onClick={handleSettingsClick}
-          aria-label="Settings"
-        >
-          <Settings size={20} className="icon" />
-        </button>
-
         <div className="profile-divider" />
 
         <div className="profile-area">
@@ -76,6 +72,7 @@ function AdminTopbar() {
               <span className="profile-name">Admin</span>
               <span className="profile-role">Super Admin</span>
             </div>
+            <ChevronDown size={16} className="profile-chevron" />
           </button>
         </div>
       </div>

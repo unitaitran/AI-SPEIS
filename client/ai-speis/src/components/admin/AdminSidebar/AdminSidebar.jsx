@@ -4,11 +4,12 @@ import AdminMenuItem from '../AdminMenuItem/AdminMenuItem';
 import { ADMIN_MENU_ITEMS } from '../../../constants/adminMenu';
 import './AdminSidebar.css';
 
-function AdminSidebar() {
+function AdminSidebar({ isOpen, onNavigate }) {
   const [activeMenu, setActiveMenu] = useState('dashboard');
 
   const handleMenuClick = (itemId) => {
     setActiveMenu(itemId);
+    onNavigate?.();
   };
 
   const handleLogout = () => {
@@ -17,10 +18,12 @@ function AdminSidebar() {
   };
 
   return (
-    <div className="admin-sidebar">
+    <aside className={`admin-sidebar ${isOpen ? 'is-open' : ''}`} aria-label="Admin navigation">
       <div className="sidebar-header">
         <div className="logo">
-          <GraduationCap size={28} className="logo-icon" color="var(--primary)" />
+          <div className="logo-mark" aria-hidden="true">
+            <GraduationCap size={24} />
+          </div>
           <div className="logo-text">
             <div className="logo-title">AI-SPEIS</div>
             <div className="logo-subtitle">Admin Console</div>
@@ -30,7 +33,8 @@ function AdminSidebar() {
 
       <div className="sidebar-divider"></div>
 
-      <div className="sidebar-menu">
+      <nav className="sidebar-menu">
+        <p className="sidebar-section-label">Management</p>
         {ADMIN_MENU_ITEMS.map((item) => (
           <AdminMenuItem
             key={item.id}
@@ -39,7 +43,7 @@ function AdminSidebar() {
             onClick={() => handleMenuClick(item.id)}
           />
         ))}
-      </div>
+      </nav>
 
       <div className="sidebar-footer">
         <button className="logout-btn" onClick={handleLogout}>
@@ -47,7 +51,7 @@ function AdminSidebar() {
           <span>Logout</span>
         </button>
       </div>
-    </div>
+    </aside>
   );
 }
 
