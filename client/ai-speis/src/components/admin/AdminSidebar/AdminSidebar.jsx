@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LogOut, GraduationCap } from 'lucide-react';
 import AdminMenuItem from '../AdminMenuItem/AdminMenuItem';
 import { ADMIN_MENU_ITEMS } from '../../../constants/adminMenu';
 import './AdminSidebar.css';
@@ -19,9 +20,9 @@ function AdminSidebar() {
     <div className="admin-sidebar">
       <div className="sidebar-header">
         <div className="logo">
-          <span className="logo-icon">🎓</span>
+          <GraduationCap size={28} className="logo-icon" color="var(--primary)" />
           <div className="logo-text">
-            <div className="logo-title">AI-SPEIS Admin</div>
+            <div className="logo-title">AI-SPEIS</div>
             <div className="logo-subtitle">Admin Console</div>
           </div>
         </div>
@@ -42,8 +43,8 @@ function AdminSidebar() {
 
       <div className="sidebar-footer">
         <button className="logout-btn" onClick={handleLogout}>
-          <span className="logout-icon">🚪</span>
-          <span>Đăng xuất</span>
+          <LogOut size={20} className="logout-icon" />
+          <span>Logout</span>
         </button>
       </div>
     </div>

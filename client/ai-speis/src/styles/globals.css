@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400&display=swap');
+
 /* Global Styles */
 
 html,
@@ -8,10 +10,13 @@ body,
 }
 
 body {
-  background-color: #fafafa;
-  color: var(--secondary-text);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-normal);
+  background-color: var(--surface-1);
+  color: var(--text-primary);
+  font-family: var(--font-family-primary);
+  font-size: var(--body-md);
+  line-height: var(--body-md-lh);
+  margin: 0;
+  padding: 0;
 }
 
 .app-container {

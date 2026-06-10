@@ -1,39 +1,50 @@
 .admin-menu-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-lg);
-  color: var(--sidebar-text);
+  gap: var(--spacing-sm);
+  padding: 12px var(--spacing-lg);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
-  border-left: 3px solid transparent;
-  margin: 0 0;
+  border-left: 4px solid transparent;
+  margin: 4px 0;
   white-space: nowrap;
-  font-size: var(--font-size-base);
+  font-size: var(--body-md);
+  position: relative;
 }
 
 .admin-menu-item:hover {
-  background-color: var(--sidebar-bg-hover);
-  color: var(--sidebar-text-active);
+  background-color: var(--primary-xlight);
+  color: var(--text-primary);
 }
 
 .admin-menu-item.active {
-  background-color: var(--sidebar-bg-active);
-  color: var(--sidebar-text-active);
-  border-left-color: var(--primary-color);
-  font-weight: var(--font-weight-semibold);
+  background-color: var(--primary-light);
+  color: var(--primary-dark);
+  border-left-color: var(--primary);
+  font-weight: var(--fw-bold);
 }
 
-.admin-menu-item .menu-icon {
-  font-size: var(--font-size-lg);
+.admin-menu-item .menu-icon-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
+  color: inherit;
 }
 
 .admin-menu-item .menu-label {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.admin-menu-item .menu-badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--error);
+  position: absolute;
+  right: var(--spacing-lg);
+  top: 50%;
+  transform: translateY(-50%);
 }

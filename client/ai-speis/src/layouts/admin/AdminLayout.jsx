@@ -10,7 +10,9 @@ function AdminLayout({ children }) {
       <div className="admin-main-container">
         <AdminTopbar />
         <div className="admin-content-wrapper">
-          {children}
+          <div className="admin-content-inner">
+            {children}
+          </div>
         </div>
       </div>
     </div>
