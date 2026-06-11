@@ -16,6 +16,7 @@
   font-size: var(--button-size);
   font-weight: var(--fw-medium);
   text-align: left;
+  text-decoration: none;
   position: relative;
 }
 

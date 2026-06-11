@@ -6,8 +6,8 @@ function AdminMenuItem({ item, isActive, onClick }) {
   const IconComponent = LucideIcons[item.icon] || LucideIcons.Circle;
 
   return (
-    <button
-      type="button"
+    <a
+      href={item.path}
       className={`admin-menu-item ${isActive ? 'active' : ''}`}
       onClick={onClick}
       aria-current={isActive ? 'page' : undefined}
@@ -17,7 +17,7 @@ function AdminMenuItem({ item, isActive, onClick }) {
       </div>
       <span className="menu-label">{item.label}</span>
       {item.hasBadge && <span className="menu-badge" aria-label="Requires attention" />}
-    </button>
+    </a>
   );
 }
 

@@ -3,14 +3,18 @@ import AdminSidebar from '../../components/admin/AdminSidebar/AdminSidebar';
 import AdminTopbar from '../../components/admin/AdminTopbar/AdminTopbar';
 import './AdminLayout.css';
 
-function AdminLayout({ children }) {
+function AdminLayout({ children, pathname }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const closeSidebar = () => setIsSidebarOpen(false);
 
   return (
     <div className="admin-layout">
-      <AdminSidebar isOpen={isSidebarOpen} onNavigate={closeSidebar} />
+      <AdminSidebar
+        isOpen={isSidebarOpen}
+        pathname={pathname}
+        onNavigate={closeSidebar}
+      />
       <button
         className={`sidebar-backdrop ${isSidebarOpen ? 'is-visible' : ''}`}
         type="button"

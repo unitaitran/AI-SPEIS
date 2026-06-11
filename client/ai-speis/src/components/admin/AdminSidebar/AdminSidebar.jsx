@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { LogOut, GraduationCap } from 'lucide-react';
 import AdminMenuItem from '../AdminMenuItem/AdminMenuItem';
 import { ADMIN_MENU_ITEMS } from '../../../constants/adminMenu';
+import { navigate } from '../../../routes/navigation';
 import './AdminSidebar.css';
 
-function AdminSidebar({ isOpen, onNavigate }) {
-  const [activeMenu, setActiveMenu] = useState('dashboard');
-
-  const handleMenuClick = (itemId) => {
-    setActiveMenu(itemId);
+function AdminSidebar({ isOpen, pathname, onNavigate }) {
+  const handleMenuClick = (event, path) => {
+    event.preventDefault();
+    navigate(path);
     onNavigate?.();
   };
 
@@ -39,8 +39,8 @@ function AdminSidebar({ isOpen, onNavigate }) {
           <AdminMenuItem
             key={item.id}
             item={item}
-            isActive={activeMenu === item.id}
-            onClick={() => handleMenuClick(item.id)}
+            isActive={pathname === item.path}
+            onClick={(event) => handleMenuClick(event, item.path)}
           />
         ))}
       </nav>

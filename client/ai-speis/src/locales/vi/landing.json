@@ -1,0 +1,162 @@
+{
+  "meta": {
+    "title": "AI-SPEIS | Luyện phỏng vấn IT với AI"
+  },
+  "aria": {
+    "navigation": "Điều hướng chính",
+    "highlights": "Điểm nhấn sản phẩm",
+    "tools": "Công cụ chính",
+    "languageSwitch": "Chuyển ngôn ngữ"
+  },
+  "nav": {
+    "home": "Trang chủ",
+    "features": "Tính năng",
+    "flow": "Quy trình",
+    "personalization": "Cá nhân hóa",
+    "community": "Cộng đồng"
+  },
+  "buttons": {
+    "login": "Đăng nhập",
+    "startInterview": "Bắt đầu luyện tập",
+    "howItWorks": "Xem cách hoạt động",
+    "viewFeatures": "Xem tính năng",
+    "language": "Ngôn ngữ"
+  },
+  "hero": {
+    "tag": "LUYỆN PHỎNG VẤN AI CHO SINH VIÊN",
+    "title": "Luyện phỏng vấn IT với AI cá nhân hóa theo CV",
+    "text": "AI-SPEIS giúp bạn luyện nói trong môi trường an toàn, nhận phản hồi rõ ràng, theo dõi tiến bộ và chuẩn bị tốt hơn cho phỏng vấn thực tế.",
+    "cards": [
+      { "label": "Cá nhân hóa", "value": "CV · vai trò mục tiêu · khoảng trống kỹ năng" },
+      { "label": "Chế độ luyện tập", "value": "Phỏng vấn mô phỏng, bản ghi, phản hồi" },
+      { "label": "Động lực", "value": "Chuỗi ngày, huy hiệu, tiến độ" }
+    ]
+  },
+  "mascot": {
+    "status": "Phòng phỏng vấn đã sẵn sàng",
+    "note": "AI sẽ hỏi theo CV, vai trò mục tiêu và mức độ tự tin của bạn."
+  },
+  "highlights": [
+    { "title": "Bám theo CV", "text": "Câu hỏi và phản hồi cá nhân hóa" },
+    { "title": "Luồng nhẹ nhàng", "text": "Rõ bước, ít xao nhãng, không gây áp lực" },
+    { "title": "Đọc lại dễ dàng", "text": "Bản ghi, rubric, tiến độ và bước tiếp theo" }
+  ],
+  "sections": {
+    "features": {
+      "kicker": "Tính năng cốt lõi",
+      "title": "Một trải nghiệm luyện phỏng vấn rõ ràng, hiệu quả",
+      "text": "Mỗi màn hình đều tập trung vào việc giúp sinh viên hiểu mình cần làm gì tiếp theo: nộp CV, bắt đầu phỏng vấn, đọc bản ghi, xem phản hồi và quay lại luyện tiếp.",
+      "cards": [
+        {
+          "title": "Tải CV và hồ sơ",
+          "description": "Nhập CV, chọn mục tiêu nghề nghiệp và để hệ thống cá nhân hóa câu hỏi ngay từ bước đầu."
+        },
+        {
+          "title": "Phỏng vấn AI mô phỏng",
+          "description": "Luyện tập theo vai trò, độ khó và ngôn ngữ với chuỗi câu hỏi bám sát thực tế tuyển dụng."
+        },
+        {
+          "title": "Bản ghi và đánh giá",
+          "description": "Xem lại bản ghi, phát hiện khoảng trống câu trả lời và chỉnh nội dung theo từng vòng luyện."
+        },
+        {
+          "title": "Phản hồi có thể hành động",
+          "description": "Chấm theo rubric, hiển thị điểm mạnh, điểm cần cải thiện và ưu tiên việc cần làm tiếp theo."
+        },
+        {
+          "title": "Theo dõi tiến độ",
+          "description": "Lịch sử luyện tập, chuỗi ngày, thành tựu và biểu đồ tiến bộ giúp bạn nhìn thấy sự cải thiện rõ ràng."
+        },
+        {
+          "title": "Cộng đồng đồng hành",
+          "description": "Tham gia nhóm luyện tập, chia sẻ kinh nghiệm, nhận voucher và tài nguyên cho mùa tuyển dụng."
+        }
+      ]
+    },
+    "flow": {
+      "kicker": "Quy trình 6 bước",
+      "title": "Đi từ chuẩn bị đến phản hồi trong một luồng học tập duy nhất",
+      "text": "Trang được thiết kế như một đường đi rõ ràng: bạn không bị lạc trong quá nhiều nút bấm, mà luôn nhìn thấy bước tiếp theo.",
+      "steps": [
+        {
+          "title": "1. Tải CV và chọn mục tiêu",
+          "text": "Bắt đầu bằng CV, vị trí ứng tuyển và bộ kỹ năng bạn muốn cải thiện."
+        },
+        {
+          "title": "2. AI tạo bộ câu hỏi",
+          "text": "Hệ thống sinh câu hỏi theo CV, kỹ năng và mức độ phù hợp với vị trí."
+        },
+        {
+          "title": "3. Luyện nói trong phòng phỏng vấn",
+          "text": "Ghi âm bằng Mic, nghe AI phản hồi bằng Voice và luyện nhiều vòng an toàn."
+        },
+        {
+          "title": "4. Xem bản ghi và lỗi thường gặp",
+          "text": "Mỗi câu trả lời được lưu lại để bạn dễ đọc, dò lỗi và chỉnh nội dung."
+        },
+        {
+          "title": "5. Nhận phản hồi theo rubric",
+          "text": "Điểm số và nhận xét được chia theo tiêu chí, giúp bạn biết sửa ở đâu trước."
+        },
+        {
+          "title": "6. Theo dõi tiến bộ dài hạn",
+          "text": "Tổng hợp chuỗi ngày, biểu đồ và thành tích để bạn duy trì động lực luyện tập."
+        }
+      ]
+    },
+    "personalization": {
+      "kicker": "Cá nhân hóa",
+      "title": "Cá nhân hóa theo CV, mục tiêu nghề nghiệp và điểm cần cải thiện",
+      "text": "AI-SPEIS dùng CV và vai trò mục tiêu để tinh chỉnh bộ câu hỏi, giọng điệu phản hồi và checklist luyện tập. Người dùng mới có thể bắt đầu nhanh, còn người đã quen sẽ đi sâu vào các vòng luyện tập nâng cao.",
+      "rows": [
+        "Bảng điều khiển theo dõi lịch sử, điểm số và chuỗi ngày",
+        "Danh sách câu hỏi theo chủ đề và độ khó",
+        "Tìm nhanh bản ghi, lỗi phổ biến và gợi ý sửa"
+      ]
+    },
+    "community": {
+      "kicker": "Cộng đồng & hỗ trợ",
+      "title": "Hệ sinh thái hỗ trợ để bạn luyện tập đều đặn",
+      "cards": [
+        {
+          "title": "Nhắc lịch luyện tập",
+          "text": "Thiết lập nhắc nhở để duy trì nhịp luyện đều trước ngày phỏng vấn."
+        },
+        {
+          "title": "Mốc tiến bộ rõ ràng",
+          "text": "Mỗi lần luyện xong đều có milestone để bạn nhìn thấy sự tiến bộ của mình."
+        },
+        {
+          "title": "Giữ chuỗi ngày ổn định",
+          "text": "Động lực được thiết kế nhẹ nhàng, không gây áp lực hay quá nhiều trò chơi hóa."
+        },
+        {
+          "title": "Học theo lộ trình",
+          "text": "Bắt đầu từ CV, đến câu hỏi, rồi bản ghi và phản hồi theo từng lớp kỹ năng."
+        }
+      ],
+      "pills": {
+        "achievement": "Thành tựu sẵn sàng",
+        "voucher": "Voucher và ưu đãi học tập",
+        "progress": "Tóm tắt tiến độ"
+      }
+    },
+    "interviewRoom": {
+      "kicker": "Không gian phỏng vấn",
+      "title": "Không gian luyện phỏng vấn tối giản, tập trung và dễ theo dõi",
+      "text": "Màn hình luyện tập giữ bố cục trung tâm, hiển thị bản ghi, nút ghi âm, voice output, phản hồi theo rubric và trạng thái tiến độ trong cùng một khung nhìn.",
+      "tools": [
+        "Ghi âm câu trả lời",
+        "AI đọc câu hỏi",
+        "Bản ghi và báo cáo",
+        "Nhắc tiến độ",
+        "Tính năng cao cấp"
+      ]
+    },
+    "cta": {
+      "kicker": "Bắt đầu ngay",
+      "title": "Sẵn sàng thử một buổi phỏng vấn mô phỏng đầu tiên?",
+      "text": "Tải CV, chọn vị trí mong muốn và để AI-SPEIS tạo ra vòng luyện tập đầu tiên cho bạn."
+    }
+  }
+}
