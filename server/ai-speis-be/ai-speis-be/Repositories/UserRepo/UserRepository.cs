@@ -21,12 +21,26 @@ namespace ai_speis_be.Repositories.UserRepo
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
+        
+        //hàm lấy user theo email xác nhận token, được sử dụng trong quá trình xác nhận email của người dùng sau khi đăng ký tài khoản.
+        public async Task<User?> GetUserByEmailConfirmationTokenAsync(string token)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.EmailConfirmationToken == token);
+        }
 
         public async Task<User> CreateUserAsync(User user)
         {
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
             return user;
+        }
+
+        public async Task UpdateUserAsync(User user)
+        {
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
         }
     }
 }

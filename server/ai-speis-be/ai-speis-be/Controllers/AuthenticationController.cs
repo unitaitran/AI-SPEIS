@@ -1,9 +1,11 @@
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Services.UserService;
 using ai_speis_be.Services.TokenService;
+using ai_speis_be.Services.EmailService;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
+using System.Net;
 
 namespace ai_speis_be.Controllers
 {
@@ -13,11 +15,13 @@ namespace ai_speis_be.Controllers
     {
         private readonly IUserService _userService;
         private readonly ITokenService _tokenService;
+        private readonly IEmailSender _emailSender;
 
-        public AuthenticationController(IUserService userService, ITokenService tokenService)
+        public AuthenticationController(IUserService userService, ITokenService tokenService, IEmailSender emailSender)
         {
             _userService = userService;
             _tokenService = tokenService;
+            _emailSender = emailSender;
         }
 
         [HttpPost("login")]
@@ -30,9 +34,14 @@ namespace ai_speis_be.Controllers
 
             var user = await _userService.GetUserByEmailAsync(loginDto.Email);
 
-            if (user == null || !user.Status)
+            if (user == null)
             {
                 return Unauthorized(new { Message = "Không tìm thấy tài khoản" });
+            }
+
+            if (!user.Status)
+            {
+                return Unauthorized(new { Message = "Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email xác nhận." });
             }
 
             if(user.PasswordHash == null)
@@ -74,22 +83,43 @@ namespace ai_speis_be.Controllers
             }
 
             var newUser = await _userService.CreateUserAsync(registerDto);
-            var createdUser = await _userService.GetUserByEmailAsync(newUser.Email);
-            if (createdUser == null)
+            var confirmationLink = Url.Action(
+                nameof(ConfirmEmail),
+                "Authentication",
+                new { token = newUser.EmailConfirmationToken },
+                Request.Scheme);
+
+            if (string.IsNullOrWhiteSpace(confirmationLink))
             {
-                return StatusCode(500, new { Message = "Đăng ký thành công nhưng không tìm thấy tài khoản sau đó" });
+                return StatusCode(500, new { Message = "Không tạo được link xác nhận email" });
             }
-            var jwtToken = _tokenService.GenerateToken(createdUser.UserId, createdUser.Role.RoleName, createdUser.FullName, createdUser.Email);
-            return Ok(new RegisterResponseDto
-            {
-                JwtToken = jwtToken,
-                Role = createdUser.Role.RoleName,
-                UserId = createdUser.UserId,
-                FullName = createdUser.FullName,
-                Email = createdUser.Email
-            });
+
+            await _emailSender.SendEmailAsync(
+                newUser.Email,
+                "Xác nhận tài khoản AI-SPEIS",
+                $"""
+                <p>Xin chào {WebUtility.HtmlEncode(newUser.FullName)},</p>
+                <p>Vui lòng bấm vào link bên dưới để kích hoạt tài khoản AI-SPEIS:</p>
+                <p><a href="{WebUtility.HtmlEncode(confirmationLink)}">Kích hoạt tài khoản</a></p>
+                <p>Link này sẽ hết hạn sau 24 giờ.</p>
+                """);
+
+            return Ok(new { Message = "Đăng ký thành công. Vui lòng kiểm tra email để kích hoạt tài khoản." });
 
         }
+
+        [HttpGet("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail([FromQuery] string token)
+        {
+            var confirmed = await _userService.ConfirmEmailAsync(token);
+            if (!confirmed)
+            {
+                return BadRequest(new { Message = "Link xác nhận không hợp lệ hoặc đã hết hạn" });
+            }
+
+            return Ok(new { Message = "Kích hoạt tài khoản thành công. Bạn có thể đăng nhập." });
+        }
+
         [HttpGet("oauth/google")]
         public IActionResult GoogleLogin()
         {
@@ -124,6 +154,16 @@ namespace ai_speis_be.Controllers
                 {
                     return StatusCode(500, new { Message = "Lỗi khi tạo tài khoản từ Google" });
                 }
+            }
+            else
+            {
+                user = await _userService.ConfirmEmailFromGoogleAsync(email) ?? user;
+            }
+
+            if (!user.Status)
+            {
+                await HttpContext.SignOutAsync("External");
+                return Unauthorized(new { Message = "Tài khoản chưa được kích hoạt hoặc đã bị khóa" });
             }
 
             var jwtToken = _tokenService.GenerateToken(user.UserId, user.Role.RoleName, user.FullName, user.Email);
