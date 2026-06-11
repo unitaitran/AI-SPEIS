@@ -33,6 +33,12 @@ namespace ai_speis_be.Models
         public string? PasswordHash { get; set; } 
 
         public bool Status { get; set; } = true;
+
+        public string? EmailConfirmationToken { get; set; }
+
+        public DateTime? EmailConfirmationTokenExpiresAt { get; set; }
+
+        public DateTime? EmailConfirmedAt { get; set; }
         
         [Required]
         public DateTime CreatedAt { get; set; }

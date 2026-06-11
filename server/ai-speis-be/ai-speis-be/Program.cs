@@ -3,6 +3,7 @@ using ai_speis_be.Models;
 using ai_speis_be.Repositories.UserRepo;
 using ai_speis_be.Services.UserService;
 using ai_speis_be.Services.TokenService;
+using ai_speis_be.Services.EmailService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
 
@@ -37,6 +38,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IEmailSender, EmailService>();
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
