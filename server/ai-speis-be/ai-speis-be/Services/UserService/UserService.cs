@@ -38,7 +38,7 @@ namespace ai_speis_be.Services.UserService
         {
             var user = new User
             {
-                RoleId = 3, // Default to regular user role
+                RoleId = 2, // Default to regular user role
                 FullName = registerDto.FullName,
                 Email = registerDto.Email,
                 PhoneNumber = registerDto.PhoneNumber,
@@ -48,6 +48,20 @@ namespace ai_speis_be.Services.UserService
                 UpdatedAt = null
             };
 
+            return await _userRepository.CreateUserAsync(user);
+        }
+        public async Task<User> CreateGoogleUserAsync(string email, string fullName)
+        {
+            var user = new User{
+                RoleId = 2, // Default to regular user role
+                FullName = fullName,
+                Email = email,
+                Status = true,
+                PasswordHash = null,
+                PhoneNumber = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = null
+            };
             return await _userRepository.CreateUserAsync(user);
         }
     }

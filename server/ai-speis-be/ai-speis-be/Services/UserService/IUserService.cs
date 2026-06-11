@@ -8,5 +8,6 @@ namespace ai_speis_be.Services.UserService
         Task<IEnumerable<UserResponseDto>> GetUsersAsync();
         Task<User?> GetUserByEmailAsync(string email);
         Task<User> CreateUserAsync(RegisterDto registerDto);
+        Task<User> CreateGoogleUserAsync(string email, string fullName);
     }
 }

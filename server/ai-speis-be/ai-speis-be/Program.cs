@@ -4,7 +4,9 @@ using ai_speis_be.Repositories.UserRepo;
 using ai_speis_be.Services.UserService;
 using ai_speis_be.Services.TokenService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Authentication.Google;
+
+LoadEnvFile();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,11 +38,36 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 
+var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
+    ? CookieSecurePolicy.SameAsRequest
+    : CookieSecurePolicy.Always;
+    
+var googleCookieSameSite = builder.Environment.IsDevelopment()
+    ? SameSiteMode.Lax
+    : SameSiteMode.None;
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
+})
+//thêm cookie để lưu thông tin trước khi controller xử lý
+.AddCookie("External", options =>
+{
+    options.Cookie.SecurePolicy = googleCookieSecurePolicy;
+    options.Cookie.SameSite = googleCookieSameSite;
+})
+.AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
+{
+    // lưu thông tin user vào cookie sau khi login thành công
+    options.SignInScheme = "External";
+    options.ClientId = GetRequiredConfiguration(builder.Configuration, "Authentication:Google:ClientId");
+    options.ClientSecret = GetRequiredConfiguration(builder.Configuration, "Authentication:Google:ClientSecret");
+    options.CallbackPath = "/api/Authentication/oauth/google/callback";
+    options.CorrelationCookie.SecurePolicy = googleCookieSecurePolicy;
+    options.CorrelationCookie.SameSite = googleCookieSameSite;
+})
+.AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
     {
@@ -50,7 +77,8 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+            System.Text.Encoding.UTF8.GetBytes(GetRequiredConfiguration(builder.Configuration, "Jwt:Key")))
     };
 });
 
@@ -74,3 +102,66 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string GetRequiredConfiguration(IConfiguration configuration, string key)
+{
+    var value = configuration[key];
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        throw new InvalidOperationException($"{key} is missing. Add it to .env or environment variables.");
+    }
+
+    return value;
+}
+
+static void LoadEnvFile()
+{
+    var envPath = FindEnvFile();
+    if (envPath is null)
+    {
+        return;
+    }
+
+    foreach (var rawLine in File.ReadAllLines(envPath))
+    {
+        var line = rawLine.Trim();
+        if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+        {
+            continue;
+        }
+
+        var equalsIndex = line.IndexOf('=');
+        if (equalsIndex <= 0)
+        {
+            continue;
+        }
+
+        var key = line[..equalsIndex].Trim();
+        var value = line[(equalsIndex + 1)..].Trim().Trim('"');
+
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key)))
+        {
+            Environment.SetEnvironmentVariable(key, value);
+        }
+    }
+}
+
+static string? FindEnvFile()
+{
+    foreach (var startPath in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    {
+        var directory = new DirectoryInfo(startPath);
+        while (directory is not null)
+        {
+            var envPath = Path.Combine(directory.FullName, ".env");
+            if (File.Exists(envPath))
+            {
+                return envPath;
+            }
+
+            directory = directory.Parent;
+        }
+    }
+
+    return null;
+}

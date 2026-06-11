@@ -27,13 +27,10 @@ namespace ai_speis_be.Models
         [EmailAddress]
         public string Email { get; set; } = string.Empty;
 
-        [Required]
-        [MaxLength(32)]
         [Phone]
         public string? PhoneNumber { get; set; }
-        [Required]
-        [MinLength(6)]
-        public string PasswordHash { get; set; } = string.Empty;
+       
+        public string? PasswordHash { get; set; } 
 
         public bool Status { get; set; } = true;
         

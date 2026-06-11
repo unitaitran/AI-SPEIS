@@ -26,7 +26,6 @@ namespace ai_speis_be.Models.DTOs
         [Required]
         [EmailAddress]
         public string Email { get; set; } = null!;
-        [Required]
         [Phone]
         public string? PhoneNumber { get; set; }
         [Required]
