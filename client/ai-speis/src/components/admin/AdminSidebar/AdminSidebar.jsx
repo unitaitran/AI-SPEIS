@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { LogOut, GraduationCap } from 'lucide-react';
 import AdminMenuItem from '../AdminMenuItem/AdminMenuItem';
 import { ADMIN_MENU_ITEMS } from '../../../constants/adminMenu';
+import { navigate } from '../../../routes/navigation';
 import './AdminSidebar.css';
 
-function AdminSidebar() {
-  const [activeMenu, setActiveMenu] = useState('dashboard');
-
-  const handleMenuClick = (itemId) => {
-    setActiveMenu(itemId);
+function AdminSidebar({ isOpen, pathname, onNavigate }) {
+  const handleMenuClick = (event, path) => {
+    event.preventDefault();
+    navigate(path);
+    onNavigate?.();
   };
 
   const handleLogout = () => {
@@ -16,12 +18,14 @@ function AdminSidebar() {
   };
 
   return (
-    <div className="admin-sidebar">
+    <aside className={`admin-sidebar ${isOpen ? 'is-open' : ''}`} aria-label="Admin navigation">
       <div className="sidebar-header">
         <div className="logo">
-          <span className="logo-icon">🎓</span>
+          <div className="logo-mark" aria-hidden="true">
+            <GraduationCap size={24} />
+          </div>
           <div className="logo-text">
-            <div className="logo-title">AI-SPEIS Admin</div>
+            <div className="logo-title">AI-SPEIS</div>
             <div className="logo-subtitle">Admin Console</div>
           </div>
         </div>
@@ -29,24 +33,25 @@ function AdminSidebar() {
 
       <div className="sidebar-divider"></div>
 
-      <div className="sidebar-menu">
+      <nav className="sidebar-menu">
+        <p className="sidebar-section-label">Management</p>
         {ADMIN_MENU_ITEMS.map((item) => (
           <AdminMenuItem
             key={item.id}
             item={item}
-            isActive={activeMenu === item.id}
-            onClick={() => handleMenuClick(item.id)}
+            isActive={pathname === item.path}
+            onClick={(event) => handleMenuClick(event, item.path)}
           />
         ))}
-      </div>
+      </nav>
 
       <div className="sidebar-footer">
         <button className="logout-btn" onClick={handleLogout}>
-          <span className="logout-icon">🚪</span>
-          <span>Đăng xuất</span>
+          <LogOut size={20} className="logout-icon" />
+          <span>Logout</span>
         </button>
       </div>
-    </div>
+    </aside>
   );
 }
 

@@ -1,32 +1,23 @@
 import React from 'react';
+import * as LucideIcons from 'lucide-react';
 import './AdminMenuItem.css';
 
-const ICON_MAP = {
-  'chart-bar': '📊',
-  users: '👥',
-  'shield-alt': '🛡️',
-  'file-alt': '📄',
-  box: '📦',
-  'credit-card': '💳',
-  gift: '🎁',
-  'users-crown': '👑',
-  'chart-line': '📈',
-  robot: '🤖',
-  'dollar-sign': '$',
-  undo: '↩️',
-};
-
 function AdminMenuItem({ item, isActive, onClick }) {
-  const icon = ICON_MAP[item.icon] || '•';
+  const IconComponent = LucideIcons[item.icon] || LucideIcons.Circle;
 
   return (
-    <div
+    <a
+      href={item.path}
       className={`admin-menu-item ${isActive ? 'active' : ''}`}
       onClick={onClick}
+      aria-current={isActive ? 'page' : undefined}
     >
-      <span className="menu-icon">{icon}</span>
+      <div className="menu-icon-wrapper">
+        <IconComponent size={20} className="menu-icon" />
+      </div>
       <span className="menu-label">{item.label}</span>
-    </div>
+      {item.hasBadge && <span className="menu-badge" aria-label="Requires attention" />}
+    </a>
   );
 }
 
