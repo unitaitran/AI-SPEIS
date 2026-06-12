@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BarChart3,
   Bell,
@@ -26,6 +26,9 @@ import './styles/reset.css';
 import './styles/variables.css';
 import './styles/globals.css';
 import './App.css';
+import LoginPage from './pages/authen/LoginPage';
+import RegisterPage from './pages/authen/RegisterPage';
+import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
 
 const navKeys = ['home', 'features', 'flow', 'personalization', 'community'];
 const navHrefs = ['#hero', '#features', '#flow', '#personalization', '#community'];
@@ -37,6 +40,13 @@ const toolIcons = [Mic, Volume2, FileText, Bell, Lock];
 
 function App() {
   const { t, i18n } = useTranslation('landing');
+  const [currentHash, setCurrentHash] = useState(window.location.hash);
+
+  useEffect(() => {
+    const onHashChange = () => setCurrentHash(window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = i18n.language === 'vi' ? 'vi' : 'en';
@@ -54,6 +64,10 @@ function App() {
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
   };
+
+  if (currentHash === '#login') return <LoginPage />;
+  if (currentHash === '#register') return <RegisterPage />;
+  if (currentHash === '#forgot-password') return <ForgotPasswordPage />;
 
   return (
     <div className="landing-shell">
@@ -85,7 +99,7 @@ function App() {
               <Globe size={18} />
               <span>{i18n.language === 'vi' ? 'VI / EN' : 'EN / VI'}</span>
             </button>
-            <a className="primary-button subtle" href="#features">
+            <a className="primary-button subtle" href="#login">
               {t('buttons.login')}
             </a>
           </div>
