@@ -116,8 +116,6 @@ namespace ai_speis_be.Controllers
             {
                 return BadRequest(new { Message = "Link xác nhận không hợp lệ hoặc đã hết hạn" });
             }
-            var redirectUrl = "http://localhost:3000/login";
-            return Redirect(redirectUrl);
 
             return Ok(new { Message = "Kích hoạt tài khoản thành công. Bạn có thể đăng nhập." });
         }
