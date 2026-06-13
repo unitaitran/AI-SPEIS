@@ -112,12 +112,20 @@ namespace ai_speis_be.Controllers
         public async Task<IActionResult> ConfirmEmail([FromQuery] string token)
         {
             var confirmed = await _userService.ConfirmEmailAsync(token);
+            var successMessage = "Kích hoạt tài khoản thành công. Bạn có thể đăng nhập.";
+            var failureMessage = "Link xác nhận không hợp lệ hoặc đã hết hạn";
             if (!confirmed)
             {
-                return BadRequest(new { Message = "Link xác nhận không hợp lệ hoặc đã hết hạn" });
+                var url = $"http://localhost:3000/login?status=error&message={Uri.EscapeDataString(failureMessage)}";
+                return Redirect(url);
             }
+         
+            var redirectUrl = $"http://localhost:3000/login?status=success&message={Uri.EscapeDataString(successMessage)}";
+           
 
-            return Ok(new { Message = "Kích hoạt tài khoản thành công. Bạn có thể đăng nhập." });
+            return Redirect(redirectUrl);
+
+          
         }
 
         [HttpGet("oauth/google")]
