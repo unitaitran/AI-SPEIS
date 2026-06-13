@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { Search, Bell, ChevronDown, Menu, User } from 'lucide-react';
 import './AdminTopbar.css';
 
-function AdminTopbar() {
+function AdminTopbar({ onMenuClick }) {
   const [searchValue, setSearchValue] = useState('');
 
   const handleSearchChange = (e) => {
@@ -18,10 +19,6 @@ function AdminTopbar() {
     console.log('Notification clicked');
   };
 
-  const handleSettingsClick = () => {
-    console.log('Settings clicked');
-  };
-
   const handleProfileClick = () => {
     console.log('Profile clicked');
   };
@@ -29,12 +26,20 @@ function AdminTopbar() {
   return (
     <div className="admin-topbar">
       <div className="topbar-left">
+        <button
+          className="mobile-menu-btn"
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Open navigation"
+        >
+          <Menu size={22} />
+        </button>
         <div className="search-container">
-          <span className="search-icon">🔍</span>
+          <Search size={18} className="search-icon" />
           <input
             type="text"
             className="search-input"
-            placeholder="Tìm kiếm người dùng, câu hỏi, giao dịch..."
+            placeholder="Search users, questions, transactions..."
             value={searchValue}
             onChange={handleSearchChange}
             onKeyDown={handleSearchSubmit}
@@ -48,29 +53,26 @@ function AdminTopbar() {
           onClick={handleNotificationClick}
           aria-label="Notifications"
         >
-          <span className="icon">🔔</span>
+          <Bell size={20} className="icon" />
+          <span className="badge"></span>
         </button>
 
-        <button
-          className="topbar-icon-btn settings-btn"
-          onClick={handleSettingsClick}
-          aria-label="Settings"
-        >
-          <span className="icon">⚙️</span>
-        </button>
+        <div className="profile-divider" />
 
         <div className="profile-area">
           <button
             className="profile-btn"
             onClick={handleProfileClick}
-            aria-label="Profile menu"
+            aria-label="Admin Profile Menu"
           >
-            <div className="profile-info">
-              <span className="profile-name">Admin User</span>
-            </div>
             <div className="profile-avatar">
-              <span className="avatar-placeholder">A</span>
+              <User size={20} className="avatar-icon" />
             </div>
+            <div className="profile-info">
+              <span className="profile-name">Admin</span>
+              <span className="profile-role">Super Admin</span>
+            </div>
+            <ChevronDown size={16} className="profile-chevron" />
           </button>
         </div>
       </div>
