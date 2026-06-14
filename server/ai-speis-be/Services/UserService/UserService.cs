@@ -39,7 +39,7 @@ namespace ai_speis_be.Services.UserService
         {
             var user = new User
             {
-                RoleId = 2, // Default to regular user role
+                RoleId = 5, // Default to regular user role
                 FullName = registerDto.FullName,
                 Email = registerDto.Email,
                 PhoneNumber = registerDto.PhoneNumber,
@@ -56,7 +56,7 @@ namespace ai_speis_be.Services.UserService
         public async Task<User> CreateGoogleUserAsync(string email, string fullName)
         {
             var user = new User{
-                RoleId = 2, // Default to regular user role
+                RoleId = 5, // Default to regular user role
                 FullName = fullName,
                 Email = email,
                 Status = true,
