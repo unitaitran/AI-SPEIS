@@ -27,7 +27,7 @@ const LoginPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen w-full landing-shell flex flex-col items-center justify-center p-4 md:p-6 relative">
+    <div className="min-h-screen w-full flex flex-col relative">
       {/* Toast notifications */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-50 flex flex-col gap-2">
         {successMessage && (

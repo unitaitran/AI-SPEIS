@@ -95,15 +95,55 @@ namespace ai_speis_be.Controllers
                 return StatusCode(500, new { Message = "Không tạo được link xác nhận email" });
             }
 
+            var emailTemplate = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""UTF-8"">
+    <title>Xác nhận tài khoản AI-SPEIS</title>
+    <style>
+        body {{ font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }}
+        .email-container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }}
+        .email-header {{ background-color: #EAF6FF; padding: 30px; text-align: center; border-bottom: 2px solid #6FB6E8; }}
+        .email-header img {{ max-height: 50px; margin-bottom: 15px; }}
+        .email-header h1 {{ margin: 0; color: #3F7FAE; font-size: 24px; font-weight: 700; }}
+        .email-body {{ padding: 40px 30px; color: #4a5568; line-height: 1.6; }}
+        .email-body p {{ margin-bottom: 20px; font-size: 16px; }}
+        .email-body h2 {{ color: #1a202c; font-size: 20px; margin-bottom: 20px; }}
+        .btn-container {{ text-align: center; margin: 35px 0; }}
+        .btn {{ display: inline-block; background-color: #6FB6E8; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(111, 182, 232, 0.25); }}
+        .email-footer {{ background-color: #f8fafc; padding: 20px; text-align: center; color: #a0aec0; font-size: 13px; border-top: 1px solid #e2e8f0; }}
+        .highlight {{ color: #3F7FAE; font-weight: 600; }}
+    </style>
+</head>
+<body>
+    <div class=""email-container"">
+        <div class=""email-header"">
+            <h1>Chào mừng đến với AI-SPEIS</h1>
+        </div>
+        <div class=""email-body"">
+            <h2>Xin chào <span class=""highlight"">{WebUtility.HtmlEncode(newUser.FullName)}</span>,</h2>
+            <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>AI-SPEIS</strong> - Nền tảng luyện tập phỏng vấn thông minh dành cho sinh viên.</p>
+            <p>Để hoàn tất quá trình đăng ký và bắt đầu trải nghiệm mock interview cá nhân hóa, vui lòng kích hoạt tài khoản của bạn bằng cách bấm vào nút dưới đây:</p>
+            
+            <div class=""btn-container"">
+                <a href=""{WebUtility.HtmlEncode(confirmationLink)}"" class=""btn"">Kích Hoạt Tài Khoản</a>
+            </div>
+            
+            <p style=""font-size: 14px; color: #718096;"">Lưu ý: Link kích hoạt này chỉ có hiệu lực trong vòng <strong>24 giờ</strong>. Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.</p>
+        </div>
+        <div class=""email-footer"">
+            <p>© {DateTime.Now.Year} AI-SPEIS. All rights reserved.</p>
+            <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+        </div>
+    </div>
+</body>
+</html>";
+
             await _emailSender.SendEmailAsync(
                 newUser.Email,
                 "Xác nhận tài khoản AI-SPEIS",
-                $"""
-                <p>Xin chào {WebUtility.HtmlEncode(newUser.FullName)},</p>
-                <p>Vui lòng bấm vào link bên dưới để kích hoạt tài khoản AI-SPEIS:</p>
-                <p><a href="{WebUtility.HtmlEncode(confirmationLink)}">Kích hoạt tài khoản</a></p>
-                <p>Link này sẽ hết hạn sau 24 giờ.</p>
-                """);
+                emailTemplate);
 
             return Ok(new { Message = "Đăng ký thành công. Vui lòng kiểm tra email để kích hoạt tài khoản." });
 
