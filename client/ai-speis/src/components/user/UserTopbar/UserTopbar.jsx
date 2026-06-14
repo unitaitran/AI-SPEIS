@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings } from 'lucide-react';
+import { navigate } from '../../../routes/navigation';
+import { USER_ROUTES } from '../../../routes/routePaths';
 
 function UserTopbar({ onMenuClick }) {
   const [user, setUser] = useState(null);
@@ -94,8 +96,8 @@ function UserTopbar({ onMenuClick }) {
               <button 
                 className="w-full flex items-center px-4 py-2 text-sm text-text-secondary hover:text-primary-dark hover:bg-primary-xlight transition-colors"
                 onClick={() => {
-                  alert('Tính năng đang phát triển');
                   setIsDropdownOpen(false);
+                  navigate(USER_ROUTES.PROFILE);
                 }}
               >
                 <Settings size={16} className="mr-3" />

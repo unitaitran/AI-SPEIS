@@ -10,7 +10,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import StudentLayout from '../../../layouts/student/StudentLayout';
+import UserLayout from '../../../layouts/user/UserLayout';
 import './ProfilePage.css';
 
 const INITIAL_PROFILE = {
@@ -69,7 +69,7 @@ function SectionCard({ sectionId, children }) {
   );
 }
 
-function ProfilePage({ pathname = '/profile' }) {
+function ProfilePage() {
   const [profile, setProfile] = useState(INITIAL_PROFILE);
   const [savedProfile, setSavedProfile] = useState(INITIAL_PROFILE);
   const [errors, setErrors] = useState({});
@@ -181,7 +181,7 @@ function ProfilePage({ pathname = '/profile' }) {
   };
 
   return (
-    <StudentLayout pathname={pathname}>
+    <UserLayout>
       <div className="profile-page">
         <header className="profile-page-header">
           <div>
@@ -405,7 +405,7 @@ function ProfilePage({ pathname = '/profile' }) {
           </div>
         </form>
       </div>
-    </StudentLayout>
+    </UserLayout>
   );
 }
 

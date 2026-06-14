@@ -1,8 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import App from '../App';
 import AdminRoutes from './AdminRoutes';
-import { NAVIGATION_EVENT } from './navigation';
-import ProfilePage from '../pages/student/Profile/ProfilePage';
+import UserRoutes from './UserRoutes';
+import { getDefaultRouteForRole, getStoredSession, ROLES } from './auth';
+import { navigate, NAVIGATION_EVENT } from './navigation';
+import {
+  AUTHENTICATED_ADMIN_ROUTES,
+  PUBLIC_ROUTES,
+  USER_ROUTES,
+} from './routePaths';
+
+function RouteRedirect({ to }) {
+  useEffect(() => {
+    navigate(to, { replace: true });
+  }, [to]);
+
+  return null;
+}
 
 function AppRoutes() {
   const [pathname, setPathname] = useState(window.location.pathname);
@@ -19,12 +33,46 @@ function AppRoutes() {
     };
   }, []);
 
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+  const session = getStoredSession();
+  const isAdminRoute = pathname === AUTHENTICATED_ADMIN_ROUTES.ROOT
+    || pathname.startsWith(`${AUTHENTICATED_ADMIN_ROUTES.ROOT}/`);
+  const isUserRoute = pathname === USER_ROUTES.ROOT
+    || pathname.startsWith(`${USER_ROUTES.ROOT}/`);
+
+  if (isAdminRoute) {
+    if (!session) {
+      return <RouteRedirect to={PUBLIC_ROUTES.LOGIN} />;
+    }
+
+    if (session.user.role !== ROLES.ADMIN) {
+      return <RouteRedirect to={getDefaultRouteForRole(session.user.role)} />;
+    }
+
     return <AdminRoutes pathname={pathname} />;
   }
 
+  if (isUserRoute) {
+    if (!session) {
+      return <RouteRedirect to={PUBLIC_ROUTES.LOGIN} />;
+    }
+
+    if (session.user.role !== ROLES.USER) {
+      return <RouteRedirect to={getDefaultRouteForRole(session.user.role)} />;
+    }
+
+    return <UserRoutes pathname={pathname} />;
+  }
+
   if (pathname === '/profile' || pathname === '/my-profile') {
-    return <ProfilePage pathname={pathname} />;
+    const legacyProfileTarget = session?.user.role === ROLES.USER
+      ? USER_ROUTES.PROFILE
+      : getDefaultRouteForRole(session?.user.role);
+
+    return (
+      <RouteRedirect
+        to={session ? legacyProfileTarget : PUBLIC_ROUTES.LOGIN}
+      />
+    );
   }
 
   return <App />;
