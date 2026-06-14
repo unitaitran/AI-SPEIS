@@ -29,6 +29,7 @@ import './App.css';
 import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
 import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
+import DashboardPage from './pages/user/DashboardPage';
 
 const navKeys = ['home', 'features', 'flow', 'personalization', 'community'];
 const navHrefs = ['#hero', '#features', '#flow', '#personalization', '#community'];
@@ -65,9 +66,10 @@ function App() {
     i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
   };
 
-  if (currentHash === '#login') return <LoginPage />;
-  if (currentHash === '#register') return <RegisterPage />;
-  if (currentHash === '#forgot-password') return <ForgotPasswordPage />;
+  if (currentHash.startsWith('#login')) return <LoginPage />;
+  if (currentHash.startsWith('#register')) return <RegisterPage />;
+  if (currentHash.startsWith('#forgot-password')) return <ForgotPasswordPage />;
+  if (currentHash.startsWith('#dashboard')) return <DashboardPage />;
 
   return (
     <div className="landing-shell">
