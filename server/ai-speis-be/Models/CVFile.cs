@@ -22,15 +22,15 @@ namespace ai_speis_be.Models
         [Required]
         public string FilePath { get; set; } = null!;
         [Required]
-        public string FileSize { get; set; } = null!;
+        public long FileSize { get; set; } = 0;
         [Required]
         public string FileType { get; set; } = null!;
         [Required]
         public CVFileStatus Status {get; set;} = CVFileStatus.Pending;
         [Required]
         public DateTime UploadedAt { get; set; } = DateTime.Now;
-        [Required]
-        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        public DateTime ? UpdatedAt { get; set; }
         
 
         // Navigation property
