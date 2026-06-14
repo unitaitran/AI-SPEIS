@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using ai_speis_be.Models;
 using ai_speis_be.Repositories.UserRepo;
+using ai_speis_be.Repositories.CVRepo;
 using ai_speis_be.Services.UserService;
 using ai_speis_be.Services.TokenService;
 using ai_speis_be.Services.EmailService;
+using ai_speis_be.Services.CVService;
+using ai_speis_be.Services.FileValidatorService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
 
@@ -39,6 +42,9 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailSender, EmailService>();
+builder.Services.AddScoped<ICVRepository, CVRepository>();
+builder.Services.AddScoped<IFileValidatorService, FileValidatorService>();
+builder.Services.AddScoped<ICVService, CVService>();
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
