@@ -66,10 +66,10 @@ function App() {
     i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
   };
 
-  if (currentHash === '#login') return <LoginPage />;
-  if (currentHash === '#register') return <RegisterPage />;
-  if (currentHash === '#forgot-password') return <ForgotPasswordPage />;
-  if (currentHash === '#dashboard') return <DashboardPage />;
+  if (currentHash.startsWith('#login')) return <LoginPage />;
+  if (currentHash.startsWith('#register')) return <RegisterPage />;
+  if (currentHash.startsWith('#forgot-password')) return <ForgotPasswordPage />;
+  if (currentHash.startsWith('#dashboard')) return <DashboardPage />;
 
   return (
     <div className="landing-shell">

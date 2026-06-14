@@ -43,6 +43,10 @@ function UserSidebar({ isOpen, onNavigate }) {
 
   const handleMenuClick = (event, path) => {
     event.preventDefault();
+    if (path !== '#dashboard') {
+      alert('Tính năng đang phát triển');
+      return;
+    }
     window.location.hash = path;
     if (onNavigate) onNavigate();
   };
@@ -50,11 +54,8 @@ function UserSidebar({ isOpen, onNavigate }) {
   return (
     <aside className={`fixed top-0 left-0 h-full w-[240px] bg-surface-2 border-r border-border flex flex-col z-20 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} aria-label="Student navigation">
       {/* Logo Area */}
-      <div className="h-16 flex items-center px-6 border-b border-border shrink-0">
-        <div className="flex flex-col">
-          <div className="text-xl font-bold text-text-primary tracking-tight border-2 border-text-primary px-2 py-0.5 mb-1 inline-block">AI-SPEIS</div>
-          <div className="text-xs text-text-secondary tracking-widest uppercase" style={{ fontSize: '10px' }}>Student Portal</div>
-        </div>
+      <div className="h-16 flex items-center px-6 border-b border-border shrink-0 justify-center">
+        <img src="/logo_AI-SPEIS-removebg.png" alt="AI-SPEIS" className="h-10 object-contain" />
       </div>
 
       {/* Navigation Menu */}
@@ -70,10 +71,10 @@ function UserSidebar({ isOpen, onNavigate }) {
                     <a
                       href={item.path}
                       onClick={(e) => handleMenuClick(e, item.path)}
-                      className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-colors relative ${
+                      className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all relative ${
                         isActive 
-                          ? 'bg-primary-xlight text-primary-dark font-semibold' 
-                          : 'text-text-secondary hover:bg-surface-3 hover:text-text-primary'
+                          ? 'bg-gradient-to-r from-primary-light to-primary-xlight text-primary-dark font-bold shadow-sm' 
+                          : 'text-text-secondary hover:bg-surface-3 hover:text-primary-dark'
                       }`}
                     >
                       {isActive && (

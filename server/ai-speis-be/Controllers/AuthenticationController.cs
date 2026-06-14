@@ -117,13 +117,11 @@ namespace ai_speis_be.Controllers
             var failureMessage = "Link xác nhận không hợp lệ hoặc đã hết hạn";
             if (!confirmed)
             {
-                var url = $"http://localhost:3000/login?status=error&message={Uri.EscapeDataString(failureMessage)}";
+                var url = $"http://localhost:3000/#login?status=error&message={Uri.EscapeDataString(failureMessage)}";
                 return Redirect(url);
             }
          
-            var redirectUrl = $"http://localhost:3000/login?status=success&message={Uri.EscapeDataString(successMessage)}";
-           
-
+            var redirectUrl = $"http://localhost:3000/#login?status=success&message={Uri.EscapeDataString(successMessage)}";
             return Redirect(redirectUrl);
 
           
@@ -178,14 +176,8 @@ namespace ai_speis_be.Controllers
             var jwtToken = _tokenService.GenerateToken(user.UserId, user.Role.RoleName, user.FullName, user.Email);
             await HttpContext.SignOutAsync("External");
 
-            return Ok(new LoginResponseDto
-            {
-                JwtToken = jwtToken,
-                Role = user.Role.RoleName,
-                UserId = user.UserId,
-                FullName = user.FullName,
-                Email = user.Email
-            });
+            var redirectUrl = $"http://localhost:3000/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}";
+            return Redirect(redirectUrl);
         }
     }
 }

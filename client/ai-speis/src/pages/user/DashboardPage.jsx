@@ -1,13 +1,49 @@
-import React from 'react';
-import { ArrowRight, FileText } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, FileText, CalendarDays, TrendingUp, Zap, Target } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 
 function DashboardPage() {
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#dashboard?')) {
+      const queryString = hash.split('?')[1];
+      const urlParams = new URLSearchParams(queryString);
+      
+      const token = urlParams.get('token');
+      const userId = urlParams.get('userId');
+      const fullName = urlParams.get('fullName');
+      const email = urlParams.get('email');
+      const role = urlParams.get('role');
+
+      if (token) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify({
+          userId: parseInt(userId, 10),
+          fullName: fullName,
+          email: email,
+          role: role
+        }));
+        
+        // Remove query params from URL without reloading the page
+        window.history.replaceState(null, '', window.location.pathname + '#dashboard');
+      }
+    } else {
+      // Try to load user from localStorage if no token in URL
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          setUser(JSON.parse(userStr));
+        } catch(e) {}
+      }
+    }
+  }, []);
+
   const stats = [
-    { label: 'BUỔI PHỎNG VẤN ĐÃ LUYỆN', value: '12', unit: 'buổi' },
-    { label: 'ĐIỂM TRUNG BÌNH', value: '4.5', unit: '/ 5' },
-    { label: 'STREAK LUYỆN TẬP', value: '4', unit: 'ngày' },
-    { label: 'QUOTA CÒN LẠI', value: '5', unit: 'lượt' },
+    { label: 'BUỔI PHỎNG VẤN ĐÃ LUYỆN', value: '12', unit: 'buổi', icon: CalendarDays, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { label: 'ĐIỂM TRUNG BÌNH', value: '4.5', unit: '/ 5', icon: Target, color: 'text-primary-dark', bg: 'bg-primary-xlight' },
+    { label: 'STREAK LUYỆN TẬP', value: '4', unit: 'ngày', icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-50' },
+    { label: 'QUOTA CÒN LẠI', value: '5', unit: 'lượt', icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-50' },
   ];
 
   const suggestions = [
@@ -41,19 +77,27 @@ function DashboardPage() {
         {/* Page Header */}
         <section>
           <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">Dashboard</h1>
-          <p className="text-base text-text-secondary">Good morning, User Name</p>
+          <p className="text-base text-text-secondary">
+            Good morning, <span className="font-semibold text-primary-dark">{user ? user.fullName : 'User'}</span> 👋
+          </p>
         </section>
 
         {/* Stats Row */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, idx) => (
-            <div key={idx} className="bg-surface-2 p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center">
-              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest mb-3 line-clamp-1">
-                {stat.label}
-              </span>
-              <div className="flex items-baseline">
+            <div key={idx} className="bg-surface-2 p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center relative overflow-hidden group hover:border-primary-light transition-colors">
+              <div className={`absolute top-0 right-0 w-16 h-16 -mr-4 -mt-4 rounded-full opacity-20 transition-transform group-hover:scale-150 ${stat.bg}`}></div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest line-clamp-1">
+                  {stat.label}
+                </span>
+                <div className={`p-1.5 rounded-lg ${stat.bg} ${stat.color}`}>
+                  <stat.icon size={16} />
+                </div>
+              </div>
+              <div className="flex items-baseline relative z-10">
                 <span className="text-3xl font-bold text-text-primary mr-1.5">{stat.value}</span>
-                <span className="text-sm text-text-secondary">{stat.unit}</span>
+                <span className="text-sm font-medium text-text-secondary">{stat.unit}</span>
               </div>
             </div>
           ))}
@@ -61,15 +105,19 @@ function DashboardPage() {
 
         {/* Content Row 1: CTA and Chart */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Black CTA Card */}
-          <div className="lg:col-span-4 bg-text-primary text-white p-8 rounded-2xl flex flex-col justify-between min-h-[320px]">
-            <div>
-              <h2 className="text-3xl font-bold mb-4 leading-tight">Sẵn sàng<br/>luyện phỏng<br/>vấn?</h2>
-              <p className="text-text-disabled text-sm mb-8 leading-relaxed">
+          {/* Vibrant CTA Card */}
+          <div className="lg:col-span-4 bg-gradient-to-br from-primary to-[#4A90E2] text-white p-8 rounded-2xl flex flex-col justify-between min-h-[320px] shadow-lg relative overflow-hidden">
+            {/* Decorative circles */}
+            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-black opacity-10 rounded-full blur-2xl"></div>
+            
+            <div className="relative z-10">
+              <h2 className="text-3xl font-bold mb-4 leading-tight drop-shadow-sm">Sẵn sàng<br/>luyện phỏng<br/>vấn?</h2>
+              <p className="text-white/80 text-sm mb-8 leading-relaxed font-medium">
                 Bắt đầu mock interview dựa trên CV và vị trí bạn đang ứng tuyển. Hệ thống AI sẽ phân tích và đưa ra phản hồi chi tiết.
               </p>
             </div>
-            <button className="bg-white text-text-primary hover:bg-surface-1 py-3 px-6 rounded-lg font-semibold text-sm flex items-center justify-between transition-colors w-full sm:w-auto self-start group">
+            <button className="relative z-10 bg-white text-primary-dark hover:bg-primary-xlight py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between transition-colors shadow-md w-full sm:w-auto self-start group">
               BẮT ĐẦU PHỎNG VẤN
               <ArrowRight size={18} className="ml-4 transform group-hover:translate-x-1 transition-transform" />
             </button>
@@ -102,9 +150,13 @@ function DashboardPage() {
               {/* Bars */}
               <div className="w-full h-full flex justify-around items-end z-10 pb-8 pl-4">
                 {skills.map((skill, idx) => (
-                  <div key={idx} className="flex flex-col items-center w-1/6">
+                  <div key={idx} className="flex flex-col items-center w-1/6 relative group">
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-text-primary text-white text-[10px] py-1 px-2 rounded pointer-events-none">
+                      {skill.score}
+                    </div>
                     <div 
-                      className="w-full bg-surface-3 border border-border/60 hover:bg-primary-light transition-colors rounded-t-sm"
+                      className="w-full bg-gradient-to-t from-primary-light to-primary hover:from-primary hover:to-primary-dark transition-all rounded-t-md shadow-sm"
                       style={{ height: `${(skill.score / 10) * 100}%` }}
                     ></div>
                   </div>
