@@ -11,6 +11,7 @@ namespace ai_speis_be.Models
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
         public DbSet<UserProfile> UserProfiles { get; set; } = null!;
+        public DbSet<CVFile> CVFiles { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -27,6 +28,12 @@ namespace ai_speis_be.Models
                 .HasOne(up => up.User)
                 .WithOne()
                 .HasForeignKey<UserProfile>(up => up.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CVFile>()
+                .HasOne(cv => cv.User)
+                .WithMany(u => u.CVFiles)
+                .HasForeignKey(cv => cv.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

@@ -44,6 +44,4 @@ namespace ai_speis_be.Models
         // Navigation property
         public virtual User User { get; set; } = null!;
     }
-
-    
 }
