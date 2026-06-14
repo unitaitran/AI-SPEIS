@@ -37,9 +37,8 @@ const LoginForm = () => {
         role: data.role
       }));
       
-      // Tạm thời redirect sang trang dashboard (chưa có nên có thể để nguyên hoặc reload)
-      // window.location.href = '#dashboard';
-      alert('Đăng nhập thành công!');
+      // Chuyển hướng sang trang dashboard
+      window.location.href = '#dashboard';
     } catch (err) {
       setError(err.message);
     } finally {

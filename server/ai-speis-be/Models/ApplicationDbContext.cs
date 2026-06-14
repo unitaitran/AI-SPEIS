@@ -17,6 +17,12 @@ namespace ai_speis_be.Models
         {
             base.OnModelCreating(modelBuilder);
 
+            // Seed default roles
+            modelBuilder.Entity<Role>().HasData(
+                new Role { RoleId = 1, RoleName = "admin", Description = "Quản trị viên", Status = true },
+                new Role { RoleId = 2, RoleName = "user", Description = "Người dùng", Status = true }
+            );
+
             // Configure relationships and constraints if needed
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Role)
