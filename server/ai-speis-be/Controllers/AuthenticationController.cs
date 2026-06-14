@@ -17,6 +17,7 @@ namespace ai_speis_be.Controllers
         private readonly ITokenService _tokenService;
         private readonly IEmailSender _emailSender;
 
+        
         public AuthenticationController(IUserService userService, ITokenService tokenService, IEmailSender emailSender)
         {
             _userService = userService;
