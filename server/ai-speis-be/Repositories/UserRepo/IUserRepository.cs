@@ -9,6 +9,7 @@ namespace ai_speis_be.Repositories.UserRepo
         Task<User?> GetUserByEmailConfirmationTokenAsync(string token);
         Task<User> CreateUserAsync(User user);
         Task UpdateUserAsync(User user);
+        Task<User?> GetUserByPasswordResetTokenAsync(string token);
        
     }
 }

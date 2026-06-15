@@ -1,4 +1,4 @@
-﻿using ai_speis_be.Models;
+using ai_speis_be.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace ai_speis_be.Repositories.UserRepo
@@ -42,6 +42,12 @@ namespace ai_speis_be.Repositories.UserRepo
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
         }
-       
+
+        public async Task<User?> GetUserByPasswordResetTokenAsync(string token)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.PasswordResetToken == token);
+        }
     }
 }
