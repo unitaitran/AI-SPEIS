@@ -6,6 +6,7 @@ using ai_speis_be.Services.TokenService;
 using ai_speis_be.Services.EmailService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.DataProtection;
 
 LoadEnvFile();
 
@@ -21,6 +22,9 @@ builder.Services.AddControllers()
     
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "keys")));
 
 builder.Services.AddCors(options =>
 {
