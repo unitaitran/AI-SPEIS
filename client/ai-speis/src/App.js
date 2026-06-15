@@ -30,6 +30,8 @@ import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
 import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
 import DashboardPage from './pages/user/DashboardPage';
+import { getDefaultRouteForRole, getStoredSession } from './routes/auth';
+import { navigate } from './routes/navigation';
 
 const navKeys = ['home', 'features', 'flow', 'personalization', 'community'];
 const navHrefs = ['#hero', '#features', '#flow', '#personalization', '#community'];
@@ -66,11 +68,12 @@ function App() {
     i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
   };
 
-  const isAuthenticated = !!localStorage.getItem('token');
+  const session = getStoredSession();
+  const isAuthenticated = !!session;
 
   if (currentHash.startsWith('#login')) {
     if (isAuthenticated) {
-      window.location.hash = '#dashboard';
+      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
       return null;
     }
     return <LoginPage />;
@@ -78,7 +81,7 @@ function App() {
   
   if (currentHash.startsWith('#register')) {
     if (isAuthenticated) {
-      window.location.hash = '#dashboard';
+      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
       return null;
     }
     return <RegisterPage />;
@@ -91,6 +94,12 @@ function App() {
       window.location.hash = '#login';
       return null;
     }
+
+    if (isAuthenticated && !hasTokenInUrl) {
+      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
+      return null;
+    }
+
     return <DashboardPage />;
   }
 
@@ -124,7 +133,10 @@ function App() {
               <Globe size={18} />
               <span>{i18n.language === 'vi' ? 'VI / EN' : 'EN / VI'}</span>
             </button>
-            <a className="primary-button subtle" href={isAuthenticated ? '#dashboard' : '#login'}>
+            <a
+              className="primary-button subtle"
+              href={isAuthenticated ? getDefaultRouteForRole(session.user.role) : '#login'}
+            >
               {isAuthenticated ? 'Dashboard' : t('buttons.login')}
             </a>
           </div>
