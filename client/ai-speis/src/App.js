@@ -29,6 +29,7 @@ import './App.css';
 import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
 import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
+import DashboardPage from './pages/user/DashboardPage';
 
 const navKeys = ['home', 'features', 'flow', 'personalization', 'community'];
 const navHrefs = ['#hero', '#features', '#flow', '#personalization', '#community'];
@@ -65,9 +66,33 @@ function App() {
     i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
   };
 
-  if (currentHash === '#login') return <LoginPage />;
-  if (currentHash === '#register') return <RegisterPage />;
-  if (currentHash === '#forgot-password') return <ForgotPasswordPage />;
+  const isAuthenticated = !!localStorage.getItem('token');
+
+  if (currentHash.startsWith('#login')) {
+    if (isAuthenticated) {
+      window.location.hash = '#dashboard';
+      return null;
+    }
+    return <LoginPage />;
+  }
+  
+  if (currentHash.startsWith('#register')) {
+    if (isAuthenticated) {
+      window.location.hash = '#dashboard';
+      return null;
+    }
+    return <RegisterPage />;
+  }
+  
+  if (currentHash.startsWith('#forgot-password')) return <ForgotPasswordPage />;
+  if (currentHash.startsWith('#dashboard')) {
+    const hasTokenInUrl = currentHash.includes('?token=');
+    if (!isAuthenticated && !hasTokenInUrl) {
+      window.location.hash = '#login';
+      return null;
+    }
+    return <DashboardPage />;
+  }
 
   return (
     <div className="landing-shell">
@@ -99,8 +124,8 @@ function App() {
               <Globe size={18} />
               <span>{i18n.language === 'vi' ? 'VI / EN' : 'EN / VI'}</span>
             </button>
-            <a className="primary-button subtle" href="#login">
-              {t('buttons.login')}
+            <a className="primary-button subtle" href={isAuthenticated ? '#dashboard' : '#login'}>
+              {isAuthenticated ? 'Dashboard' : t('buttons.login')}
             </a>
           </div>
         </div>

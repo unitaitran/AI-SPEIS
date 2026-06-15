@@ -19,6 +19,8 @@ namespace ai_speis_be.Models
         public string? Description { get; set; }
 
         public bool Status { get; set; } = true;
+
+        
     }
 }
 

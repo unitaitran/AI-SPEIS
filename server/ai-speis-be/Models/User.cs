@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using  Microsoft.EntityFrameworkCore;
 
@@ -38,7 +39,7 @@ namespace ai_speis_be.Models
 
         public DateTime? EmailConfirmationTokenExpiresAt { get; set; }
 
-        public DateTime? EmailConfirmedAt { get; set; }
+        public DateTime? EmailConfirmedAt { get; set; } 
         
         [Required]
         public DateTime CreatedAt { get; set; }
@@ -48,5 +49,6 @@ namespace ai_speis_be.Models
         // Navigation property
         public virtual  Role Role { get; set; } = null!;
         
+        public virtual ICollection<CVFile> CVFiles { get; set; } = new List<CVFile>();
     }
 }

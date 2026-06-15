@@ -22,6 +22,52 @@ namespace ai_speis_be.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ai_speis_be.Models.CVFile", b =>
+                {
+                    b.Property<int>("CVFileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CVFileId"));
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileSize")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("CVFileId");
+
+                    b.HasIndex(new[] { "CVFileId" }, "IX_CVFile_CVFileId")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "UserId" }, "IX_CVFile_UserId");
+
+                    b.ToTable("CVFile");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.Role", b =>
                 {
                     b.Property<int>("RoleId")
@@ -50,6 +96,22 @@ namespace ai_speis_be.Migrations
                     b.HasIndex(new[] { "Status" }, "IX_Role_Status");
 
                     b.ToTable("Role");
+
+                    b.HasData(
+                        new
+                        {
+                            RoleId = 1,
+                            Description = "Quản trị viên",
+                            RoleName = "admin",
+                            Status = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            Description = "Người dùng",
+                            RoleName = "user",
+                            Status = true
+                        });
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.User", b =>
@@ -158,6 +220,17 @@ namespace ai_speis_be.Migrations
                     b.ToTable("UserProfile");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.CVFile", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.User", "User")
+                        .WithMany("CVFiles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.User", b =>
                 {
                     b.HasOne("ai_speis_be.Models.Role", "Role")
@@ -178,6 +251,11 @@ namespace ai_speis_be.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.User", b =>
+                {
+                    b.Navigation("CVFiles");
                 });
 #pragma warning restore 612, 618
         }
