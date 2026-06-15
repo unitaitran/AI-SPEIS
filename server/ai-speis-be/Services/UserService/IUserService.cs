@@ -11,5 +11,7 @@ namespace ai_speis_be.Services.UserService
         Task<User> CreateGoogleUserAsync(string email, string fullName);
         Task<bool> ConfirmEmailAsync(string token);
         Task<User?> ConfirmEmailFromGoogleAsync(string email);
+        Task<string?> InitiatePasswordResetAsync(string email);
+        Task<bool> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
     }
 }
