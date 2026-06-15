@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Input from '../UI/Input';
 import Button from '../UI/Button';
 import Checkbox from '../UI/Checkbox';
 import { ENDPOINTS } from '../../config/api';
 
 const RegisterForm = () => {
+  const { t } = useTranslation('register');
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -32,7 +35,7 @@ const RegisterForm = () => {
     setSuccessMsg('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp');
+      setError(t('pwd_mismatch', 'Mật khẩu xác nhận không khớp'));
       setLoading(false);
       return;
     }
@@ -53,10 +56,10 @@ const RegisterForm = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.');
+        throw new Error(data.message || t('register_fail', 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.'));
       }
 
-      setSuccessMsg(data.message || 'Đăng ký thành công. Vui lòng kiểm tra email để kích hoạt tài khoản.');
+      setSuccessMsg(data.message || t('register_success', 'Đăng ký thành công. Vui lòng kiểm tra email để kích hoạt tài khoản.'));
       // Có thể clear form tại đây nếu muốn
     } catch (err) {
       setError(err.message);
@@ -72,9 +75,9 @@ const RegisterForm = () => {
   return (
     <div className="w-full">
       <div className="text-center mb-8">
-        <h1 className="text-[32px] font-bold text-text-primary mb-2">Tạo tài khoản sinh viên</h1>
+        <h1 className="text-[32px] font-bold text-text-primary mb-2">{t('title', 'Tạo tài khoản sinh viên')}</h1>
         <p className="text-[15px] font-normal text-text-secondary">
-          Tạo hồ sơ để bắt đầu luyện phỏng vấn cá nhân hóa.
+          {t('subtitle', 'Tạo hồ sơ để bắt đầu luyện phỏng vấn cá nhân hóa.')}
         </p>
       </div>
 
@@ -92,37 +95,37 @@ const RegisterForm = () => {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Input
-          label="HỌ VÀ TÊN"
+          label={t('fullname_label', 'HỌ VÀ TÊN')}
           id="fullName"
           type="text"
-          placeholder="Nguyễn Văn A"
+          placeholder={t('fullname_placeholder', 'Nguyễn Văn A')}
           value={formData.fullName}
           onChange={handleChange}
           required
         />
         
         <Input
-          label="EMAIL"
+          label={t('email_label', 'EMAIL')}
           id="email"
           type="email"
-          placeholder="name@example.com"
+          placeholder={t('email_placeholder', 'name@example.com')}
           value={formData.email}
           onChange={handleChange}
           required
         />
 
         <Input
-          label="SỐ ĐIỆN THOẠI"
+          label={t('phone_label', 'SỐ ĐIỆN THOẠI')}
           id="phoneNumber"
           type="tel"
-          placeholder="0912345678"
+          placeholder={t('phone_placeholder', '0912345678')}
           value={formData.phoneNumber}
           onChange={handleChange}
           required
         />
         
         <Input
-          label="MẬT KHẨU"
+          label={t('password_label', 'MẬT KHẨU')}
           id="password"
           type="password"
           placeholder=""
@@ -132,7 +135,7 @@ const RegisterForm = () => {
         />
 
         <Input
-          label="XÁC NHẬN MẬT KHẨU"
+          label={t('confirm_password_label', 'XÁC NHẬN MẬT KHẨU')}
           id="confirmPassword"
           type="password"
           placeholder=""
@@ -143,7 +146,7 @@ const RegisterForm = () => {
 
         <div className="flex items-start mt-1 mb-2">
           <Checkbox 
-            label="Tôi đồng ý với điều khoản sử dụng và chính sách bảo mật" 
+            label={t('agree_terms', 'Tôi đồng ý với điều khoản sử dụng và chính sách bảo mật')} 
             id="agreeTerms" 
             checked={formData.agreeTerms}
             onChange={handleChange}
@@ -152,13 +155,13 @@ const RegisterForm = () => {
         </div>
 
         <Button type="submit" disabled={loading}>
-          {loading ? 'ĐANG XỬ LÝ...' : 'TẠO TÀI KHOẢN'}
+          {loading ? t('processing', 'ĐANG XỬ LÝ...') : t('submit_button', 'TẠO TÀI KHOẢN')}
         </Button>
       </form>
 
       <div className="relative flex items-center justify-center mt-6 mb-6">
         <div className="absolute inset-x-0 h-px bg-border-strong opacity-50"></div>
-        <span className="relative bg-surface-2 px-4 text-[13px] font-medium text-text-secondary uppercase tracking-wider">hoặc</span>
+        <span className="relative bg-surface-2 px-4 text-[13px] font-medium text-text-secondary uppercase tracking-wider">{t('or', 'hoặc')}</span>
       </div>
 
       <button 
@@ -171,13 +174,13 @@ const RegisterForm = () => {
           <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
           <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
         </svg>
-        Tiếp tục với Google
+        {t('continue_with_google', 'Tiếp tục với Google')}
       </button>
 
       <div className="text-center">
-        <span className="text-[14px] text-text-secondary">Đã có tài khoản? </span>
+        <span className="text-[14px] text-text-secondary">{t('already_have_account', 'Đã có tài khoản? ')}</span>
         <a href="#login" className="text-[14px] font-semibold text-text-primary underline hover:text-primary transition-colors duration-200">
-          Đăng nhập
+          {t('login_link', 'Đăng nhập')}
         </a>
       </div>
     </div>

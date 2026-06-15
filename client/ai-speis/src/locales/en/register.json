@@ -1,0 +1,26 @@
+
+{
+  "aria": {
+    "languageSwitch": "Switch language"
+  },
+  "pwd_mismatch": "Passwords do not match",
+  "register_fail": "Registration failed. Please check your information.",
+  "register_success": "Registration successful. Please check your email to activate your account.",
+  "title": "Create Student Account",
+  "subtitle": "Create a profile to start personalized interview practice.",
+  "fullname_label": "FULL NAME",
+  "fullname_placeholder": "John Doe",
+  "email_label": "EMAIL",
+  "email_placeholder": "name@example.com",
+  "phone_label": "PHONE NUMBER",
+  "phone_placeholder": "0912345678",
+  "password_label": "PASSWORD",
+  "confirm_password_label": "CONFIRM PASSWORD",
+  "agree_terms": "I agree to the Terms of Service and Privacy Policy",
+  "processing": "PROCESSING...",
+  "submit_button": "CREATE ACCOUNT",
+  "or": "or",
+  "continue_with_google": "Continue with Google",
+  "already_have_account": "Already have an account? ",
+  "login_link": "Log in"
+}

@@ -1,0 +1,16 @@
+{
+  "title": "Đăng nhập",
+  "subtitle": "Tiếp tục luyện phỏng vấn và theo dõi tiến độ của bạn.",
+  "email_label": "EMAIL",
+  "email_placeholder": "ten@congty.com",
+  "password_label": "MẬT KHẨU",
+  "password_placeholder": "........",
+  "remember_me": "Ghi nhớ đăng nhập",
+  "forgot_password": "Quên mật khẩu?",
+  "login_button": "Đăng nhập",
+  "or": "HOẶC",
+  "continue_with_google": "Tiếp tục với Google",
+  "no_account": "Chưa có tài khoản?",
+  "sign_up": "Đăng ký",
+  "footer_text": "AI-SPEIS sử dụng hồ sơ, CV và lịch sử luyện tập để cá nhân hóa câu hỏi phỏng vấn."
+}
