@@ -42,5 +42,6 @@ namespace ai_speis_be.Repositories.UserRepo
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
         }
+       
     }
 }
