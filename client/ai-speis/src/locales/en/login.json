@@ -1,0 +1,16 @@
+{
+  "title": "Login",
+  "subtitle": "Continue your interview practice and track your progress.",
+  "email_label": "EMAIL",
+  "email_placeholder": "name@company.com",
+  "password_label": "PASSWORD",
+  "password_placeholder": "........",
+  "remember_me": "Remember me",
+  "forgot_password": "Forgot password?",
+  "login_button": "Login",
+  "or": "OR",
+  "continue_with_google": "Continue with Google",
+  "no_account": "Don't have an account?",
+  "sign_up": "Sign up",
+  "footer_text": "AI-SPEIS uses your profile, CV, and practice history to personalize interview questions."
+}
