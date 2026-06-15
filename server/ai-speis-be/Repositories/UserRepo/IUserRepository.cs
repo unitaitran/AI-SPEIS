@@ -1,4 +1,4 @@
-﻿using ai_speis_be.Models;
+using ai_speis_be.Models;
 
 namespace ai_speis_be.Repositories.UserRepo
 {
@@ -9,5 +9,6 @@ namespace ai_speis_be.Repositories.UserRepo
         Task<User?> GetUserByEmailConfirmationTokenAsync(string token);
         Task<User> CreateUserAsync(User user);
         Task UpdateUserAsync(User user);
+       
     }
 }

@@ -11,7 +11,8 @@ namespace ai_speis_be.Repositories.CVRepo
         Task<CVFile?> GetCVByIdAsync(int id);
         Task<CVFile?> GetCVByUserIdAsync(int userId);    
         Task<CVFile> AddCVAsync(CVFile cvFile);
-        Task<bool> DeleteCVAsync(int id);
-        Task<CVFile?> GetMyCVAsync(int userId);
+        Task<bool> DeleteCVAsync(int id);     
+        Task<CVFile?> GetActiveCVByUserIdAsync(int userId);
+        Task<CVFile> UpdateCVAsync(CVFile cvFile);
     }
 }
