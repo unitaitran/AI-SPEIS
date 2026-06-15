@@ -1,10 +1,13 @@
 using ai_speis_be.Models;
+using ai_speis_be.Models.DTOs;
 
 namespace ai_speis_be.Repositories.UserRepo
 {
     public interface IUserRepository
     {
-        Task<IEnumerable<User>> GetUsersAsync();
+        Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
+            AdminUserQueryDto query,
+            CancellationToken cancellationToken = default);
         Task<User?> GetUserByEmailAsync(string email);
         Task<User?> GetUserByEmailConfirmationTokenAsync(string token);
         Task<User> CreateUserAsync(User user);

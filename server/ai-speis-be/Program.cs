@@ -10,6 +10,7 @@ using ai_speis_be.Services.FileValidatorService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.OpenApi.Models;
 
 LoadEnvFile();
 
@@ -24,7 +25,35 @@ builder.Services.AddControllers()
     });
     
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    const string securitySchemeName = "Bearer";
+
+    options.AddSecurityDefinition(securitySchemeName, new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "Enter JWT token. Swagger will add the 'Bearer' prefix automatically.",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = securitySchemeName
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "keys")));

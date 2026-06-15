@@ -14,21 +14,11 @@ namespace ai_speis_be.Services.UserService
             _userRepository = userRepository;
         }
 
-        public async Task<IEnumerable<UserResponseDto>> GetUsersAsync()
+        public Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
+            AdminUserQueryDto query,
+            CancellationToken cancellationToken = default)
         {
-            var users = await _userRepository.GetUsersAsync();
-
-            return users.Select(user => new UserResponseDto
-            {
-                UserId = user.UserId,
-                RoleId = user.RoleId,
-                FullName = user.FullName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Status = user.Status,
-                CreatedAt = user.CreatedAt,
-                UpdatedAt = user.UpdatedAt
-            });
+            return _userRepository.GetUsersAsync(query, cancellationToken);
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
@@ -39,7 +29,7 @@ namespace ai_speis_be.Services.UserService
         {
             var user = new User
             {
-                RoleId = 5, // Default to regular user role
+                RoleId = 2, // Default to regular user role
                 FullName = registerDto.FullName,
                 Email = registerDto.Email,
                 PhoneNumber = registerDto.PhoneNumber,
