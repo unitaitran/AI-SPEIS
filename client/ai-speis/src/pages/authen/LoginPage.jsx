@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import AuthCard from '../../components/Auth/AuthCard';
 import LoginForm from '../../components/Auth/LoginForm';
 
 const LoginPage = () => {
+  const { t } = useTranslation('login');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -43,7 +45,8 @@ const LoginPage = () => {
       </div>
 
       <AuthCard 
-        footerText="AI-SPEIS sử dụng hồ sơ, CV và lịch sử luyện tập để cá nhân hóa câu hỏi phỏng vấn."
+        footerText={t('footer_text')}
+        mascotText={t('mascot_greeting')}
       >
         <LoginForm />
       </AuthCard>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Clock, Layers, Users, Package, Lock } from 'lucide-react';
+import { LayoutDashboard, FileText, Clock, Layers, Users, Package, Lock, Database } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const MENU_GROUPS = [
@@ -7,12 +7,13 @@ const MENU_GROUPS = [
     label: 'CHÍNH',
     items: [
       { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard, path: '#dashboard' },
+      { id: 'cv', label: 'CV của tôi', icon: FileText, path: '#cv' },
     ]
   },
   {
     label: 'LUYỆN TẬP',
     items: [
-      { id: 'questions', label: 'Câu hỏi', icon: FileText, path: '#questions' },
+      { id: 'questions', label: 'Câu hỏi', icon: Database, path: '#questions' },
       { id: 'history', label: 'Lịch sử phỏng vấn', icon: Clock, path: '#history' },
       { id: 'flashcards', label: 'Flashcards', icon: Layers, path: '#flashcards' },
     ]
@@ -59,50 +60,59 @@ function UserSidebar({ isOpen, onNavigate }) {
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-6">
-        {MENU_GROUPS.map((group, idx) => (
-          <div key={idx}>
-            <p className="text-xs font-semibold text-text-disabled mb-2 px-2 uppercase tracking-wider">{group.label}</p>
-            <ul className="space-y-1">
-              {group.items.map((item) => {
-                const isActive = currentHash === item.path;
-                return (
-                  <li key={item.id}>
-                    <a
-                      href={item.path}
-                      onClick={(e) => handleMenuClick(e, item.path)}
-                      className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all relative ${
-                        isActive 
-                          ? 'bg-gradient-to-r from-primary-light to-primary-xlight text-primary-dark font-bold shadow-sm' 
-                          : 'text-text-secondary hover:bg-surface-3 hover:text-primary-dark'
-                      }`}
-                    >
-                      {isActive && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-md"></div>
-                      )}
-                      <item.icon size={20} className={`mr-3 ${isActive ? 'text-primary-dark' : 'text-text-secondary'}`} />
-                      {item.label}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
+      <nav className="flex-1 overflow-y-auto py-6 px-4 flex flex-col">
+        <div className="space-y-6">
+          {MENU_GROUPS.map((group, idx) => (
+            <div key={idx}>
+              <p className="text-xs font-semibold text-text-disabled mb-2 px-2 uppercase tracking-wider">{group.label}</p>
+              <ul className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = currentHash === item.path;
+                  return (
+                    <li key={item.id}>
+                      <a
+                        href={item.path}
+                        onClick={(e) => handleMenuClick(e, item.path)}
+                        className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all relative ${
+                          isActive 
+                            ? 'bg-gradient-to-r from-primary-light to-primary-xlight text-primary-dark font-bold shadow-sm' 
+                            : 'text-text-secondary hover:bg-surface-3 hover:text-primary-dark'
+                        }`}
+                      >
+                        {isActive && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-md"></div>
+                        )}
+                        <item.icon size={20} className={`mr-3 ${isActive ? 'text-primary-dark' : 'text-text-secondary'}`} />
+                        {item.label}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Pro Upgrade Banner */}
+        <div className="mt-8">
+          <div className="bg-surface-1 border border-border rounded-xl p-4 text-center">
+            <div className="flex justify-center mb-2">
+              <Lock size={20} className="text-primary-dark" />
+            </div>
+            <h4 className="text-sm font-semibold text-text-primary mb-1">Nâng cấp Pro</h4>
+            <p className="text-xs text-text-secondary mb-3">Mở khóa không giới hạn lượt phỏng vấn AI.</p>
+            <button className="w-full bg-text-primary hover:bg-black text-white text-xs font-semibold py-2 px-4 rounded transition-colors">
+              NÂNG CẤP NGAY
+            </button>
           </div>
-        ))}
+        </div>
       </nav>
 
-      {/* Pro Upgrade Banner */}
-      <div className="p-4 shrink-0">
-        <div className="bg-surface-1 border border-border rounded-xl p-4 text-center">
-          <div className="flex justify-center mb-2">
-            <Lock size={20} className="text-primary-dark" />
-          </div>
-          <h4 className="text-sm font-semibold text-text-primary mb-1">Nâng cấp Pro</h4>
-          <p className="text-xs text-text-secondary mb-3">Mở khóa không giới hạn lượt phỏng vấn AI.</p>
-          <button className="w-full bg-text-primary hover:bg-black text-white text-xs font-semibold py-2 px-4 rounded transition-colors">
-            NÂNG CẤP NGAY
-          </button>
-        </div>
+      {/* Start Interview Button */}
+      <div className="p-4 shrink-0 bg-surface-2 border-t border-border">
+        <button className="w-full bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-sm font-semibold py-3 px-4 rounded transition-all shadow-sm">
+          Bắt đầu phỏng vấn
+        </button>
       </div>
     </aside>
   );

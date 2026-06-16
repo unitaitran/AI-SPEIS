@@ -12,5 +12,12 @@
   "continue_with_google": "Continue with Google",
   "no_account": "Don't have an account?",
   "sign_up": "Sign up",
-  "footer_text": "AI-SPEIS uses your profile, CV, and practice history to personalize interview questions."
+  "footer_text": "AI-SPEIS uses your profile, CV, and practice history to personalize interview questions.",
+  "mascot_greeting": "Hello! Let's sign in ⭐",
+  "forgot_mascot": "Enter your email to recover your account! ⭐",
+  "forgot_title": "Forgot Password",
+  "forgot_subtitle": "Enter your email to receive a password reset link.",
+  "forgot_button": "SEND LINK",
+  "back_to_login": "Back to Login",
+  "forgot_footer": "Please check your inbox after submitting the request."
 }
