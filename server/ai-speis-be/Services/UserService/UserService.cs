@@ -185,6 +185,46 @@ namespace ai_speis_be.Services.UserService
 
             return normalizedRoleName is "ADMIN" or "SYSTEMADMIN";
         }
-    }
+    
+        private static string GeneratePasswordResetToken(int userId)
+        {
+            return Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        }
 
+        public async Task<string?> InitiatePasswordResetAsync(string email)
+        {
+            var user = await _userRepository.GetUserByEmailAsync(email);
+            if (user == null)
+            {
+                return null;
+            }
+
+            var token = GeneratePasswordResetToken(user.UserId);
+            user.PasswordResetToken = token;
+            user.PasswordResetTokenExpiresAt = DateTime.UtcNow.AddHours(1);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user);
+            return token;
+        }
+
+        public async Task<bool> ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
+        {
+            var user = await _userRepository.GetUserByPasswordResetTokenAsync(resetPasswordDto.Token);
+            if (user == null || 
+                user.PasswordResetTokenExpiresAt == null || 
+                user.PasswordResetTokenExpiresAt <= DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(resetPasswordDto.NewPassword);
+            user.PasswordResetToken = null;
+            user.PasswordResetTokenExpiresAt = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user);
+            return true;
+        }
+    }
 }

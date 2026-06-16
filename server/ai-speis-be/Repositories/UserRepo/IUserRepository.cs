@@ -17,6 +17,7 @@ namespace ai_speis_be.Repositories.UserRepo
         Task UpdateUserAsync(
             User user,
             CancellationToken cancellationToken = default);
+        Task<User?> GetUserByPasswordResetTokenAsync(string token);
        
     }
 }

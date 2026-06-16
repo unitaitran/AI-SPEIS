@@ -155,5 +155,12 @@ namespace ai_speis_be.Repositories.UserRepo
                     .ThenByDescending(user => user.UserId)
             };
         }
+
+        public async Task<User?> GetUserByPasswordResetTokenAsync(string token)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.PasswordResetToken == token);
+        }
     }
 }
