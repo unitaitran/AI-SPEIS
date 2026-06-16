@@ -13,6 +13,9 @@ namespace ai_speis_be.Services.UserService
             int actingUserId,
             string? reason,
             CancellationToken cancellationToken = default);
+        Task<UnlockUserResult> UnlockUserAsync(
+            int userId,
+            CancellationToken cancellationToken = default);
         Task<User?> GetUserByEmailAsync(string email);
         Task<User> CreateUserAsync(RegisterDto registerDto);
         Task<User> CreateGoogleUserAsync(string email, string fullName);

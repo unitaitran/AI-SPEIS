@@ -69,6 +69,38 @@ namespace ai_speis_be.Services.UserService
             return new LockUserResult(LockUserOutcome.Locked, user);
         }
 
+        public async Task<UnlockUserResult> UnlockUserAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                return new UnlockUserResult(UnlockUserOutcome.UserNotFound);
+            }
+
+            if (!user.IsLocked)
+            {
+                return new UnlockUserResult(
+                    UnlockUserOutcome.NotLocked,
+                    user);
+            }
+
+            user.IsLocked = false;
+            user.Status = true;
+            user.LockReason = null;
+            user.LockedAt = null;
+            user.LockedByUserId = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+
+            return new UnlockUserResult(UnlockUserOutcome.Unlocked, user);
+        }
+
         public async Task<User?> GetUserByEmailAsync(string email)
         {
             return await _userRepository.GetUserByEmailAsync(email);

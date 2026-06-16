@@ -66,6 +66,13 @@ namespace ai_speis_be.Models.DTOs
         public string Message { get; init; } = string.Empty;
     }
 
+    public sealed class UnlockUserResponseDto
+    {
+        public int UserId { get; init; }
+        public string Status { get; init; } = string.Empty;
+        public string Message { get; init; } = string.Empty;
+    }
+
     public sealed class PagedResultDto<T>
     {
         public required IReadOnlyList<T> Items { get; init; }

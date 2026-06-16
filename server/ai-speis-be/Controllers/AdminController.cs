@@ -31,7 +31,7 @@ namespace ai_speis_be.Controllers
             return Ok(result);
         }
 
-        [HttpPatch("users/{userId:int}/status")]
+        [HttpPatch("users/{userId:int}/lock")]
         [ProducesResponseType(
             typeof(LockUserResponseDto),
             StatusCodes.Status200OK)]
@@ -98,6 +98,46 @@ namespace ai_speis_be.Controllers
             };
         }
 
+        [HttpPatch("users/{userId:int}/unlock")]
+        [ProducesResponseType(
+            typeof(UnlockUserResponseDto),
+            StatusCodes.Status200OK)]
+        [ProducesResponseType(
+            typeof(ProblemDetails),
+            StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(
+            typeof(ProblemDetails),
+            StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<UnlockUserResponseDto>> UnlockUser(
+            int userId,
+            CancellationToken cancellationToken)
+        {
+            var result = await _userService.UnlockUserAsync(
+                userId,
+                cancellationToken);
+
+            return result.Outcome switch
+            {
+                UnlockUserOutcome.Unlocked => Ok(CreateUnlockResponse(
+                    userId,
+                    "User account has been unlocked successfully.")),
+                UnlockUserOutcome.UserNotFound => NotFound(new ProblemDetails
+                {
+                    Title = "User not found",
+                    Detail = $"User with ID {userId} does not exist.",
+                    Status = StatusCodes.Status404NotFound
+                }),
+                UnlockUserOutcome.NotLocked => BadRequest(new ProblemDetails
+                {
+                    Title = "User account is not locked",
+                    Detail = $"User with ID {userId} is not in LOCKED status.",
+                    Status = StatusCodes.Status400BadRequest
+                }),
+                _ => throw new InvalidOperationException(
+                    $"Unsupported unlock user outcome: {result.Outcome}")
+            };
+        }
+
         private static LockUserResponseDto CreateLockResponse(
             int userId,
             string message)
@@ -106,6 +146,18 @@ namespace ai_speis_be.Controllers
             {
                 UserId = userId,
                 Status = UserAccountStatus.Locked,
+                Message = message
+            };
+        }
+
+        private static UnlockUserResponseDto CreateUnlockResponse(
+            int userId,
+            string message)
+        {
+            return new UnlockUserResponseDto
+            {
+                UserId = userId,
+                Status = UserAccountStatus.Active,
                 Message = message
             };
         }

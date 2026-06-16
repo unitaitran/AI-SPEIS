@@ -14,4 +14,15 @@ namespace ai_speis_be.Services.UserService
     public sealed record LockUserResult(
         LockUserOutcome Outcome,
         User? User = null);
+
+    public enum UnlockUserOutcome
+    {
+        Unlocked,
+        UserNotFound,
+        NotLocked
+    }
+
+    public sealed record UnlockUserResult(
+        UnlockUserOutcome Outcome,
+        User? User = null);
 }
