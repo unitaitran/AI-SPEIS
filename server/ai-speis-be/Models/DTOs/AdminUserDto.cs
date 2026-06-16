@@ -47,8 +47,23 @@ namespace ai_speis_be.Models.DTOs
         public string Email { get; set; } = string.Empty;
         public string? PhoneNumber { get; set; }
         public bool Status { get; set; }
+        public bool IsLocked { get; set; }
+        public string AccountStatus { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+    }
+
+    public sealed class LockUserRequestDto
+    {
+        [StringLength(500)]
+        public string? Reason { get; set; }
+    }
+
+    public sealed class LockUserResponseDto
+    {
+        public int UserId { get; init; }
+        public string Status { get; init; } = string.Empty;
+        public string Message { get; init; } = string.Empty;
     }
 
     public sealed class PagedResultDto<T>

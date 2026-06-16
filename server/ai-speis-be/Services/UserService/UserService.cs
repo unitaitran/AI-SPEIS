@@ -21,6 +21,54 @@ namespace ai_speis_be.Services.UserService
             return _userRepository.GetUsersAsync(query, cancellationToken);
         }
 
+        public async Task<LockUserResult> LockUserAsync(
+            int userId,
+            int actingUserId,
+            string? reason,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                return new LockUserResult(LockUserOutcome.UserNotFound);
+            }
+
+            if (user.UserId == actingUserId)
+            {
+                return new LockUserResult(
+                    LockUserOutcome.CannotLockSelf,
+                    user);
+            }
+
+            if (HasProtectedAdministrativeRole(user.Role.RoleName))
+            {
+                return new LockUserResult(
+                    LockUserOutcome.ProtectedRole,
+                    user);
+            }
+
+            if (user.IsLocked)
+            {
+                return new LockUserResult(
+                    LockUserOutcome.AlreadyLocked,
+                    user);
+            }
+
+            user.IsLocked = true;
+            user.Status = false;
+            user.LockReason = NormalizeReason(reason);
+            user.LockedAt = DateTime.UtcNow;
+            user.LockedByUserId = actingUserId;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+
+            return new LockUserResult(LockUserOutcome.Locked, user);
+        }
+
         public async Task<User?> GetUserByEmailAsync(string email)
         {
             return await _userRepository.GetUserByEmailAsync(email);
@@ -68,6 +116,7 @@ namespace ai_speis_be.Services.UserService
 
             var user = await _userRepository.GetUserByEmailConfirmationTokenAsync(token);
             if (user == null ||
+                user.IsLocked ||
                 user.EmailConfirmationTokenExpiresAt is null ||
                 user.EmailConfirmationTokenExpiresAt <= DateTime.UtcNow)
             {
@@ -91,6 +140,11 @@ namespace ai_speis_be.Services.UserService
             {
                 return null;
             }
+
+            if (user.IsLocked)
+            {
+                return user;
+            }
             //nếu user đã tồn tại và xác nhận email => trả về user, không cần cập nhật gì
 
             if (user.EmailConfirmedAt !=  null &&
@@ -112,6 +166,24 @@ namespace ai_speis_be.Services.UserService
         private static string GenerateEmailConfirmationToken()
         {
             return Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        }
+
+        private static string? NormalizeReason(string? reason)
+        {
+            return string.IsNullOrWhiteSpace(reason)
+                ? null
+                : reason.Trim();
+        }
+
+        private static bool HasProtectedAdministrativeRole(string roleName)
+        {
+            var normalizedRoleName = new string(
+                roleName
+                    .Where(char.IsLetterOrDigit)
+                    .Select(char.ToUpperInvariant)
+                    .ToArray());
+
+            return normalizedRoleName is "ADMIN" or "SYSTEMADMIN";
         }
     }
 

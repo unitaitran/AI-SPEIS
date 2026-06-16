@@ -8,6 +8,11 @@ namespace ai_speis_be.Services.UserService
         Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
             AdminUserQueryDto query,
             CancellationToken cancellationToken = default);
+        Task<LockUserResult> LockUserAsync(
+            int userId,
+            int actingUserId,
+            string? reason,
+            CancellationToken cancellationToken = default);
         Task<User?> GetUserByEmailAsync(string email);
         Task<User> CreateUserAsync(RegisterDto registerDto);
         Task<User> CreateGoogleUserAsync(string email, string fullName);

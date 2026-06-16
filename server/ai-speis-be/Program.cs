@@ -121,6 +121,29 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
             System.Text.Encoding.UTF8.GetBytes(GetRequiredConfiguration(builder.Configuration, "Jwt:Key")))
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var userIdClaim = context.Principal?.FindFirst("UserId")?.Value;
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+                context.Fail("The user identifier claim is missing or invalid.");
+                return;
+            }
+
+            var userRepository = context.HttpContext.RequestServices
+                .GetRequiredService<IUserRepository>();
+            var user = await userRepository.GetUserByIdAsync(
+                userId,
+                context.HttpContext.RequestAborted);
+
+            if (user is null || !user.Status || user.IsLocked)
+            {
+                context.Fail("The user account is inactive or locked.");
+            }
+        }
+    };
 });
 
 builder.Services.AddAuthorization();

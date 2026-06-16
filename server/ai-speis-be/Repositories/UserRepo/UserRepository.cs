@@ -1,5 +1,6 @@
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
+using ai_speis_be.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ai_speis_be.Repositories.UserRepo
@@ -53,6 +54,12 @@ namespace ai_speis_be.Repositories.UserRepo
                     Email = user.Email,
                     PhoneNumber = user.PhoneNumber,
                     Status = user.Status,
+                    IsLocked = user.IsLocked,
+                    AccountStatus = user.IsLocked
+                        ? UserAccountStatus.Locked
+                        : user.Status
+                            ? UserAccountStatus.Active
+                            : UserAccountStatus.PendingActivation,
                     CreatedAt = user.CreatedAt,
                     UpdatedAt = user.UpdatedAt
                 })
@@ -65,6 +72,17 @@ namespace ai_speis_be.Repositories.UserRepo
                 PageSize = query.PageSize,
                 TotalItems = totalItems
             };
+        }
+
+        public Task<User?> GetUserByIdAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            return _context.Users
+                .Include(user => user.Role)
+                .FirstOrDefaultAsync(
+                    user => user.UserId == userId,
+                    cancellationToken);
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
@@ -88,10 +106,12 @@ namespace ai_speis_be.Repositories.UserRepo
             return user;
         }
 
-        public async Task UpdateUserAsync(User user)
+        public async Task UpdateUserAsync(
+            User user,
+            CancellationToken cancellationToken = default)
         {
             _context.Users.Update(user);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         private static IOrderedQueryable<User> ApplySorting(
