@@ -33,27 +33,30 @@ const MENU_GROUPS = [
 ];
 
 function UserSidebar({ isOpen, onNavigate }) {
-  // Assuming hash-based routing for now based on App.js
-  const [currentHash, setCurrentHash] = React.useState(window.location.hash || '#dashboard');
+  const [currentPathname, setCurrentPathname] = React.useState(window.location.pathname);
 
   React.useEffect(() => {
-    const handleHashChange = () => setCurrentHash(window.location.hash);
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    const syncPathname = () => setCurrentPathname(window.location.pathname);
+    window.addEventListener('popstate', syncPathname);
+    window.addEventListener(NAVIGATION_EVENT, syncPathname);
+    return () => {
+      window.removeEventListener('popstate', syncPathname);
+      window.removeEventListener(NAVIGATION_EVENT, syncPathname);
+    };
   }, []);
 
   const handleMenuClick = (event, path) => {
     event.preventDefault();
-    if (path !== '#dashboard') {
+    if (path !== USER_ROUTES.DASHBOARD) {
       alert('Tính năng đang phát triển');
       return;
     }
-    window.location.hash = path;
+    navigate(path);
     if (onNavigate) onNavigate();
   };
 
   return (
-    <aside className={`fixed top-0 left-0 h-full w-[240px] bg-surface-2 border-r border-border flex flex-col z-20 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} aria-label="Student navigation">
+    <aside className={`fixed top-0 left-0 h-full w-[240px] bg-surface-2 border-r border-border flex flex-col z-20 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} aria-label="User navigation">
       {/* Logo Area */}
       <div className="h-16 flex items-center px-6 border-b border-border shrink-0 justify-center">
         <img src="/logo_AI-SPEIS-removebg.png" alt="AI-SPEIS" className="h-10 object-contain" />

@@ -39,8 +39,12 @@ namespace ai_speis_be.Models
 
         public DateTime? EmailConfirmationTokenExpiresAt { get; set; }
 
-        public DateTime? EmailConfirmedAt { get; set; } 
-        
+        public DateTime? EmailConfirmedAt { get; set; }
+
+        public string? PasswordResetToken { get; set; }
+
+        public DateTime? PasswordResetTokenExpiresAt { get; set; }
+
         [Required]
         public DateTime CreatedAt { get; set; }
 
