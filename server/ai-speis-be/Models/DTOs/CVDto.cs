@@ -12,11 +12,11 @@ namespace ai_speis_be.Models.DTOs
         public int UserId { get; set; }
         public string FileName { get; set; } = null!;
         public string FilePath { get; set; } = null!;
-        public string FileSize { get; set; } = null!;
+        public long FileSize { get; set; } = 0;
         public string FileType { get; set; } = null!;
         public CVFileStatus Status {get; set;} = CVFileStatus.Pending;
         public DateTime UploadedAt { get; set; } = DateTime.Now;
-        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+        public DateTime ? UpdatedAt { get; set; } 
         
     }
 }
