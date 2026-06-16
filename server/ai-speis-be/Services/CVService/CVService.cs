@@ -42,7 +42,7 @@ namespace ai_speis_be.Services.CVService
                 }
 
                 // 3. Generate a unique file name to avoid collisions
-                var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileNameWithoutExtension(file.FileName).ToLower()}";
+                var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName).ToLower()}";
                 var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
                 // 4. Save file to disk
@@ -51,7 +51,14 @@ namespace ai_speis_be.Services.CVService
                     await file.CopyToAsync(fileStream);
                 }
 
-              
+                // 4.5. Soft delete previous active CV
+                var activeCV = await _cvRepository.GetActiveCVByUserIdAsync(userId);
+                if (activeCV != null)
+                {
+                    activeCV.Status = CVFileStatus.Archived;
+                    activeCV.UpdatedAt = DateTime.Now;
+                    await _cvRepository.UpdateCVAsync(activeCV);
+                }
 
                 // 5. Save metadata to database
                 var cvFile = new CVFile
@@ -108,7 +115,7 @@ namespace ai_speis_be.Services.CVService
 
         public async Task<CVDto?> GetMyCVAsync(int userId)
         { 
-            var cv = await _cvRepository.GetMyCVAsync(userId);
+            var cv = await _cvRepository.GetActiveCVByUserIdAsync(userId);
             return cv != null ? MapToDto(cv) : null;
         }
         private CVDto MapToDto(CVFile cv)

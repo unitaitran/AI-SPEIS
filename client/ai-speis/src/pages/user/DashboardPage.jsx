@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, FileText, CalendarDays, TrendingUp, Zap, Target } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
+import { navigate } from '../../routes/navigation';
+import { USER_ROUTES } from '../../routes/routePaths';
 
 function DashboardPage() {
   const [user, setUser] = useState(null);
@@ -25,8 +27,7 @@ function DashboardPage() {
           role: role
         }));
         
-        // Remove query params from URL without reloading the page
-        window.history.replaceState(null, '', window.location.pathname + '#dashboard');
+        navigate(USER_ROUTES.DASHBOARD, { replace: true });
       }
     } else {
       // Try to load user from localStorage if no token in URL

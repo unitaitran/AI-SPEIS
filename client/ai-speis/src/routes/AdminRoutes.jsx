@@ -3,6 +3,7 @@ import { ADMIN_MENU_ITEMS, ADMIN_ROUTES } from '../constants/adminMenu';
 import AdminLayout from '../layouts/admin/AdminLayout';
 import AdminDashboardPage from '../pages/admin/Dashboard/AdminDashboardPage';
 import { navigate } from './navigation';
+import { AUTHENTICATED_ADMIN_ROUTES } from './routePaths';
 
 function AdminRoutePlaceholder({ title }) {
   return (
@@ -25,7 +26,8 @@ function AdminRoutePlaceholder({ title }) {
 }
 
 function AdminRoutes({ pathname }) {
-  const isAdminRoot = pathname === '/admin' || pathname === '/admin/';
+  const isAdminRoot = pathname === AUTHENTICATED_ADMIN_ROUTES.ROOT
+    || pathname === `${AUTHENTICATED_ADMIN_ROUTES.ROOT}/`;
   const activePathname = isAdminRoot ? ADMIN_ROUTES.DASHBOARD : pathname;
 
   useEffect(() => {

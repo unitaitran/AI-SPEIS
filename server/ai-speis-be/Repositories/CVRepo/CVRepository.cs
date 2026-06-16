@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using Microsoft.EntityFrameworkCore;
+
 namespace ai_speis_be.Repositories.CVRepo
 {
     public class CVRepository : ICVRepository 
@@ -20,10 +21,12 @@ namespace ai_speis_be.Repositories.CVRepo
             var CVFiles = _context.CVFiles.AsQueryable();
             return await CVFiles.ToListAsync();
         }
+
         public async Task<CVFile?> GetCVByIdAsync(int id)
         {
             return await _context.CVFiles.Include(c => c.User).FirstOrDefaultAsync(c => c.CVFileId == id);
         }
+
         public async Task<CVFile?> GetCVByUserIdAsync(int userId)
         {
             return await _context.CVFiles.Include(c => c.User).FirstOrDefaultAsync(c => c.UserId == userId);
@@ -46,11 +49,19 @@ namespace ai_speis_be.Repositories.CVRepo
             await _context.SaveChangesAsync();
             return true;
         } 
-        public async Task<CVFile?> GetMyCVAsync(int userId)
+
+        public async Task<CVFile?> GetActiveCVByUserIdAsync(int userId)
         {
             return await _context.CVFiles
                 .Include(c => c.User)
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.Status != CVFileStatus.Archived);
+        }
+
+        public async Task<CVFile> UpdateCVAsync(CVFile cvFile)
+        {
+            _context.CVFiles.Update(cvFile);
+            await _context.SaveChangesAsync();
+            return cvFile;
         }
     } 
 }
