@@ -1,12 +1,14 @@
 import React from 'react';
 import { LayoutDashboard, FileText, Clock, Layers, Users, Package, Lock, Database } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { navigate, NAVIGATION_EVENT } from '../../../routes/navigation';
+import { USER_ROUTES } from '../../../routes/routePaths';
 
 const MENU_GROUPS = [
   {
     label: 'CHÍNH',
     items: [
-      { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard, path: '#dashboard' },
+      { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard, path: USER_ROUTES.DASHBOARD },
       { id: 'cv', label: 'CV của tôi', icon: FileText, path: '#cv' },
     ]
   },
@@ -34,6 +36,7 @@ const MENU_GROUPS = [
 
 function UserSidebar({ isOpen, onNavigate }) {
   const [currentPathname, setCurrentPathname] = React.useState(window.location.pathname);
+
 
   React.useEffect(() => {
     const syncPathname = () => setCurrentPathname(window.location.pathname);
@@ -70,17 +73,16 @@ function UserSidebar({ isOpen, onNavigate }) {
               <p className="text-xs font-semibold text-text-disabled mb-2 px-2 uppercase tracking-wider">{group.label}</p>
               <ul className="space-y-1">
                 {group.items.map((item) => {
-                  const isActive = currentHash === item.path;
+                  const isActive = currentPathname === item.path;
                   return (
                     <li key={item.id}>
                       <a
                         href={item.path}
                         onClick={(e) => handleMenuClick(e, item.path)}
-                        className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all relative ${
-                          isActive 
-                            ? 'bg-gradient-to-r from-primary-light to-primary-xlight text-primary-dark font-bold shadow-sm' 
-                            : 'text-text-secondary hover:bg-surface-3 hover:text-primary-dark'
-                        }`}
+                        className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all relative ${isActive
+                          ? 'bg-gradient-to-r from-primary-light to-primary-xlight text-primary-dark font-bold shadow-sm'
+                          : 'text-text-secondary hover:bg-surface-3 hover:text-primary-dark'
+                          }`}
                       >
                         {isActive && (
                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-md"></div>
