@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ai_speis_be.Models;
 
@@ -11,9 +12,11 @@ using ai_speis_be.Models;
 namespace ai_speis_be.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260616082825_UpdateQuestionBank")]
+    partial class UpdateQuestionBank
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -81,24 +84,25 @@ namespace ai_speis_be.Migrations
                     b.Property<int>("Difficulty")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsDeleted")
+                    b.Property<bool>("IsAIGenerated")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Major")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int?>("QuestionBankId")
+                        .HasColumnType("int");
 
                     b.Property<string>("QuestionContent")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("RoleTarget")
+                    b.Property<bool>("Status")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SusggestedAnswer")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("SuggestedAnswer")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -108,12 +112,57 @@ namespace ai_speis_be.Migrations
 
                     b.HasKey("QuestionId");
 
+                    b.HasIndex(new[] { "QuestionBankId" }, "IX_Question_QuestionBankId");
+
                     b.HasIndex(new[] { "QuestionId" }, "IX_Question_QuestionId")
                         .IsUnique();
 
                     b.HasIndex(new[] { "UserId" }, "IX_Question_UserId");
 
                     b.ToTable("Question");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.QuestionBank", b =>
+                {
+                    b.Property<int>("QuestionBankId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("QuestionBankId"));
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
+
+                    b.Property<string>("QuestionBankName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RoleTarget")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TechStack")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("QuestionBankId");
+
+                    b.HasIndex(new[] { "QuestionBankId" }, "IX_QuestionBank_QuestionBankId")
+                        .IsUnique();
+
+                    b.ToTable("QuestionBank");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.Role", b =>
@@ -162,33 +211,6 @@ namespace ai_speis_be.Migrations
                         });
                 });
 
-            modelBuilder.Entity("ai_speis_be.Models.SavedQuestion", b =>
-                {
-                    b.Property<int>("SavedQuestionId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SavedQuestionId"));
-
-                    b.Property<int>("QuestionId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("SavedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("SavedQuestionId");
-
-                    b.HasIndex("QuestionId");
-
-                    b.HasIndex("UserId", "QuestionId")
-                        .IsUnique();
-
-                    b.ToTable("SavedQuestion");
-                });
-
             modelBuilder.Entity("ai_speis_be.Models.User", b =>
                 {
                     b.Property<int>("UserId")
@@ -218,19 +240,6 @@ namespace ai_speis_be.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsLocked")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("LockReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("LockedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("LockedByUserId")
-                        .HasColumnType("int");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
@@ -327,30 +336,18 @@ namespace ai_speis_be.Migrations
 
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
                 {
+                    b.HasOne("ai_speis_be.Models.QuestionBank", "QuestionBank")
+                        .WithMany("Questions")
+                        .HasForeignKey("QuestionBankId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("ai_speis_be.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.SavedQuestion", b =>
-                {
-                    b.HasOne("ai_speis_be.Models.Question", "Question")
-                        .WithMany()
-                        .HasForeignKey("QuestionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ai_speis_be.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Question");
+                    b.Navigation("QuestionBank");
 
                     b.Navigation("User");
                 });
@@ -375,6 +372,11 @@ namespace ai_speis_be.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.QuestionBank", b =>
+                {
+                    b.Navigation("Questions");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.User", b =>

@@ -9,7 +9,7 @@ using System.Net;
 
 namespace ai_speis_be.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/auth")]
     [ApiController]
     public class AuthenticationController : ControllerBase
     {
@@ -168,7 +168,7 @@ namespace ai_speis_be.Controllers
 
             var redirectUrl = $"http://localhost:3000/#login?status=success&message={Uri.EscapeDataString(successMessage)}";
             return Redirect(redirectUrl);
-
+ 
 
         }
 

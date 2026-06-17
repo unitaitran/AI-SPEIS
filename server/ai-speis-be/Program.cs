@@ -7,10 +7,15 @@ using ai_speis_be.Services.TokenService;
 using ai_speis_be.Services.EmailService;
 using ai_speis_be.Services.CVService;
 using ai_speis_be.Services.FileValidatorService;
+using ai_speis_be.Repositories.QuestionRepo;
+using ai_speis_be.Services.QuestionService;
+using ai_speis_be.Repositories.SavedQuestionRepo;
+using ai_speis_be.Services.SavedQuestionService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.OpenApi.Models;
+
 
 LoadEnvFile();
 
@@ -78,6 +83,14 @@ builder.Services.AddScoped<IEmailSender, EmailService>();
 builder.Services.AddScoped<ICVRepository, CVRepository>();
 builder.Services.AddScoped<IFileValidatorService, FileValidatorService>();
 builder.Services.AddScoped<ICVService, CVService>();
+
+// Register Question Bank
+builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();
+builder.Services.AddScoped<IQuestionService, QuestionService>();
+
+// Register Saved Questions
+builder.Services.AddScoped<ISavedQuestionRepository, SavedQuestionRepository>();
+builder.Services.AddScoped<ISavedQuestionService, SavedQuestionService>();
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
