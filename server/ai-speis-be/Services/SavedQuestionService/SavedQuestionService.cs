@@ -1,4 +1,4 @@
-﻿
+
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Repositories.SavedQuestionRepo;
@@ -18,6 +18,18 @@ namespace ai_speis_be.Services.SavedQuestionService
             var questions = await _repository.GetSavedQuestionsAsync(userId);
             return questions.Select(MapToDto);
         }
+
+        public async Task<SavedQuestionDto?> SaveQuestionAsync(int userId, int questionId)
+        {
+            var question = await _repository.SaveQuestionAsync(userId, questionId);
+            return question != null ? MapToDto(question) : null;
+        }
+
+        public async Task<bool> UnsaveQuestionAsync(int userId, int questionId)
+        {
+            return await _repository.UnsaveQuestionAsync(userId, questionId);
+        }
+
         private SavedQuestionDto MapToDto(SavedQuestion savedQuestion)
         {
             return new SavedQuestionDto

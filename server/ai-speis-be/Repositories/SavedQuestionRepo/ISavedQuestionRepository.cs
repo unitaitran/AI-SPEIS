@@ -10,5 +10,7 @@ namespace ai_speis_be.Repositories.SavedQuestionRepo
     public interface ISavedQuestionRepository
     {
         Task<IEnumerable<SavedQuestion>> GetSavedQuestionsAsync(int userId);
+        Task<SavedQuestion?> SaveQuestionAsync(int userId, int questionId);
+        Task<bool> UnsaveQuestionAsync(int userId, int questionId);
     }
 }
