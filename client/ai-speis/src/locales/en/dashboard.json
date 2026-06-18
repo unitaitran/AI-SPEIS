@@ -1,0 +1,114 @@
+{
+  "dashboard": "Dashboard",
+  "greeting": "Hello",
+  "cvConfirmation": "CV Confirmation",
+  "aiAnalysis": "AI Analysis",
+  "skillProgress": "Skill Progress",
+  "strengths": "Strengths",
+  "weaknesses": "Weaknesses",
+  "actionableAdvice": "Actionable Advice",
+  "targetRole": "Target Role",
+  "workExperience": "Work Experience",
+  "coreTechStack": "Core Tech Stack",
+  "education": "Education",
+  "edit": "Edit",
+  "save": "Save",
+  "cancel": "Cancel",
+  "close": "Close",
+  "skillHistory": "Skill History",
+  "session": "Session",
+  "score": "Score",
+  "confidence": "Confidence",
+  "technical": "Technical",
+  "communication": "Communication",
+  "criticalThinking": "Critical Thinking",
+  "languages": "Languages",
+  "subSkills": "Sub-Skills",
+  "morningGreeting": "Morning",
+  "afternoonGreeting": "Afternoon",
+  "eveningGreeting": "Evening",
+  "mockData": {
+    "cvData": {
+      "targetRole": "Senior Software Engineer",
+      "workExperience": "5 years",
+      "coreTechStack": "React, Node.js, PostgreSQL",
+      "education": "Technical University"
+    },
+    "aiFeedback": {
+      "strengths": "Deep React experience, strong communication skills, excellent problem-solving abilities",
+      "weaknesses": "Limited backend experience, lacking programming certifications",
+      "actionableAdvice": "Focus on Node.js, complete backend courses, participate in full-stack projects"
+    },
+    "overviewChart": [
+      {
+        "name": "Confidence",
+        "value": 75,
+        "fullName": "Confidence"
+      },
+      {
+        "name": "Technical",
+        "value": 82,
+        "fullName": "Technical"
+      },
+      {
+        "name": "Communication",
+        "value": 68,
+        "fullName": "Communication"
+      },
+      {
+        "name": "Critical Thinking",
+        "value": 79,
+        "fullName": "Critical Thinking"
+      },
+      {
+        "name": "Languages",
+        "value": 71,
+        "fullName": "Languages"
+      }
+    ],
+    "timelineValues": [
+      {
+        "session": "Session 1",
+        "score": 60
+      },
+      {
+        "session": "Session 2",
+        "score": 65
+      },
+      {
+        "session": "Session 3",
+        "score": 70
+      },
+      {
+        "session": "Session 4",
+        "score": 75
+      },
+      {
+        "session": "Session 5",
+        "score": 80
+      }
+    ],
+    "subSkills": [
+      {
+        "name": "Theory Foundation",
+        "score": 78
+      },
+      {
+        "name": "Practical Application",
+        "score": 82
+      },
+      {
+        "name": "Problem Solving",
+        "score": 75
+      },
+      {
+        "name": "Team Collaboration",
+        "score": 80
+      },
+      {
+        "name": "Communication Skills",
+        "score": 72
+      }
+    ]
+  }
+}

@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import './styles/reset.css';
 import './styles/variables.css';
 import './styles/globals.css';
+import CVAnalysisDashboard from './pages/user/CVAnalysisDashboard';
 import './App.css';
 import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
@@ -93,7 +94,14 @@ function App() {
     }
     return <DashboardPage />;
   }
+if (currentHash.startsWith('#cv-analysis')) {
+  if (!isAuthenticated) {
+    window.location.hash = '#login';
+    return null;
+  }
 
+  return <CVAnalysisDashboard />;
+}
   return (
     <div className="landing-shell">
       <header className="topbar">
@@ -326,3 +334,5 @@ function App() {
 }
 
 export default App;
+
+

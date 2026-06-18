@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // <-- Import thêm hook dịch
 import Input from '../UI/Input';
 import Button from '../UI/Button';
 import Checkbox from '../UI/Checkbox';
 import { ENDPOINTS } from '../../config/api';
 
 const RegisterForm = () => {
-  const { t } = useTranslation('register');
+  const { t } = useTranslation('register'); // <-- Khởi tạo hook với namespace 'register'
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -161,7 +161,9 @@ const RegisterForm = () => {
 
       <div className="relative flex items-center justify-center mt-6 mb-6">
         <div className="absolute inset-x-0 h-px bg-border-strong opacity-50"></div>
-        <span className="relative bg-surface-2 px-4 text-[13px] font-medium text-text-secondary uppercase tracking-wider">{t('or', 'hoặc')}</span>
+        <span className="relative bg-surface-2 px-4 text-[13px] font-medium text-text-secondary uppercase tracking-wider">
+          {t('or', 'hoặc')}
+        </span>
       </div>
 
       <button 

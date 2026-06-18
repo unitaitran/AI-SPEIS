@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next'; 
+import { useTranslation } from 'react-i18next';
 import Input from '../UI/Input';
 import Button from '../UI/Button';
 import Checkbox from '../UI/Checkbox';
 import { ENDPOINTS } from '../../config/api';
 
 const LoginForm = () => {
-  const { t } = useTranslation('login'); 
+  const { t } = useTranslation('login');
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +28,6 @@ const LoginForm = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        // Áp dụng dịch cho cả thông báo lỗi
         throw new Error(data.message || t('login_failed', 'Đăng nhập thất bại'));
       }
 
@@ -41,9 +40,9 @@ const LoginForm = () => {
         role: data.role
       }));
       
-      // Tạm thời redirect sang trang dashboard (chưa có nên có thể để nguyên hoặc reload)
+      // Tạm thời redirect sang trang dashboard
       // window.location.href = '#dashboard';
-      alert(t('login_success', 'Đăng nhập thành công!')); // Áp dụng dịch cho alert
+      alert(t('login_success', 'Đăng nhập thành công!'));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -58,9 +57,9 @@ const LoginForm = () => {
   return (
     <div className="w-full">
       <div className="text-center mb-8">
-        <h1 className="text-[32px] font-bold text-text-primary mb-2">{t('title')}</h1>
+        <h1 className="text-[32px] font-bold text-text-primary mb-2">{t('title', 'Đăng nhập')}</h1>
         <p className="text-[15px] font-normal text-text-secondary">
-          {t('subtitle')}
+          {t('subtitle', 'Tiếp tục luyện phỏng vấn và theo dõi tiến độ của bạn.')}
         </p>
       </div>
 
@@ -72,17 +71,17 @@ const LoginForm = () => {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Input
-          label={t('email_label')}
+          label={t('email_label', 'EMAIL')}
           id="email"
           type="email"
-          placeholder={t('email_placeholder')}
+          placeholder={t('email_placeholder', 'ten@congty.com')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
         
         <Input
-          label={t('password_label')}
+          label={t('password_label', 'MẬT KHẨU')}
           id="password"
           type="password"
           placeholder={t('password_placeholder', '••••••••')}
@@ -92,21 +91,21 @@ const LoginForm = () => {
         />
 
         <div className="flex items-center justify-between mt-1 mb-2">
-          <Checkbox label={t('remember_me')} id="rememberMe" />
+          <Checkbox label={t('remember_me', 'Ghi nhớ đăng nhập')} id="rememberMe" />
           <a href="#forgot-password" className="text-[14px] text-text-primary hover:text-primary transition-colors duration-200">
-            {t('forgot_password')}
+            {t('forgot_password', 'Quên mật khẩu?')}
           </a>
         </div>
 
         <Button type="submit" disabled={loading}>
-          {loading ? t('processing', 'Đang xử lý...') : t('login_button')}
+          {loading ? t('processing', 'Đang xử lý...') : t('login_button', 'Đăng nhập')}
         </Button>
       </form>
 
       <div className="relative flex items-center justify-center mt-6 mb-6">
         <div className="absolute inset-x-0 h-px bg-border-strong opacity-50"></div>
         <span className="relative bg-surface-2 px-4 text-[13px] font-medium text-text-secondary uppercase tracking-wider">
-          {t('or')}
+          {t('or', 'hoặc')}
         </span>
       </div>
 
@@ -120,13 +119,13 @@ const LoginForm = () => {
           <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
           <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
         </svg>
-        {t('continue_with_google')}
+        {t('continue_with_google', 'Tiếp tục với Google')}
       </button>
 
       <div className="text-center">
-        <span className="text-[14px] text-text-secondary">{t('no_account')} </span>
+        <span className="text-[14px] text-text-secondary">{t('no_account', 'Chưa có tài khoản? ')}</span>
         <a href="#register" className="text-[14px] font-semibold text-text-primary underline hover:text-primary transition-colors duration-200">
-          {t('sign_up')}
+          {t('sign_up', 'Đăng ký')}
         </a>
       </div>
     </div>

@@ -1,0 +1,114 @@
+{
+  "dashboard": "Bảng Điều Khiển",
+  "greeting": "Xin chào",
+  "cvConfirmation": "Xác Nhận Thông Tin CV",
+  "aiAnalysis": "Phân Tích AI",
+  "skillProgress": "Tiến Độ Kỹ Năng",
+  "strengths": "Điểm Mạnh",
+  "weaknesses": "Điểm Yếu",
+  "actionableAdvice": "Lời Khuyên Hành Động",
+  "targetRole": "Vị Trí Mục Tiêu",
+  "workExperience": "Kinh Nghiệm Làm Việc",
+  "coreTechStack": "Công Nghệ Lõi",
+  "education": "Giáo Dục",
+  "edit": "Chỉnh Sửa",
+  "save": "Lưu",
+  "cancel": "Hủy",
+  "close": "Đóng",
+  "skillHistory": "Lịch Sử Kỹ Năng",
+  "session": "Buổi",
+  "score": "Điểm Số",
+  "confidence": "Tự Tin",
+  "technical": "Chuyên Môn",
+  "communication": "Giao Tiếp",
+  "criticalThinking": "Phản Biện",
+  "languages": "Ngoại Ngữ",
+  "subSkills": "Kỹ Năng Con",
+  "morningGreeting": "Buổi Sáng",
+  "afternoonGreeting": "Buổi Chiều",
+  "eveningGreeting": "Buổi Tối",
+  "mockData": {
+    "cvData": {
+      "targetRole": "Kỹ Sư Phần Mềm Senior",
+      "workExperience": "5 năm",
+      "coreTechStack": "React, Node.js, PostgreSQL",
+      "education": "Đại học Bách Khoa"
+    },
+    "aiFeedback": {
+      "strengths": "Kinh nghiệm sâu với React, kỹ năng giao tiếp tốt, khả năng giải quyết vấn đề vượt trội",
+      "weaknesses": "Kinh nghiệm backend hạn chế, thiếu chứng chỉ lập trình",
+      "actionableAdvice": "Tập trung vào Node.js, hoàn thành các khóa học backend, tham gia các dự án full-stack"
+    },
+    "overviewChart": [
+      {
+        "name": "Tự Tin",
+        "value": 75,
+        "fullName": "Tự Tin"
+      },
+      {
+        "name": "Chuyên Môn",
+        "value": 82,
+        "fullName": "Chuyên Môn"
+      },
+      {
+        "name": "Giao Tiếp",
+        "value": 68,
+        "fullName": "Giao Tiếp"
+      },
+      {
+        "name": "Phản Biện",
+        "value": 79,
+        "fullName": "Phản Biện"
+      },
+      {
+        "name": "Ngoại Ngữ",
+        "value": 71,
+        "fullName": "Ngoại Ngữ"
+      }
+    ],
+    "timelineValues": [
+      {
+        "session": "Buổi 1",
+        "score": 60
+      },
+      {
+        "session": "Buổi 2",
+        "score": 65
+      },
+      {
+        "session": "Buổi 3",
+        "score": 70
+      },
+      {
+        "session": "Buổi 4",
+        "score": 75
+      },
+      {
+        "session": "Buổi 5",
+        "score": 80
+      }
+    ],
+    "subSkills": [
+      {
+        "name": "Nền Tảng Lý Thuyết",
+        "score": 78
+      },
+      {
+        "name": "Ứng Dụng Thực Tế",
+        "score": 82
+      },
+      {
+        "name": "Giải Quyết Vấn Đề",
+        "score": 75
+      },
+      {
+        "name": "Hợp Tác Nhóm",
+        "score": 80
+      },
+      {
+        "name": "Kỹ Năng Giao Tiếp",
+        "score": 72
+      }
+    ]
+  }
+}
