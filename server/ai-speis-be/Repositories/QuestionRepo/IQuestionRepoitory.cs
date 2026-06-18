@@ -9,8 +9,18 @@ namespace ai_speis_be.Repositories.QuestionRepo
             AdminQuestionQueryDto query,
             CancellationToken cancellationToken = default);
         Task<IEnumerable<Question>> GetQuestionsAsync(string ? roleTarget, string? major, string? difficulty );
-        Task<Question?> GetQuestionByIdAsync(int questionId);
-        Task<Question?> GetQuestionByIdAdminAsync(int questionId);
+        Task<Question?> GetQuestionByIdAsync(
+            int questionId,
+            CancellationToken cancellationToken = default);
+        Task<Question?> GetQuestionByIdAdminAsync(
+            int questionId,
+            CancellationToken cancellationToken = default);
+        Task<Question> CreateQuestionAsync(
+            Question question,
+            CancellationToken cancellationToken = default);
+        Task UpdateQuestionAsync(
+            Question question,
+            CancellationToken cancellationToken = default);
 
 
     }

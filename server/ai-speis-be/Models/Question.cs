@@ -32,6 +32,8 @@ namespace ai_speis_be.Models
         [Required]
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public DateTime? DeletedAt { get; set; }
+        public int? DeletedBy { get; set; }
 
         // --- Navigation Properties ---
         public virtual User User { get; set; } = null!;

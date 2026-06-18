@@ -40,14 +40,40 @@ namespace ai_speis_be.Repositories.QuestionRepo
             };
         }
 
-        public async Task<Question?> GetQuestionByIdAdminAsync(int questionId)
+        public async Task<Question?> GetQuestionByIdAdminAsync(
+            int questionId,
+            CancellationToken cancellationToken = default)
         {
-            return await  _context.Questions.FirstOrDefaultAsync(q => q.QuestionId == questionId);
+            return await _context.Questions.FirstOrDefaultAsync(
+                q => q.QuestionId == questionId,
+                cancellationToken);
         }
 
-        public async Task<Question?> GetQuestionByIdAsync(int questionId)
+        public async Task<Question?> GetQuestionByIdAsync(
+            int questionId,
+            CancellationToken cancellationToken = default)
         {
-            return await _context.Questions.FirstOrDefaultAsync(q => q.QuestionId == questionId && q.IsDeleted == false);
+            return await _context.Questions.FirstOrDefaultAsync(
+                q => q.QuestionId == questionId && q.IsDeleted == false,
+                cancellationToken);
+        }
+
+        public async Task<Question> CreateQuestionAsync(
+            Question question,
+            CancellationToken cancellationToken = default)
+        {
+            await _context.Questions.AddAsync(question, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return question;
+        }
+
+        public async Task UpdateQuestionAsync(
+            Question question,
+            CancellationToken cancellationToken = default)
+        {
+            _context.Questions.Update(question);
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         public async Task<IEnumerable<Question>> GetQuestionsAsync(string? roleTarget, string? major, string? difficulty)
