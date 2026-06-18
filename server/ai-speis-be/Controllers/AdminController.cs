@@ -1,5 +1,6 @@
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models.Enums;
+using ai_speis_be.Services.QuestionService;
 using ai_speis_be.Services.UserService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,10 +14,14 @@ namespace ai_speis_be.Controllers
     public sealed class AdminController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IQuestionService _questionService;
 
-        public AdminController(IUserService userService)
+        public AdminController(
+            IUserService userService,
+            IQuestionService questionService)
         {
             _userService = userService;
+            _questionService = questionService;
         }
 
         [HttpGet("users")]
@@ -28,6 +33,21 @@ namespace ai_speis_be.Controllers
             CancellationToken cancellationToken)
         {
             var result = await _userService.GetUsersAsync(query, cancellationToken);
+            return Ok(result);
+        }
+
+        [HttpGet("questions")]
+        [ProducesResponseType(
+            typeof(PagedResultDto<AdminQuestionListItemDto>),
+            StatusCodes.Status200OK)]
+        public async Task<ActionResult<PagedResultDto<AdminQuestionListItemDto>>> GetQuestions(
+            [FromQuery] AdminQuestionQueryDto query,
+            CancellationToken cancellationToken)
+        {
+            var result = await _questionService.GetAdminQuestionsAsync(
+                query,
+                cancellationToken);
+
             return Ok(result);
         }
 

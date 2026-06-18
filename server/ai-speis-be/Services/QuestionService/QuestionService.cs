@@ -11,6 +11,24 @@ namespace ai_speis_be.Services.QuestionService
         {
             _repository = repository;
         }
+
+        public async Task<PagedResultDto<AdminQuestionListItemDto>> GetAdminQuestionsAsync(
+            AdminQuestionQueryDto query,
+            CancellationToken cancellationToken = default)
+        {
+            var questions = await _repository.GetAdminQuestionsAsync(
+                query,
+                cancellationToken);
+
+            return new PagedResultDto<AdminQuestionListItemDto>
+            {
+                Items = questions.Items.Select(MapToAdminListItemDto).ToList(),
+                PageNumber = questions.PageNumber,
+                PageSize = questions.PageSize,
+                TotalItems = questions.TotalItems
+            };
+        }
+
         public async Task<QuestionResponseDto?> GetQuestionByIdAdminAsync(int questionId)
         {
             var question =await _repository.GetQuestionByIdAdminAsync(questionId);
@@ -23,12 +41,6 @@ namespace ai_speis_be.Services.QuestionService
             return question != null ? MapToDto(question) : null;
         }
 
-        public async Task<IEnumerable<QuestionResponseDto>> GetQuestionsAdminAsync(string? roleTarget, string? major, string? difficulty)
-        {
-            var questions = await _repository.GetQuestionsAdminAsync(roleTarget, major, difficulty);
-            return questions.Select(MapToDto);
-        }
-
         public async Task<IEnumerable<QuestionResponseDto>> GetQuestionsAsync(string? roleTarget, string? major, string? difficulty)
         {
             var questions = await _repository.GetQuestionsAsync(roleTarget, major, difficulty);
@@ -37,6 +49,23 @@ namespace ai_speis_be.Services.QuestionService
         private QuestionResponseDto MapToDto(Question question)
         {
             return new QuestionResponseDto
+            {
+                QuestionId = question.QuestionId,
+                UserId = question.UserId,
+                QuestionContent = question.QuestionContent,
+                SuggestedAnswer = question.SuggestedAnswer,
+                Difficulty = question.Difficulty,
+                RoleTarget = question.RoleTarget,
+                Major = question.Major,
+                IsDeleted = question.IsDeleted,
+                CreatedAt = question.CreatedAt,
+                UpdatedAt = question.UpdatedAt
+            };
+        }
+
+        private AdminQuestionListItemDto MapToAdminListItemDto(Question question)
+        {
+            return new AdminQuestionListItemDto
             {
                 QuestionId = question.QuestionId,
                 UserId = question.UserId,

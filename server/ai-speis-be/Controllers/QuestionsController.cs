@@ -14,13 +14,6 @@ namespace ai_speis_be.Controllers
         {
             _service = service;
         }
-        [HttpGet("admin")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetQuestionsAdminAsync([FromQuery]string? roleTarget, [FromQuery] string? major, [FromQuery] string? difficulty)
-        {
-            var questions = await _service.GetQuestionsAdminAsync(roleTarget, major, difficulty);
-            return Ok(questions);
-        }
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetQuestionsAsync([FromQuery]string? roleTarget, [FromQuery] string? major, [FromQuery] string? difficulty)
