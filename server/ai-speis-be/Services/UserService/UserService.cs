@@ -258,5 +258,72 @@ namespace ai_speis_be.Services.UserService
             await _userRepository.UpdateUserAsync(user);
             return true;
         }
+
+        // ── Profile & Security ─────────────────────────────────────────────────
+
+        public async Task<UserMeResponseDto?> GetMyProfileAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            return user is null ? null : MapToUserMeResponseDto(user);
+        }
+
+        public async Task<UpdateProfileResult> UpdateMyProfileAsync(
+            int userId,
+            UpdateProfileRequestDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            if (user is null)
+                return new UpdateProfileResult(UpdateProfileOutcome.UserNotFound);
+
+            user.FullName = dto.FullName.Trim();
+            user.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber)
+                ? null
+                : dto.PhoneNumber.Trim();
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+            return new UpdateProfileResult(UpdateProfileOutcome.Success, MapToUserMeResponseDto(user));
+        }
+
+        public async Task<ChangePasswordResult> ChangePasswordAsync(
+            int userId,
+            ChangePasswordRequestDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            if (user is null)
+                return new ChangePasswordResult(ChangePasswordOutcome.UserNotFound);
+
+            // Tài khoản Google không có PasswordHash
+            if (string.IsNullOrEmpty(user.PasswordHash))
+                return new ChangePasswordResult(ChangePasswordOutcome.GoogleAccount);
+
+            if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+                return new ChangePasswordResult(ChangePasswordOutcome.WrongCurrentPassword);
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+            return new ChangePasswordResult(ChangePasswordOutcome.Success);
+        }
+
+        // ── Private helpers ────────────────────────────────────────────────────
+
+        private static UserMeResponseDto MapToUserMeResponseDto(User user) => new()
+        {
+            UserId = user.UserId,
+            FullName = user.FullName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            Role = user.Role.RoleName,
+            Status = user.Status,
+            IsLocked = user.IsLocked,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt
+        };
     }
 }
