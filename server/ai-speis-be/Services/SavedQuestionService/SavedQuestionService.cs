@@ -47,8 +47,13 @@ namespace ai_speis_be.Services.SavedQuestionService
                     RoleTarget = savedQuestion.Question.RoleTarget,
                     Major = savedQuestion.Question.Major,
                     IsDeleted = savedQuestion.Question.IsDeleted,
+                    Status = savedQuestion.Question.IsDeleted
+                        ? AdminQuestionStatus.Inactive.ToString()
+                        : AdminQuestionStatus.Active.ToString(),
                     CreatedAt = savedQuestion.Question.CreatedAt,
-                    UpdatedAt = savedQuestion.Question.UpdatedAt
+                    UpdatedAt = savedQuestion.Question.UpdatedAt,
+                    DeletedAt = savedQuestion.Question.DeletedAt,
+                    DeletedBy = savedQuestion.Question.DeletedBy
                 },
                 SavedAt = savedQuestion.SavedAt,
 
