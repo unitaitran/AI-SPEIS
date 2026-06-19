@@ -13,9 +13,6 @@ namespace ai_speis_be.Models.DTOs
     public abstract class AdminQuestionMutationRequestDto : IValidatableObject
     {
         [StringLength(4000)]
-        public string? QuestionText { get; set; }
-
-        [StringLength(4000)]
         public string? QuestionContent { get; set; }
 
         [StringLength(100)]
@@ -27,13 +24,7 @@ namespace ai_speis_be.Models.DTOs
         [JsonConverter(typeof(JsonStringEnumConverter))]
         [Required]
         public QuestionDifficultyEnum? Difficulty { get; set; }
-
-        [StringLength(4000)]
-        public string? ExpectedAnswer { get; set; }
-
-        [StringLength(4000)]
-        public string? Rubric { get; set; }
-
+        
         [StringLength(4000)]
         public string? SuggestedAnswer { get; set; }
 
@@ -47,7 +38,7 @@ namespace ai_speis_be.Models.DTOs
             {
                 yield return new ValidationResult(
                     "QuestionText or QuestionContent is required.",
-                    new[] { nameof(QuestionText), nameof(QuestionContent) });
+                    new[] { nameof(QuestionContent) });
             }
 
             if (Normalize(Major) is null)
@@ -67,11 +58,9 @@ namespace ai_speis_be.Models.DTOs
             if (NormalizeSuggestedAnswer() is null)
             {
                 yield return new ValidationResult(
-                    "ExpectedAnswer, Rubric, or SuggestedAnswer is required.",
+                    "SuggestedAnswer is required.",
                     new[]
                     {
-                        nameof(ExpectedAnswer),
-                        nameof(Rubric),
                         nameof(SuggestedAnswer)
                     });
             }
@@ -128,15 +117,13 @@ namespace ai_speis_be.Models.DTOs
 
         private string? NormalizeQuestionContent()
         {
-            return Normalize(QuestionText) ??
+            return 
                 Normalize(QuestionContent);
         }
 
         private string? NormalizeSuggestedAnswer()
         {
-            return Normalize(ExpectedAnswer) ??
-                Normalize(Rubric) ??
-                Normalize(SuggestedAnswer);
+            return Normalize(SuggestedAnswer);
         }
 
         private static string? Normalize(string? value)
