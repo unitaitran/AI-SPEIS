@@ -7,9 +7,15 @@ using ai_speis_be.Services.TokenService;
 using ai_speis_be.Services.EmailService;
 using ai_speis_be.Services.CVService;
 using ai_speis_be.Services.FileValidatorService;
+using ai_speis_be.Repositories.QuestionRepo;
+using ai_speis_be.Services.QuestionService;
+using ai_speis_be.Repositories.SavedQuestionRepo;
+using ai_speis_be.Services.SavedQuestionService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.OpenApi.Models;
+
 
 LoadEnvFile();
 
@@ -24,7 +30,35 @@ builder.Services.AddControllers()
     });
     
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    const string securitySchemeName = "Bearer";
+
+    options.AddSecurityDefinition(securitySchemeName, new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "Enter JWT token. Swagger will add the 'Bearer' prefix automatically.",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = securitySchemeName
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "keys")));
@@ -49,6 +83,14 @@ builder.Services.AddScoped<IEmailSender, EmailService>();
 builder.Services.AddScoped<ICVRepository, CVRepository>();
 builder.Services.AddScoped<IFileValidatorService, FileValidatorService>();
 builder.Services.AddScoped<ICVService, CVService>();
+
+// Register Question Bank
+builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();
+builder.Services.AddScoped<IQuestionService, QuestionService>();
+
+// Register Saved Questions
+builder.Services.AddScoped<ISavedQuestionRepository, SavedQuestionRepository>();
+builder.Services.AddScoped<ISavedQuestionService, SavedQuestionService>();
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
@@ -91,6 +133,29 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
             System.Text.Encoding.UTF8.GetBytes(GetRequiredConfiguration(builder.Configuration, "Jwt:Key")))
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var userIdClaim = context.Principal?.FindFirst("UserId")?.Value;
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+                context.Fail("The user identifier claim is missing or invalid.");
+                return;
+            }
+
+            var userRepository = context.HttpContext.RequestServices
+                .GetRequiredService<IUserRepository>();
+            var user = await userRepository.GetUserByIdAsync(
+                userId,
+                context.HttpContext.RequestAborted);
+
+            if (user is null || !user.Status || user.IsLocked)
+            {
+                context.Fail("The user account is inactive or locked.");
+            }
+        }
     };
 });
 

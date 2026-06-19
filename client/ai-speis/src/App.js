@@ -29,6 +29,7 @@ import './App.css';
 import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
 import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
+import ResetPasswordPage from './pages/authen/ResetPasswordPage';
 import DashboardPage from './pages/user/DashboardPage';
 import { getDefaultRouteForRole, getStoredSession } from './routes/auth';
 import { navigate } from './routes/navigation';
@@ -88,6 +89,7 @@ function App() {
   }
   
   if (currentHash.startsWith('#forgot-password')) return <ForgotPasswordPage />;
+  if (currentHash.startsWith('#reset-password')) return <ResetPasswordPage />;
   if (currentHash.startsWith('#dashboard')) {
     const hasTokenInUrl = currentHash.includes('?token=');
     if (!isAuthenticated && !hasTokenInUrl) {

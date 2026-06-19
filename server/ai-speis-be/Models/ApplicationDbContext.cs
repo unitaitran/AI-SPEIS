@@ -12,6 +12,9 @@ namespace ai_speis_be.Models
         public DbSet<Role> Roles { get; set; } = null!;
         public DbSet<UserProfile> UserProfiles { get; set; } = null!;
         public DbSet<CVFile> CVFiles { get; set; } = null!;
+        public DbSet<Question> Questions { get; set; } = null!;
+        public DbSet<SavedQuestion> SavedQuestion { get; set; } = null!;
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -41,6 +44,29 @@ namespace ai_speis_be.Models
                 .WithMany(u => u.CVFiles)
                 .HasForeignKey(cv => cv.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Question>()
+                .HasOne(q => q.User)
+                .WithMany() // Nếu bảng User không có danh sách Questions điều hướng ngược lại thì để trống WithMany()
+                .HasForeignKey(q => q.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SavedQuestion>()
+                .HasIndex(usq => new { usq.UserId, usq.QuestionId })
+                .IsUnique(); // Đảm bảo duy nhất
+
+            modelBuilder.Entity<SavedQuestion>()
+                .HasOne(usq => usq.User)
+                .WithMany()
+                .HasForeignKey(usq => usq.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SavedQuestion>()
+                .HasOne(usq => usq.Question)
+                .WithMany()
+                .HasForeignKey(usq => usq.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
         }
     }
 }

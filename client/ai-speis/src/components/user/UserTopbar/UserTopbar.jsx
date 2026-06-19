@@ -1,21 +1,27 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings, Globe } from 'lucide-react';
 import { navigate } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 
-function UserTopbar({ onMenuClick }) {
+function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
+  const { t, i18n } = useTranslation('dashboard');
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        setUser(JSON.parse(userStr));
-      } catch (e) {
-        console.error('Failed to parse user', e);
+    if (propUser) {
+      setUser(propUser);
+    } else {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          setUser(JSON.parse(userStr));
+        } catch (e) {
+          console.error('Failed to parse user', e);
+        }
       }
     }
-  }, []);
+  }, [propUser]);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -33,9 +39,12 @@ function UserTopbar({ onMenuClick }) {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.hash = '#';
-    // Small delay to allow App.js to detect the hash change before reloading if necessary
-    window.location.reload();
+    window.location.href = '/#login';
+  };
+
+  const toggleLanguage = () => {
+    const nextLang = i18n.language.startsWith('vi') ? 'en' : 'vi';
+    i18n.changeLanguage(nextLang);
   };
 
   return (
@@ -59,7 +68,7 @@ function UserTopbar({ onMenuClick }) {
         {/* Quota Badge */}
         <div className="hidden sm:flex items-center bg-gradient-to-r from-primary-light to-primary-xlight border border-primary-light rounded-full px-3 py-1.5 text-sm font-semibold text-primary-dark shadow-sm">
           <Ticket size={16} className="text-primary-dark mr-2" />
-          <span>5 lượt phỏng vấn</span>
+          <span>5 {t('topbar.quota_remaining', 'lượt phỏng vấn')}</span>
         </div>
 
         {/* Notification */}
@@ -77,8 +86,12 @@ function UserTopbar({ onMenuClick }) {
             className="flex items-center space-x-2 p-1 pl-2 pr-3 hover:bg-surface-3 rounded-full transition-colors border border-transparent hover:border-border group"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white shadow-sm">
-              <User size={16} />
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white shadow-sm overflow-hidden">
+              {user && user.avatar ? (
+                <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <User size={16} />
+              )}
             </div>
             <span className="text-sm font-bold text-text-primary hidden sm:block group-hover:text-primary-dark transition-colors">
               {user ? user.fullName : 'User Name'}
@@ -94,21 +107,35 @@ function UserTopbar({ onMenuClick }) {
                 <p className="text-xs text-text-secondary line-clamp-1">{user ? user.email : ''}</p>
               </div>
               <button 
-                className="w-full flex items-center px-4 py-2 text-sm text-text-secondary hover:text-primary-dark hover:bg-primary-xlight transition-colors"
+                className="w-full flex items-center px-4 py-2 text-sm text-text-secondary hover:text-primary-dark hover:bg-primary-xlight transition-colors cursor-pointer"
                 onClick={() => {
                   setIsDropdownOpen(false);
-                  navigate(USER_ROUTES.PROFILE);
+                  if (onOpenProfile) {
+                    onOpenProfile();
+                  } else {
+                    navigate(USER_ROUTES.PROFILE);
+                  }
                 }}
               >
                 <Settings size={16} className="mr-3" />
-                Thông tin cá nhân
+                {t('topbar.profile_info', 'Thông tin cá nhân')}
               </button>
+              
+              {/* Language Switcher Button */}
               <button 
-                className="w-full flex items-center px-4 py-2 text-sm text-error hover:bg-error/10 transition-colors mt-1"
+                className="w-full flex items-center px-4 py-2 text-sm text-text-secondary hover:text-primary-dark hover:bg-primary-xlight transition-colors cursor-pointer mt-1"
+                onClick={toggleLanguage}
+              >
+                <Globe size={16} className="mr-3" />
+                {i18n.language.startsWith('vi') ? 'English (EN)' : 'Tiếng Việt (VI)'}
+              </button>
+
+              <button 
+                className="w-full flex items-center px-4 py-2 text-sm text-error hover:bg-error/10 transition-colors mt-1 cursor-pointer"
                 onClick={handleLogout}
               >
                 <LogOut size={16} className="mr-3" />
-                Đăng xuất
+                {t('topbar.logout', 'Đăng xuất')}
               </button>
             </div>
           )}

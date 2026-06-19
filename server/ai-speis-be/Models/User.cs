@@ -35,6 +35,15 @@ namespace ai_speis_be.Models
 
         public bool Status { get; set; } = true;
 
+        public bool IsLocked { get; set; }
+
+        [MaxLength(500)]
+        public string? LockReason { get; set; }
+
+        public DateTime? LockedAt { get; set; }
+
+        public int? LockedByUserId { get; set; }
+
         public string? EmailConfirmationToken { get; set; }
 
         public DateTime? EmailConfirmationTokenExpiresAt { get; set; }

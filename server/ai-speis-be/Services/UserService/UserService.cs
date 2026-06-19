@@ -14,21 +14,91 @@ namespace ai_speis_be.Services.UserService
             _userRepository = userRepository;
         }
 
-        public async Task<IEnumerable<UserResponseDto>> GetUsersAsync()
+        public Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
+            AdminUserQueryDto query,
+            CancellationToken cancellationToken = default)
         {
-            var users = await _userRepository.GetUsersAsync();
+            return _userRepository.GetUsersAsync(query, cancellationToken);
+        }
 
-            return users.Select(user => new UserResponseDto
+        public async Task<LockUserResult> LockUserAsync(
+            int userId,
+            int actingUserId,
+            string? reason,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
             {
-                UserId = user.UserId,
-                RoleId = user.RoleId,
-                FullName = user.FullName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Status = user.Status,
-                CreatedAt = user.CreatedAt,
-                UpdatedAt = user.UpdatedAt
-            });
+                return new LockUserResult(LockUserOutcome.UserNotFound);
+            }
+
+            if (user.UserId == actingUserId)
+            {
+                return new LockUserResult(
+                    LockUserOutcome.CannotLockSelf,
+                    user);
+            }
+
+            if (HasProtectedAdministrativeRole(user.Role.RoleName))
+            {
+                return new LockUserResult(
+                    LockUserOutcome.ProtectedRole,
+                    user);
+            }
+
+            if (user.IsLocked)
+            {
+                return new LockUserResult(
+                    LockUserOutcome.AlreadyLocked,
+                    user);
+            }
+
+            user.IsLocked = true;
+            user.Status = false;
+            user.LockReason = NormalizeReason(reason);
+            user.LockedAt = DateTime.UtcNow;
+            user.LockedByUserId = actingUserId;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+
+            return new LockUserResult(LockUserOutcome.Locked, user);
+        }
+
+        public async Task<UnlockUserResult> UnlockUserAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                return new UnlockUserResult(UnlockUserOutcome.UserNotFound);
+            }
+
+            if (!user.IsLocked)
+            {
+                return new UnlockUserResult(
+                    UnlockUserOutcome.NotLocked,
+                    user);
+            }
+
+            user.IsLocked = false;
+            user.Status = true;
+            user.LockReason = null;
+            user.LockedAt = null;
+            user.LockedByUserId = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+
+            return new UnlockUserResult(UnlockUserOutcome.Unlocked, user);
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
@@ -39,7 +109,7 @@ namespace ai_speis_be.Services.UserService
         {
             var user = new User
             {
-                RoleId = 5, // Default to regular user role
+                RoleId = 2, // Default to regular user role
                 FullName = registerDto.FullName,
                 Email = registerDto.Email,
                 PhoneNumber = registerDto.PhoneNumber,
@@ -78,6 +148,7 @@ namespace ai_speis_be.Services.UserService
 
             var user = await _userRepository.GetUserByEmailConfirmationTokenAsync(token);
             if (user == null ||
+                user.IsLocked ||
                 user.EmailConfirmationTokenExpiresAt is null ||
                 user.EmailConfirmationTokenExpiresAt <= DateTime.UtcNow)
             {
@@ -101,6 +172,11 @@ namespace ai_speis_be.Services.UserService
             {
                 return null;
             }
+
+            if (user.IsLocked)
+            {
+                return user;
+            }
             //nếu user đã tồn tại và xác nhận email => trả về user, không cần cập nhật gì
 
             if (user.EmailConfirmedAt !=  null &&
@@ -123,6 +199,25 @@ namespace ai_speis_be.Services.UserService
         {
             return Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         }
+
+        private static string? NormalizeReason(string? reason)
+        {
+            return string.IsNullOrWhiteSpace(reason)
+                ? null
+                : reason.Trim();
+        }
+
+        private static bool HasProtectedAdministrativeRole(string roleName)
+        {
+            var normalizedRoleName = new string(
+                roleName
+                    .Where(char.IsLetterOrDigit)
+                    .Select(char.ToUpperInvariant)
+                    .ToArray());
+
+            return normalizedRoleName is "ADMIN" or "SYSTEMADMIN";
+        }
+    
         private static string GeneratePasswordResetToken(int userId)
         {
             return Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
@@ -163,5 +258,83 @@ namespace ai_speis_be.Services.UserService
             await _userRepository.UpdateUserAsync(user);
             return true;
         }
+
+        // ── Profile & Security ─────────────────────────────────────────────────
+
+        public async Task<UserMeResponseDto?> GetMyProfileAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            return user is null ? null : MapToUserMeResponseDto(user);
+        }
+
+        public async Task<UpdateProfileResult> UpdateMyProfileAsync(
+            int userId,
+            UpdateProfileRequestDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            if (user is null)
+                return new UpdateProfileResult(UpdateProfileOutcome.UserNotFound);
+
+            if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
+            {
+                var cleanPhone = dto.PhoneNumber.Trim();
+                var phoneUser = await _userRepository.GetUserByPhoneNumberAsync(cleanPhone);
+                if (phoneUser != null && phoneUser.UserId != userId)
+                {
+                    return new UpdateProfileResult(UpdateProfileOutcome.PhoneNumberAlreadyExists);
+                }
+            }
+
+            user.FullName = dto.FullName.Trim();
+            user.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber)
+                ? null
+                : dto.PhoneNumber.Trim();
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+            return new UpdateProfileResult(UpdateProfileOutcome.Success, MapToUserMeResponseDto(user));
+        }
+
+        public async Task<ChangePasswordResult> ChangePasswordAsync(
+            int userId,
+            ChangePasswordRequestDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            if (user is null)
+                return new ChangePasswordResult(ChangePasswordOutcome.UserNotFound);
+
+            // Nếu tài khoản đã có mật khẩu => bắt buộc kiểm tra mật khẩu hiện tại
+            if (!string.IsNullOrEmpty(user.PasswordHash))
+            {
+                if (string.IsNullOrEmpty(dto.CurrentPassword) || !BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+                    return new ChangePasswordResult(ChangePasswordOutcome.WrongCurrentPassword);
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+            return new ChangePasswordResult(ChangePasswordOutcome.Success);
+        }
+
+        // ── Private helpers ────────────────────────────────────────────────────
+
+        private static UserMeResponseDto MapToUserMeResponseDto(User user) => new()
+        {
+            UserId = user.UserId,
+            FullName = user.FullName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            Role = user.Role.RoleName,
+            Status = user.Status,
+            IsLocked = user.IsLocked,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt,
+            HasPassword = !string.IsNullOrEmpty(user.PasswordHash)
+        };
     }
 }

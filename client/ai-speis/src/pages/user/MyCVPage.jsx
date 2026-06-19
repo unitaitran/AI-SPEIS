@@ -16,17 +16,14 @@ import {
   Sparkles
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
+import { ENDPOINTS } from '../../config/api';
 
 function MyCVPage() {
-  // Use localStorage to persist the state for a better user experience
-  const [cvUploaded, setCvUploaded] = useState(() => {
-    const saved = localStorage.getItem('ai_speis_cv_uploaded');
-    return saved === 'true';
-  });
-  
-  const [fileName, setFileName] = useState(() => {
-    return localStorage.getItem('ai_speis_cv_filename') || 'CV_Nguyen_Van_A_Frontend_Dev.pdf';
-  });
+  const [cvUploaded, setCvUploaded] = useState(false);
+  const [fileName, setFileName] = useState('');
+  const [cvFileId, setCvFileId] = useState(null);
+  const [uploadDate, setUploadDate] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -72,55 +69,181 @@ function MyCVPage() {
     ]
   };
 
-  const handleFileUpload = (e) => {
+  useEffect(() => {
+    const fetchMyCV = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await fetch(ENDPOINTS.CV_GET_MY, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCvUploaded(true);
+          setFileName(data.fileName);
+          setCvFileId(data.cvFileId);
+          const date = new Date(data.uploadedAt);
+          const formattedDate = date.toLocaleDateString('vi-VN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+          setUploadDate(formattedDate);
+        } else if (response.status === 404) {
+          setCvUploaded(false);
+          setFileName('');
+          setCvFileId(null);
+        }
+      } catch (error) {
+        console.error('Lỗi khi tải thông tin CV:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMyCV();
+  }, []);
+
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
       if (!file.name.toLowerCase().endsWith('.pdf')) {
         alert('Chỉ hỗ trợ tệp tin định dạng PDF');
         return;
       }
-      simulateUpload(file.name);
-    }
-  };
+      
+      setIsUploading(true);
+      setUploadProgress(0);
+      setUploadStep('Đang chuẩn bị tệp tin...');
 
-  const simulateUpload = (name) => {
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadStep('Đang chuẩn bị tệp tin...');
+      let apiFinished = false;
+      let apiResponseData = null;
+      let apiError = null;
 
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        const next = prev + 5;
-        if (next >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsUploading(false);
-            setCvUploaded(true);
-            setFileName(name);
-            localStorage.setItem('ai_speis_cv_uploaded', 'true');
-            localStorage.setItem('ai_speis_cv_filename', name);
-            setRemainingEvaluations((prevEval) => Math.max(0, prevEval - 1));
-          }, 600);
-          return 100;
+      // Start the upload in the background
+      (async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const response = await fetch(ENDPOINTS.CV_UPLOAD, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || 'Lỗi tải lên CV');
+          }
+
+          const data = await response.json();
+          apiResponseData = data;
+        } catch (error) {
+          apiError = error.message || 'Không thể tải lên file CV. Vui lòng thử lại.';
+        } finally {
+          apiFinished = true;
         }
+      })();
 
-        // Update helper step texts
-        if (next === 20) setUploadStep('Đang phân tích cấu trúc CV...');
-        if (next === 50) setUploadStep('AI đang trích xuất thông tin kỹ năng...');
-        if (next === 80) setUploadStep('Đang đối chiếu dự án và kinh nghiệm...');
-        if (next === 95) setUploadStep('Hoàn tất phân tích!');
+      const interval = setInterval(() => {
+        setUploadProgress((prev) => {
+          let next = prev;
+          if (prev < 90) {
+            next = prev + 5;
+          } else if (apiFinished) {
+            next = prev + 10;
+          }
 
-        return next;
-      });
-    }, 150);
-  };
+          if (next >= 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+              setIsUploading(false);
+              if (apiError) {
+                alert(apiError);
+                setCvUploaded(false);
+              } else if (apiResponseData) {
+                setCvUploaded(true);
+                setFileName(apiResponseData.fileName);
+                setCvFileId(apiResponseData.cvFileId);
+                const date = new Date(apiResponseData.uploadedAt);
+                const formattedDate = date.toLocaleDateString('vi-VN', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit'
+                });
+                setUploadDate(formattedDate);
+                setRemainingEvaluations((prevEval) => Math.max(0, prevEval - 1));
+              }
+            }, 600);
+            return 100;
+          }
 
-  const handleRemoveCV = () => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa CV này? Điều này sẽ đặt lại dữ liệu phân tích của bạn.')) {
-      setCvUploaded(false);
-      localStorage.setItem('ai_speis_cv_uploaded', 'false');
+          // Update helper step texts
+          if (next === 20) setUploadStep('Đang tải tệp tin lên máy chủ...');
+          if (next === 40) setUploadStep('Đang phân tích cấu trúc CV...');
+          if (next === 60) setUploadStep('AI đang trích xuất thông tin kỹ năng...');
+          if (next === 80) setUploadStep('Đang đối chiếu dự án và kinh nghiệm...');
+          if (next === 95) setUploadStep('Hoàn tất phân tích!');
+
+          return next;
+        });
+      }, 150);
     }
   };
+
+  const handleRemoveCV = async () => {
+    if (!cvFileId) {
+      alert('Không tìm thấy thông tin tệp CV cần xóa.');
+      return;
+    }
+    if (window.confirm('Bạn có chắc chắn muốn xóa CV này?')) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(ENDPOINTS.CV_DELETE(cvFileId), {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          setCvUploaded(false);
+          setFileName('');
+          setCvFileId(null);
+          setUploadDate('');
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          alert(errData.message || 'Lỗi khi xóa CV trên máy chủ.');
+        }
+      } catch (error) {
+        console.error('Lỗi khi kết nối xóa CV:', error);
+        alert('Lỗi kết nối khi xóa CV. Vui lòng thử lại.');
+      }
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <UserLayout>
+        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+          <Loader2 size={36} className="text-primary animate-spin" />
+          <p className="text-sm text-text-secondary">Đang tải thông tin CV của bạn...</p>
+        </div>
+      </UserLayout>
+    );
+  }
 
   return (
     <UserLayout>
@@ -133,18 +256,6 @@ function MyCVPage() {
               Quản lý CV để AI phân tích kỹ năng, dự án và tạo câu hỏi phỏng vấn cá nhân hóa.
             </p>
           </div>
-          {cvUploaded && (
-            <button 
-              onClick={() => {
-                setCvUploaded(false);
-                localStorage.setItem('ai_speis_cv_uploaded', 'false');
-              }}
-              className="px-3.5 py-2 text-xs font-semibold bg-primary-xlight hover:bg-primary-light text-primary-dark rounded-lg border border-primary-light transition-all self-start md:self-auto flex items-center gap-1.5"
-            >
-              <Trash2 size={14} />
-              Reset State (Demo)
-            </button>
-          )}
         </section>
 
         {isUploading ? (
@@ -228,7 +339,7 @@ function MyCVPage() {
                       <CheckCircle2 size={10} className="mr-1" /> Đã phân tích
                     </span>
                   </div>
-                  <p className="text-xs text-text-secondary">Ngày tải lên: {cvData.uploadDate}</p>
+                  <p className="text-xs text-text-secondary">Ngày tải lên: {uploadDate || cvData.uploadDate}</p>
                   
                   {/* Quick info list */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-xs font-medium text-text-secondary">
