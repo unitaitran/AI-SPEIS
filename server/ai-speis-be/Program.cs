@@ -7,6 +7,8 @@ using ai_speis_be.Services.TokenService;
 using ai_speis_be.Services.EmailService;
 using ai_speis_be.Services.CVService;
 using ai_speis_be.Services.FileValidatorService;
+using ai_speis_be.Services.PdfExtractorService;
+using ai_speis_be.Services.GeminiAiParsingService;
 using ai_speis_be.Repositories.QuestionRepo;
 using ai_speis_be.Services.QuestionService;
 using ai_speis_be.Repositories.SavedQuestionRepo;
@@ -83,6 +85,8 @@ builder.Services.AddScoped<IEmailSender, EmailService>();
 builder.Services.AddScoped<ICVRepository, CVRepository>();
 builder.Services.AddScoped<IFileValidatorService, FileValidatorService>();
 builder.Services.AddScoped<ICVService, CVService>();
+builder.Services.AddScoped<IPdfExtractorService, PdfExtractorService>();
+builder.Services.AddScoped<IGeminiAiParsingService, GeminiAiParsingService>();
 
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();
