@@ -70,7 +70,8 @@ namespace ai_speis_be.Controllers
                 Role = user.Role.RoleName,
                 UserId = user.UserId,
                 FullName = user.FullName,
-                Email = user.Email
+                Email = user.Email,
+                ImageUrl = user.ImageUrl
             });
         }
 
@@ -228,7 +229,7 @@ namespace ai_speis_be.Controllers
             var jwtToken = _tokenService.GenerateToken(user.UserId, user.Role.RoleName, user.FullName, user.Email);
             await HttpContext.SignOutAsync("External");
 
-            var redirectUrl = $"http://localhost:3000/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}";
+            var redirectUrl = $"http://localhost:3000/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}&imageUrl={Uri.EscapeDataString(user.ImageUrl ?? "")}";
             return Redirect(redirectUrl);
         }
 

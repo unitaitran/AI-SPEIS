@@ -58,7 +58,8 @@ namespace ai_speis_be.Models
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }
-
+        [MaxLength(256)]
+        public string? ImageUrl { get; set; }
         // Navigation property
         public virtual  Role Role { get; set; } = null!;
         
