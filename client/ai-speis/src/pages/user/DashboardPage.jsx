@@ -14,7 +14,7 @@ function DashboardPage() {
     if (hash.startsWith('#dashboard?')) {
       const queryString = hash.split('?')[1];
       const urlParams = new URLSearchParams(queryString);
-      
+
       const token = urlParams.get('token');
       const userId = urlParams.get('userId');
       const fullName = urlParams.get('fullName');
@@ -29,7 +29,7 @@ function DashboardPage() {
           email: email,
           role: role
         }));
-        
+
         navigate(USER_ROUTES.DASHBOARD, { replace: true });
       }
     } else {
@@ -38,7 +38,7 @@ function DashboardPage() {
       if (userStr) {
         try {
           setUser(JSON.parse(userStr));
-        } catch(e) {}
+        } catch (e) { }
       }
     }
   }, []);
@@ -77,7 +77,7 @@ function DashboardPage() {
   return (
     <UserLayout>
       <div className="space-y-8 pb-10">
-        
+
         {/* Page Header */}
         <section>
           <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">Dashboard</h1>
@@ -114,7 +114,7 @@ function DashboardPage() {
             {/* Decorative circles */}
             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></div>
             <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-black opacity-10 rounded-full blur-2xl"></div>
-            
+
             <div className="relative z-10">
               <h2 className="text-3xl font-bold mb-4 leading-tight drop-shadow-sm">
                 {t('banner.title', 'Sẵn sàng\nluyện phỏng\nvấn?').split('\n').map((line, idx) => (
@@ -142,7 +142,7 @@ function DashboardPage() {
                 {t('chart.view_details', 'XEM CHI TIẾT')}
               </button>
             </div>
-            
+
             {/* Simple CSS Bar Chart implementation matching the mockup */}
             <div className="flex-1 min-h-[220px] flex items-end pt-4 relative">
               {/* Y-axis grid lines */}
@@ -157,7 +157,7 @@ function DashboardPage() {
                   <span className="text-[10px] text-text-disabled -mb-2 -ml-4 bg-surface-2 pr-1">0</span>
                 </div>
               </div>
-              
+
               {/* Bars */}
               <div className="w-full h-full flex justify-around items-end z-10 pb-8 pl-4">
                 {skills.map((skill, idx) => (
@@ -166,7 +166,7 @@ function DashboardPage() {
                     <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-text-primary text-white text-[10px] py-1 px-2 rounded pointer-events-none">
                       {skill.score}
                     </div>
-                    <div 
+                    <div
                       className="w-full bg-gradient-to-t from-primary-light to-primary hover:from-primary hover:to-primary-dark transition-all rounded-t-md shadow-sm"
                       style={{ height: `${(skill.score / 10) * 100}%` }}
                     ></div>

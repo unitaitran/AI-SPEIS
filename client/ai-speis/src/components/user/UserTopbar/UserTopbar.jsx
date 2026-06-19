@@ -36,6 +36,19 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+
+    const handleScroll = () => {
+      setIsDropdownOpen(false);
+    };
+
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+    };
+  }, [isDropdownOpen]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -48,7 +61,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   };
 
   return (
-    <header className="h-16 bg-surface-2 border-b border-border flex items-center justify-between px-6 shrink-0 z-10 sticky top-0">
+    <header className="h-[85px] bg-surface-2 border-b border-border flex items-center justify-between px-6 shrink-0 z-10 sticky top-0">
       <div className="flex items-center lg:hidden">
         <button
           className="p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-md hover:bg-surface-3 transition-colors"
@@ -82,7 +95,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
 
         {/* Profile Dropdown */}
         <div className="relative" ref={dropdownRef}>
-          <button 
+          <button
             className="flex items-center space-x-2 p-1 pl-2 pr-3 hover:bg-surface-3 rounded-full transition-colors border border-transparent hover:border-border group"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
@@ -106,7 +119,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
                 <p className="text-sm font-semibold text-text-primary line-clamp-1">{user ? user.fullName : 'User Name'}</p>
                 <p className="text-xs text-text-secondary line-clamp-1">{user ? user.email : ''}</p>
               </div>
-              <button 
+              <button
                 className="w-full flex items-center px-4 py-2 text-sm text-text-secondary hover:text-primary-dark hover:bg-primary-xlight transition-colors cursor-pointer"
                 onClick={() => {
                   setIsDropdownOpen(false);
@@ -120,9 +133,9 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
                 <Settings size={16} className="mr-3" />
                 {t('topbar.profile_info', 'Thông tin cá nhân')}
               </button>
-              
+
               {/* Language Switcher Button */}
-              <button 
+              <button
                 className="w-full flex items-center px-4 py-2 text-sm text-text-secondary hover:text-primary-dark hover:bg-primary-xlight transition-colors cursor-pointer mt-1"
                 onClick={toggleLanguage}
               >
@@ -130,7 +143,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
                 {i18n.language.startsWith('vi') ? 'English (EN)' : 'Tiếng Việt (VI)'}
               </button>
 
-              <button 
+              <button
                 className="w-full flex items-center px-4 py-2 text-sm text-error hover:bg-error/10 transition-colors mt-1 cursor-pointer"
                 onClick={handleLogout}
               >

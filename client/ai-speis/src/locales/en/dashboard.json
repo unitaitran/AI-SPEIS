@@ -62,5 +62,29 @@
     "unlock_desc": "Unlock unlimited AI interview sessions.",
     "upgrade_now": "UPGRADE NOW",
     "start_interview": "Start Interview"
+  },
+  "questions": {
+    "title": "Question Bank",
+    "desc": "Browse through thousands of curated technical and soft skills interview questions, ready for real interview practice.",
+    "search_placeholder": "Search interview questions (e.g. React Hooks, B-Tree, Conflict resolution...)",
+    "search_button": "Search",
+    "filter_role": "Role",
+    "filter_difficulty": "Difficulty",
+    "no_data": "No data",
+    "difficulty_easy": "Easy",
+    "difficulty_medium": "Medium",
+    "difficulty_hard": "Hard",
+    "showing_results": "Showing {{start}}-{{end}} of {{total}} results",
+    "sort_label": "Sort by:",
+    "sort_popular": "Most Popular",
+    "sort_newest": "Newest",
+    "practices": "practices",
+    "ai_suggested_answer": "Recommended answers",
+    "no_suggested_answer": "No suggested answer available",
+    "no_questions_found": "No questions found",
+    "no_questions_desc": "Please try changing your search query or filter checkboxes.",
+    "confirm_delete_bookmark": "Are you sure you want to remove this bookmark?",
+    "filter_saved": "Saved",
+    "filter_unsaved": "Unsaved"
   }
 }

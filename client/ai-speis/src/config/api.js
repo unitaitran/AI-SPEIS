@@ -13,4 +13,9 @@ export const ENDPOINTS = {
   CV_GET_MY: `${API_BASE_URL}/api/CVFile/MyCV`,
   CV_UPLOAD: `${API_BASE_URL}/api/CVFile/upload`,
   CV_DELETE: (id) => `${API_BASE_URL}/api/CVFile/${id}`,
+  QUESTIONS_GET: `${API_BASE_URL}/api/questions`,
+  QUESTIONS_GET_BY_ID: (id) => `${API_BASE_URL}/api/questions/${id}`,
+  SAVED_QUESTIONS_GET: `${API_BASE_URL}/api/SavedQuestions`,
+  SAVED_QUESTIONS_SAVE: (id) => `${API_BASE_URL}/api/SavedQuestions/${id}`,
+  SAVED_QUESTIONS_UNSAVE: (id) => `${API_BASE_URL}/api/SavedQuestions/${id}`,
 };

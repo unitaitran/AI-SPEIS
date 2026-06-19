@@ -15,7 +15,7 @@ const MENU_GROUPS = [
   {
     label: 'LUYỆN TẬP',
     items: [
-      { id: 'questions', label: 'Câu hỏi', icon: Database, path: '#questions' },
+      { id: 'questions', label: 'Câu hỏi', icon: Database, path: USER_ROUTES.QUESTIONS },
       { id: 'history', label: 'Lịch sử phỏng vấn', icon: Clock, path: '#history' },
       { id: 'flashcards', label: 'Flashcards', icon: Layers, path: '#flashcards' },
     ]
@@ -50,7 +50,11 @@ function UserSidebar({ isOpen, onNavigate }) {
 
   const handleMenuClick = (event, path) => {
     event.preventDefault();
-    if (path !== USER_ROUTES.DASHBOARD && path !== USER_ROUTES.CV) {
+    if (
+      path !== USER_ROUTES.DASHBOARD &&
+      path !== USER_ROUTES.CV &&
+      path !== USER_ROUTES.QUESTIONS
+    ) {
       alert(t('common_feature_developing', 'Tính năng đang phát triển'));
       return;
     }
@@ -84,8 +88,13 @@ function UserSidebar({ isOpen, onNavigate }) {
   return (
     <aside className={`fixed top-0 left-0 h-full w-[240px] bg-surface-2 border-r border-border flex flex-col z-20 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} aria-label="User navigation">
       {/* Logo Area */}
-      <div className="h-16 flex items-center px-6 border-b border-border shrink-0 justify-center">
-        <img src="/logo_AI-SPEIS-removebg.png" alt="AI-SPEIS" className="h-10 object-contain" />
+      <div className="h-[85px] flex items-center px-6 border-b border-border shrink-0 justify-center">
+        <img
+          src="/logo_AI-SPEIS-removebg.png"
+          alt="AI-SPEIS"
+          style={{ height: '5.4rem' }}
+          className="max-w-full object-contain"
+        />
       </div>
 
       {/* Navigation Menu */}
@@ -102,16 +111,24 @@ function UserSidebar({ isOpen, onNavigate }) {
                       <a
                         href={item.path}
                         onClick={(e) => handleMenuClick(e, item.path)}
-                        className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all relative ${isActive
-                          ? 'bg-gradient-to-r from-primary-light to-primary-xlight text-primary-dark font-bold shadow-sm'
-                          : 'text-text-secondary hover:bg-surface-3 hover:text-primary-dark'
+                        className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all duration-300 relative group overflow-hidden ${isActive
+                          ? 'text-primary-dark font-bold shadow-sm'
+                          : 'text-text-secondary hover:text-primary-dark'
                           }`}
                       >
-                        {isActive && (
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-md"></div>
-                        )}
-                        <item.icon size={20} className={`mr-3 ${isActive ? 'text-primary-dark' : 'text-text-secondary'}`} />
-                        {getItemLabel(item)}
+                        {/* Smooth active background fade */}
+                        <div className={`absolute inset-0 bg-gradient-to-r from-primary-light to-primary-xlight transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-30'}`} />
+
+                        {/* Slide vertical indicator */}
+                        <div className={`absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-md transition-all duration-300 origin-left ${isActive ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-0'}`} />
+
+                        <item.icon
+                          size={20}
+                          className={`mr-3 relative z-10 transition-colors duration-300 ${isActive ? 'text-primary-dark' : 'text-text-secondary group-hover:text-primary-dark'}`}
+                        />
+                        <span className="relative z-10 transition-transform duration-300 group-hover:translate-x-0.5">
+                          {getItemLabel(item)}
+                        </span>
                       </a>
                     </li>
                   );
