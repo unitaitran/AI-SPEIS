@@ -162,5 +162,12 @@ namespace ai_speis_be.Repositories.UserRepo
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.PasswordResetToken == token);
         }
+
+        public async Task<User?> GetUserByPhoneNumberAsync(string phoneNumber)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber);
+        }
     }
 }

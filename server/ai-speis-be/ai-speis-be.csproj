@@ -5,6 +5,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>ai_speis_be</RootNamespace>
+	<!-- Disable SDK-generated assembly attributes to avoid duplicate attribute errors
+      We provide a single AssemblyInfo.cs in Properties/ to define assembly metadata. -->
+	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
   </PropertyGroup>
 
   <ItemGroup>

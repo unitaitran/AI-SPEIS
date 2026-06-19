@@ -1,0 +1,90 @@
+{
+  "greeting_prefix": "Chào buổi sáng,",
+  "stats": {
+    "interviews": "BUỔI PHỎNG VẤN ĐÃ LUYỆN",
+    "avg_score": "ĐIỂM TRUNG BÌNH",
+    "streak": "STREAK LUYỆN TẬP",
+    "quota": "QUOTA CÒN LẠI",
+    "unit_session": "buổi",
+    "unit_day": "ngày",
+    "unit_times": "lượt"
+  },
+  "suggestions": {
+    "title": "Gợi ý luyện tập hôm nay",
+    "based_on_cv": "DỰA TRÊN CV CỦA BẠN",
+    "practice_now": "LUYỆN TẬP NGAY",
+    "item_1": {
+      "title": "Mô tả một dự án khó khăn nhất bạn từng tham gia.",
+      "desc": "Tập trung vào kỹ năng giải quyết vấn đề và leadership thể hiện trong dự án ReactJS."
+    },
+    "item_2": {
+      "title": "Tại sao bạn lại chọn chuyển hướng sang lĩnh vực Data Science?",
+      "desc": "Chuẩn bị câu chuyện chuyển đổi nghề nghiệp logic và thuyết phục."
+    },
+    "item_3": {
+      "title": "Điểm yếu lớn nhất của bạn trong công việc là gì?",
+      "desc": "Cách trả lời trung thực nhưng vẫn thể hiện sự cầu tiến và giải pháp khắc phục."
+    }
+  },
+  "banner": {
+    "title": "Sẵn sàng\nluyện phỏng\nvấn?",
+    "desc": "Bắt đầu mock interview dựa trên CV và vị trí bạn đang ứng tuyển. Hệ thống AI sẽ phân tích và đưa ra phản hồi chi tiết.",
+    "button": "BẮT ĐẦU PHỎNG VẤN"
+  },
+  "chart": {
+    "title": "Tiến độ kỹ năng",
+    "view_details": "XEM CHI TIẾT",
+    "skill_confidence": "Tự tin",
+    "skill_expertise": "Chuyên môn",
+    "skill_communication": "Giao tiếp",
+    "skill_critical": "Phản biện",
+    "skill_language": "Ngoại ngữ"
+  },
+  "topbar": {
+    "quota_remaining": "lượt phỏng vấn",
+    "profile_info": "Thông tin cá nhân",
+    "logout": "Đăng xuất",
+    "language": "Ngôn ngữ"
+  },
+  "sidebar": {
+    "group_main": "CHÍNH",
+    "group_practice": "LUYỆN TẬP",
+    "group_community": "CỘNG ĐỒNG",
+    "group_management": "QUẢN LÍ",
+    "menu_dashboard": "Trang chủ",
+    "menu_cv": "CV của tôi",
+    "menu_questions": "Câu hỏi",
+    "menu_history": "Lịch sử phỏng vấn",
+    "menu_flashcards": "Flashcards",
+    "menu_community": "Cộng đồng",
+    "menu_packages": "Quản lí gói",
+    "upgrade_pro": "Nâng cấp Pro",
+    "unlock_desc": "Mở khóa không giới hạn lượt phỏng vấn AI.",
+    "upgrade_now": "NÂNG CẤP NGAY",
+    "start_interview": "Bắt đầu phỏng vấn"
+  },
+  "questions": {
+    "title": "Ngân hàng câu hỏi",
+    "desc": "Duyệt qua hàng ngàn câu hỏi phỏng vấn kỹ thuật và kỹ năng mềm được tuyển chọn, mở phòng các vòng phỏng vấn thực tế.",
+    "search_placeholder": "Tìm câu hỏi phỏng vấn (VD: React Hooks, B-Tree, Xử lý xung đột...)",
+    "search_button": "Tìm kiếm",
+    "filter_role": "Vị trí",
+    "filter_difficulty": "Độ khó",
+    "no_data": "Không có dữ liệu",
+    "difficulty_easy": "Dễ",
+    "difficulty_medium": "Trung bình",
+    "difficulty_hard": "Khó",
+    "showing_results": "Hiển thị {{start}}-{{end}} của {{total}} kết quả",
+    "sort_label": "Sắp xếp:",
+    "sort_popular": "Phổ biến nhất",
+    "sort_newest": "Mới nhất",
+    "practices": "lượt luyện tập",
+    "ai_suggested_answer": "Gợi ý trả lời (Tips)",
+    "no_suggested_answer": "Chưa có gợi ý trả lời",
+    "no_questions_found": "Không tìm thấy câu hỏi phù hợp",
+    "no_questions_desc": "Vui lòng thay đổi từ khóa tìm kiếm hoặc các tùy chọn bộ lọc.",
+    "confirm_delete_bookmark": "Bạn có chắc chắn muốn bỏ lưu câu hỏi này?",
+    "filter_saved": "Đã lưu",
+    "filter_unsaved": "Chưa lưu"
+  }
+}

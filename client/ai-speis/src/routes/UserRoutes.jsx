@@ -1,21 +1,30 @@
 import React, { useEffect } from 'react';
 import DashboardPage from '../pages/user/DashboardPage';
-import ProfilePage from '../pages/user/Profile/ProfilePage';
 import { navigate } from './navigation';
 import { USER_ROUTES } from './routePaths';
+import MyCVPage from '../pages/user/MyCVPage';
+import QuestionsPage from '../pages/user/QuestionsPage';
 
 function UserRoutes({ pathname }) {
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
-  const isKnownRoute = pathname === USER_ROUTES.DASHBOARD || pathname === USER_ROUTES.PROFILE;
+  const isProfileRoute = pathname === USER_ROUTES.PROFILE;
+  const isKnownRoute =
+    pathname === USER_ROUTES.DASHBOARD ||
+    pathname === USER_ROUTES.CV ||
+    pathname === USER_ROUTES.QUESTIONS;
 
   useEffect(() => {
-    if (isUserRoot || !isKnownRoute) {
+    if (isUserRoot || isProfileRoute || !isKnownRoute) {
       navigate(USER_ROUTES.DASHBOARD, { replace: true });
     }
-  }, [isKnownRoute, isUserRoot]);
+  }, [isKnownRoute, isUserRoot, isProfileRoute]);
 
-  if (pathname === USER_ROUTES.PROFILE) {
-    return <ProfilePage />;
+  if (pathname === USER_ROUTES.CV) {
+    return <MyCVPage />;
+  }
+
+  if (pathname === USER_ROUTES.QUESTIONS) {
+    return <QuestionsPage />;
   }
 
   return isKnownRoute ? <DashboardPage /> : null;
