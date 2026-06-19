@@ -20,6 +20,9 @@ namespace ai_speis_be.Repositories.QuestionRepo
         Task<Question> CreateQuestionAsync(
             Question question,
             CancellationToken cancellationToken = default);
+        Task<int> CreateQuestionsAsync(
+            IReadOnlyCollection<Question> questions,
+            CancellationToken cancellationToken = default);
         Task UpdateQuestionAsync(
             Question question,
             CancellationToken cancellationToken = default);

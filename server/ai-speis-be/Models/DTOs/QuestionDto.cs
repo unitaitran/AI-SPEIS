@@ -217,4 +217,18 @@ namespace ai_speis_be.Models.DTOs
         public DateTime? DeletedAt { get; set; }
         public int? DeletedBy { get; set; }
     }
+
+    public sealed class QuestionImportSummaryDto
+    {
+        public int TotalRows { get; set; }
+        public int ImportedRows { get; set; }
+        public int FailedRows { get; set; }
+        public List<QuestionImportRowErrorDto> Errors { get; set; } = new();
+    }
+
+    public sealed class QuestionImportRowErrorDto
+    {
+        public int RowNumber { get; set; }
+        public List<string> Errors { get; set; } = new();
+    }
 }

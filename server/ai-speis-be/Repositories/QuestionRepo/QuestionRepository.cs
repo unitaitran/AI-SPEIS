@@ -68,6 +68,26 @@ namespace ai_speis_be.Repositories.QuestionRepo
             return question;
         }
 
+        public async Task<int> CreateQuestionsAsync(
+            IReadOnlyCollection<Question> questions,
+            CancellationToken cancellationToken = default)
+        {
+            if (questions.Count == 0)
+            {
+                return 0;
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync(
+                cancellationToken);
+
+            await _context.Questions.AddRangeAsync(questions, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return questions.Count;
+        }
+
         public async Task UpdateQuestionAsync(
             Question question,
             CancellationToken cancellationToken = default)
