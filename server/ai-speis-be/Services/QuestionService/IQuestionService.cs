@@ -1,5 +1,7 @@
 ﻿using ai_speis_be.Models.DTOs;
 
+using Microsoft.AspNetCore.Http;
+
 namespace ai_speis_be.Services.QuestionService
 {
     public interface IQuestionService
@@ -20,7 +22,13 @@ namespace ai_speis_be.Services.QuestionService
             int questionId,
             int actingUserId,
             CancellationToken cancellationToken = default);
-        Task<IEnumerable<QuestionResponseDto>> GetQuestionsAsync(string? roleTarget, string? major, string? difficulty);
+        Task<QuestionImportOperationResult> ImportAdminQuestionsAsync(
+            IFormFile? file,
+            int actingUserId,
+            CancellationToken cancellationToken = default);
+        Task<PagedResultDto<QuestionResponseDto>> GetQuestionsAsync(
+            UserQuestionQueryDto query,
+            CancellationToken cancellationToken = default);
         Task<QuestionResponseDto?> GetQuestionByIdAsync(int questionId);
         Task<QuestionResponseDto?> GetQuestionByIdAdminAsync(int questionId);
 

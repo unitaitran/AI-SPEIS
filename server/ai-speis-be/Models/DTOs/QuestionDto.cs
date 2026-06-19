@@ -166,6 +166,24 @@ namespace ai_speis_be.Models.DTOs
         public bool IncludeDeleted { get; set; } = false;
     }
 
+    public sealed class UserQuestionQueryDto
+    {
+        [Range(1, 1_000_000)]
+        public int PageNumber { get; set; } = 1;
+
+        [Range(1, 100)]
+        public int PageSize { get; set; } = 10;
+
+        [StringLength(100)]
+        public string? Major { get; set; }
+
+        [StringLength(100)]
+        public string? RoleTarget { get; set; }
+
+        [StringLength(20)]
+        public string? Difficulty { get; set; }
+    }
+
     public sealed class AdminQuestionListItemDto
     {
         public int QuestionId { get; set; }
@@ -198,5 +216,19 @@ namespace ai_speis_be.Models.DTOs
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
         public int? DeletedBy { get; set; }
+    }
+
+    public sealed class QuestionImportSummaryDto
+    {
+        public int TotalRows { get; set; }
+        public int ImportedRows { get; set; }
+        public int FailedRows { get; set; }
+        public List<QuestionImportRowErrorDto> Errors { get; set; } = new();
+    }
+
+    public sealed class QuestionImportRowErrorDto
+    {
+        public int RowNumber { get; set; }
+        public List<string> Errors { get; set; } = new();
     }
 }
