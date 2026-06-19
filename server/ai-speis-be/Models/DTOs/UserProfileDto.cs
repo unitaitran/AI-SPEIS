@@ -15,6 +15,7 @@ namespace ai_speis_be.Models.DTOs
         public bool IsLocked { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
+        public bool HasPassword { get; init; }
     }
 
     // ─── Requests ────────────────────────────────────────────────────────────
@@ -32,8 +33,7 @@ namespace ai_speis_be.Models.DTOs
 
     public sealed class ChangePasswordRequestDto
     {
-        [Required(ErrorMessage = "Mật khẩu hiện tại là bắt buộc.")]
-        public string CurrentPassword { get; set; } = null!;
+        public string? CurrentPassword { get; set; }
 
         [Required(ErrorMessage = "Mật khẩu mới là bắt buộc.")]
         [MinLength(6, ErrorMessage = "Mật khẩu mới phải ít nhất 6 ký tự.")]
@@ -49,7 +49,8 @@ namespace ai_speis_be.Models.DTOs
     public enum UpdateProfileOutcome
     {
         Success,
-        UserNotFound
+        UserNotFound,
+        PhoneNumberAlreadyExists
     }
 
     public sealed class UpdateProfileResult
