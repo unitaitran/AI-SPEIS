@@ -10,4 +10,7 @@ export const ENDPOINTS = {
   GET_PROFILE: `${API_BASE_URL}/api/users/me`,
   UPDATE_PROFILE: `${API_BASE_URL}/api/users/me/profile`,
   CHANGE_PASSWORD: `${API_BASE_URL}/api/users/me/security`,
+  CV_GET_MY: `${API_BASE_URL}/api/CVFile/MyCV`,
+  CV_UPLOAD: `${API_BASE_URL}/api/CVFile/upload`,
+  CV_DELETE: (id) => `${API_BASE_URL}/api/CVFile/${id}`,
 };

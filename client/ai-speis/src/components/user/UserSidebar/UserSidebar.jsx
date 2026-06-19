@@ -9,7 +9,7 @@ const MENU_GROUPS = [
     label: 'CHÍNH',
     items: [
       { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard, path: USER_ROUTES.DASHBOARD },
-      { id: 'cv', label: 'CV của tôi', icon: FileText, path: '#cv' },
+      { id: 'cv', label: 'CV của tôi', icon: FileText, path: USER_ROUTES.CV },
     ]
   },
   {
@@ -50,7 +50,7 @@ function UserSidebar({ isOpen, onNavigate }) {
 
   const handleMenuClick = (event, path) => {
     event.preventDefault();
-    if (path !== USER_ROUTES.DASHBOARD) {
+    if (path !== USER_ROUTES.DASHBOARD && path !== USER_ROUTES.CV) {
       alert(t('common_feature_developing', 'Tính năng đang phát triển'));
       return;
     }
