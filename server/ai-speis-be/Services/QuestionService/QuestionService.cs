@@ -141,10 +141,21 @@ namespace ai_speis_be.Services.QuestionService
             return question != null ? MapToDto(question) : null;
         }
 
-        public async Task<IEnumerable<QuestionResponseDto>> GetQuestionsAsync(string? roleTarget, string? major, string? difficulty)
+        public async Task<PagedResultDto<QuestionResponseDto>> GetQuestionsAsync(
+            UserQuestionQueryDto query,
+            CancellationToken cancellationToken = default)
         {
-            var questions = await _repository.GetQuestionsAsync(roleTarget, major, difficulty);
-            return questions.Select(MapToDto);
+            var questions = await _repository.GetQuestionsAsync(
+                query,
+                cancellationToken);
+
+            return new PagedResultDto<QuestionResponseDto>
+            {
+                Items = questions.Items.Select(MapToDto).ToList(),
+                PageNumber = questions.PageNumber,
+                PageSize = questions.PageSize,
+                TotalItems = questions.TotalItems
+            };
         }
 
         private static void ApplyQuestionMutation(

@@ -1,4 +1,5 @@
 ﻿using ai_speis_be.Services.QuestionService;
+using ai_speis_be.Models.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -16,9 +17,17 @@ namespace ai_speis_be.Controllers
         }
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetQuestionsAsync([FromQuery]string? roleTarget, [FromQuery] string? major, [FromQuery] string? difficulty)
+        [ProducesResponseType(
+            typeof(PagedResultDto<QuestionResponseDto>),
+            StatusCodes.Status200OK)]
+        public async Task<ActionResult<PagedResultDto<QuestionResponseDto>>> GetQuestionsAsync(
+            [FromQuery] UserQuestionQueryDto query,
+            CancellationToken cancellationToken)
         {
-            var questions = await _service.GetQuestionsAsync(roleTarget, major, difficulty);
+            var questions = await _service.GetQuestionsAsync(
+                query,
+                cancellationToken);
+
             return Ok(questions);
         }
         [HttpGet("admin/{questionId}")]
