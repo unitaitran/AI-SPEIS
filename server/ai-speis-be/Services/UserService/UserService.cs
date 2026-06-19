@@ -278,6 +278,16 @@ namespace ai_speis_be.Services.UserService
             if (user is null)
                 return new UpdateProfileResult(UpdateProfileOutcome.UserNotFound);
 
+            if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
+            {
+                var cleanPhone = dto.PhoneNumber.Trim();
+                var phoneUser = await _userRepository.GetUserByPhoneNumberAsync(cleanPhone);
+                if (phoneUser != null && phoneUser.UserId != userId)
+                {
+                    return new UpdateProfileResult(UpdateProfileOutcome.PhoneNumberAlreadyExists);
+                }
+            }
+
             user.FullName = dto.FullName.Trim();
             user.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber)
                 ? null
@@ -297,12 +307,12 @@ namespace ai_speis_be.Services.UserService
             if (user is null)
                 return new ChangePasswordResult(ChangePasswordOutcome.UserNotFound);
 
-            // Tài khoản Google không có PasswordHash
-            if (string.IsNullOrEmpty(user.PasswordHash))
-                return new ChangePasswordResult(ChangePasswordOutcome.GoogleAccount);
-
-            if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
-                return new ChangePasswordResult(ChangePasswordOutcome.WrongCurrentPassword);
+            // Nếu tài khoản đã có mật khẩu => bắt buộc kiểm tra mật khẩu hiện tại
+            if (!string.IsNullOrEmpty(user.PasswordHash))
+            {
+                if (string.IsNullOrEmpty(dto.CurrentPassword) || !BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+                    return new ChangePasswordResult(ChangePasswordOutcome.WrongCurrentPassword);
+            }
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
             user.UpdatedAt = DateTime.UtcNow;
@@ -323,7 +333,8 @@ namespace ai_speis_be.Services.UserService
             Status = user.Status,
             IsLocked = user.IsLocked,
             CreatedAt = user.CreatedAt,
-            UpdatedAt = user.UpdatedAt
+            UpdatedAt = user.UpdatedAt,
+            HasPassword = !string.IsNullOrEmpty(user.PasswordHash)
         };
     }
 }

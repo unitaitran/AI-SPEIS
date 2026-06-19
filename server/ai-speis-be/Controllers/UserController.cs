@@ -68,6 +68,12 @@ namespace ai_speis_be.Controllers
                     Detail = "The authenticated user account could not be found.",
                     Status = StatusCodes.Status404NotFound
                 }),
+                UpdateProfileOutcome.PhoneNumberAlreadyExists => BadRequest(new ProblemDetails
+                {
+                    Title = "Phone number already exists",
+                    Detail = "Số điện thoại này đã được sử dụng bởi tài khoản khác.",
+                    Status = StatusCodes.Status400BadRequest
+                }),
                 _ => throw new InvalidOperationException($"Unsupported outcome: {result.Outcome}")
             };
         }

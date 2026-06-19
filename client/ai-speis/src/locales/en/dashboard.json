@@ -1,0 +1,66 @@
+{
+  "greeting_prefix": "Good morning,",
+  "stats": {
+    "interviews": "INTERVIEWS PRACTICED",
+    "avg_score": "AVERAGE SCORE",
+    "streak": "PRACTICE STREAK",
+    "quota": "REMAINING QUOTA",
+    "unit_session": "sessions",
+    "unit_day": "days",
+    "unit_times": "times"
+  },
+  "suggestions": {
+    "title": "Recommended Practice Today",
+    "based_on_cv": "BASED ON YOUR CV",
+    "practice_now": "PRACTICE NOW",
+    "item_1": {
+      "title": "Describe the most challenging project you've participated in.",
+      "desc": "Focus on problem-solving skills and leadership demonstrated in the ReactJS project."
+    },
+    "item_2": {
+      "title": "Why did you choose to switch to Data Science?",
+      "desc": "Prepare a logical and convincing career transition story."
+    },
+    "item_3": {
+      "title": "What is your greatest weakness in your work?",
+      "desc": "How to answer honestly while showing progressiveness and solutions to overcome it."
+    }
+  },
+  "banner": {
+    "title": "Ready to\npractice\ninterviews?",
+    "desc": "Start a mock interview based on your CV and target role. The AI system will analyze and provide detailed feedback.",
+    "button": "START INTERVIEW"
+  },
+  "chart": {
+    "title": "Skills Progress",
+    "view_details": "VIEW DETAILS",
+    "skill_confidence": "Confidence",
+    "skill_expertise": "Expertise",
+    "skill_communication": "Communication",
+    "skill_critical": "Critical Thinking",
+    "skill_language": "Languages"
+  },
+  "topbar": {
+    "quota_remaining": "interviews remaining",
+    "profile_info": "Personal Profile",
+    "logout": "Logout",
+    "language": "Language"
+  },
+  "sidebar": {
+    "group_main": "MAIN",
+    "group_practice": "PRACTICE",
+    "group_community": "COMMUNITY",
+    "group_management": "MANAGEMENT",
+    "menu_dashboard": "Dashboard",
+    "menu_cv": "My CV",
+    "menu_questions": "Questions",
+    "menu_history": "Interview History",
+    "menu_flashcards": "Flashcards",
+    "menu_community": "Community",
+    "menu_packages": "Service Packages",
+    "upgrade_pro": "Upgrade to Pro",
+    "unlock_desc": "Unlock unlimited AI interview sessions.",
+    "upgrade_now": "UPGRADE NOW",
+    "start_interview": "Start Interview"
+  }
+}
