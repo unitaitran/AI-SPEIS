@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2, 
-  Eye, 
-  Plus, 
-  Award, 
-  Briefcase, 
-  FolderGit2, 
+import {
+  Upload,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Eye,
+  Plus,
+  Award,
+  Briefcase,
+  FolderGit2,
   Trash2,
   ChevronRight,
   Info,
@@ -119,7 +119,7 @@ function MyCVPage() {
         alert('Chỉ hỗ trợ tệp tin định dạng PDF');
         return;
       }
-      
+
       setIsUploading(true);
       setUploadProgress(0);
       setUploadStep('Đang chuẩn bị tệp tin...');
@@ -269,11 +269,11 @@ function MyCVPage() {
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">AI đang phân tích CV của bạn</h3>
             <p className="text-sm text-text-secondary mb-6">{uploadStep}</p>
-            
+
             {/* Progress Bar */}
             <div className="w-full bg-surface-3 rounded-full h-3.5 mb-2 overflow-hidden border border-border">
-              <div 
-                className="bg-gradient-to-r from-primary to-[#4A90E2] h-full rounded-full transition-all duration-150" 
+              <div
+                className="bg-gradient-to-r from-primary to-[#4A90E2] h-full rounded-full transition-all duration-150"
                 style={{ width: `${uploadProgress}%` }}
               ></div>
             </div>
@@ -295,10 +295,10 @@ function MyCVPage() {
               <label className="cursor-pointer bg-primary hover:bg-primary-dark text-white text-sm font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg inline-flex items-center gap-2">
                 <Plus size={18} />
                 Chọn tệp tin CV (PDF)
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept=".pdf" 
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf"
                   onChange={handleFileUpload}
                 />
               </label>
@@ -327,7 +327,7 @@ function MyCVPage() {
             <div className="bg-surface-2 border border-border rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
               {/* Decorative side accent */}
               <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
-              
+
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 bg-primary-xlight rounded-xl flex items-center justify-center shrink-0">
                   <FileText size={24} className="text-primary-dark" />
@@ -340,7 +340,7 @@ function MyCVPage() {
                     </span>
                   </div>
                   <p className="text-xs text-text-secondary">Ngày tải lên: {uploadDate || cvData.uploadDate}</p>
-                  
+
                   {/* Quick info list */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-xs font-medium text-text-secondary">
                     <span className="flex items-center gap-1">
@@ -357,26 +357,26 @@ function MyCVPage() {
 
               {/* Actions */}
               <div className="flex items-center flex-wrap gap-3 self-start md:self-auto shrink-0">
-                <button 
+                <button
                   onClick={() => setShowFeedbackModal(true)}
                   className="bg-black hover:bg-gray-800 text-white text-xs font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
                 >
                   <Eye size={14} />
                   Xem feedback CV
                 </button>
-                
+
                 <label className="cursor-pointer bg-white hover:bg-surface-3 text-text-primary border border-border text-xs font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center gap-1.5 shadow-sm">
                   <Upload size={14} />
                   Tải CV mới
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    accept=".pdf" 
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf"
                     onChange={handleFileUpload}
                   />
                 </label>
 
-                <button 
+                <button
                   onClick={handleRemoveCV}
                   className="p-2.5 text-text-secondary hover:text-error hover:bg-error-light rounded-xl border border-transparent hover:border-error/20 transition-all"
                   title="Xóa CV"
@@ -403,8 +403,8 @@ function MyCVPage() {
                 <div className="p-5 flex-1 overflow-y-auto max-h-[350px]">
                   <div className="flex flex-wrap gap-2">
                     {cvData.skills.map((skill, idx) => (
-                      <span 
-                        key={idx} 
+                      <span
+                        key={idx}
                         className="inline-flex items-center px-3 py-1.5 rounded-lg bg-primary-xlight text-primary-dark border border-primary-light text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all duration-200 cursor-default"
                       >
                         {skill}
@@ -460,7 +460,7 @@ function MyCVPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Action Alert Banner */}
             <div className="bg-gradient-to-r from-primary-xlight to-white border border-primary-light rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -472,7 +472,7 @@ function MyCVPage() {
                   <p className="text-xs text-text-secondary mt-0.5">AI đã cá nhân hóa bộ câu hỏi phỏng vấn dựa trên CV vừa tải lên.</p>
                 </div>
               </div>
-              <a 
+              <a
                 href="#dashboard"
                 className="bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm hover:shadow-md self-start sm:self-auto"
               >
@@ -494,7 +494,7 @@ function MyCVPage() {
                 <Sparkles size={20} className="text-primary-dark animate-pulse" />
                 <h3 className="text-base font-bold text-text-primary">Đánh giá & Phản hồi CV từ AI</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setShowFeedbackModal(false)}
                 className="p-1.5 hover:bg-surface-3 text-text-secondary rounded-lg transition-colors text-sm font-bold"
               >
@@ -504,33 +504,30 @@ function MyCVPage() {
 
             {/* Tabs */}
             <div className="flex border-b border-border px-6 bg-surface-1">
-              <button 
+              <button
                 onClick={() => setActiveTab('overall')}
-                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${
-                  activeTab === 'overall' 
-                    ? 'border-primary text-primary-dark' 
+                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${activeTab === 'overall'
+                    ? 'border-primary text-primary-dark'
                     : 'border-transparent text-text-secondary hover:text-text-primary'
-                }`}
+                  }`}
               >
                 Đánh giá chung
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('strengths')}
-                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${
-                  activeTab === 'strengths' 
-                    ? 'border-primary text-primary-dark' 
+                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${activeTab === 'strengths'
+                    ? 'border-primary text-primary-dark'
                     : 'border-transparent text-text-secondary hover:text-text-primary'
-                }`}
+                  }`}
               >
                 Điểm mạnh
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('improvements')}
-                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${
-                  activeTab === 'improvements' 
-                    ? 'border-primary text-primary-dark' 
+                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${activeTab === 'improvements'
+                    ? 'border-primary text-primary-dark'
                     : 'border-transparent text-text-secondary hover:text-text-primary'
-                }`}
+                  }`}
               >
                 Cần cải thiện
               </button>
@@ -548,7 +545,7 @@ function MyCVPage() {
                       <p className="text-xs text-text-secondary mt-0.5">CV của bạn có cấu trúc tốt, rõ ràng và đầy đủ thông tin cốt lõi.</p>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <h4 className="text-sm font-bold text-text-primary">Tóm tắt đánh giá:</h4>
                     <p className="text-xs text-text-secondary leading-relaxed">
@@ -599,7 +596,7 @@ function MyCVPage() {
 
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-border bg-surface-1 flex justify-end">
-              <button 
+              <button
                 onClick={() => setShowFeedbackModal(false)}
                 className="bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2 px-4 rounded-xl transition-all shadow-sm"
               >

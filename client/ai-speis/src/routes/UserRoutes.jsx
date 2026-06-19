@@ -3,11 +3,15 @@ import DashboardPage from '../pages/user/DashboardPage';
 import { navigate } from './navigation';
 import { USER_ROUTES } from './routePaths';
 import MyCVPage from '../pages/user/MyCVPage';
+import QuestionsPage from '../pages/user/QuestionsPage';
 
 function UserRoutes({ pathname }) {
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
   const isProfileRoute = pathname === USER_ROUTES.PROFILE;
-  const isKnownRoute = pathname === USER_ROUTES.DASHBOARD || pathname === USER_ROUTES.CV;
+  const isKnownRoute =
+    pathname === USER_ROUTES.DASHBOARD ||
+    pathname === USER_ROUTES.CV ||
+    pathname === USER_ROUTES.QUESTIONS;
 
   useEffect(() => {
     if (isUserRoot || isProfileRoute || !isKnownRoute) {
@@ -17,6 +21,10 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.CV) {
     return <MyCVPage />;
+  }
+
+  if (pathname === USER_ROUTES.QUESTIONS) {
+    return <QuestionsPage />;
   }
 
   return isKnownRoute ? <DashboardPage /> : null;

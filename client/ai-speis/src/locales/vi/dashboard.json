@@ -62,5 +62,29 @@
     "unlock_desc": "Mở khóa không giới hạn lượt phỏng vấn AI.",
     "upgrade_now": "NÂNG CẤP NGAY",
     "start_interview": "Bắt đầu phỏng vấn"
+  },
+  "questions": {
+    "title": "Ngân hàng câu hỏi",
+    "desc": "Duyệt qua hàng ngàn câu hỏi phỏng vấn kỹ thuật và kỹ năng mềm được tuyển chọn, mở phòng các vòng phỏng vấn thực tế.",
+    "search_placeholder": "Tìm câu hỏi phỏng vấn (VD: React Hooks, B-Tree, Xử lý xung đột...)",
+    "search_button": "Tìm kiếm",
+    "filter_role": "Vị trí",
+    "filter_difficulty": "Độ khó",
+    "no_data": "Không có dữ liệu",
+    "difficulty_easy": "Dễ",
+    "difficulty_medium": "Trung bình",
+    "difficulty_hard": "Khó",
+    "showing_results": "Hiển thị {{start}}-{{end}} của {{total}} kết quả",
+    "sort_label": "Sắp xếp:",
+    "sort_popular": "Phổ biến nhất",
+    "sort_newest": "Mới nhất",
+    "practices": "lượt luyện tập",
+    "ai_suggested_answer": "Gợi ý trả lời (Tips)",
+    "no_suggested_answer": "Chưa có gợi ý trả lời",
+    "no_questions_found": "Không tìm thấy câu hỏi phù hợp",
+    "no_questions_desc": "Vui lòng thay đổi từ khóa tìm kiếm hoặc các tùy chọn bộ lọc.",
+    "confirm_delete_bookmark": "Bạn có chắc chắn muốn bỏ lưu câu hỏi này?",
+    "filter_saved": "Đã lưu",
+    "filter_unsaved": "Chưa lưu"
   }
 }
