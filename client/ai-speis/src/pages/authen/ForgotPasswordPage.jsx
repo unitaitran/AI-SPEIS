@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import AuthCard from '../../components/Auth/AuthCard';
+import AuthCard from '../../components/auth/AuthCard';
 import Input from '../../components/UI/Input';
 import Button from '../../components/UI/Button';
 import { ENDPOINTS } from '../../config/api';

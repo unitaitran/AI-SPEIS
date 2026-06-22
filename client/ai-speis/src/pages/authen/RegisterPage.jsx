@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import AuthCard from '../../components/Auth/AuthCard';
-import RegisterForm from '../../components/Auth/RegisterForm';
+import AuthCard from '../../components/auth/AuthCard';
+import RegisterForm from '../../components/auth/RegisterForm';
 
 const RegisterPage = () => {
   const { t } = useTranslation('register');
