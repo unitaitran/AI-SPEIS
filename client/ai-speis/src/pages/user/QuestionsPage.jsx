@@ -74,7 +74,8 @@ function QuestionsPage() {
 
         let questionsData = [];
         if (questionsResponse.ok) {
-          questionsData = await questionsResponse.json();
+          const data = await questionsResponse.json();
+          questionsData = Array.isArray(data) ? data : (data.items || []);
           setQuestions(questionsData);
         }
 
