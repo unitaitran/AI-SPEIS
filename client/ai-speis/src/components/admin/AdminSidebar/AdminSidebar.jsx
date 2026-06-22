@@ -20,14 +20,12 @@ function AdminSidebar({ isOpen, pathname, onNavigate }) {
   return (
     <aside className={`admin-sidebar ${isOpen ? 'is-open' : ''}`} aria-label="Admin navigation">
       <div className="sidebar-header">
-        <div className="logo">
-          <div className="logo-mark" aria-hidden="true">
-            <GraduationCap size={24} />
-          </div>
-          <div className="logo-text">
-            <div className="logo-title">AI-SPEIS</div>
-            <div className="logo-subtitle">Admin Console</div>
-          </div>
+        <div className="sidebar-logo">
+          <img
+            src="/logo_AI-SPEIS-removebg.png"
+            alt="AI-SPEIS Logo"
+            className="admin-logo"
+          />
         </div>
       </div>
 

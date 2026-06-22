@@ -21,40 +21,22 @@
   flex-shrink: 0;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.sidebar-logo {
+  width: 100%;
 }
 
-.logo-mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  color: var(--primary-dark);
-  background: var(--white);
-  border: 1px solid var(--border);
-  box-shadow: var(--box-shadow-sm);
+.admin-logo {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  max-height: 56px;
+  object-fit: contain;
 }
 
-.logo-text {
-  flex: 1;
-}
-
-.logo-title {
-  font-size: var(--heading-4);
-  font-weight: var(--fw-semibold);
-  color: var(--text-primary);
-  line-height: var(--heading-4-lh);
-  letter-spacing: 0.02em;
-}
-
-.logo-subtitle {
-  font-size: var(--body-sm);
-  color: var(--text-secondary);
-  margin-top: 2px;
+@media (max-width: 768px) {
+  .admin-logo {
+    max-height: 48px;
+  }
 }
 
 .sidebar-divider {
