@@ -43,9 +43,8 @@ const LoginForm = () => {
         role: data.role
       }));
       
-      // Tạm thời redirect sang trang dashboard (chưa có nên có thể để nguyên hoặc reload)
-      // window.location.href = '#dashboard';
-      alert(t('login_success', 'Đăng nhập thành công!')); // Áp dụng dịch cho alert
+      const targetRoute = getDefaultRouteForRole(data.role);
+      navigate(targetRoute, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
