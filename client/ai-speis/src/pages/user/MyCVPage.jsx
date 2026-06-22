@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Upload,
   FileText,
@@ -19,6 +20,7 @@ import UserLayout from '../../layouts/user/UserLayout';
 import { ENDPOINTS } from '../../config/api';
 
 function MyCVPage() {
+  const { t } = useTranslation('dashboard');
   const [cvUploaded, setCvUploaded] = useState(false);
   const [fileName, setFileName] = useState('');
   const [cvFileId, setCvFileId] = useState(null);
@@ -116,13 +118,13 @@ function MyCVPage() {
     const file = e.target.files[0];
     if (file) {
       if (!file.name.toLowerCase().endsWith('.pdf')) {
-        alert('Chỉ hỗ trợ tệp tin định dạng PDF');
+        alert(t('mycv.error_pdf_only', 'Chỉ hỗ trợ tệp tin định dạng PDF'));
         return;
       }
 
       setIsUploading(true);
       setUploadProgress(0);
-      setUploadStep('Đang chuẩn bị tệp tin...');
+      setUploadStep(t('mycv.step_preparing', 'Đang chuẩn bị tệp tin...'));
 
       let apiFinished = false;
       let apiResponseData = null;
@@ -191,11 +193,11 @@ function MyCVPage() {
           }
 
           // Update helper step texts
-          if (next === 20) setUploadStep('Đang tải tệp tin lên máy chủ...');
-          if (next === 40) setUploadStep('Đang phân tích cấu trúc CV...');
-          if (next === 60) setUploadStep('AI đang trích xuất thông tin kỹ năng...');
-          if (next === 80) setUploadStep('Đang đối chiếu dự án và kinh nghiệm...');
-          if (next === 95) setUploadStep('Hoàn tất phân tích!');
+          if (next === 20) setUploadStep(t('mycv.step_uploading', 'Đang tải tệp tin lên máy chủ...'));
+          if (next === 40) setUploadStep(t('mycv.step_analyzing', 'Đang phân tích cấu trúc CV...'));
+          if (next === 60) setUploadStep(t('mycv.step_extracting_skills', 'AI đang trích xuất thông tin kỹ năng...'));
+          if (next === 80) setUploadStep(t('mycv.step_matching_exp', 'Đang đối chiếu dự án và kinh nghiệm...'));
+          if (next === 95) setUploadStep(t('mycv.step_completed', 'Hoàn tất phân tích!'));
 
           return next;
         });
@@ -205,10 +207,10 @@ function MyCVPage() {
 
   const handleRemoveCV = async () => {
     if (!cvFileId) {
-      alert('Không tìm thấy thông tin tệp CV cần xóa.');
+      alert(t('mycv.error_find_cv', 'Không tìm thấy thông tin tệp CV cần xóa.'));
       return;
     }
-    if (window.confirm('Bạn có chắc chắn muốn xóa CV này?')) {
+    if (window.confirm(t('mycv.confirm_delete', 'Bạn có chắc chắn muốn xóa CV này?'))) {
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(ENDPOINTS.CV_DELETE(cvFileId), {
@@ -225,11 +227,11 @@ function MyCVPage() {
           setUploadDate('');
         } else {
           const errData = await response.json().catch(() => ({}));
-          alert(errData.message || 'Lỗi khi xóa CV trên máy chủ.');
+          alert(errData.message || t('mycv.error_remove', 'Lỗi khi xóa CV trên máy chủ.'));
         }
       } catch (error) {
         console.error('Lỗi khi kết nối xóa CV:', error);
-        alert('Lỗi kết nối khi xóa CV. Vui lòng thử lại.');
+        alert(t('mycv.error_remove_connect', 'Lỗi kết nối khi xóa CV. Vui lòng thử lại.'));
       }
     }
   };
@@ -239,7 +241,7 @@ function MyCVPage() {
       <UserLayout>
         <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
           <Loader2 size={36} className="text-primary animate-spin" />
-          <p className="text-sm text-text-secondary">Đang tải thông tin CV của bạn...</p>
+          <p className="text-sm text-text-secondary">{t('mycv.loading', 'Đang tải thông tin CV của bạn...')}</p>
         </div>
       </UserLayout>
     );
@@ -251,9 +253,9 @@ function MyCVPage() {
         {/* Page Header */}
         <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">CV của tôi</h1>
+            <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">{t('mycv.title', 'CV của tôi')}</h1>
             <p className="text-base text-text-secondary">
-              Quản lý CV để AI phân tích kỹ năng, dự án và tạo câu hỏi phỏng vấn cá nhân hóa.
+              {t('mycv.subtitle', 'Quản lý CV để AI phân tích kỹ năng, dự án và tạo câu hỏi phỏng vấn cá nhân hóa.')}
             </p>
           </div>
         </section>
@@ -267,7 +269,7 @@ function MyCVPage() {
                 <Sparkles size={20} className="text-primary-dark animate-pulse" />
               </div>
             </div>
-            <h3 className="text-xl font-bold text-text-primary mb-2">AI đang phân tích CV của bạn</h3>
+            <h3 className="text-xl font-bold text-text-primary mb-2">{t('mycv.analyzing_title', 'AI đang phân tích CV của bạn')}</h3>
             <p className="text-sm text-text-secondary mb-6">{uploadStep}</p>
 
             {/* Progress Bar */}
@@ -280,42 +282,64 @@ function MyCVPage() {
             <div className="text-xs font-semibold text-primary-dark">{uploadProgress}%</div>
           </div>
         ) : !cvUploaded ? (
-          /* Empty / Upload CV State */
-          <div className="max-w-2xl mx-auto space-y-6">
-            <div className="bg-surface-2 border border-dashed border-border-strong hover:border-primary rounded-2xl p-10 text-center shadow-sm transition-all duration-300 relative group flex flex-col items-center justify-center min-h-[300px]">
-              <div className="w-16 h-16 bg-primary-xlight rounded-full flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
-                <Upload size={28} className="text-primary-dark" />
+          /* Empty / Upload CV State with split columns layout */
+          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            {/* Left Column: Mascot */}
+            <div className="flex flex-col items-center justify-center p-6 text-center space-y-6">
+              {/* Speech Bubble */}
+              <div className="relative bg-white border border-border rounded-2xl px-6 py-4 shadow-sm max-w-sm mb-2">
+                <p className="text-base font-semibold text-text-primary">
+                  {t('mycv.mascot_say', 'Hãy tải lên CV của bạn!')}
+                </p>
+                {/* Speech Bubble Arrow */}
+                <div className="absolute bottom-[-8px] left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-r border-b border-border rotate-45"></div>
               </div>
-              <h3 className="text-lg font-bold text-text-primary mb-2">Tải lên CV của bạn</h3>
-              <p className="text-sm text-text-secondary max-w-md mb-6 leading-relaxed">
-                Bạn chưa tải lên CV của mình. Hãy tải lên CV để AI có thể phân tích kỹ năng, trích xuất thông tin dự án và cá nhân hóa câu hỏi phỏng vấn tối ưu nhất cho bạn.
-              </p>
-
-              {/* Upload Input & Button */}
-              <label className="cursor-pointer bg-primary hover:bg-primary-dark text-white text-sm font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg inline-flex items-center gap-2">
-                <Plus size={18} />
-                Chọn tệp tin CV (PDF)
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf"
-                  onChange={handleFileUpload}
+              
+              {/* Mascot Image Wrapper */}
+              <div className="w-56 h-56 md:w-64 md:h-64 flex items-center justify-center bg-gradient-to-tr from-primary-xlight to-white rounded-full p-4 border border-primary-light shadow-[0_8px_30px_rgb(111,182,232,0.15)] transition-transform hover:scale-105 duration-300">
+                <img
+                  src="/teaching_mascot.jpg"
+                  alt="Teaching Mascot"
+                  className="w-full h-full object-contain"
                 />
-              </label>
-
-              <p className="text-xs text-text-disabled mt-3">Hỗ trợ định dạng PDF tối đa 5MB</p>
+              </div>
             </div>
 
-            {/* Remaining Evaluations Alert */}
-            <div className="bg-primary-xlight border border-primary-light rounded-xl p-4 flex items-start gap-3 shadow-[0_2px_8px_rgba(111,182,232,0.08)]">
-              <Info size={20} className="text-primary-dark mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-primary-dark">Lưu ý về quota của tài khoản</p>
-                <p className="text-xs text-text-secondary mt-1">
-                  Mỗi lần tải và phân tích CV sẽ sử dụng 1 lượt đánh giá từ tài khoản của bạn.
+            {/* Right Column: Upload Box and Badge */}
+            <div className="space-y-6">
+              <div className="bg-surface-2 border border-dashed border-border-strong hover:border-primary rounded-2xl p-10 text-center shadow-sm transition-all duration-300 relative group flex flex-col items-center justify-center min-h-[300px]">
+                <div className="w-16 h-16 bg-primary-xlight rounded-full flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
+                  <Upload size={28} className="text-primary-dark" />
+                </div>
+                <h3 className="text-lg font-bold text-text-primary mb-2">
+                  {t('mycv.upload_title', 'Tải lên CV của bạn')}
+                </h3>
+                <p className="text-sm text-text-secondary max-w-md mb-6 leading-relaxed">
+                  {t('mycv.upload_desc', 'Bạn chưa tải lên CV của mình. Hãy tải lên CV để AI có thể phân tích kỹ năng, trích xuất thông tin dự án và cá nhân hóa câu hỏi phỏng vấn tối ưu nhất cho bạn.')}
                 </p>
-                <div className="mt-2.5 inline-flex items-center bg-white px-2.5 py-1 rounded-md border border-primary-light text-xs font-bold text-primary-dark">
-                  Số lượt đánh giá CV còn lại: {remainingEvaluations} lượt
+
+                {/* Upload Input & Button */}
+                <label className="cursor-pointer bg-primary hover:bg-primary-dark text-white text-sm font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg inline-flex items-center gap-2">
+                  <Plus size={18} />
+                  {t('mycv.select_file', 'Chọn tệp tin CV (PDF)')}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf"
+                    onChange={handleFileUpload}
+                  />
+                </label>
+
+                <p className="text-xs text-text-disabled mt-3">
+                  {t('mycv.file_hint', 'Hỗ trợ định dạng PDF tối đa 5MB')}
+                </p>
+              </div>
+
+              {/* Remaining evaluations badge */}
+              <div className="flex justify-center">
+                <div className="inline-flex items-center bg-primary-xlight px-4 py-2 rounded-xl border border-primary-light text-sm font-bold text-primary-dark shadow-[0_2px_8px_rgba(111,182,232,0.08)]">
+                  <Info size={16} className="mr-2 shrink-0" />
+                  {t('mycv.remaining_evaluations', 'Số lượt đánh giá CV còn lại: {{count}} lượt', { count: remainingEvaluations })}
                 </div>
               </div>
             </div>
@@ -336,20 +360,20 @@ function MyCVPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-base font-bold text-text-primary break-all">{fileName}</h3>
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-success-light text-success text-[10px] font-bold border border-success/20">
-                      <CheckCircle2 size={10} className="mr-1" /> Đã phân tích
+                      <CheckCircle2 size={10} className="mr-1" /> {t('mycv.analyzed', 'Đã phân tích')}
                     </span>
                   </div>
-                  <p className="text-xs text-text-secondary">Ngày tải lên: {uploadDate || cvData.uploadDate}</p>
+                  <p className="text-xs text-text-secondary">{t('mycv.uploaded_on', 'Ngày tải lên: {{date}}', { date: uploadDate || cvData.uploadDate })}</p>
 
                   {/* Quick info list */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-xs font-medium text-text-secondary">
                     <span className="flex items-center gap-1">
                       <Award size={14} className="text-primary-dark" />
-                      {cvData.skills.length} kỹ năng phát hiện
+                      {t('mycv.skills_detected', '{{count}} kỹ năng phát hiện', { count: cvData.skills.length })}
                     </span>
                     <span className="flex items-center gap-1">
                       <FolderGit2 size={14} className="text-primary-dark" />
-                      {cvData.projects.length} project phát hiện
+                      {t('mycv.projects_detected', '{{count}} project phát hiện', { count: cvData.projects.length })}
                     </span>
                   </div>
                 </div>
@@ -362,12 +386,12 @@ function MyCVPage() {
                   className="bg-black hover:bg-gray-800 text-white text-xs font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
                 >
                   <Eye size={14} />
-                  Xem feedback CV
+                  {t('mycv.view_feedback', 'Xem feedback CV')}
                 </button>
 
                 <label className="cursor-pointer bg-white hover:bg-surface-3 text-text-primary border border-border text-xs font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center gap-1.5 shadow-sm">
                   <Upload size={14} />
-                  Tải CV mới
+                  {t('mycv.upload_new', 'Tải CV mới')}
                   <input
                     type="file"
                     className="hidden"
@@ -379,7 +403,7 @@ function MyCVPage() {
                 <button
                   onClick={handleRemoveCV}
                   className="p-2.5 text-text-secondary hover:text-error hover:bg-error-light rounded-xl border border-transparent hover:border-error/20 transition-all"
-                  title="Xóa CV"
+                  title={t('mycv.delete_cv', 'Xóa CV')}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -389,7 +413,7 @@ function MyCVPage() {
             {/* Extracted Details Title */}
             <div className="flex items-center gap-2 pt-2">
               <Sparkles size={20} className="text-primary-dark" />
-              <h2 className="text-lg font-bold text-text-primary">Thông tin AI trích xuất</h2>
+              <h2 className="text-lg font-bold text-text-primary">{t('mycv.extracted_info', 'Thông tin AI trích xuất')}</h2>
             </div>
 
             {/* Metadata Grid */}
@@ -398,7 +422,7 @@ function MyCVPage() {
               <div className="bg-surface-2 border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
                 <div className="px-5 py-4 border-b border-border bg-surface-1 flex items-center gap-2 shrink-0">
                   <Award size={18} className="text-primary-dark" />
-                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Kỹ năng</h3>
+                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">{t('mycv.skills', 'Kỹ năng')}</h3>
                 </div>
                 <div className="p-5 flex-1 overflow-y-auto max-h-[350px]">
                   <div className="flex flex-wrap gap-2">
@@ -418,7 +442,7 @@ function MyCVPage() {
               <div className="bg-surface-2 border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
                 <div className="px-5 py-4 border-b border-border bg-surface-1 flex items-center gap-2 shrink-0">
                   <FolderGit2 size={18} className="text-primary-dark" />
-                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Dự án</h3>
+                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">{t('mycv.projects', 'Dự án')}</h3>
                 </div>
                 <div className="p-5 flex-1 overflow-y-auto max-h-[350px] space-y-4">
                   {cvData.projects.map((proj, idx) => (
@@ -435,7 +459,7 @@ function MyCVPage() {
               <div className="bg-surface-2 border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
                 <div className="px-5 py-4 border-b border-border bg-surface-1 flex items-center gap-2 shrink-0">
                   <Briefcase size={18} className="text-primary-dark" />
-                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Kinh nghiệm</h3>
+                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">{t('mycv.experience', 'Kinh nghiệm')}</h3>
                 </div>
                 <div className="p-5 flex-1 overflow-y-auto max-h-[350px] space-y-4">
                   {cvData.experience.map((exp, idx) => (
@@ -468,15 +492,15 @@ function MyCVPage() {
                   <Sparkles size={18} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-text-primary">Sẵn sàng để luyện tập?</h4>
-                  <p className="text-xs text-text-secondary mt-0.5">AI đã cá nhân hóa bộ câu hỏi phỏng vấn dựa trên CV vừa tải lên.</p>
+                  <h4 className="text-sm font-bold text-text-primary">{t('mycv.ready_to_practice', 'Sẵn sàng để luyện tập?')}</h4>
+                  <p className="text-xs text-text-secondary mt-0.5">{t('mycv.practice_desc', 'AI đã cá nhân hóa bộ câu hỏi phỏng vấn dựa trên CV vừa tải lên.')}</p>
                 </div>
               </div>
               <a
                 href="#dashboard"
                 className="bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm hover:shadow-md self-start sm:self-auto"
               >
-                Bắt đầu phỏng vấn ngay
+                {t('mycv.start_practice', 'Bắt đầu phỏng vấn ngay')}
                 <ChevronRight size={14} />
               </a>
             </div>
@@ -492,13 +516,13 @@ function MyCVPage() {
             <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface-1">
               <div className="flex items-center gap-2">
                 <Sparkles size={20} className="text-primary-dark animate-pulse" />
-                <h3 className="text-base font-bold text-text-primary">Đánh giá & Phản hồi CV từ AI</h3>
+                <h3 className="text-base font-bold text-text-primary">{t('mycv.modal_title', 'Đánh giá & Phản hồi CV từ AI')}</h3>
               </div>
               <button
                 onClick={() => setShowFeedbackModal(false)}
                 className="p-1.5 hover:bg-surface-3 text-text-secondary rounded-lg transition-colors text-sm font-bold"
               >
-                Đóng
+                {t('mycv.close', 'Đóng')}
               </button>
             </div>
 
@@ -511,7 +535,7 @@ function MyCVPage() {
                     : 'border-transparent text-text-secondary hover:text-text-primary'
                   }`}
               >
-                Đánh giá chung
+                {t('mycv.tab_overall', 'Đánh giá chung')}
               </button>
               <button
                 onClick={() => setActiveTab('strengths')}
@@ -520,7 +544,7 @@ function MyCVPage() {
                     : 'border-transparent text-text-secondary hover:text-text-primary'
                   }`}
               >
-                Điểm mạnh
+                {t('mycv.tab_strengths', 'Điểm mạnh')}
               </button>
               <button
                 onClick={() => setActiveTab('improvements')}
@@ -529,7 +553,7 @@ function MyCVPage() {
                     : 'border-transparent text-text-secondary hover:text-text-primary'
                   }`}
               >
-                Cần cải thiện
+                {t('mycv.tab_improvements', 'Cần cải thiện')}
               </button>
             </div>
 
@@ -541,15 +565,15 @@ function MyCVPage() {
                     <div className="text-2xl font-black text-primary-dark">8.5<span className="text-xs text-text-secondary">/10</span></div>
                     <div className="h-8 w-px bg-primary-light"></div>
                     <div>
-                      <div className="text-xs font-bold text-primary-dark uppercase">Điểm đánh giá CV</div>
-                      <p className="text-xs text-text-secondary mt-0.5">CV của bạn có cấu trúc tốt, rõ ràng và đầy đủ thông tin cốt lõi.</p>
+                      <div className="text-xs font-bold text-primary-dark uppercase">{t('mycv.score_title', 'Điểm đánh giá CV')}</div>
+                      <p className="text-xs text-text-secondary mt-0.5">{t('mycv.mock_score_desc', 'CV của bạn có cấu trúc tốt, rõ ràng và đầy đủ thông tin cốt lõi.')}</p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="text-sm font-bold text-text-primary">Tóm tắt đánh giá:</h4>
+                    <h4 className="text-sm font-bold text-text-primary">{t('mycv.summary_title', 'Tóm tắt đánh giá:')}</h4>
                     <p className="text-xs text-text-secondary leading-relaxed">
-                      CV được định dạng theo cấu trúc chuẩn. Các kỹ năng kỹ thuật được trình bày mạch lạc, khớp với yêu cầu của vị trí Frontend Developer. Các dự án được liệt kê chi tiết tuy nhiên cần có thêm các chỉ số định lượng (ví dụ: tăng 20% performance, giảm thời gian load trang...) để làm nổi bật tác động của bạn.
+                      {t('mycv.mock_summary_desc', 'CV được định dạng theo cấu trúc chuẩn. Các kỹ năng kỹ thuật được trình bày mạch lạc, khớp với yêu cầu của vị trí Frontend Developer. Các dự án được liệt kê chi tiết tuy nhiên cần có thêm các chỉ số định lượng (ví dụ: tăng 20% performance, giảm thời gian load trang...) để làm nổi bật tác động của bạn.')}
                     </p>
                   </div>
                 </div>
@@ -560,15 +584,15 @@ function MyCVPage() {
                   <div className="flex items-start gap-2.5 p-3 bg-success-light/30 border border-success/20 rounded-xl">
                     <CheckCircle2 size={16} className="text-success mt-0.5 shrink-0" />
                     <div>
-                      <h4 className="text-xs font-bold text-text-primary">Công nghệ hiện đại & phù hợp</h4>
-                      <p className="text-xs text-text-secondary mt-1">Sử dụng stack phổ biến (React, Next.js, Redux, TS) đáp ứng rất tốt nhu cầu tuyển dụng Frontend hiện nay.</p>
+                      <h4 className="text-xs font-bold text-text-primary">{t('mycv.mock_strength_1_title', 'Công nghệ hiện đại & phù hợp')}</h4>
+                      <p className="text-xs text-text-secondary mt-1">{t('mycv.mock_strength_1_desc', 'Sử dụng stack phổ biến (React, Next.js, Redux, TS) đáp ứng rất tốt nhu cầu tuyển dụng Frontend hiện nay.')}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5 p-3 bg-success-light/30 border border-success/20 rounded-xl">
                     <CheckCircle2 size={16} className="text-success mt-0.5 shrink-0" />
                     <div>
-                      <h4 className="text-xs font-bold text-text-primary">Bố cục rõ ràng, chuyên nghiệp</h4>
-                      <p className="text-xs text-text-secondary mt-1">Các phần thông tin liên hệ, học vấn, kỹ năng, dự án được phân chia rành mạch, dễ đọc lướt (scannable).</p>
+                      <h4 className="text-xs font-bold text-text-primary">{t('mycv.mock_strength_2_title', 'Bố cục rõ ràng, chuyên nghiệp')}</h4>
+                      <p className="text-xs text-text-secondary mt-1">{t('mycv.mock_strength_2_desc', 'Các phần thông tin liên hệ, học vấn, kỹ năng, dự án được phân chia rành mạch, dễ đọc lướt (scannable).')}</p>
                     </div>
                   </div>
                 </div>
@@ -579,15 +603,15 @@ function MyCVPage() {
                   <div className="flex items-start gap-2.5 p-3 bg-warning-light/30 border border-warning/20 rounded-xl">
                     <AlertCircle size={16} className="text-warning mt-0.5 shrink-0" />
                     <div>
-                      <h4 className="text-xs font-bold text-text-primary">Thiếu số liệu định lượng (Quantifiable Results)</h4>
-                      <p className="text-xs text-text-secondary mt-1">Nên cụ thể hóa kết quả đạt được. Thay vì ghi "tối ưu hóa UI/UX", hãy viết "tối ưu UI/UX giúp cải thiện 25% tỷ lệ giữ chân người dùng".</p>
+                      <h4 className="text-xs font-bold text-text-primary">{t('mycv.mock_improvement_1_title', 'Thiếu số liệu định lượng (Quantifiable Results)')}</h4>
+                      <p className="text-xs text-text-secondary mt-1">{t('mycv.mock_improvement_1_desc', 'Nên cụ thể hóa kết quả đạt được. Thay vì ghi "tối ưu hóa UI/UX", hãy viết "tối ưu UI/UX giúp cải thiện 25% tỷ lệ giữ chân người dùng".')}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5 p-3 bg-warning-light/30 border border-warning/20 rounded-xl">
                     <AlertCircle size={16} className="text-warning mt-0.5 shrink-0" />
                     <div>
-                      <h4 className="text-xs font-bold text-text-primary">Bổ sung link sản phẩm / Github</h4>
-                      <p className="text-xs text-text-secondary mt-1">Các dự án nên có đường dẫn Github hoặc link demo trực tiếp để nhà tuyển dụng dễ dàng đánh giá mã nguồn thực tế.</p>
+                      <h4 className="text-xs font-bold text-text-primary">{t('mycv.mock_improvement_2_title', 'Bổ sung link sản phẩm / Github')}</h4>
+                      <p className="text-xs text-text-secondary mt-1">{t('mycv.mock_improvement_2_desc', 'Các dự án nên có đường dẫn Github hoặc link demo trực tiếp để nhà tuyển dụng dễ dàng đánh giá mã nguồn thực tế.')}</p>
                     </div>
                   </div>
                 </div>
@@ -600,7 +624,7 @@ function MyCVPage() {
                 onClick={() => setShowFeedbackModal(false)}
                 className="bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2 px-4 rounded-xl transition-all shadow-sm"
               >
-                Đã hiểu
+                {t('mycv.got_it', 'Đã hiểu')}
               </button>
             </div>
           </div>
@@ -611,3 +635,4 @@ function MyCVPage() {
 }
 
 export default MyCVPage;
+
