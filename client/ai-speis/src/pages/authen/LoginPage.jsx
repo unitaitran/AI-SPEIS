@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import AuthCard from '../../components/auth/AuthCard';
-import LoginForm from '../../components/auth/LoginForm';
+import AuthCard from '../../components/Auth/AuthCard';
+import LoginForm from '../../components/Auth/LoginForm';
 
 const LoginPage = () => {
   const { t } = useTranslation('login');

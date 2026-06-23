@@ -29,10 +29,6 @@ import './App.css';
 import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
 import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
-import ResetPasswordPage from './pages/authen/ResetPasswordPage';
-import DashboardPage from './pages/user/DashboardPage';
-import { getDefaultRouteForRole, getStoredSession } from './routes/auth';
-import { navigate } from './routes/navigation';
 
 const navKeys = ['home', 'features', 'flow', 'personalization', 'community'];
 const navHrefs = ['#hero', '#features', '#flow', '#personalization', '#community'];
@@ -69,41 +65,9 @@ function App() {
     i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
   };
 
-  const session = getStoredSession();
-  const isAuthenticated = !!session;
-
-  if (currentHash.startsWith('#login')) {
-    if (isAuthenticated) {
-      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
-      return null;
-    }
-    return <LoginPage />;
-  }
-  
-  if (currentHash.startsWith('#register')) {
-    if (isAuthenticated) {
-      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
-      return null;
-    }
-    return <RegisterPage />;
-  }
-  
-  if (currentHash.startsWith('#forgot-password')) return <ForgotPasswordPage />;
-  if (currentHash.startsWith('#reset-password')) return <ResetPasswordPage />;
-  if (currentHash.startsWith('#dashboard')) {
-    const hasTokenInUrl = currentHash.includes('?token=');
-    if (!isAuthenticated && !hasTokenInUrl) {
-      window.location.hash = '#login';
-      return null;
-    }
-
-    if (isAuthenticated && !hasTokenInUrl) {
-      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
-      return null;
-    }
-
-    return <DashboardPage />;
-  }
+  if (currentHash === '#login') return <LoginPage />;
+  if (currentHash === '#register') return <RegisterPage />;
+  if (currentHash === '#forgot-password') return <ForgotPasswordPage />;
 
   return (
     <div className="landing-shell">
@@ -135,11 +99,8 @@ function App() {
               <Globe size={18} />
               <span>{i18n.language === 'vi' ? 'VI / EN' : 'EN / VI'}</span>
             </button>
-            <a
-              className="primary-button subtle"
-              href={isAuthenticated ? getDefaultRouteForRole(session.user.role) : '#login'}
-            >
-              {isAuthenticated ? 'Dashboard' : t('buttons.login')}
+            <a className="primary-button subtle" href="#login">
+              {t('buttons.login')}
             </a>
           </div>
         </div>
