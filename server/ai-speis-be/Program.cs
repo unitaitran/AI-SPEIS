@@ -120,6 +120,7 @@ builder.Services.AddAuthentication(options =>
     options.CallbackPath = "/api/Authentication/oauth/google/callback";
     options.CorrelationCookie.SecurePolicy = googleCookieSecurePolicy;
     options.CorrelationCookie.SameSite = googleCookieSameSite;
+
 })
 .AddJwtBearer(options =>
 {
@@ -173,6 +174,21 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+
+// Catch Google OAuth Correlation failed errors and redirect gracefully
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex) when (ex is Microsoft.AspNetCore.Authentication.AuthenticationFailureException
+        || (ex.InnerException is Microsoft.AspNetCore.Authentication.AuthenticationFailureException))
+    {
+        context.Response.Redirect("http://localhost:3000/#login?status=error&message=" + Uri.EscapeDataString("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."));
+    }
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
