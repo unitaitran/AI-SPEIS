@@ -11,16 +11,25 @@ import viLogin from './locales/vi/login.json';
 import enRegister from './locales/en/register.json';
 import viRegister from './locales/vi/register.json';
 
+import enDashboard from './locales/en/dashboard.json';
+import viDashboard from './locales/vi/dashboard.json';
+import enAdminUsers from './locales/en/admin-users.json';
+import viAdminUsers from './locales/vi/admin-users.json';
+
 const resources = {
   en: {
     landing: enLanding,
     login: enLogin,
-    register: enRegister
+    register: enRegister,
+    dashboard: enDashboard,
+    'admin-users': enAdminUsers,
   },
   vi: {
     landing: viLanding,
     login: viLogin,
     register: viRegister,
+    dashboard: viDashboard,
+    'admin-users': viAdminUsers,
   },
 };
 
@@ -32,7 +41,7 @@ i18n
     fallbackLng: 'vi',
     supportedLngs: ['vi', 'en'],
     defaultNS: 'landing',
-    ns: ['landing', 'login', 'register'],
+    ns: ['landing', 'login', 'register', 'dashboard'],
     interpolation: {
       escapeValue: false,
     },

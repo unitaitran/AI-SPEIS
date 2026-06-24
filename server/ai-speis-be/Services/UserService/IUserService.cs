@@ -23,5 +23,18 @@ namespace ai_speis_be.Services.UserService
         Task<User?> ConfirmEmailFromGoogleAsync(string email);
         Task<string?> InitiatePasswordResetAsync(string email);
         Task<bool> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
+
+        // ── Profile & Security ──────────────────────────────────────────────
+        Task<UserMeResponseDto?> GetMyProfileAsync(
+            int userId,
+            CancellationToken cancellationToken = default);
+        Task<UpdateProfileResult> UpdateMyProfileAsync(
+            int userId,
+            UpdateProfileRequestDto dto,
+            CancellationToken cancellationToken = default);
+        Task<ChangePasswordResult> ChangePasswordAsync(
+            int userId,
+            ChangePasswordRequestDto dto,
+            CancellationToken cancellationToken = default);
     }
 }
