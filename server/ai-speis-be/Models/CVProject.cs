@@ -33,6 +33,9 @@ namespace ai_speis_be.Models
         [Column(TypeName = "nvarchar(max)")]
         public string? ProjectSummary { get; set; }
 
+        [MaxLength(100)]
+        public string? Duration { get; set; }
+
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 

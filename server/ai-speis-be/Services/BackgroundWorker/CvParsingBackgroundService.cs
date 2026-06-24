@@ -111,6 +111,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                     {
                         SkillName = skill.SkillName,
                         Source = string.IsNullOrEmpty(skill.Source) ? "AI" : skill.Source,
+                        Category = string.IsNullOrEmpty(skill.Category) ? "Other" : skill.Category,
                         CreatedAt = DateTime.UtcNow
                     });
                 }
@@ -123,6 +124,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                         RoleDescription = project.RoleDescription,
                         TechnologyStack = project.TechnologyStack,
                         ProjectSummary = project.ProjectSummary,
+                        Duration = project.Duration,
                         CreatedAt = DateTime.UtcNow
                     });
                 }

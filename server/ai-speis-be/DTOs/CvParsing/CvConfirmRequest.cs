@@ -5,9 +5,6 @@ namespace ai_speis_be.DTOs.CvParsing
 {
     public class CvConfirmRequest
     {
-        [Required]
-        public int CvFileId { get; set; }
-
         public string? RoleTarget { get; set; }
         
         [Required]

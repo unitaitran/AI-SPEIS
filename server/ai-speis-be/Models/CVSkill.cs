@@ -27,6 +27,13 @@ namespace ai_speis_be.Models
         [MaxLength(30)]
         public string Source { get; set; } = "AI";
 
+        /// <summary>
+        /// Skill category: Language, Framework, Database, Tool, Cloud, Other
+        /// </summary>
+        [Required]
+        [MaxLength(30)]
+        public string Category { get; set; } = "Other";
+
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 

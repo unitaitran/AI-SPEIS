@@ -33,11 +33,16 @@ namespace ai_speis_be.DTOs.CvParsing
         public string? RoleDescription { get; set; }
         public string TechnologyStack { get; set; } = string.Empty;
         public string? ProjectSummary { get; set; }
+        public string? Duration { get; set; }
     }
 
     public class SkillDto
     {
         public string SkillName { get; set; } = string.Empty;
-        public string Source { get; set; } = string.Empty; // "CV", "AI", etc.
+        public string Source { get; set; } = string.Empty;
+        /// <summary>
+        /// Skill category: Language, Framework, Database, Tool, Cloud, Other
+        /// </summary>
+        public string Category { get; set; } = "Other";
     }
 }
