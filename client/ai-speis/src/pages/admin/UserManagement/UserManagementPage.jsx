@@ -39,6 +39,10 @@ function UserManagementPage() {
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
   const [confirmModal, setConfirmModal] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailUser, setDetailUser] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(null);
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
   const startIndex = totalUsers === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -185,6 +189,60 @@ function UserManagementPage() {
     setConfirmModal(null);
   };
 
+  const getDetailField = (source, keys) => {
+    if (!source) {
+      return null;
+    }
+
+    for (let i = 0; i < keys.length; i += 1) {
+      const value = source[keys[i]];
+      if (value !== undefined && value !== null && value !== '') {
+        return value;
+      }
+    }
+
+    return null;
+  };
+
+  const formatDateValue = (value) => {
+    if (!value) {
+      return null;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    return date.toLocaleString();
+  };
+
+  const handleOpenDetail = async (userId) => {
+    if (!userId) {
+      return;
+    }
+
+    setShowDetailModal(true);
+    setDetailUser(null);
+    setDetailError(null);
+    setDetailLoading(true);
+
+    try {
+      const result = await userService.getUserDetail(userId);
+      setDetailUser(result);
+    } catch (err) {
+      setDetailError(err?.message || t('detailLoadError'));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setDetailUser(null);
+    setDetailError(null);
+  };
+
   const toggleSort = (field) => {
     if (sortBy === field) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -194,6 +252,32 @@ function UserManagementPage() {
     }
     setCurrentPage(1);
   };
+  const normalizeStatus = (status) => {
+  if (status == null) return '';
+
+  if (typeof status === 'string') {
+    return status.toLowerCase();
+  }
+
+  if (typeof status === 'boolean') {
+    return status ? 'active' : 'locked';
+  }
+
+  if (typeof status === 'number') {
+    return status === 1 ? 'active' : 'locked';
+  }
+
+  if (typeof status === 'object') {
+    return (
+      status.name?.toLowerCase() ||
+      status.value?.toLowerCase() ||
+      status.status?.toLowerCase() ||
+      ''
+    );
+  }
+
+  return '';
+};
 
   const compareValues = (a, b, field) => {
     const getField = (item) => {
@@ -211,7 +295,7 @@ function UserManagementPage() {
         case 'registerDate':
           return item.registerDate ? new Date(item.registerDate).getTime() : 0;
         case 'status':
-          return item.status?.toLowerCase() ?? '';
+          return normalizeStatus(item.status);
         default:
           return '';
       }
@@ -270,7 +354,7 @@ function UserManagementPage() {
 
     return buttons;
   }, [currentPage, totalPages]);
-
+  
   // Status badge component
   const StatusBadge = ({ status }) => {
     const statusMap = {
@@ -284,7 +368,7 @@ function UserManagementPage() {
       },
     };
 
-    const config = statusMap[status?.toLowerCase()] || statusMap.active;
+    const config = statusMap[normalizeStatus(status)] || statusMap.active;
 
     return (
       <span className={config.className}>
@@ -316,6 +400,88 @@ function UserManagementPage() {
       <p>{backendNotImplemented ? t('noUsersBackendDesc') : t('noUsersDesc')}</p>
     </div>
   );
+
+  const DetailModal = () => {
+    if (!showDetailModal) {
+      return null;
+    }
+
+    const avatarUrl = getDetailField(detailUser, ['avatarUrl', 'avatar', 'photoUrl', 'picture']);
+    const fullName = getDetailField(detailUser, ['fullName', 'name']);
+    const email = getDetailField(detailUser, ['email']);
+    const phoneNumber = getDetailField(detailUser, ['phoneNumber', 'phone', 'mobile']);
+    const roleValue = getDetailField(detailUser, ['role']);
+    const packageValue = getDetailField(detailUser, ['package', 'subscription', 'packageName']);
+    const quotaValue = getDetailField(detailUser, ['remainingQuota', 'quota', 'quotaRemaining']);
+    const statusValue = getDetailField(detailUser, ['status']);
+    const registrationDate = formatDateValue(getDetailField(detailUser, ['registrationDate', 'registerDate', 'createdAt', 'createdDate']));
+    const lastLogin = formatDateValue(getDetailField(detailUser, ['lastLogin', 'lastLoginAt', 'lastActivity']));
+    const createdDate = formatDateValue(getDetailField(detailUser, ['createdAt', 'createdDate']));
+    const updatedDate = formatDateValue(getDetailField(detailUser, ['updatedAt', 'updatedDate']));
+
+    const detailRows = [
+      { label: t('email'), value: email },
+      { label: t('phoneNumber'), value: phoneNumber },
+      { label: t('role'), value: roleValue },
+      { label: t('package'), value: packageValue },
+      { label: t('remainingQuota'), value: quotaValue },
+      { label: t('status'), value: statusValue },
+      { label: t('registrationDate'), value: registrationDate },
+      { label: t('lastLogin'), value: lastLogin },
+      { label: t('createdDate'), value: createdDate },
+      { label: t('updatedDate'), value: updatedDate },
+    ].filter((row) => row.value != null);
+
+    return (
+      <div className="modal-backdrop" role="dialog" aria-modal="true">
+        <div className="modal-card detail-modal-card">
+          <div className="modal-header">
+            <div>
+              <h3>{t('detailTitle')}</h3>
+              <p className="modal-description">{t('detailSubtitle')}</p>
+            </div>
+            <button type="button" className="modal-close-btn" onClick={closeDetailModal}>
+              {t('close')}
+            </button>
+          </div>
+
+          {detailLoading ? (
+            <div className="detail-loading">{t('loading')}...</div>
+          ) : detailError ? (
+            <div className="detail-error">
+              <AlertCircle size={18} />
+              <span>{detailError}</span>
+            </div>
+          ) : detailUser ? (
+            <div className="detail-body">
+              {avatarUrl && (
+                <div className="detail-avatar-card">
+                  <img src={avatarUrl} alt={fullName || t('avatarLabel')} className="detail-avatar" />
+                </div>
+              )}
+
+              <div className="detail-grid">
+                {fullName && (
+                  <div className="detail-item detail-fullname">
+                    <span className="detail-label">{t('fullName')}</span>
+                    <span className="detail-value">{fullName}</span>
+                  </div>
+                )}
+                {detailRows.map((row) => (
+                  <div className="detail-item" key={row.label}>
+                    <span className="detail-label">{row.label}</span>
+                    <span className="detail-value">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="detail-empty">{t('noDetailAvailable')}</div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const ConfirmationModal = () => {
     if (!confirmModal) {
@@ -591,6 +757,7 @@ function UserManagementPage() {
                               type="button"
                               title={t('viewDetail')}
                               aria-label={t('viewDetail')}
+                              onClick={() => handleOpenDetail(user.id)}
                             >
                               <Eye size={18} />
                             </button>
@@ -733,6 +900,7 @@ function UserManagementPage() {
           </div>
         )}
       </div>
+      <DetailModal />
       <ConfirmationModal />
     </div>
   );

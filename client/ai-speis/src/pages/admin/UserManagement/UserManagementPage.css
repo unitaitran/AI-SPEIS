@@ -386,6 +386,112 @@
   line-height: var(--body-md-lh);
 }
 
+.detail-modal-card {
+  width: min(640px, 100%);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.modal-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.modal-close-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: var(--body-sm);
+}
+
+.modal-close-btn:hover {
+  background: var(--surface-3);
+}
+
+.detail-loading,
+.detail-empty {
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.detail-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 140px;
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  background-color: var(--danger-xlight);
+  color: var(--danger);
+}
+
+.detail-body {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+.detail-avatar-card {
+  display: flex;
+  justify-content: center;
+}
+
+.detail-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.detail-item {
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+}
+
+.detail-fullname {
+  grid-column: span 2;
+}
+
+.detail-label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--body-xs);
+  margin-bottom: 6px;
+}
+
+.detail-value {
+  display: block;
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+@media (max-width: 600px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -420,7 +526,7 @@
   color: var(--primary);
 }
 
-..action-btn:focus-visible {
+.action-btn:focus-visible {
   outline: 3px solid var(--primary-xlight);
   outline-offset: 2px;
 }

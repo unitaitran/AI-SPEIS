@@ -47,5 +47,17 @@
   "pageSize": "Page size:",
   "viewDetail": "View Detail",
   "assignRole": "Assign Role",
-  "lockUser": "Lock User"
+  "lockUser": "Lock User",
+  "detailTitle": "User Details",
+  "detailSubtitle": "Review the full profile and account status for this user.",
+  "loading": "Loading user details",
+  "close": "Close",
+  "detailLoadError": "Unable to load user details.",
+  "noDetailAvailable": "No detailed information is available.",
+  "phoneNumber": "Phone Number",
+  "remainingQuota": "Remaining Quota",
+  "lastLogin": "Last Login",
+  "createdDate": "Created Date",
+  "updatedDate": "Updated Date",
+  "avatarLabel": "User Avatar"
 }
