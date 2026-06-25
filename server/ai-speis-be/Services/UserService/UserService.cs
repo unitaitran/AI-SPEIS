@@ -1,17 +1,22 @@
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Repositories.UserRepo;
+using ai_speis_be.Services.FileValidatorService;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Http;
+using System.IO;
 
 namespace ai_speis_be.Services.UserService
 {
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IFileValidatorService _fileValidatorService;
 
-        public UserService(IUserRepository userRepository)
+        public UserService(IUserRepository userRepository, IFileValidatorService fileValidatorService)
         {
             _userRepository = userRepository;
+            _fileValidatorService = fileValidatorService;
         }
 
         public Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
@@ -307,6 +312,51 @@ namespace ai_speis_be.Services.UserService
 
             await _userRepository.UpdateUserAsync(user, cancellationToken);
             return new UpdateProfileResult(UpdateProfileOutcome.Success, MapToUserMeResponseDto(user));
+        }
+        public async Task<(bool Success, string? ErrorMessage, string? NewImageUrl)> UpdateAvatarAsync(
+            int userId,
+            IFormFile file,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            if (user is null)
+                return (false, "Không tìm thấy người dùng.", null);
+
+            var (isValid, errorMessage) = _fileValidatorService.ValidateImage(file);
+            if (!isValid)
+                return (false, errorMessage, null);
+
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "AvatarImage");
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var uniqueFileName = $"user_{userId}_{Guid.NewGuid().ToString("N").Substring(0, 8)}{Path.GetExtension(file.FileName).ToLower()}";
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream, cancellationToken);
+            }
+
+            // Xoá ảnh cũ nếu không phải ảnh mặc định
+            if (!string.IsNullOrEmpty(user.ImageUrl) && !user.ImageUrl.Contains("avt_default.jpg"))
+            {
+                var oldFileName = Path.GetFileName(user.ImageUrl);
+                var oldFilePath = Path.Combine(uploadsFolder, oldFileName);
+                if (File.Exists(oldFilePath))
+                {
+                    try { File.Delete(oldFilePath); } catch { /* Bỏ qua lỗi xoá file */ }
+                }
+            }
+
+            user.ImageUrl = $"/AvatarImage/{uniqueFileName}";
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+
+            return (true, null, user.ImageUrl);
         }
 
         public async Task<ChangePasswordResult> ChangePasswordAsync(
