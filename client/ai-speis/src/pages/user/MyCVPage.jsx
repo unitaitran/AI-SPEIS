@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import cvService from '../../services/CVService';
-import './MyCVPage.css';
+import { API_BASE_URL } from '../../config/api';
+import '../../styles/user/MyCVPage.css';
 
 /* ========================================================================= */
 /*  STATUS CONSTANTS matching backend CVFileStatus enum                      */
@@ -81,7 +82,9 @@ function MyCVPage() {
   const [uploadStep, setUploadStep] = useState('');
   const [error, setError] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const [activeTab, setActiveTab] = useState('overall');
+  const [isDragging, setIsDragging] = useState(false);
 
   /* Editing state (for confirm flow) */
   const [isEditing, setIsEditing] = useState(false);
@@ -102,12 +105,12 @@ function MyCVPage() {
 
   const getStatusBadge = (status) => {
     const map = {
-      [STATUS.PENDING]:               { cls: 'mycv-badge--warning',  icon: Clock,          label: t('mycv.status_pending',      'Chờ phân tích') },
-      [STATUS.PROCESSING]:            { cls: 'mycv-badge--info',     icon: Loader2,        label: t('mycv.status_processing',   'Đang phân tích') },
-      [STATUS.CONFIRMATION_REQUIRED]: { cls: 'mycv-badge--info',     icon: AlertCircle,    label: t('mycv.status_confirm_req',  'Cần xác nhận') },
-      [STATUS.CONFIRMED]:             { cls: 'mycv-badge--success',  icon: CheckCircle2,   label: t('mycv.status_confirmed',    'Đã xác nhận') },
-      [STATUS.FAILED]:                { cls: 'mycv-badge--error',    icon: AlertCircle,    label: t('mycv.status_failed',       'Tải lên thất bại') },
-      [STATUS.ANALYSIS_FAILED]:       { cls: 'mycv-badge--error',    icon: AlertCircle,    label: t('mycv.status_analysis_fail','Phân tích thất bại') },
+      [STATUS.PENDING]: { cls: 'mycv-badge--warning', icon: Clock, label: t('mycv.status_pending', 'Chờ phân tích') },
+      [STATUS.PROCESSING]: { cls: 'mycv-badge--info', icon: Loader2, label: t('mycv.status_processing', 'Đang phân tích') },
+      [STATUS.CONFIRMATION_REQUIRED]: { cls: 'mycv-badge--info', icon: AlertCircle, label: t('mycv.status_confirm_req', 'Cần xác nhận') },
+      [STATUS.CONFIRMED]: { cls: 'mycv-badge--success', icon: CheckCircle2, label: t('mycv.status_confirmed', 'Đã xác nhận') },
+      [STATUS.FAILED]: { cls: 'mycv-badge--error', icon: AlertCircle, label: t('mycv.status_failed', 'Tải lên thất bại') },
+      [STATUS.ANALYSIS_FAILED]: { cls: 'mycv-badge--error', icon: AlertCircle, label: t('mycv.status_analysis_fail', 'Phân tích thất bại') },
     };
     return map[status] || { cls: 'mycv-badge--default', icon: Info, label: status };
   };
@@ -240,11 +243,8 @@ function MyCVPage() {
   /* -----------------------------------------------------------------------
    *  Upload handler
    * --------------------------------------------------------------------- */
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
+  const processFile = async (file) => {
     if (!file) return;
-    // Reset the input so re-selecting the same file triggers onChange
-    e.target.value = '';
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       setError(t('mycv.error_pdf_only', 'Chỉ hỗ trợ tệp tin định dạng PDF'));
@@ -286,6 +286,41 @@ function MyCVPage() {
       if (!isMountedRef.current) return;
       setIsUploading(false);
       setError(err.message || t('mycv.error_upload', 'Không thể tải lên file CV. Vui lòng thử lại.'));
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    await processFile(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      await processFile(file);
     }
   };
 
@@ -514,12 +549,18 @@ function MyCVPage() {
 
             {/* Right: Upload Zone */}
             <div className="mycv-upload-zone-col">
-              <div className="mycv-upload-dropzone">
+              <div
+                className={`mycv-upload-dropzone ${isDragging ? 'mycv-upload-dropzone--dragging' : ''}`}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
                 <div className="mycv-upload-icon-wrap">
                   <Upload size={28} />
                 </div>
                 <h3>{t('mycv.upload_title', 'Tải lên CV của bạn')}</h3>
-                <p>{t('mycv.upload_desc', 'Bạn chưa tải lên CV của mình. Hãy tải lên CV để AI có thể phân tích kỹ năng, trích xuất thông tin dự án và cá nhân hóa câu hỏi phỏng vấn tối ưu nhất cho bạn.')}</p>
+                <p>{t('mycv.upload_desc', 'Bạn chưa tải lên CV của mình. Kéo thả tệp tin vào đây hoặc chọn tệp tin để AI có thể phân tích kỹ năng, trích xuất thông tin dự án và cá nhân hóa câu hỏi phỏng vấn tối ưu nhất cho bạn.')}</p>
                 <label className="mycv-upload-btn">
                   <Plus size={18} />
                   {t('mycv.select_file', 'Chọn tệp tin CV (PDF)')}
@@ -545,7 +586,13 @@ function MyCVPage() {
                 </div>
                 <div className="mycv-info-details">
                   <div className="mycv-info-name-row">
-                    <h3>{cvData.fileName}</h3>
+                    <h3
+                      className="cursor-pointer hover:text-primary hover:underline transition-colors"
+                      onClick={() => setShowPdfModal(true)}
+                      title={t('mycv.click_to_view', 'Nhấp để xem PDF')}
+                    >
+                      {cvData.fileName}
+                    </h3>
                     {(() => {
                       const badge = getStatusBadge(cvStatus);
                       const BadgeIcon = badge.icon;
@@ -1028,8 +1075,35 @@ function MyCVPage() {
             </div>
           </div>
         )}
-      </div>
-    </UserLayout>
+
+        {/* PDF Viewer Modal */}
+        {showPdfModal && cvData?.filePath && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 md:p-8 animate-in fade-in">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-6xl h-full flex flex-col overflow-hidden relative">
+              <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-surface-1">
+                <h3 className="font-bold text-text-primary text-lg flex items-center gap-2">
+                  <FileText size={20} className="text-primary" />
+                  {cvData.fileName}
+                </h3>
+                <button
+                  onClick={() => setShowPdfModal(false)}
+                  className="p-2 hover:bg-surface-2 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-text-secondary" />
+                </button>
+              </div>
+              <div className="flex-1 w-full bg-surface-2 relative">
+                <iframe
+                  src={`${API_BASE_URL}${cvData.filePath}`}
+                  title={cvData.fileName}
+                  className="w-full h-full border-0"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div >
+    </UserLayout >
   );
 }
 

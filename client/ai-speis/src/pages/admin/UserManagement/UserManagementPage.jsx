@@ -15,7 +15,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { userService } from '../../../services/UserService';
-import './UserManagementPage.css';
+import '../../../styles/admin/UserManagementPage.css';
 
 function UserManagementPage() {
   const { t } = useTranslation('admin-users');

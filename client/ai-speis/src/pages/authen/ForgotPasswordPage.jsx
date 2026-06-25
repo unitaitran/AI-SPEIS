@@ -41,7 +41,7 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col relative">
+    <div className="h-screen overflow-hidden w-full flex flex-col relative">
       <AuthCard 
         footerText={t('forgot_footer')}
         mascotText={t('forgot_mascot')}

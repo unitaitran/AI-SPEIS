@@ -5,9 +5,12 @@ import './i18n';
 import AppRoutes from './routes/AppRoutes';
 import reportWebVitals from './reportWebVitals';
 
+import TokenMonitor from './routes/TokenMonitor';
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
+    <TokenMonitor />
     <AppRoutes />
   </React.StrictMode>
 );
