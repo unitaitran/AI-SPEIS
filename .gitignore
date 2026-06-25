@@ -2,3 +2,7 @@
 .env.*
 !.env.example
 .vs/
+
+# Build results
+[Bb]in/
+[Oo]bj/

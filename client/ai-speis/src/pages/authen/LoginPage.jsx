@@ -44,7 +44,7 @@ const LoginPage = () => {
         )}
       </div>
 
-      <AuthCard 
+      <AuthCard
         footerText={t('footer_text')}
         mascotText={t('mascot_greeting')}
       >

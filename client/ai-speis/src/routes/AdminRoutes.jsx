@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { ADMIN_MENU_ITEMS, ADMIN_ROUTES } from '../constants/adminMenu';
 import AdminLayout from '../layouts/admin/AdminLayout';
 import AdminDashboardPage from '../pages/admin/Dashboard/AdminDashboardPage';
+import UserManagementPage from '../pages/admin/UserManagement/UserManagementPage';
 import { navigate } from './navigation';
-import { AUTHENTICATED_ADMIN_ROUTES } from './routePaths';
 
 function AdminRoutePlaceholder({ title }) {
   return (
@@ -26,8 +26,7 @@ function AdminRoutePlaceholder({ title }) {
 }
 
 function AdminRoutes({ pathname }) {
-  const isAdminRoot = pathname === AUTHENTICATED_ADMIN_ROUTES.ROOT
-    || pathname === `${AUTHENTICATED_ADMIN_ROUTES.ROOT}/`;
+  const isAdminRoot = pathname === '/admin' || pathname === '/admin/';
   const activePathname = isAdminRoot ? ADMIN_ROUTES.DASHBOARD : pathname;
 
   useEffect(() => {
@@ -37,9 +36,15 @@ function AdminRoutes({ pathname }) {
   }, [isAdminRoot]);
 
   const currentMenuItem = ADMIN_MENU_ITEMS.find((item) => item.path === activePathname);
-  const content = activePathname === ADMIN_ROUTES.DASHBOARD
-    ? <AdminDashboardPage />
-    : <AdminRoutePlaceholder title={currentMenuItem?.label || 'Page not found'} />;
+  let content;
+
+  if (activePathname === ADMIN_ROUTES.DASHBOARD) {
+    content = <AdminDashboardPage />;
+  } else if (activePathname === ADMIN_ROUTES.USERS) {
+    content = <UserManagementPage />;
+  } else {
+    content = <AdminRoutePlaceholder title={currentMenuItem?.label || 'Page not found'} />;
+  }
 
   return (
     <AdminLayout pathname={activePathname}>
