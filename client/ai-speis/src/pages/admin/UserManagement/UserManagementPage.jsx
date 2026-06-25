@@ -196,6 +196,18 @@ function UserManagementPage() {
   };
 
   const compareValues = (a, b, field) => {
+    const normalizeStatusValue = (value) => {
+      if (typeof value === 'boolean') {
+        return value ? 'active' : 'locked';
+      }
+
+      if (typeof value === 'string') {
+        return value.trim().toLowerCase();
+      }
+
+      return '';
+    };
+
     const getField = (item) => {
       if (!item) {
         return '';
@@ -211,7 +223,7 @@ function UserManagementPage() {
         case 'registerDate':
           return item.registerDate ? new Date(item.registerDate).getTime() : 0;
         case 'status':
-          return item.status?.toLowerCase() ?? '';
+          return normalizeStatusValue(item.status);
         default:
           return '';
       }
@@ -273,6 +285,18 @@ function UserManagementPage() {
 
   // Status badge component
   const StatusBadge = ({ status }) => {
+    const normalizedStatus = (() => {
+      if (typeof status === 'boolean') {
+        return status ? 'active' : 'locked';
+      }
+
+      if (typeof status === 'string') {
+        return status.trim().toLowerCase();
+      }
+
+      return '';
+    })();
+
     const statusMap = {
       active: {
         className: 'status-badge status-active',
@@ -284,7 +308,7 @@ function UserManagementPage() {
       },
     };
 
-    const config = statusMap[status?.toLowerCase()] || statusMap.active;
+    const config = statusMap[normalizedStatus] || statusMap.active;
 
     return (
       <span className={config.className}>

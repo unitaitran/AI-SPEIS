@@ -21,6 +21,15 @@ namespace ai_speis_be.Services.UserService
             return _userRepository.GetUsersAsync(query, cancellationToken);
         }
 
+        public Task<AdminUserDetailDto?> GetAdminUserDetailAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            return _userRepository.GetAdminUserDetailAsync(
+                userId,
+                cancellationToken);
+        }
+
         public async Task<LockUserResult> LockUserAsync(
             int userId,
             int actingUserId,

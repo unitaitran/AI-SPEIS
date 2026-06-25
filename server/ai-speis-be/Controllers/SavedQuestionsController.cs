@@ -27,10 +27,12 @@ namespace ai_speis_be.Controllers
             var savedQuestions = await _service.GetSavedQuestionsAsync(userId);
             return Ok(savedQuestions);
         }
-        [HttpPost("{questionId}")]
+        [HttpPost("{questionId:int}")]
         [Authorize]
         public async Task<IActionResult> SaveQuestionAsync([FromRoute] int questionId)
         {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             var userIdClaim = User.FindFirst("UserId")?.Value;
             if (string.IsNullOrEmpty(userIdClaim))
             {
@@ -40,10 +42,12 @@ namespace ai_speis_be.Controllers
             var questionSaved = await _service.SaveQuestionAsync(userId, questionId);
             return Ok(questionSaved);
         }
-        [HttpDelete("{questionId}")]
+        [HttpDelete("{questionId:int}")]
         [Authorize]
         public async Task<IActionResult>UnsaveQuestionAsync([FromRoute] int questionId)
         {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             var userIdClaim = User.FindFirst("UserId")?.Value;
             if (string.IsNullOrEmpty(userIdClaim))
             {
