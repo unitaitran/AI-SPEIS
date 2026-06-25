@@ -144,6 +144,8 @@ namespace ai_speis_be.Controllers
             [FromBody] AdminQuestionUpdateRequestDto request,
             CancellationToken cancellationToken)
         {
+            if (questionId <= 0)
+             return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -179,6 +181,8 @@ namespace ai_speis_be.Controllers
             int questionId,
             CancellationToken cancellationToken)
         {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -215,6 +219,8 @@ namespace ai_speis_be.Controllers
             [FromBody] LockUserRequestDto request,
             CancellationToken cancellationToken)
         {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -275,6 +281,8 @@ namespace ai_speis_be.Controllers
             int userId,
             CancellationToken cancellationToken)
         {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
             var result = await _userService.UnlockUserAsync(
                 userId,
                 cancellationToken);

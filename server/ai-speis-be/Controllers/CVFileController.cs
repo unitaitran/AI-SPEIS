@@ -29,10 +29,12 @@ namespace ai_speis_be.Controllers
             return Ok(CV);
         }
 
-        [HttpGet("user/{userId}")]
+        [HttpGet("user/{userId:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetUserCV(int userId)
         {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
             var cv = await _cvService.GetCVByUserIdAsync(userId);
             if (cv == null) return NotFound(new { Message = "Không tìm thấy CV của người dùng này." });
             return Ok(cv);
@@ -80,10 +82,12 @@ namespace ai_speis_be.Controllers
             return Ok(cv);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         [Authorize]
         public async Task<IActionResult> GetCVById(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
             var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             var currentUserIdClaim = User.FindFirst("UserId")?.Value;
             
