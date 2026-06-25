@@ -22,6 +22,60 @@ namespace ai_speis_be.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ai_speis_be.Models.CVExtractedProfile", b =>
+                {
+                    b.Property<int>("ExtractedProfileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExtractedProfileId"));
+
+                    b.Property<int>("CVFileId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("ConfidenceScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ConfirmedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Education")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Experience")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RawAiOutput")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RoleTarget")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ExtractedProfileId");
+
+                    b.HasIndex("ConfirmedBy");
+
+                    b.HasIndex(new[] { "CVFileId" }, "IX_CVExtractedProfile_CVFileId")
+                        .IsUnique();
+
+                    b.ToTable("CVExtractedProfile");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.CVFile", b =>
                 {
                     b.Property<int>("CVFileId")
@@ -65,6 +119,85 @@ namespace ai_speis_be.Migrations
                     b.HasIndex(new[] { "UserId" }, "IX_CVFile_UserId");
 
                     b.ToTable("CVFile");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.CVProject", b =>
+                {
+                    b.Property<int>("CVProjectId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CVProjectId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Duration")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ExtractedProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProjectName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ProjectSummary")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RoleDescription")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TechnologyStack")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("CVProjectId");
+
+                    b.HasIndex(new[] { "ExtractedProfileId" }, "IX_CVProject_ExtractedProfileId");
+
+                    b.ToTable("CVProject");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.CVSkill", b =>
+                {
+                    b.Property<int>("CVSkillId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CVSkillId"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ExtractedProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SkillName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("CVSkillId");
+
+                    b.HasIndex("ExtractedProfileId", "SkillName")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "ExtractedProfileId" }, "IX_CVSkill_ExtractedProfileId");
+
+                    b.ToTable("CVSkill");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
@@ -320,6 +453,24 @@ namespace ai_speis_be.Migrations
                     b.ToTable("UserProfile");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.CVExtractedProfile", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.CVFile", "CVFile")
+                        .WithOne()
+                        .HasForeignKey("ai_speis_be.Models.CVExtractedProfile", "CVFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ai_speis_be.Models.User", "ConfirmedByUser")
+                        .WithMany()
+                        .HasForeignKey("ConfirmedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CVFile");
+
+                    b.Navigation("ConfirmedByUser");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.CVFile", b =>
                 {
                     b.HasOne("ai_speis_be.Models.User", "User")
@@ -329,6 +480,28 @@ namespace ai_speis_be.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.CVProject", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.CVExtractedProfile", "ExtractedProfile")
+                        .WithMany("Projects")
+                        .HasForeignKey("ExtractedProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ExtractedProfile");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.CVSkill", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.CVExtractedProfile", "ExtractedProfile")
+                        .WithMany("Skills")
+                        .HasForeignKey("ExtractedProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ExtractedProfile");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
@@ -381,6 +554,13 @@ namespace ai_speis_be.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.CVExtractedProfile", b =>
+                {
+                    b.Navigation("Projects");
+
+                    b.Navigation("Skills");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.User", b =>

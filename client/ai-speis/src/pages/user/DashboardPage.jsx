@@ -10,36 +10,12 @@ function DashboardPage() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith('#dashboard?')) {
-      const queryString = hash.split('?')[1];
-      const urlParams = new URLSearchParams(queryString);
-
-      const token = urlParams.get('token');
-      const userId = urlParams.get('userId');
-      const fullName = urlParams.get('fullName');
-      const email = urlParams.get('email');
-      const role = urlParams.get('role');
-
-      if (token) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify({
-          userId: parseInt(userId, 10),
-          fullName: fullName,
-          email: email,
-          role: role
-        }));
-
-        navigate(USER_ROUTES.DASHBOARD, { replace: true });
-      }
-    } else {
-      // Try to load user from localStorage if no token in URL
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        try {
-          setUser(JSON.parse(userStr));
-        } catch (e) { }
-      }
+    // Try to load user from localStorage
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        setUser(JSON.parse(userStr));
+      } catch (e) { }
     }
   }, []);
 
