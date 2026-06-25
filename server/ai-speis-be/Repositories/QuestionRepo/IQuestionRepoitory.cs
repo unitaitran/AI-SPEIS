@@ -8,7 +8,9 @@ namespace ai_speis_be.Repositories.QuestionRepo
         Task<PagedResultDto<Question>> GetAdminQuestionsAsync(
             AdminQuestionQueryDto query,
             CancellationToken cancellationToken = default);
-        Task<IEnumerable<Question>> GetQuestionsAsync(string ? roleTarget, string? major, string? difficulty );
+        Task<PagedResultDto<Question>> GetQuestionsAsync(
+            UserQuestionQueryDto query,
+            CancellationToken cancellationToken = default);
         Task<Question?> GetQuestionByIdAsync(
             int questionId,
             CancellationToken cancellationToken = default);
@@ -17,6 +19,9 @@ namespace ai_speis_be.Repositories.QuestionRepo
             CancellationToken cancellationToken = default);
         Task<Question> CreateQuestionAsync(
             Question question,
+            CancellationToken cancellationToken = default);
+        Task<int> CreateQuestionsAsync(
+            IReadOnlyCollection<Question> questions,
             CancellationToken cancellationToken = default);
         Task UpdateQuestionAsync(
             Question question,

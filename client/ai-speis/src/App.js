@@ -19,6 +19,7 @@ import {
   Upload,
   Users,
   Volume2,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -29,9 +30,7 @@ import './App.css';
 import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
 import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
-import ResetPasswordPage from './pages/authen/ResetPasswordPage';
-import DashboardPage from './pages/user/DashboardPage';
-import { getDefaultRouteForRole, getStoredSession } from './routes/auth';
+import { getStoredSession, getDefaultRouteForRole } from './routes/auth';
 import { navigate } from './routes/navigation';
 
 const navKeys = ['home', 'features', 'flow', 'personalization', 'community'];
@@ -41,6 +40,16 @@ const featureIcons = [Upload, Bot, FileText, BarChart3, Trophy, Users];
 const communityIcons = [Bell, Star, Flame, GraduationCap];
 const personalizationRowIcons = [LayoutDashboard, LayoutList, Search];
 const toolIcons = [Mic, Volume2, FileText, Bell, Lock];
+
+function AuthRedirect() {
+  useEffect(() => {
+    const session = getStoredSession();
+    if (session) {
+      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
+    }
+  }, []);
+  return null;
+}
 
 function App() {
   const { t, i18n } = useTranslation('landing');
@@ -70,39 +79,61 @@ function App() {
   };
 
   const session = getStoredSession();
-  const isAuthenticated = !!session;
+  const hashPath = currentHash.split('?')[0];
+  const isAuthRoute = hashPath === '#login' || hashPath === '#register' || hashPath === '#forgot-password';
 
-  if (currentHash.startsWith('#login')) {
-    if (isAuthenticated) {
-      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
-      return null;
+  // Parse query params to detect OAuth login error when user is already logged in
+  const queryString = currentHash.includes('?') ? currentHash.split('?')[1] : '';
+  const urlParams = new URLSearchParams(queryString);
+  const isLoginError = hashPath === '#login' && urlParams.get('status') === 'error';
+
+  // State to control popup
+  const [showLoggedInPopup, setShowLoggedInPopup] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    if (session && isLoginError) {
+      setShowLoggedInPopup(true);
+      // Clean query params to prevent showing again on refresh
+      window.history.replaceState(null, '', window.location.pathname);
+      setCurrentHash('');
     }
-    return <LoginPage />;
+  }, [session, isLoginError]);
+
+  // Countdown timer for automatic redirect
+  useEffect(() => {
+    if (!showLoggedInPopup) return;
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate(getDefaultRouteForRole(session?.user?.role), { replace: true });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [showLoggedInPopup, session]);
+
+  const handleGoToDashboard = () => {
+    setShowLoggedInPopup(false);
+    navigate(getDefaultRouteForRole(session?.user?.role), { replace: true });
+  };
+
+  // Auth guard redirects:
+  // If user is logged in, and tries to access auth routes, and it is NOT an OAuth login error, redirect immediately.
+  if (isAuthRoute && session && !isLoginError) {
+    return <AuthRedirect />;
   }
-  
-  if (currentHash.startsWith('#register')) {
-    if (isAuthenticated) {
-      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
-      return null;
-    }
-    return <RegisterPage />;
-  }
-  
-  if (currentHash.startsWith('#forgot-password')) return <ForgotPasswordPage />;
-  if (currentHash.startsWith('#reset-password')) return <ResetPasswordPage />;
-  if (currentHash.startsWith('#dashboard')) {
-    const hasTokenInUrl = currentHash.includes('?token=');
-    if (!isAuthenticated && !hasTokenInUrl) {
-      window.location.hash = '#login';
-      return null;
-    }
 
-    if (isAuthenticated && !hasTokenInUrl) {
-      navigate(getDefaultRouteForRole(session.user.role), { replace: true });
-      return null;
-    }
-
-    return <DashboardPage />;
+  // If user is not logged in, render auth pages normally
+  if (!session) {
+    if (hashPath === '#login') return <LoginPage />;
+    if (hashPath === '#register') return <RegisterPage />;
+    if (hashPath === '#forgot-password') return <ForgotPasswordPage />;
   }
 
   return (
@@ -135,11 +166,8 @@ function App() {
               <Globe size={18} />
               <span>{i18n.language === 'vi' ? 'VI / EN' : 'EN / VI'}</span>
             </button>
-            <a
-              className="primary-button subtle"
-              href={isAuthenticated ? getDefaultRouteForRole(session.user.role) : '#login'}
-            >
-              {isAuthenticated ? 'Dashboard' : t('buttons.login')}
+            <a className="primary-button subtle" href="#login">
+              {t('buttons.login')}
             </a>
           </div>
         </div>
@@ -335,6 +363,65 @@ function App() {
           </div>
         </section>
       </main>
+
+      {/* Already Logged In Popup */}
+      {showLoggedInPopup && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 popup-overlay cursor-pointer"
+          onClick={handleGoToDashboard}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full border border-primary/20 shadow-[0_24px_54px_rgba(63,127,174,0.2)] p-8 text-center relative overflow-hidden popup-content cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Decorative top gradient bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-primary-dark to-info" />
+            
+            {/* Close button */}
+            <button 
+              onClick={handleGoToDashboard}
+              className="absolute top-4 right-4 p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-primary-xlight/50 transition-colors duration-200 cursor-pointer"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Mascot Image Container with animated hover */}
+            <div className="relative w-40 h-40 mx-auto mb-6 group">
+              <div className="absolute inset-0 bg-primary-light/10 rounded-full blur-2xl group-hover:bg-primary-light/20 transition-all duration-500" />
+              <img 
+                src="/confuse.png" 
+                alt="Confused mascot" 
+                className="relative w-full h-full object-contain transform group-hover:scale-105 group-hover:rotate-2 transition-transform duration-500 ease-out"
+              />
+            </div>
+
+            {/* Content */}
+            <h3 className="text-xl font-bold text-text-primary mb-3">
+              {i18n.language === 'vi' ? 'Bạn đã đăng nhập rồi!' : 'You are already logged in!'}
+            </h3>
+            
+            <p className="text-text-secondary text-sm leading-relaxed mb-6">
+              {i18n.language === 'vi' 
+                ? 'Hệ thống phát hiện bạn đã đăng nhập và có phiên làm việc hoạt động. Tự động chuyển hướng về trang điều khiển sau '
+                : 'The system detected that you are already logged in with an active session. Redirecting to your dashboard in '}
+              <span className="font-bold text-primary-dark text-base px-2 py-0.5 rounded-md bg-primary-xlight inline-block min-w-[28px] animate-pulse">
+                {countdown}
+              </span>
+              {i18n.language === 'vi' ? ' giây.' : ' seconds.'}
+            </p>
+
+            {/* Action Button */}
+            <button
+              onClick={handleGoToDashboard}
+              className="w-full py-3.5 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary shadow-lg hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
+            >
+              <span>{i18n.language === 'vi' ? 'Đi tới Dashboard ngay' : 'Go to Dashboard now'}</span>
+              <ChevronRight size={18} className="transform group-hover:translate-x-1 transition-transform duration-300" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

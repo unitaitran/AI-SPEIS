@@ -87,6 +87,45 @@ namespace ai_speis_be.Controllers
                 result.Question);
         }
 
+        [HttpPost("questions/import")]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(
+            typeof(QuestionImportSummaryDto),
+            StatusCodes.Status200OK)]
+        [ProducesResponseType(
+            typeof(ProblemDetails),
+            StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(
+            typeof(ProblemDetails),
+            StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<QuestionImportSummaryDto>> ImportQuestions(
+            IFormFile? file,
+            CancellationToken cancellationToken)
+        {
+            if (!TryGetActingUserId(out var actingUserId))
+            {
+                return Unauthorized(CreateInvalidAuthenticationProblem());
+            }
+
+            var result = await _questionService.ImportAdminQuestionsAsync(
+                file,
+                actingUserId,
+                cancellationToken);
+
+            return result.Outcome switch
+            {
+                QuestionImportOutcome.Imported => Ok(result.Summary),
+                QuestionImportOutcome.InvalidFile => BadRequest(new ProblemDetails
+                {
+                    Title = "Invalid Excel import file",
+                    Detail = result.ErrorMessage,
+                    Status = StatusCodes.Status400BadRequest
+                }),
+                _ => throw new InvalidOperationException(
+                    $"Unsupported question import outcome: {result.Outcome}")
+            };
+        }
+
         [HttpPut("questions/{questionId:int}")]
         [ProducesResponseType(
             typeof(QuestionResponseDto),
