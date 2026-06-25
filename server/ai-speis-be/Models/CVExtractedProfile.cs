@@ -45,6 +45,30 @@ namespace ai_speis_be.Models
         [Column(TypeName = "decimal(5,2)")]
         public decimal? ConfidenceScore { get; set; }
 
+        /// <summary>
+        /// AI đánh giá chung về CV (ví dụ: "Ứng viên có nền tảng kỹ thuật tốt...")
+        /// </summary>
+        [Column(TypeName = "nvarchar(max)")]
+        public string? OverallAssessment { get; set; }
+
+        /// <summary>
+        /// Điểm mạnh của ứng viên theo AI
+        /// </summary>
+        [Column(TypeName = "nvarchar(max)")]
+        public string? Strengths { get; set; }
+
+        /// <summary>
+        /// Điểm yếu / cần cải thiện theo AI
+        /// </summary>
+        [Column(TypeName = "nvarchar(max)")]
+        public string? Weaknesses { get; set; }
+
+        /// <summary>
+        /// Thông báo lỗi khi CV không hợp lệ hoặc cảnh báo khi confidence thấp
+        /// </summary>
+        [MaxLength(500)]
+        public string? ErrorMessage { get; set; }
+
         [Required]
         public bool IsConfirmed { get; set; } = false;
 
