@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Upload,
@@ -14,625 +14,1023 @@ import {
   Trash2,
   ChevronRight,
   Info,
-  Sparkles
+  Sparkles,
+  GraduationCap,
+  Target,
+  RefreshCw,
+  Check,
+  X,
+  Edit3,
+  Clock,
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
-import { ENDPOINTS } from '../../config/api';
+import cvService from '../../services/CVService';
+import './MyCVPage.css';
+
+/* ========================================================================= */
+/*  STATUS CONSTANTS matching backend CVFileStatus enum                      */
+/* ========================================================================= */
+const STATUS = {
+  PENDING: 'Pending',
+  PROCESSING: 'Processing',
+  CONFIRMATION_REQUIRED: 'ConfirmationRequired',
+  CONFIRMED: 'Confirmed',
+  FAILED: 'Failed',
+  ANALYSIS_FAILED: 'AnalysisFailed',
+  ARCHIVED: 'Archived',
+};
+
+/** Map numeric enum values (from CVDto) to string names.
+ *  CvParseStatusResponse already returns strings via .ToString(). */
+const STATUS_INT_MAP = {
+  0: STATUS.PENDING,
+  1: STATUS.PROCESSING,
+  2: STATUS.CONFIRMATION_REQUIRED,
+  3: STATUS.CONFIRMED,
+  4: STATUS.FAILED,
+  5: STATUS.ANALYSIS_FAILED,
+  6: STATUS.ARCHIVED,
+};
+
+const normalizeStatus = (raw) => {
+  if (typeof raw === 'number') return STATUS_INT_MAP[raw] || String(raw);
+  return String(raw);
+};
+
+/* ========================================================================= */
+/*  POLLING INTERVAL                                                         */
+/* ========================================================================= */
+const POLL_INTERVAL_MS = 2500;
 
 function MyCVPage() {
   const { t } = useTranslation('dashboard');
-  const [cvUploaded, setCvUploaded] = useState(false);
-  const [fileName, setFileName] = useState('');
-  const [cvFileId, setCvFileId] = useState(null);
-  const [uploadDate, setUploadDate] = useState('');
+
+  /* -----------------------------------------------------------------------
+   *  Core state
+   * --------------------------------------------------------------------- */
+  const [cvData, setCvData] = useState(null);        // CVDto from GET /MyCV
+  const [parsedData, setParsedData] = useState(null); // CvParsedDataResponse
+  const [cvStatus, setCvStatus] = useState(null);     // string status
+
+  /* UI state */
   const [isLoading, setIsLoading] = useState(true);
-
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStep, setUploadStep] = useState('');
-  const [remainingEvaluations, setRemainingEvaluations] = useState(4);
+  const [error, setError] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [activeTab, setActiveTab] = useState('overall'); // overall, strengths, improvements
+  const [activeTab, setActiveTab] = useState('overall');
 
-  // Mock extracted CV data
-  const cvData = {
-    uploadDate: '16/06/2026',
-    skills: ['ReactJS', 'TypeScript', 'Tailwind CSS', 'Git', 'Redux', 'Next.js', 'REST API', 'UI/UX Design'],
-    projects: [
-      {
-        name: 'E-commerce Platform',
-        role: 'Frontend Developer',
-        desc: 'Xây dựng trang web thương mại điện tử tích hợp thanh toán, quản lý giỏ hàng.'
-      },
-      {
-        name: 'Portfolio Website',
-        role: 'Personal Project',
-        desc: 'Trang giới thiệu bản thân thiết kế theo phong cách tối giản, sử dụng Next.js và Tailwind.'
-      },
-      {
-        name: 'Task Management App',
-        role: 'Team Lead / Frontend',
-        desc: 'Ứng dụng quản lý công việc nhóm thời gian thực với drag-and-drop.'
-      }
-    ],
-    experience: [
-      {
-        role: 'Frontend Developer Intern',
-        company: 'Company X',
-        duration: '06/2025 - 09/2025',
-        bullets: ['Học hỏi quy trình làm việc Agile/Scrum.', 'Tối ưu hóa UI/UX và cải thiện tốc độ tải trang thêm 20%.']
-      },
-      {
-        role: 'Freelance Web Developer',
-        company: 'Tự do',
-        duration: '2024 - Hiện tại',
-        bullets: ['Thiết kế và lập trình landing page cho các doanh nghiệp vừa và nhỏ.']
-      }
-    ]
+  /* Editing state (for confirm flow) */
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState(null);
+
+  /* Refs for polling */
+  const pollTimerRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  /* -----------------------------------------------------------------------
+   *  Helpers
+   * --------------------------------------------------------------------- */
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
-  useEffect(() => {
-    const fetchMyCV = async () => {
-      setIsLoading(true);
+  const getStatusBadge = (status) => {
+    const map = {
+      [STATUS.PENDING]:               { cls: 'mycv-badge--warning',  icon: Clock,          label: t('mycv.status_pending',      'Chờ phân tích') },
+      [STATUS.PROCESSING]:            { cls: 'mycv-badge--info',     icon: Loader2,        label: t('mycv.status_processing',   'Đang phân tích') },
+      [STATUS.CONFIRMATION_REQUIRED]: { cls: 'mycv-badge--info',     icon: AlertCircle,    label: t('mycv.status_confirm_req',  'Cần xác nhận') },
+      [STATUS.CONFIRMED]:             { cls: 'mycv-badge--success',  icon: CheckCircle2,   label: t('mycv.status_confirmed',    'Đã xác nhận') },
+      [STATUS.FAILED]:                { cls: 'mycv-badge--error',    icon: AlertCircle,    label: t('mycv.status_failed',       'Tải lên thất bại') },
+      [STATUS.ANALYSIS_FAILED]:       { cls: 'mycv-badge--error',    icon: AlertCircle,    label: t('mycv.status_analysis_fail','Phân tích thất bại') },
+    };
+    return map[status] || { cls: 'mycv-badge--default', icon: Info, label: status };
+  };
+
+  /* -----------------------------------------------------------------------
+   *  Fetch CV + parsed data
+   * --------------------------------------------------------------------- */
+  const fetchCV = useCallback(async () => {
+    try {
+      const cv = await cvService.getMyCV();
+      if (!isMountedRef.current) return;
+      setCvData(cv);
+      setCvStatus(normalizeStatus(cv.status));
+
+      // If status is ConfirmationRequired or Confirmed, try fetching parsed data
+      const normalized = normalizeStatus(cv.status);
+      if (
+        normalized === STATUS.CONFIRMATION_REQUIRED ||
+        normalized === STATUS.CONFIRMED
+      ) {
+        try {
+          const parsed = await cvService.getParsedData(cv.cvFileId);
+          if (!isMountedRef.current) return;
+          setParsedData(parsed);
+        } catch {
+          // parsed data not available yet — that's okay
+        }
+      }
+
+      return cv;
+    } catch (err) {
+      if (!isMountedRef.current) return null;
+      if (err.message?.includes('404') || err.message?.includes('Không tìm thấy')) {
+        setCvData(null);
+        setCvStatus(null);
+        setParsedData(null);
+      }
+      return null;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* -----------------------------------------------------------------------
+   *  Polling logic for Processing status
+   * --------------------------------------------------------------------- */
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback((cvFileId) => {
+    stopPolling();
+    setIsParsing(true);
+
+    pollTimerRef.current = setInterval(async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setIsLoading(false);
-          return;
-        }
+        const statusResp = await cvService.getParseStatus(cvFileId);
+        if (!isMountedRef.current) { stopPolling(); return; }
 
-        const response = await fetch(ENDPOINTS.CV_GET_MY, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        setCvStatus(normalizeStatus(statusResp.status));
+
+        if (normalizeStatus(statusResp.status) === STATUS.CONFIRMATION_REQUIRED) {
+          stopPolling();
+          setIsParsing(false);
+          // Fetch the parsed data
+          const parsed = await cvService.getParsedData(cvFileId);
+          if (isMountedRef.current) {
+            setParsedData(parsed);
+            // Also refresh CV data
+            const cv = await cvService.getMyCV();
+            if (isMountedRef.current) {
+              setCvData(cv);
+              setCvStatus(normalizeStatus(cv.status));
+            }
           }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setCvUploaded(true);
-          setFileName(data.fileName);
-          setCvFileId(data.cvFileId);
-          const date = new Date(data.uploadedAt);
-          const formattedDate = date.toLocaleDateString('vi-VN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          });
-          setUploadDate(formattedDate);
-        } else if (response.status === 404) {
-          setCvUploaded(false);
-          setFileName('');
-          setCvFileId(null);
+        } else if (
+          normalizeStatus(statusResp.status) === STATUS.ANALYSIS_FAILED ||
+          normalizeStatus(statusResp.status) === STATUS.FAILED
+        ) {
+          stopPolling();
+          setIsParsing(false);
+          setError(t('mycv.error_analysis_failed', 'AI phân tích CV thất bại. Vui lòng thử lại.'));
+          // Refresh CV data
+          await fetchCV();
+        } else if (normalizeStatus(statusResp.status) === STATUS.CONFIRMED) {
+          stopPolling();
+          setIsParsing(false);
+          const parsed = await cvService.getParsedData(cvFileId);
+          if (isMountedRef.current) {
+            setParsedData(parsed);
+            const cv = await cvService.getMyCV();
+            if (isMountedRef.current) {
+              setCvData(cv);
+              setCvStatus(normalizeStatus(cv.status));
+            }
+          }
         }
-      } catch (error) {
-        console.error('Lỗi khi tải thông tin CV:', error);
-      } finally {
-        setIsLoading(false);
+      } catch {
+        // network error — keep polling
+      }
+    }, POLL_INTERVAL_MS);
+  }, [stopPolling, fetchCV, t]);
+
+  /* -----------------------------------------------------------------------
+   *  Init
+   * --------------------------------------------------------------------- */
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const init = async () => {
+      setIsLoading(true);
+      const cv = await fetchCV();
+      if (isMountedRef.current) setIsLoading(false);
+
+      // If it's currently processing, start polling
+      if (cv && normalizeStatus(cv.status) === STATUS.PROCESSING) {
+        startPolling(cv.cvFileId);
       }
     };
 
-    fetchMyCV();
-  }, []);
+    init();
 
+    return () => {
+      isMountedRef.current = false;
+      stopPolling();
+    };
+  }, [fetchCV, startPolling, stopPolling]);
+
+  /* -----------------------------------------------------------------------
+   *  Upload handler
+   * --------------------------------------------------------------------- */
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
-        alert(t('mycv.error_pdf_only', 'Chỉ hỗ trợ tệp tin định dạng PDF'));
-        return;
-      }
+    if (!file) return;
+    // Reset the input so re-selecting the same file triggers onChange
+    e.target.value = '';
 
-      setIsUploading(true);
-      setUploadProgress(0);
-      setUploadStep(t('mycv.step_preparing', 'Đang chuẩn bị tệp tin...'));
-
-      let apiFinished = false;
-      let apiResponseData = null;
-      let apiError = null;
-
-      // Start the upload in the background
-      (async () => {
-        try {
-          const token = localStorage.getItem('token');
-          const formData = new FormData();
-          formData.append('file', file);
-
-          const response = await fetch(ENDPOINTS.CV_UPLOAD, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
-            body: formData
-          });
-
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.message || 'Lỗi tải lên CV');
-          }
-
-          const data = await response.json();
-          apiResponseData = data;
-        } catch (error) {
-          apiError = error.message || 'Không thể tải lên file CV. Vui lòng thử lại.';
-        } finally {
-          apiFinished = true;
-        }
-      })();
-
-      const interval = setInterval(() => {
-        setUploadProgress((prev) => {
-          let next = prev;
-          if (prev < 90) {
-            next = prev + 5;
-          } else if (apiFinished) {
-            next = prev + 10;
-          }
-
-          if (next >= 100) {
-            clearInterval(interval);
-            setTimeout(() => {
-              setIsUploading(false);
-              if (apiError) {
-                alert(apiError);
-                setCvUploaded(false);
-              } else if (apiResponseData) {
-                setCvUploaded(true);
-                setFileName(apiResponseData.fileName);
-                setCvFileId(apiResponseData.cvFileId);
-                const date = new Date(apiResponseData.uploadedAt);
-                const formattedDate = date.toLocaleDateString('vi-VN', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit'
-                });
-                setUploadDate(formattedDate);
-                setRemainingEvaluations((prevEval) => Math.max(0, prevEval - 1));
-              }
-            }, 600);
-            return 100;
-          }
-
-          // Update helper step texts
-          if (next === 20) setUploadStep(t('mycv.step_uploading', 'Đang tải tệp tin lên máy chủ...'));
-          if (next === 40) setUploadStep(t('mycv.step_analyzing', 'Đang phân tích cấu trúc CV...'));
-          if (next === 60) setUploadStep(t('mycv.step_extracting_skills', 'AI đang trích xuất thông tin kỹ năng...'));
-          if (next === 80) setUploadStep(t('mycv.step_matching_exp', 'Đang đối chiếu dự án và kinh nghiệm...'));
-          if (next === 95) setUploadStep(t('mycv.step_completed', 'Hoàn tất phân tích!'));
-
-          return next;
-        });
-      }, 150);
-    }
-  };
-
-  const handleRemoveCV = async () => {
-    if (!cvFileId) {
-      alert(t('mycv.error_find_cv', 'Không tìm thấy thông tin tệp CV cần xóa.'));
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setError(t('mycv.error_pdf_only', 'Chỉ hỗ trợ tệp tin định dạng PDF'));
       return;
     }
-    if (window.confirm(t('mycv.confirm_delete', 'Bạn có chắc chắn muốn xóa CV này?'))) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(ENDPOINTS.CV_DELETE(cvFileId), {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
 
-        if (response.ok) {
-          setCvUploaded(false);
-          setFileName('');
-          setCvFileId(null);
-          setUploadDate('');
-        } else {
-          const errData = await response.json().catch(() => ({}));
-          alert(errData.message || t('mycv.error_remove', 'Lỗi khi xóa CV trên máy chủ.'));
-        }
-      } catch (error) {
-        console.error('Lỗi khi kết nối xóa CV:', error);
-        alert(t('mycv.error_remove_connect', 'Lỗi kết nối khi xóa CV. Vui lòng thử lại.'));
-      }
+    setIsUploading(true);
+    setUploadProgress(0);
+    setError(null);
+    setUploadStep(t('mycv.step_preparing', 'Đang chuẩn bị tệp tin...'));
+
+    // Simulate progress while uploading
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) return prev;
+        const next = prev + Math.random() * 12 + 3;
+        if (next >= 30) setUploadStep(t('mycv.step_uploading', 'Đang tải tệp tin lên máy chủ...'));
+        if (next >= 60) setUploadStep(t('mycv.step_analyzing', 'Đang phân tích cấu trúc CV...'));
+        return Math.min(next, 90);
+      });
+    }, 200);
+
+    try {
+      const result = await cvService.uploadCV(file);
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      setUploadStep(t('mycv.step_completed', 'Hoàn tất tải lên!'));
+
+      // Brief pause to show 100%
+      await new Promise((r) => setTimeout(r, 600));
+
+      if (!isMountedRef.current) return;
+      setCvData(result);
+      setCvStatus(normalizeStatus(result.status));
+      setParsedData(null);
+      setIsUploading(false);
+    } catch (err) {
+      clearInterval(progressInterval);
+      if (!isMountedRef.current) return;
+      setIsUploading(false);
+      setError(err.message || t('mycv.error_upload', 'Không thể tải lên file CV. Vui lòng thử lại.'));
     }
   };
 
+  /* -----------------------------------------------------------------------
+   *  Trigger Parse handler
+   * --------------------------------------------------------------------- */
+  const handleTriggerParse = async () => {
+    if (!cvData) return;
+    setError(null);
+    setIsParsing(true);
+
+    try {
+      await cvService.triggerParse(cvData.cvFileId);
+      setCvStatus(STATUS.PROCESSING);
+      startPolling(cvData.cvFileId);
+    } catch (err) {
+      setIsParsing(false);
+      setError(err.message);
+    }
+  };
+
+  /* -----------------------------------------------------------------------
+   *  Delete handler
+   * --------------------------------------------------------------------- */
+  const handleRemoveCV = async () => {
+    if (!cvData?.cvFileId) {
+      setError(t('mycv.error_find_cv', 'Không tìm thấy thông tin tệp CV cần xóa.'));
+      return;
+    }
+    if (!window.confirm(t('mycv.confirm_delete', 'Bạn có chắc chắn muốn xóa CV này?'))) return;
+
+    try {
+      await cvService.deleteCV(cvData.cvFileId);
+      setCvData(null);
+      setCvStatus(null);
+      setParsedData(null);
+      stopPolling();
+    } catch (err) {
+      setError(err.message || t('mycv.error_remove', 'Lỗi khi xóa CV trên máy chủ.'));
+    }
+  };
+
+  /* -----------------------------------------------------------------------
+   *  Confirm handler
+   * --------------------------------------------------------------------- */
+  const handleConfirm = async () => {
+    if (!cvData?.cvFileId) return;
+    setIsConfirming(true);
+    setError(null);
+
+    const dataToConfirm = isEditing && editData ? editData : {
+      roleTarget: parsedData?.roleTarget || '',
+      education: parsedData?.education || [],
+      experience: parsedData?.experience || [],
+      projects: (parsedData?.projects || []).map((p) => ({
+        projectName: p.projectName,
+        roleDescription: p.roleDescription,
+        technologyStack: p.technologyStack,
+        projectSummary: p.projectSummary,
+        duration: p.duration,
+      })),
+      skills: (parsedData?.skills || []).map((s) => ({
+        skillName: s.skillName,
+        source: s.source,
+        category: s.category,
+      })),
+    };
+
+    try {
+      await cvService.confirmParsedData(cvData.cvFileId, dataToConfirm);
+      // Refresh
+      const cv = await cvService.getMyCV();
+      if (!isMountedRef.current) return;
+      setCvData(cv);
+      setCvStatus(normalizeStatus(cv.status));
+      const parsed = await cvService.getParsedData(cv.cvFileId);
+      if (!isMountedRef.current) return;
+      setParsedData(parsed);
+      setIsEditing(false);
+      setEditData(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      if (isMountedRef.current) setIsConfirming(false);
+    }
+  };
+
+  /* -----------------------------------------------------------------------
+   *  Editing helpers
+   * --------------------------------------------------------------------- */
+  const startEditing = () => {
+    if (!parsedData) return;
+    setEditData({
+      roleTarget: parsedData.roleTarget || '',
+      education: [...(parsedData.education || [])],
+      experience: [...(parsedData.experience || [])],
+      projects: (parsedData.projects || []).map((p) => ({
+        projectName: p.projectName || '',
+        roleDescription: p.roleDescription || '',
+        technologyStack: p.technologyStack || '',
+        projectSummary: p.projectSummary || '',
+        duration: p.duration || '',
+      })),
+      skills: (parsedData.skills || []).map((s) => ({
+        skillName: s.skillName || '',
+        source: s.source || '',
+        category: s.category || 'Other',
+      })),
+    });
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditData(null);
+  };
+
+  /* -----------------------------------------------------------------------
+   *  Determine which data to render
+   * --------------------------------------------------------------------- */
+  const displayData = isEditing ? editData : parsedData;
+  const hasExtractedData = parsedData && (
+    parsedData.skills?.length > 0 ||
+    parsedData.projects?.length > 0 ||
+    parsedData.education?.length > 0 ||
+    parsedData.experience?.length > 0
+  );
+
+  const needsConfirmation = cvStatus === STATUS.CONFIRMATION_REQUIRED;
+  const isConfirmed = cvStatus === STATUS.CONFIRMED;
+  const canTriggerParse = cvStatus === STATUS.PENDING || cvStatus === STATUS.ANALYSIS_FAILED;
+
+  /* -----------------------------------------------------------------------
+   *  RENDER: Loading
+   * --------------------------------------------------------------------- */
   if (isLoading) {
     return (
       <UserLayout>
-        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-          <Loader2 size={36} className="text-primary animate-spin" />
-          <p className="text-sm text-text-secondary">{t('mycv.loading', 'Đang tải thông tin CV của bạn...')}</p>
+        <div className="mycv-loading">
+          <Loader2 size={36} className="mycv-spinner" />
+          <p>{t('mycv.loading', 'Đang tải thông tin CV của bạn...')}</p>
         </div>
       </UserLayout>
     );
   }
 
+  /* -----------------------------------------------------------------------
+   *  RENDER
+   * --------------------------------------------------------------------- */
   return (
     <UserLayout>
-      <div className="space-y-8 pb-12">
+      <div className="mycv-container">
         {/* Page Header */}
-        <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <section className="mycv-header">
           <div>
-            <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">{t('mycv.title', 'CV của tôi')}</h1>
-            <p className="text-base text-text-secondary">
+            <h1 className="mycv-title">{t('mycv.title', 'CV của tôi')}</h1>
+            <p className="mycv-subtitle">
               {t('mycv.subtitle', 'Quản lý CV để AI phân tích kỹ năng, dự án và tạo câu hỏi phỏng vấn cá nhân hóa.')}
             </p>
           </div>
         </section>
 
-        {isUploading ? (
-          /* Loading / Analyzing State */
-          <div className="bg-surface-2 border border-primary-light rounded-2xl p-10 text-center shadow-sm max-w-2xl mx-auto animate-pulse-slight">
-            <div className="flex justify-center mb-6 relative">
-              <Loader2 size={48} className="text-primary animate-spin" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <Sparkles size={20} className="text-primary-dark animate-pulse" />
-              </div>
-            </div>
-            <h3 className="text-xl font-bold text-text-primary mb-2">{t('mycv.analyzing_title', 'AI đang phân tích CV của bạn')}</h3>
-            <p className="text-sm text-text-secondary mb-6">{uploadStep}</p>
-
-            {/* Progress Bar */}
-            <div className="w-full bg-surface-3 rounded-full h-3.5 mb-2 overflow-hidden border border-border">
-              <div
-                className="bg-gradient-to-r from-primary to-[#4A90E2] h-full rounded-full transition-all duration-150"
-                style={{ width: `${uploadProgress}%` }}
-              ></div>
-            </div>
-            <div className="text-xs font-semibold text-primary-dark">{uploadProgress}%</div>
+        {/* Error Banner */}
+        {error && (
+          <div className="mycv-error-banner">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="mycv-error-close">
+              <X size={14} />
+            </button>
           </div>
-        ) : !cvUploaded ? (
-          /* Empty / Upload CV State with split columns layout */
-          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            {/* Left Column: Mascot */}
-            <div className="flex flex-col items-center justify-center p-6 text-center space-y-6">
-              {/* Speech Bubble */}
-              <div className="relative bg-white border border-border rounded-2xl px-6 py-4 shadow-sm max-w-sm mb-2">
-                <p className="text-base font-semibold text-text-primary">
-                  {t('mycv.mascot_say', 'Hãy tải lên CV của bạn!')}
-                </p>
-                {/* Speech Bubble Arrow */}
-                <div className="absolute bottom-[-8px] left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-r border-b border-border rotate-45"></div>
+        )}
+
+        {/* ==================== UPLOADING STATE ==================== */}
+        {isUploading && (
+          <div className="mycv-upload-progress-card">
+            <div className="mycv-upload-progress-icon">
+              <Loader2 size={48} className="mycv-spinner" />
+              <Sparkles size={20} className="mycv-pulse-icon" />
+            </div>
+            <h3>{t('mycv.analyzing_title', 'Đang tải CV lên máy chủ')}</h3>
+            <p className="mycv-upload-step">{uploadStep}</p>
+            <div className="mycv-progress-bar-track">
+              <div
+                className="mycv-progress-bar-fill"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+            <span className="mycv-progress-percent">{Math.round(uploadProgress)}%</span>
+          </div>
+        )}
+
+        {/* ==================== PARSING STATE ==================== */}
+        {!isUploading && isParsing && (
+          <div className="mycv-upload-progress-card">
+            <div className="mycv-upload-progress-icon">
+              <Loader2 size={48} className="mycv-spinner" />
+              <Sparkles size={20} className="mycv-pulse-icon" />
+            </div>
+            <h3>{t('mycv.ai_parsing_title', 'AI đang phân tích CV của bạn')}</h3>
+            <p className="mycv-upload-step">
+              {t('mycv.ai_parsing_desc', 'Đang trích xuất kỹ năng, dự án, học vấn và kinh nghiệm...')}
+            </p>
+            <div className="mycv-progress-bar-track">
+              <div className="mycv-progress-bar-fill mycv-progress-bar-indeterminate" />
+            </div>
+            <p className="mycv-polling-hint">
+              {t('mycv.polling_hint', 'Quá trình này có thể mất từ 30 giây đến 2 phút.')}
+            </p>
+          </div>
+        )}
+
+        {/* ==================== NO CV UPLOADED ==================== */}
+        {!isUploading && !isParsing && !cvData && (
+          <div className="mycv-empty-layout">
+            {/* Left: Mascot */}
+            <div className="mycv-mascot-col">
+              <div className="mycv-speech-bubble">
+                <p>{t('mycv.mascot_say', 'Hãy tải lên CV của bạn!')}</p>
+                <div className="mycv-speech-arrow" />
               </div>
-              
-              {/* Mascot Image Wrapper */}
-              <div className="w-56 h-56 md:w-64 md:h-64 flex items-center justify-center bg-gradient-to-tr from-primary-xlight to-white rounded-full p-4 border border-primary-light shadow-[0_8px_30px_rgb(111,182,232,0.15)] transition-transform hover:scale-105 duration-300">
-                <img
-                  src="/teaching_mascot.jpg"
-                  alt="Teaching Mascot"
-                  className="w-full h-full object-contain"
-                />
+              <div className="mycv-mascot-circle">
+                <img src="/teaching_mascot.jpg" alt="Teaching Mascot" />
               </div>
             </div>
 
-            {/* Right Column: Upload Box and Badge */}
-            <div className="space-y-6">
-              <div className="bg-surface-2 border border-dashed border-border-strong hover:border-primary rounded-2xl p-10 text-center shadow-sm transition-all duration-300 relative group flex flex-col items-center justify-center min-h-[300px]">
-                <div className="w-16 h-16 bg-primary-xlight rounded-full flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
-                  <Upload size={28} className="text-primary-dark" />
+            {/* Right: Upload Zone */}
+            <div className="mycv-upload-zone-col">
+              <div className="mycv-upload-dropzone">
+                <div className="mycv-upload-icon-wrap">
+                  <Upload size={28} />
                 </div>
-                <h3 className="text-lg font-bold text-text-primary mb-2">
-                  {t('mycv.upload_title', 'Tải lên CV của bạn')}
-                </h3>
-                <p className="text-sm text-text-secondary max-w-md mb-6 leading-relaxed">
-                  {t('mycv.upload_desc', 'Bạn chưa tải lên CV của mình. Hãy tải lên CV để AI có thể phân tích kỹ năng, trích xuất thông tin dự án và cá nhân hóa câu hỏi phỏng vấn tối ưu nhất cho bạn.')}
-                </p>
-
-                {/* Upload Input & Button */}
-                <label className="cursor-pointer bg-primary hover:bg-primary-dark text-white text-sm font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg inline-flex items-center gap-2">
+                <h3>{t('mycv.upload_title', 'Tải lên CV của bạn')}</h3>
+                <p>{t('mycv.upload_desc', 'Bạn chưa tải lên CV của mình. Hãy tải lên CV để AI có thể phân tích kỹ năng, trích xuất thông tin dự án và cá nhân hóa câu hỏi phỏng vấn tối ưu nhất cho bạn.')}</p>
+                <label className="mycv-upload-btn">
                   <Plus size={18} />
                   {t('mycv.select_file', 'Chọn tệp tin CV (PDF)')}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".pdf"
-                    onChange={handleFileUpload}
-                  />
+                  <input type="file" accept=".pdf" onChange={handleFileUpload} hidden />
                 </label>
-
-                <p className="text-xs text-text-disabled mt-3">
+                <span className="mycv-file-hint">
                   {t('mycv.file_hint', 'Hỗ trợ định dạng PDF tối đa 5MB')}
-                </p>
-              </div>
-
-              {/* Remaining evaluations badge */}
-              <div className="flex justify-center">
-                <div className="inline-flex items-center bg-primary-xlight px-4 py-2 rounded-xl border border-primary-light text-sm font-bold text-primary-dark shadow-[0_2px_8px_rgba(111,182,232,0.08)]">
-                  <Info size={16} className="mr-2 shrink-0" />
-                  {t('mycv.remaining_evaluations', 'Số lượt đánh giá CV còn lại: {{count}} lượt', { count: remainingEvaluations })}
-                </div>
+                </span>
               </div>
             </div>
           </div>
-        ) : (
-          /* Active CV State */
-          <div className="space-y-6">
-            {/* Current CV Info Card */}
-            <div className="bg-surface-2 border border-border rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-              {/* Decorative side accent */}
-              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
+        )}
 
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-primary-xlight rounded-xl flex items-center justify-center shrink-0">
-                  <FileText size={24} className="text-primary-dark" />
+        {/* ==================== CV UPLOADED — SHOW INFO ==================== */}
+        {!isUploading && !isParsing && cvData && (
+          <div className="mycv-active">
+            {/* ---------- CV Info Card ---------- */}
+            <div className="mycv-info-card">
+              <div className="mycv-info-card-accent" />
+              <div className="mycv-info-left">
+                <div className="mycv-info-icon-box">
+                  <FileText size={24} />
                 </div>
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-bold text-text-primary break-all">{fileName}</h3>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-success-light text-success text-[10px] font-bold border border-success/20">
-                      <CheckCircle2 size={10} className="mr-1" /> {t('mycv.analyzed', 'Đã phân tích')}
-                    </span>
+                <div className="mycv-info-details">
+                  <div className="mycv-info-name-row">
+                    <h3>{cvData.fileName}</h3>
+                    {(() => {
+                      const badge = getStatusBadge(cvStatus);
+                      const BadgeIcon = badge.icon;
+                      return (
+                        <span className={`mycv-badge ${badge.cls}`}>
+                          <BadgeIcon size={10} className={cvStatus === STATUS.PROCESSING ? 'mycv-spinner' : ''} />
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
                   </div>
-                  <p className="text-xs text-text-secondary">{t('mycv.uploaded_on', 'Ngày tải lên: {{date}}', { date: uploadDate || cvData.uploadDate })}</p>
-
-                  {/* Quick info list */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-xs font-medium text-text-secondary">
-                    <span className="flex items-center gap-1">
-                      <Award size={14} className="text-primary-dark" />
-                      {t('mycv.skills_detected', '{{count}} kỹ năng phát hiện', { count: cvData.skills.length })}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <FolderGit2 size={14} className="text-primary-dark" />
-                      {t('mycv.projects_detected', '{{count}} project phát hiện', { count: cvData.projects.length })}
-                    </span>
-                  </div>
+                  <p className="mycv-info-date">
+                    {t('mycv.uploaded_on', 'Ngày tải lên: {{date}}', { date: formatDate(cvData.uploadedAt) })}
+                  </p>
+                  {hasExtractedData && (
+                    <div className="mycv-info-stats">
+                      <span><Award size={14} /> {t('mycv.skills_detected', '{{count}} kỹ năng phát hiện', { count: parsedData?.skills?.length || 0 })}</span>
+                      <span><FolderGit2 size={14} /> {t('mycv.projects_detected', '{{count}} project phát hiện', { count: parsedData?.projects?.length || 0 })}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center flex-wrap gap-3 self-start md:self-auto shrink-0">
-                <button
-                  onClick={() => setShowFeedbackModal(true)}
-                  className="bg-black hover:bg-gray-800 text-white text-xs font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
-                >
-                  <Eye size={14} />
-                  {t('mycv.view_feedback', 'Xem feedback CV')}
-                </button>
+              <div className="mycv-info-actions">
+                {/* Trigger Parse button — only when Pending or AnalysisFailed */}
+                {canTriggerParse && (
+                  <button onClick={handleTriggerParse} className="mycv-btn mycv-btn--primary">
+                    <Sparkles size={14} />
+                    {t('mycv.trigger_parse', 'Phân tích CV bằng AI')}
+                  </button>
+                )}
 
-                <label className="cursor-pointer bg-white hover:bg-surface-3 text-text-primary border border-border text-xs font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center gap-1.5 shadow-sm">
+                {/* View feedback button */}
+                {hasExtractedData && (
+                  <button onClick={() => setShowFeedbackModal(true)} className="mycv-btn mycv-btn--dark">
+                    <Eye size={14} />
+                    {t('mycv.view_feedback', 'Xem feedback CV')}
+                  </button>
+                )}
+
+                {/* Upload new */}
+                <label className="mycv-btn mycv-btn--outline">
                   <Upload size={14} />
                   {t('mycv.upload_new', 'Tải CV mới')}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".pdf"
-                    onChange={handleFileUpload}
-                  />
+                  <input type="file" accept=".pdf" onChange={handleFileUpload} hidden />
                 </label>
 
-                <button
-                  onClick={handleRemoveCV}
-                  className="p-2.5 text-text-secondary hover:text-error hover:bg-error-light rounded-xl border border-transparent hover:border-error/20 transition-all"
-                  title={t('mycv.delete_cv', 'Xóa CV')}
-                >
+                {/* Delete */}
+                <button onClick={handleRemoveCV} className="mycv-btn-icon mycv-btn-icon--danger" title={t('mycv.delete_cv', 'Xóa CV')}>
                   <Trash2 size={16} />
                 </button>
               </div>
             </div>
 
-            {/* Extracted Details Title */}
-            <div className="flex items-center gap-2 pt-2">
-              <Sparkles size={20} className="text-primary-dark" />
-              <h2 className="text-lg font-bold text-text-primary">{t('mycv.extracted_info', 'Thông tin AI trích xuất')}</h2>
-            </div>
-
-            {/* Metadata Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Skills Column */}
-              <div className="bg-surface-2 border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
-                <div className="px-5 py-4 border-b border-border bg-surface-1 flex items-center gap-2 shrink-0">
-                  <Award size={18} className="text-primary-dark" />
-                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">{t('mycv.skills', 'Kỹ năng')}</h3>
-                </div>
-                <div className="p-5 flex-1 overflow-y-auto max-h-[350px]">
-                  <div className="flex flex-wrap gap-2">
-                    {cvData.skills.map((skill, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-primary-xlight text-primary-dark border border-primary-light text-xs font-semibold hover:bg-primary hover:text-white hover:border-primary transition-all duration-200 cursor-default"
-                      >
-                        {skill}
-                      </span>
-                    ))}
+            {/* ---------- Confirmation required banner ---------- */}
+            {needsConfirmation && hasExtractedData && (
+              <div className="mycv-confirm-banner">
+                <div className="mycv-confirm-banner-content">
+                  <div className="mycv-confirm-banner-icon">
+                    <AlertCircle size={20} />
+                  </div>
+                  <div>
+                    <h4>{t('mycv.confirm_required_title', 'AI đã hoàn tất phân tích — Vui lòng xác nhận')}</h4>
+                    <p>{t('mycv.confirm_required_desc', 'Kiểm tra thông tin AI trích xuất bên dưới. Bạn có thể chỉnh sửa trước khi xác nhận.')}</p>
                   </div>
                 </div>
+                <div className="mycv-confirm-banner-actions">
+                  {!isEditing ? (
+                    <>
+                      <button onClick={startEditing} className="mycv-btn mycv-btn--outline mycv-btn--sm">
+                        <Edit3 size={14} /> {t('mycv.edit', 'Chỉnh sửa')}
+                      </button>
+                      <button onClick={handleConfirm} disabled={isConfirming} className="mycv-btn mycv-btn--primary mycv-btn--sm">
+                        {isConfirming ? <Loader2 size={14} className="mycv-spinner" /> : <Check size={14} />}
+                        {t('mycv.confirm_btn', 'Xác nhận')}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={cancelEditing} className="mycv-btn mycv-btn--outline mycv-btn--sm">
+                        <X size={14} /> {t('mycv.cancel', 'Hủy')}
+                      </button>
+                      <button onClick={handleConfirm} disabled={isConfirming} className="mycv-btn mycv-btn--primary mycv-btn--sm">
+                        {isConfirming ? <Loader2 size={14} className="mycv-spinner" /> : <Check size={14} />}
+                        {t('mycv.save_confirm', 'Lưu & Xác nhận')}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
+            )}
 
-              {/* Projects Column */}
-              <div className="bg-surface-2 border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
-                <div className="px-5 py-4 border-b border-border bg-surface-1 flex items-center gap-2 shrink-0">
-                  <FolderGit2 size={18} className="text-primary-dark" />
-                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">{t('mycv.projects', 'Dự án')}</h3>
-                </div>
-                <div className="p-5 flex-1 overflow-y-auto max-h-[350px] space-y-4">
-                  {cvData.projects.map((proj, idx) => (
-                    <div key={idx} className="p-3 bg-surface-1 border border-border rounded-xl hover:border-primary-light hover:shadow-[0_2px_8px_rgba(111,182,232,0.05)] transition-all">
-                      <div className="text-xs font-bold text-primary-dark uppercase mb-0.5">{proj.role}</div>
-                      <h4 className="text-sm font-bold text-text-primary mb-1">{proj.name}</h4>
-                      <p className="text-xs text-text-secondary leading-relaxed">{proj.desc}</p>
-                    </div>
-                  ))}
-                </div>
+            {/* ---------- Re-parse for failed status ---------- */}
+            {cvStatus === STATUS.ANALYSIS_FAILED && (
+              <div className="mycv-retry-banner">
+                <AlertCircle size={18} />
+                <span>{t('mycv.analysis_failed_msg', 'Phân tích thất bại. Nhấn nút bên dưới để thử lại.')}</span>
+                <button onClick={handleTriggerParse} className="mycv-btn mycv-btn--primary mycv-btn--sm">
+                  <RefreshCw size={14} /> {t('mycv.retry_parse', 'Thử lại')}
+                </button>
               </div>
+            )}
 
-              {/* Experience Column */}
-              <div className="bg-surface-2 border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
-                <div className="px-5 py-4 border-b border-border bg-surface-1 flex items-center gap-2 shrink-0">
-                  <Briefcase size={18} className="text-primary-dark" />
-                  <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">{t('mycv.experience', 'Kinh nghiệm')}</h3>
+            {/* ---------- Extracted Details ---------- */}
+            {hasExtractedData && (
+              <>
+                <div className="mycv-section-heading">
+                  <Sparkles size={20} />
+                  <h2>{t('mycv.extracted_info', 'Thông tin AI trích xuất')}</h2>
+                  {isConfirmed && (
+                    <span className="mycv-badge mycv-badge--success mycv-badge--lg">
+                      <CheckCircle2 size={12} /> {t('mycv.data_confirmed', 'Đã xác nhận')}
+                    </span>
+                  )}
                 </div>
-                <div className="p-5 flex-1 overflow-y-auto max-h-[350px] space-y-4">
-                  {cvData.experience.map((exp, idx) => (
-                    <div key={idx} className="p-3 bg-surface-1 border border-border rounded-xl hover:border-primary-light hover:shadow-[0_2px_8px_rgba(111,182,232,0.05)] transition-all">
-                      <div className="flex justify-between items-start mb-1.5">
-                        <div>
-                          <h4 className="text-sm font-bold text-text-primary leading-tight">{exp.role}</h4>
-                          <span className="text-xs font-semibold text-text-secondary">{exp.company}</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-text-disabled shrink-0 bg-white px-2 py-0.5 rounded border border-border">{exp.duration}</span>
+
+                {/* ---------- Role Target ---------- */}
+                {(displayData?.roleTarget || isEditing) && (
+                  <div className="mycv-role-target-card">
+                    <Target size={18} />
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editData?.roleTarget || ''}
+                        onChange={(e) => setEditData({ ...editData, roleTarget: e.target.value })}
+                        className="mycv-edit-input"
+                        placeholder={t('mycv.role_target_placeholder', 'VD: Frontend Developer, Backend Engineer...')}
+                      />
+                    ) : (
+                      <div className="mycv-role-target-text">
+                        <span className="mycv-role-target-label">{t('mycv.role_target', 'Vị trí mục tiêu')}</span>
+                        <strong>{displayData?.roleTarget}</strong>
                       </div>
-                      <ul className="list-disc list-inside space-y-1">
-                        {exp.bullets.map((b, bIdx) => (
-                          <li key={bIdx} className="text-xs text-text-secondary leading-relaxed list-none relative pl-3">
-                            <span className="absolute left-0 top-[6px] w-1.5 h-1.5 bg-primary rounded-full"></span>
-                            {b}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                    )}
+                  </div>
+                )}
 
-            {/* Action Alert Banner */}
-            <div className="bg-gradient-to-r from-primary-xlight to-white border border-primary-light rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shrink-0">
-                  <Sparkles size={18} />
+                {/* ---------- 4-Column Grid: Skills, Education, Projects, Experience ---------- */}
+                <div className="mycv-grid">
+                  {/* Skills */}
+                  <div className="mycv-card">
+                    <div className="mycv-card-header">
+                      <Award size={18} />
+                      <h3>{t('mycv.skills', 'Kỹ năng')}</h3>
+                    </div>
+                    <div className="mycv-card-body">
+                      {isEditing ? (
+                        <div className="mycv-edit-skills">
+                          {editData?.skills?.map((skill, idx) => (
+                            <div key={idx} className="mycv-edit-skill-row">
+                              <input
+                                type="text"
+                                value={skill.skillName}
+                                onChange={(e) => {
+                                  const updated = [...editData.skills];
+                                  updated[idx] = { ...updated[idx], skillName: e.target.value };
+                                  setEditData({ ...editData, skills: updated });
+                                }}
+                                className="mycv-edit-input mycv-edit-input--sm"
+                              />
+                              <button
+                                onClick={() => {
+                                  const updated = editData.skills.filter((_, i) => i !== idx);
+                                  setEditData({ ...editData, skills: updated });
+                                }}
+                                className="mycv-btn-icon mycv-btn-icon--danger mycv-btn-icon--xs"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => setEditData({
+                              ...editData,
+                              skills: [...(editData.skills || []), { skillName: '', source: 'USER', category: 'Other' }],
+                            })}
+                            className="mycv-add-btn"
+                          >
+                            <Plus size={14} /> {t('mycv.add_skill', 'Thêm kỹ năng')}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mycv-skill-tags">
+                          {(displayData?.skills || []).map((skill, idx) => (
+                            <span key={idx} className="mycv-skill-tag">{skill.skillName}</span>
+                          ))}
+                          {(!displayData?.skills || displayData.skills.length === 0) && (
+                            <p className="mycv-empty-note">{t('mycv.no_skills', 'Chưa có kỹ năng')}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Education */}
+                  <div className="mycv-card">
+                    <div className="mycv-card-header">
+                      <GraduationCap size={18} />
+                      <h3>{t('mycv.education', 'Học vấn')}</h3>
+                    </div>
+                    <div className="mycv-card-body">
+                      {isEditing ? (
+                        <div className="mycv-edit-list">
+                          {editData?.education?.map((edu, idx) => (
+                            <div key={idx} className="mycv-edit-block">
+                              <input type="text" value={edu.school} placeholder={t('mycv.school', 'Trường')}
+                                onChange={(e) => { const u = [...editData.education]; u[idx] = { ...u[idx], school: e.target.value }; setEditData({ ...editData, education: u }); }}
+                                className="mycv-edit-input mycv-edit-input--sm"
+                              />
+                              <input type="text" value={edu.major} placeholder={t('mycv.major', 'Chuyên ngành')}
+                                onChange={(e) => { const u = [...editData.education]; u[idx] = { ...u[idx], major: e.target.value }; setEditData({ ...editData, education: u }); }}
+                                className="mycv-edit-input mycv-edit-input--sm"
+                              />
+                              <div className="mycv-edit-row-pair">
+                                <input type="text" value={edu.gpa || ''} placeholder="GPA"
+                                  onChange={(e) => { const u = [...editData.education]; u[idx] = { ...u[idx], gpa: e.target.value }; setEditData({ ...editData, education: u }); }}
+                                  className="mycv-edit-input mycv-edit-input--sm"
+                                />
+                                <input type="text" value={edu.graduationYear || ''} placeholder={t('mycv.grad_year', 'Năm tốt nghiệp')}
+                                  onChange={(e) => { const u = [...editData.education]; u[idx] = { ...u[idx], graduationYear: e.target.value }; setEditData({ ...editData, education: u }); }}
+                                  className="mycv-edit-input mycv-edit-input--sm"
+                                />
+                              </div>
+                              <button onClick={() => { const u = editData.education.filter((_, i) => i !== idx); setEditData({ ...editData, education: u }); }}
+                                className="mycv-remove-block-btn"><X size={12} /> {t('mycv.remove', 'Xóa')}</button>
+                            </div>
+                          ))}
+                          <button onClick={() => setEditData({ ...editData, education: [...(editData.education || []), { school: '', major: '', gpa: '', graduationYear: '' }] })}
+                            className="mycv-add-btn"><Plus size={14} /> {t('mycv.add_education', 'Thêm học vấn')}</button>
+                        </div>
+                      ) : (
+                        <div className="mycv-education-list">
+                          {(displayData?.education || []).map((edu, idx) => (
+                            <div key={idx} className="mycv-education-item">
+                              <h4>{edu.school}</h4>
+                              <p className="mycv-edu-major">{edu.major}</p>
+                              <div className="mycv-edu-meta">
+                                {edu.gpa && <span>GPA: {edu.gpa}</span>}
+                                {edu.graduationYear && <span>{edu.graduationYear}</span>}
+                              </div>
+                            </div>
+                          ))}
+                          {(!displayData?.education || displayData.education.length === 0) && (
+                            <p className="mycv-empty-note">{t('mycv.no_education', 'Chưa có thông tin học vấn')}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Projects */}
+                  <div className="mycv-card">
+                    <div className="mycv-card-header">
+                      <FolderGit2 size={18} />
+                      <h3>{t('mycv.projects', 'Dự án')}</h3>
+                    </div>
+                    <div className="mycv-card-body">
+                      {isEditing ? (
+                        <div className="mycv-edit-list">
+                          {editData?.projects?.map((proj, idx) => (
+                            <div key={idx} className="mycv-edit-block">
+                              <input type="text" value={proj.projectName} placeholder={t('mycv.project_name', 'Tên dự án')}
+                                onChange={(e) => { const u = [...editData.projects]; u[idx] = { ...u[idx], projectName: e.target.value }; setEditData({ ...editData, projects: u }); }}
+                                className="mycv-edit-input mycv-edit-input--sm"
+                              />
+                              <input type="text" value={proj.roleDescription || ''} placeholder={t('mycv.role_desc', 'Vai trò')}
+                                onChange={(e) => { const u = [...editData.projects]; u[idx] = { ...u[idx], roleDescription: e.target.value }; setEditData({ ...editData, projects: u }); }}
+                                className="mycv-edit-input mycv-edit-input--sm"
+                              />
+                              <textarea value={proj.projectSummary || ''} placeholder={t('mycv.project_summary', 'Mô tả dự án')}
+                                onChange={(e) => { const u = [...editData.projects]; u[idx] = { ...u[idx], projectSummary: e.target.value }; setEditData({ ...editData, projects: u }); }}
+                                className="mycv-edit-textarea" rows={2}
+                              />
+                              <button onClick={() => { const u = editData.projects.filter((_, i) => i !== idx); setEditData({ ...editData, projects: u }); }}
+                                className="mycv-remove-block-btn"><X size={12} /> {t('mycv.remove', 'Xóa')}</button>
+                            </div>
+                          ))}
+                          <button onClick={() => setEditData({ ...editData, projects: [...(editData.projects || []), { projectName: '', roleDescription: '', technologyStack: '', projectSummary: '', duration: '' }] })}
+                            className="mycv-add-btn"><Plus size={14} /> {t('mycv.add_project', 'Thêm dự án')}</button>
+                        </div>
+                      ) : (
+                        <div className="mycv-project-list">
+                          {(displayData?.projects || []).map((proj, idx) => (
+                            <div key={idx} className="mycv-project-item">
+                              {proj.roleDescription && (
+                                <span className="mycv-project-role">{proj.roleDescription}</span>
+                              )}
+                              <h4>{proj.projectName}</h4>
+                              {proj.projectSummary && <p>{proj.projectSummary}</p>}
+                              {proj.technologyStack && (
+                                <div className="mycv-project-tech">{proj.technologyStack}</div>
+                              )}
+                            </div>
+                          ))}
+                          {(!displayData?.projects || displayData.projects.length === 0) && (
+                            <p className="mycv-empty-note">{t('mycv.no_projects', 'Chưa có dự án')}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Experience */}
+                  <div className="mycv-card">
+                    <div className="mycv-card-header">
+                      <Briefcase size={18} />
+                      <h3>{t('mycv.experience', 'Kinh nghiệm')}</h3>
+                    </div>
+                    <div className="mycv-card-body">
+                      {isEditing ? (
+                        <div className="mycv-edit-list">
+                          {editData?.experience?.map((exp, idx) => (
+                            <div key={idx} className="mycv-edit-block">
+                              <input type="text" value={exp.position} placeholder={t('mycv.position', 'Vị trí')}
+                                onChange={(e) => { const u = [...editData.experience]; u[idx] = { ...u[idx], position: e.target.value }; setEditData({ ...editData, experience: u }); }}
+                                className="mycv-edit-input mycv-edit-input--sm"
+                              />
+                              <input type="text" value={exp.company} placeholder={t('mycv.company', 'Công ty')}
+                                onChange={(e) => { const u = [...editData.experience]; u[idx] = { ...u[idx], company: e.target.value }; setEditData({ ...editData, experience: u }); }}
+                                className="mycv-edit-input mycv-edit-input--sm"
+                              />
+                              <input type="text" value={exp.duration || ''} placeholder={t('mycv.duration', 'Thời gian')}
+                                onChange={(e) => { const u = [...editData.experience]; u[idx] = { ...u[idx], duration: e.target.value }; setEditData({ ...editData, experience: u }); }}
+                                className="mycv-edit-input mycv-edit-input--sm"
+                              />
+                              <textarea value={exp.description || ''} placeholder={t('mycv.exp_description', 'Mô tả công việc')}
+                                onChange={(e) => { const u = [...editData.experience]; u[idx] = { ...u[idx], description: e.target.value }; setEditData({ ...editData, experience: u }); }}
+                                className="mycv-edit-textarea" rows={2}
+                              />
+                              <button onClick={() => { const u = editData.experience.filter((_, i) => i !== idx); setEditData({ ...editData, experience: u }); }}
+                                className="mycv-remove-block-btn"><X size={12} /> {t('mycv.remove', 'Xóa')}</button>
+                            </div>
+                          ))}
+                          <button onClick={() => setEditData({ ...editData, experience: [...(editData.experience || []), { company: '', position: '', duration: '', description: '' }] })}
+                            className="mycv-add-btn"><Plus size={14} /> {t('mycv.add_experience', 'Thêm kinh nghiệm')}</button>
+                        </div>
+                      ) : (
+                        <div className="mycv-experience-list">
+                          {(displayData?.experience || []).map((exp, idx) => (
+                            <div key={idx} className="mycv-experience-item">
+                              <div className="mycv-exp-header">
+                                <div>
+                                  <h4>{exp.position}</h4>
+                                  <span className="mycv-exp-company">{exp.company}</span>
+                                </div>
+                                {exp.duration && (
+                                  <span className="mycv-exp-duration">{exp.duration}</span>
+                                )}
+                              </div>
+                              {exp.description && (
+                                <div className="mycv-exp-desc">
+                                  {exp.description.split('\n').filter(Boolean).map((line, i) => (
+                                    <div key={i} className="mycv-exp-bullet">
+                                      <span className="mycv-bullet-dot" />
+                                      {line.replace(/^[-•]\s*/, '')}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {(!displayData?.experience || displayData.experience.length === 0) && (
+                            <p className="mycv-empty-note">{t('mycv.no_experience', 'Chưa có kinh nghiệm')}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-text-primary">{t('mycv.ready_to_practice', 'Sẵn sàng để luyện tập?')}</h4>
-                  <p className="text-xs text-text-secondary mt-0.5">{t('mycv.practice_desc', 'AI đã cá nhân hóa bộ câu hỏi phỏng vấn dựa trên CV vừa tải lên.')}</p>
+
+                {/* ---------- Action Alert Banner ---------- */}
+                {isConfirmed && (
+                  <div className="mycv-ready-banner">
+                    <div className="mycv-ready-banner-left">
+                      <div className="mycv-ready-banner-icon">
+                        <Sparkles size={18} />
+                      </div>
+                      <div>
+                        <h4>{t('mycv.ready_to_practice', 'Sẵn sàng để luyện tập?')}</h4>
+                        <p>{t('mycv.practice_desc', 'AI đã cá nhân hóa bộ câu hỏi phỏng vấn dựa trên CV vừa tải lên.')}</p>
+                      </div>
+                    </div>
+                    <a href="#dashboard" className="mycv-btn mycv-btn--primary mycv-btn--sm">
+                      {t('mycv.start_practice', 'Bắt đầu phỏng vấn ngay')}
+                      <ChevronRight size={14} />
+                    </a>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ==================== FEEDBACK MODAL ==================== */}
+        {showFeedbackModal && parsedData && (
+          <div className="mycv-modal-overlay" onClick={() => setShowFeedbackModal(false)}>
+            <div className="mycv-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="mycv-modal-header">
+                <div className="mycv-modal-header-left">
+                  <Sparkles size={20} className="mycv-pulse-icon" />
+                  <h3>{t('mycv.modal_title', 'Đánh giá & Phản hồi CV từ AI')}</h3>
                 </div>
+                <button onClick={() => setShowFeedbackModal(false)} className="mycv-modal-close-btn">
+                  {t('mycv.close', 'Đóng')}
+                </button>
               </div>
-              <a
-                href="#dashboard"
-                className="bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm hover:shadow-md self-start sm:self-auto"
-              >
-                {t('mycv.start_practice', 'Bắt đầu phỏng vấn ngay')}
-                <ChevronRight size={14} />
-              </a>
+
+              <div className="mycv-modal-tabs">
+                {['overall', 'strengths', 'improvements'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`mycv-tab ${activeTab === tab ? 'mycv-tab--active' : ''}`}
+                  >
+                    {t(`mycv.tab_${tab}`, tab)}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mycv-modal-body">
+                {activeTab === 'overall' && (
+                  <div className="mycv-modal-section">
+                    <div className="mycv-score-card">
+                      <div className="mycv-score-value">8.5<span>/10</span></div>
+                      <div className="mycv-score-divider" />
+                      <div>
+                        <div className="mycv-score-label">{t('mycv.score_title', 'Điểm đánh giá CV')}</div>
+                        <p>{t('mycv.mock_score_desc', 'CV của bạn có cấu trúc tốt, rõ ràng và đầy đủ thông tin cốt lõi.')}</p>
+                      </div>
+                    </div>
+                    <div className="mycv-modal-text">
+                      <h4>{t('mycv.summary_title', 'Tóm tắt đánh giá:')}</h4>
+                      <p>{t('mycv.mock_summary_desc')}</p>
+                    </div>
+                  </div>
+                )}
+                {activeTab === 'strengths' && (
+                  <div className="mycv-modal-section">
+                    <div className="mycv-feedback-item mycv-feedback-item--success">
+                      <CheckCircle2 size={16} />
+                      <div>
+                        <h4>{t('mycv.mock_strength_1_title', 'Công nghệ hiện đại & phù hợp')}</h4>
+                        <p>{t('mycv.mock_strength_1_desc')}</p>
+                      </div>
+                    </div>
+                    <div className="mycv-feedback-item mycv-feedback-item--success">
+                      <CheckCircle2 size={16} />
+                      <div>
+                        <h4>{t('mycv.mock_strength_2_title', 'Bố cục rõ ràng, chuyên nghiệp')}</h4>
+                        <p>{t('mycv.mock_strength_2_desc')}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {activeTab === 'improvements' && (
+                  <div className="mycv-modal-section">
+                    <div className="mycv-feedback-item mycv-feedback-item--warning">
+                      <AlertCircle size={16} />
+                      <div>
+                        <h4>{t('mycv.mock_improvement_1_title')}</h4>
+                        <p>{t('mycv.mock_improvement_1_desc')}</p>
+                      </div>
+                    </div>
+                    <div className="mycv-feedback-item mycv-feedback-item--warning">
+                      <AlertCircle size={16} />
+                      <div>
+                        <h4>{t('mycv.mock_improvement_2_title')}</h4>
+                        <p>{t('mycv.mock_improvement_2_desc')}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mycv-modal-footer">
+                <button onClick={() => setShowFeedbackModal(false)} className="mycv-btn mycv-btn--primary mycv-btn--sm">
+                  {t('mycv.got_it', 'Đã hiểu')}
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* AI Feedback Modal / Drawer */}
-      {showFeedbackModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface-1">
-              <div className="flex items-center gap-2">
-                <Sparkles size={20} className="text-primary-dark animate-pulse" />
-                <h3 className="text-base font-bold text-text-primary">{t('mycv.modal_title', 'Đánh giá & Phản hồi CV từ AI')}</h3>
-              </div>
-              <button
-                onClick={() => setShowFeedbackModal(false)}
-                className="p-1.5 hover:bg-surface-3 text-text-secondary rounded-lg transition-colors text-sm font-bold"
-              >
-                {t('mycv.close', 'Đóng')}
-              </button>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex border-b border-border px-6 bg-surface-1">
-              <button
-                onClick={() => setActiveTab('overall')}
-                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${activeTab === 'overall'
-                    ? 'border-primary text-primary-dark'
-                    : 'border-transparent text-text-secondary hover:text-text-primary'
-                  }`}
-              >
-                {t('mycv.tab_overall', 'Đánh giá chung')}
-              </button>
-              <button
-                onClick={() => setActiveTab('strengths')}
-                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${activeTab === 'strengths'
-                    ? 'border-primary text-primary-dark'
-                    : 'border-transparent text-text-secondary hover:text-text-primary'
-                  }`}
-              >
-                {t('mycv.tab_strengths', 'Điểm mạnh')}
-              </button>
-              <button
-                onClick={() => setActiveTab('improvements')}
-                className={`py-3 text-xs font-bold uppercase tracking-wider border-b-2 px-3 transition-colors ${activeTab === 'improvements'
-                    ? 'border-primary text-primary-dark'
-                    : 'border-transparent text-text-secondary hover:text-text-primary'
-                  }`}
-              >
-                {t('mycv.tab_improvements', 'Cần cải thiện')}
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-4 flex-1">
-              {activeTab === 'overall' && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 bg-primary-xlight border border-primary-light rounded-xl">
-                    <div className="text-2xl font-black text-primary-dark">8.5<span className="text-xs text-text-secondary">/10</span></div>
-                    <div className="h-8 w-px bg-primary-light"></div>
-                    <div>
-                      <div className="text-xs font-bold text-primary-dark uppercase">{t('mycv.score_title', 'Điểm đánh giá CV')}</div>
-                      <p className="text-xs text-text-secondary mt-0.5">{t('mycv.mock_score_desc', 'CV của bạn có cấu trúc tốt, rõ ràng và đầy đủ thông tin cốt lõi.')}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-bold text-text-primary">{t('mycv.summary_title', 'Tóm tắt đánh giá:')}</h4>
-                    <p className="text-xs text-text-secondary leading-relaxed">
-                      {t('mycv.mock_summary_desc', 'CV được định dạng theo cấu trúc chuẩn. Các kỹ năng kỹ thuật được trình bày mạch lạc, khớp với yêu cầu của vị trí Frontend Developer. Các dự án được liệt kê chi tiết tuy nhiên cần có thêm các chỉ số định lượng (ví dụ: tăng 20% performance, giảm thời gian load trang...) để làm nổi bật tác động của bạn.')}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'strengths' && (
-                <div className="space-y-3">
-                  <div className="flex items-start gap-2.5 p-3 bg-success-light/30 border border-success/20 rounded-xl">
-                    <CheckCircle2 size={16} className="text-success mt-0.5 shrink-0" />
-                    <div>
-                      <h4 className="text-xs font-bold text-text-primary">{t('mycv.mock_strength_1_title', 'Công nghệ hiện đại & phù hợp')}</h4>
-                      <p className="text-xs text-text-secondary mt-1">{t('mycv.mock_strength_1_desc', 'Sử dụng stack phổ biến (React, Next.js, Redux, TS) đáp ứng rất tốt nhu cầu tuyển dụng Frontend hiện nay.')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2.5 p-3 bg-success-light/30 border border-success/20 rounded-xl">
-                    <CheckCircle2 size={16} className="text-success mt-0.5 shrink-0" />
-                    <div>
-                      <h4 className="text-xs font-bold text-text-primary">{t('mycv.mock_strength_2_title', 'Bố cục rõ ràng, chuyên nghiệp')}</h4>
-                      <p className="text-xs text-text-secondary mt-1">{t('mycv.mock_strength_2_desc', 'Các phần thông tin liên hệ, học vấn, kỹ năng, dự án được phân chia rành mạch, dễ đọc lướt (scannable).')}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'improvements' && (
-                <div className="space-y-3">
-                  <div className="flex items-start gap-2.5 p-3 bg-warning-light/30 border border-warning/20 rounded-xl">
-                    <AlertCircle size={16} className="text-warning mt-0.5 shrink-0" />
-                    <div>
-                      <h4 className="text-xs font-bold text-text-primary">{t('mycv.mock_improvement_1_title', 'Thiếu số liệu định lượng (Quantifiable Results)')}</h4>
-                      <p className="text-xs text-text-secondary mt-1">{t('mycv.mock_improvement_1_desc', 'Nên cụ thể hóa kết quả đạt được. Thay vì ghi "tối ưu hóa UI/UX", hãy viết "tối ưu UI/UX giúp cải thiện 25% tỷ lệ giữ chân người dùng".')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2.5 p-3 bg-warning-light/30 border border-warning/20 rounded-xl">
-                    <AlertCircle size={16} className="text-warning mt-0.5 shrink-0" />
-                    <div>
-                      <h4 className="text-xs font-bold text-text-primary">{t('mycv.mock_improvement_2_title', 'Bổ sung link sản phẩm / Github')}</h4>
-                      <p className="text-xs text-text-secondary mt-1">{t('mycv.mock_improvement_2_desc', 'Các dự án nên có đường dẫn Github hoặc link demo trực tiếp để nhà tuyển dụng dễ dàng đánh giá mã nguồn thực tế.')}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-border bg-surface-1 flex justify-end">
-              <button
-                onClick={() => setShowFeedbackModal(false)}
-                className="bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2 px-4 rounded-xl transition-all shadow-sm"
-              >
-                {t('mycv.got_it', 'Đã hiểu')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </UserLayout>
   );
 }
 
 export default MyCVPage;
-
