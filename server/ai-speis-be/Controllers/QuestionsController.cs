@@ -30,17 +30,21 @@ namespace ai_speis_be.Controllers
 
             return Ok(questions);
         }
-        [HttpGet("admin/{questionId}")]
+        [HttpGet("admin/{questionId:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetQuestionsByIdAdminAsync([FromRoute]int questionId)
         {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             var questions = await _service.GetQuestionByIdAdminAsync(questionId);
             return Ok(questions);
         }
-        [HttpGet("{questionId}")]
+        [HttpGet("{questionId:int}")]
         [Authorize]
         public async Task<IActionResult> GetQuestionByIdAsync([FromRoute]int questionId)
         {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             var questions = await _service.GetQuestionByIdAsync(questionId);
             return Ok(questions);
         }
