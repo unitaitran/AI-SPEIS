@@ -8,6 +8,9 @@ namespace ai_speis_be.Repositories.UserRepo
         Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
             AdminUserQueryDto query,
             CancellationToken cancellationToken = default);
+        Task<AdminUserDetailDto?> GetAdminUserDetailAsync(
+            int userId,
+            CancellationToken cancellationToken = default);
         Task<User?> GetUserByIdAsync(
             int userId,
             CancellationToken cancellationToken = default);
