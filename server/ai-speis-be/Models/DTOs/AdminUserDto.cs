@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using ai_speis_be.Models.Enums;
 
 namespace ai_speis_be.Models.DTOs
 {
@@ -51,6 +53,42 @@ namespace ai_speis_be.Models.DTOs
         public string AccountStatus { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+    }
+
+    public sealed class AdminUserDetailDto
+    {
+        public int UserId { get; init; }
+        public int RoleId { get; init; }
+        public string Role { get; init; } = string.Empty;
+        public string FullName { get; init; } = string.Empty;
+        public string Email { get; init; } = string.Empty;
+        public string? PhoneNumber { get; init; }
+        public bool Status { get; init; }
+        public bool IsLocked { get; init; }
+        public string AccountStatus { get; init; } = string.Empty;
+        public string? LockReason { get; init; }
+        public DateTime? LockedAt { get; init; }
+        public int? LockedByUserId { get; init; }
+        public DateTime? EmailConfirmedAt { get; init; }
+        public bool HasPassword { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
+        public AdminUserProfileDto? Profile { get; init; }
+    }
+
+    public sealed class AdminUserProfileDto
+    {
+        public int ProfileId { get; init; }
+        public string School { get; init; } = string.Empty;
+        public string Major { get; init; } = string.Empty;
+        public decimal Gpa { get; init; }
+        public string TargetPosition { get; init; } = string.Empty;
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public Gender Gender { get; init; }
+
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
     }
 
     public sealed class LockUserRequestDto

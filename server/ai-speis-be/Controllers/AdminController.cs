@@ -36,6 +36,34 @@ namespace ai_speis_be.Controllers
             return Ok(result);
         }
 
+        [HttpGet("users/{userId:int}")]
+        [ProducesResponseType(
+            typeof(AdminUserDetailDto),
+            StatusCodes.Status200OK)]
+        [ProducesResponseType(
+            typeof(ProblemDetails),
+            StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AdminUserDetailDto>> GetUserDetail(
+            int userId,
+            CancellationToken cancellationToken)
+        {
+            var user = await _userService.GetAdminUserDetailAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Title = "User not found",
+                    Detail = $"User with ID {userId} does not exist.",
+                    Status = StatusCodes.Status404NotFound
+                });
+            }
+
+            return Ok(user);
+        }
+
         [HttpGet("questions")]
         [ProducesResponseType(
             typeof(PagedResultDto<AdminQuestionListItemDto>),

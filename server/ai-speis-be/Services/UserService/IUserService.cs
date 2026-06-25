@@ -8,6 +8,9 @@ namespace ai_speis_be.Services.UserService
         Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
             AdminUserQueryDto query,
             CancellationToken cancellationToken = default);
+        Task<AdminUserDetailDto?> GetAdminUserDetailAsync(
+            int userId,
+            CancellationToken cancellationToken = default);
         Task<LockUserResult> LockUserAsync(
             int userId,
             int actingUserId,
