@@ -12,6 +12,9 @@ namespace ai_speis_be.Models
         public DbSet<Role> Roles { get; set; } = null!;
         public DbSet<UserProfile> UserProfiles { get; set; } = null!;
         public DbSet<CVFile> CVFiles { get; set; } = null!;
+        public DbSet<CVExtractedProfile> CVExtractedProfiles { get; set; } = null!;
+        public DbSet<CVSkill> CVSkills { get; set; } = null!;
+        public DbSet<CVProject> CVProjects { get; set; } = null!;
         public DbSet<Question> Questions { get; set; } = null!;
         public DbSet<SavedQuestion> SavedQuestion { get; set; } = null!;
 
@@ -45,6 +48,37 @@ namespace ai_speis_be.Models
                 .HasForeignKey(cv => cv.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // CVExtractedProfile — 1:1 with CVFile
+            modelBuilder.Entity<CVExtractedProfile>()
+                .HasOne(ep => ep.CVFile)
+                .WithOne()
+                .HasForeignKey<CVExtractedProfile>(ep => ep.CVFileId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CVExtractedProfile>()
+                .HasOne(ep => ep.ConfirmedByUser)
+                .WithMany()
+                .HasForeignKey(ep => ep.ConfirmedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // CVSkill — N:1 with CVExtractedProfile
+            modelBuilder.Entity<CVSkill>()
+                .HasOne(s => s.ExtractedProfile)
+                .WithMany(ep => ep.Skills)
+                .HasForeignKey(s => s.ExtractedProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CVSkill>()
+                .HasIndex(s => new { s.ExtractedProfileId, s.SkillName })
+                .IsUnique();
+
+            // CVProject — N:1 with CVExtractedProfile
+            modelBuilder.Entity<CVProject>()
+                .HasOne(p => p.ExtractedProfile)
+                .WithMany(ep => ep.Projects)
+                .HasForeignKey(p => p.ExtractedProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<Question>()
                 .HasOne(q => q.User)
                 .WithMany() // Nếu bảng User không có danh sách Questions điều hướng ngược lại thì để trống WithMany()
@@ -69,4 +103,4 @@ namespace ai_speis_be.Models
 
         }
     }
-}
+}
