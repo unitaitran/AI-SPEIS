@@ -382,6 +382,35 @@ namespace ai_speis_be.Services.UserService
             return new ChangePasswordResult(ChangePasswordOutcome.Success);
         }
 
+        public async Task<bool> UpdateUserRoleAsync(
+            int userId,
+            string roleName,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                return false;
+            }
+
+            var normalizedRole = roleName.Trim().ToLower();
+            if (normalizedRole != "admin" && normalizedRole != "user")
+            {
+                return false;
+            }
+
+            var roleId = normalizedRole == "admin" ? 1 : 2;
+
+            user.RoleId = roleId;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+            return true;
+        }
+
         // ── Private helpers ────────────────────────────────────────────────────
 
         private static UserMeResponseDto MapToUserMeResponseDto(User user) => new()

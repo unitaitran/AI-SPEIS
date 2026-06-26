@@ -129,7 +129,7 @@ namespace ai_speis_be.Controllers
         </div>
         <div class=""email-body"">
             <h2>Xin chào <span class=""highlight"">{WebUtility.HtmlEncode(newUser.FullName)}</span>,</h2>
-            <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>AI-SPEIS</strong> - Nền tảng luyện tập phỏng vấn thông minh dành cho sinh viên.</p>
+            <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>AI-SPEIS</strong> - Nền tảng luyện tập phỏng vấn thông minh dành cho người dùng.</p>
             <p>Để hoàn tất quá trình đăng ký và bắt đầu trải nghiệm mock interview cá nhân hóa, vui lòng kích hoạt tài khoản của bạn bằng cách bấm vào nút dưới đây:</p>
             
             <div class=""btn-container"">

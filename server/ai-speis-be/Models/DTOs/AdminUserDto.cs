@@ -73,7 +73,20 @@ namespace ai_speis_be.Models.DTOs
         public bool HasPassword { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
+        public string? ImageUrl { get; init; }
         public AdminUserProfileDto? Profile { get; init; }
+        public IReadOnlyList<AdminUserCVFileDto> CVFiles { get; init; } = Array.Empty<AdminUserCVFileDto>();
+    }
+
+    public sealed class AdminUserCVFileDto
+    {
+        public int CVFileId { get; init; }
+        public string FileName { get; init; } = string.Empty;
+        public string FilePath { get; init; } = string.Empty;
+        public long FileSize { get; init; }
+        public string FileType { get; init; } = string.Empty;
+        public string Status { get; init; } = string.Empty;
+        public DateTime UploadedAt { get; init; }
     }
 
     public sealed class AdminUserProfileDto
@@ -122,5 +135,11 @@ namespace ai_speis_be.Models.DTOs
             : (int)Math.Ceiling(TotalItems / (double)PageSize);
         public bool HasPreviousPage => PageNumber > 1;
         public bool HasNextPage => PageNumber < TotalPages;
+    }
+
+    public sealed class UpdateUserRoleRequestDto
+    {
+        [Required]
+        public string RoleName { get; set; } = string.Empty;
     }
 }

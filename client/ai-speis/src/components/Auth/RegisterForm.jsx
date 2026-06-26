@@ -75,7 +75,7 @@ const RegisterForm = () => {
   return (
     <div className="w-full">
       <div className="text-center mb-5">
-        <h1 className="text-[26px] font-bold text-text-primary mb-1">{t('title', 'Tạo tài khoản sinh viên')}</h1>
+        <h1 className="text-[26px] font-bold text-text-primary mb-1">{t('title', 'Tạo tài khoản người dùng')}</h1>
         <p className="text-[14px] font-normal text-text-secondary">
           {t('subtitle', 'Tạo hồ sơ để bắt đầu luyện phỏng vấn cá nhân hóa.')}
         </p>

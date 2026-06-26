@@ -107,6 +107,7 @@ namespace ai_speis_be.Repositories.UserRepo
                         user.PasswordHash != string.Empty,
                     CreatedAt = user.CreatedAt,
                     UpdatedAt = user.UpdatedAt,
+                    ImageUrl = user.ImageUrl,
                     Profile = profile == null
                         ? null
                         : new AdminUserProfileDto
@@ -119,7 +120,17 @@ namespace ai_speis_be.Repositories.UserRepo
                             Gender = profile.Gender,
                             CreatedAt = profile.CreatedAt,
                             UpdatedAt = profile.UpdatedAt
-                        }
+                        },
+                    CVFiles = user.CVFiles.Select(cv => new AdminUserCVFileDto
+                    {
+                        CVFileId = cv.CVFileId,
+                        FileName = cv.FileName,
+                        FilePath = cv.FilePath,
+                        FileSize = cv.FileSize,
+                        FileType = cv.FileType,
+                        Status = cv.Status.ToString(),
+                        UploadedAt = cv.UploadedAt
+                    }).ToList()
                 })
                 .FirstOrDefaultAsync(cancellationToken);
         }

@@ -15,7 +15,7 @@ function AdminLayout({ children, pathname }) {
         onNavigate={closeSidebar}
       />
       <button
-        className={`fixed inset-0 z-[110] bg-text-primary/30 transition-opacity duration-300 md:hidden ${
+        className={`fixed inset-0 z-[110] bg-text-primary/20 backdrop-blur-sm transition-all duration-500 md:hidden ${
           isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         type="button"
