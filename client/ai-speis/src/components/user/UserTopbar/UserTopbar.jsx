@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings, Globe } from 'lucide-react';
 import { navigate } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
+import { getAvatarUrl } from '../../../routes/auth';
 
 function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   const { t, i18n } = useTranslation('dashboard');
@@ -101,7 +102,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white shadow-sm overflow-hidden">
               {user && user.avatar ? (
-                <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                <img src={getAvatarUrl(user.avatar)} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
                 <User size={16} />
               )}

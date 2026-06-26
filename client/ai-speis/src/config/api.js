@@ -9,6 +9,7 @@ export const ENDPOINTS = {
   RESET_PASSWORD: `${API_BASE_URL}/api/auth/reset-password`,
   GET_PROFILE: `${API_BASE_URL}/api/users/me`,
   UPDATE_PROFILE: `${API_BASE_URL}/api/users/me/profile`,
+  UPDATE_AVATAR: `${API_BASE_URL}/api/users/me/avatar`,
   CHANGE_PASSWORD: `${API_BASE_URL}/api/users/me/security`,
   CV_GET_MY: `${API_BASE_URL}/api/CVFile/MyCV`,
   CV_UPLOAD: `${API_BASE_URL}/api/CVFile/upload`,

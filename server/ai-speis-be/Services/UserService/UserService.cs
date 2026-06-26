@@ -395,7 +395,8 @@ namespace ai_speis_be.Services.UserService
             IsLocked = user.IsLocked,
             CreatedAt = user.CreatedAt,
             UpdatedAt = user.UpdatedAt,
-            HasPassword = !string.IsNullOrEmpty(user.PasswordHash)
+            HasPassword = !string.IsNullOrEmpty(user.PasswordHash),
+            ImageUrl = user.ImageUrl
         };
     }
 }

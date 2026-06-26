@@ -63,6 +63,47 @@ const normalizeStatus = (raw) => {
 /* ========================================================================= */
 const POLL_INTERVAL_MS = 2500;
 
+const renderFeedbackList = (text, type, t) => {
+  if (!text) return <p className="mycv-empty-note">{t('mycv.no_data', 'Chưa có thông tin.')}</p>;
+
+  const items = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  if (items.length === 0) return <p className="mycv-empty-note">{t('mycv.no_data', 'Chưa có thông tin.')}</p>;
+
+  return items.map((item, idx) => {
+    const cleanItem = item.replace(/^[-*•\d\.\s]+/, '');
+    const colonIdx = cleanItem.indexOf(':');
+    const dashIdx = cleanItem.indexOf(' - ');
+
+    let title = cleanItem;
+    let desc = '';
+
+    if (colonIdx !== -1 && (dashIdx === -1 || colonIdx < dashIdx)) {
+      title = cleanItem.substring(0, colonIdx).trim();
+      desc = cleanItem.substring(colonIdx + 1).trim();
+    } else if (dashIdx !== -1) {
+      title = cleanItem.substring(0, dashIdx).trim();
+      desc = cleanItem.substring(dashIdx + 3).trim();
+    }
+
+    const Icon = type === 'success' ? CheckCircle2 : AlertCircle;
+    const itemClass = type === 'success' ? 'mycv-feedback-item mycv-feedback-item--success' : 'mycv-feedback-item mycv-feedback-item--warning';
+
+    return (
+      <div key={idx} className={itemClass}>
+        <Icon size={16} />
+        <div>
+          <h4>{title}</h4>
+          {desc && <p>{desc}</p>}
+        </div>
+      </div>
+    );
+  });
+};
+
 function MyCVPage() {
   const { t } = useTranslation('dashboard');
 
@@ -1015,54 +1056,20 @@ function MyCVPage() {
               <div className="mycv-modal-body">
                 {activeTab === 'overall' && (
                   <div className="mycv-modal-section">
-                    <div className="mycv-score-card">
-                      <div className="mycv-score-value">8.5<span>/10</span></div>
-                      <div className="mycv-score-divider" />
-                      <div>
-                        <div className="mycv-score-label">{t('mycv.score_title', 'Điểm đánh giá CV')}</div>
-                        <p>{t('mycv.mock_score_desc', 'CV của bạn có cấu trúc tốt, rõ ràng và đầy đủ thông tin cốt lõi.')}</p>
-                      </div>
-                    </div>
                     <div className="mycv-modal-text">
                       <h4>{t('mycv.summary_title', 'Tóm tắt đánh giá:')}</h4>
-                      <p>{t('mycv.mock_summary_desc')}</p>
+                      <p>{parsedData.overallAssessment || t('mycv.mock_summary_desc', 'Đang tải tóm tắt đánh giá...')}</p>
                     </div>
                   </div>
                 )}
                 {activeTab === 'strengths' && (
                   <div className="mycv-modal-section">
-                    <div className="mycv-feedback-item mycv-feedback-item--success">
-                      <CheckCircle2 size={16} />
-                      <div>
-                        <h4>{t('mycv.mock_strength_1_title', 'Công nghệ hiện đại & phù hợp')}</h4>
-                        <p>{t('mycv.mock_strength_1_desc')}</p>
-                      </div>
-                    </div>
-                    <div className="mycv-feedback-item mycv-feedback-item--success">
-                      <CheckCircle2 size={16} />
-                      <div>
-                        <h4>{t('mycv.mock_strength_2_title', 'Bố cục rõ ràng, chuyên nghiệp')}</h4>
-                        <p>{t('mycv.mock_strength_2_desc')}</p>
-                      </div>
-                    </div>
+                    {renderFeedbackList(parsedData.strengths, 'success', t)}
                   </div>
                 )}
                 {activeTab === 'improvements' && (
                   <div className="mycv-modal-section">
-                    <div className="mycv-feedback-item mycv-feedback-item--warning">
-                      <AlertCircle size={16} />
-                      <div>
-                        <h4>{t('mycv.mock_improvement_1_title')}</h4>
-                        <p>{t('mycv.mock_improvement_1_desc')}</p>
-                      </div>
-                    </div>
-                    <div className="mycv-feedback-item mycv-feedback-item--warning">
-                      <AlertCircle size={16} />
-                      <div>
-                        <h4>{t('mycv.mock_improvement_2_title')}</h4>
-                        <p>{t('mycv.mock_improvement_2_desc')}</p>
-                      </div>
-                    </div>
+                    {renderFeedbackList(parsedData.weaknesses, 'warning', t)}
                   </div>
                 )}
               </div>
