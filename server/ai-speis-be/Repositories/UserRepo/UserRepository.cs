@@ -74,6 +74,67 @@ namespace ai_speis_be.Repositories.UserRepo
             };
         }
 
+        public Task<AdminUserDetailDto?> GetAdminUserDetailAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            return (
+                from user in _context.Users.AsNoTracking()
+                join profile in _context.UserProfiles.AsNoTracking()
+                    on user.UserId equals profile.UserId into userProfiles
+                from profile in userProfiles.DefaultIfEmpty()
+                where user.UserId == userId
+                select new AdminUserDetailDto
+                {
+                    UserId = user.UserId,
+                    RoleId = user.RoleId,
+                    Role = user.Role.RoleName,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Status = user.Status,
+                    IsLocked = user.IsLocked,
+                    AccountStatus = user.IsLocked
+                        ? UserAccountStatus.Locked
+                        : user.Status
+                            ? UserAccountStatus.Active
+                            : UserAccountStatus.PendingActivation,
+                    LockReason = user.LockReason,
+                    LockedAt = user.LockedAt,
+                    LockedByUserId = user.LockedByUserId,
+                    EmailConfirmedAt = user.EmailConfirmedAt,
+                    HasPassword = user.PasswordHash != null &&
+                        user.PasswordHash != string.Empty,
+                    CreatedAt = user.CreatedAt,
+                    UpdatedAt = user.UpdatedAt,
+                    ImageUrl = user.ImageUrl,
+                    Profile = profile == null
+                        ? null
+                        : new AdminUserProfileDto
+                        {
+                            ProfileId = profile.ProfileId,
+                            School = profile.School,
+                            Major = profile.Major,
+                            Gpa = profile.Gpa,
+                            TargetPosition = profile.TargetPosition,
+                            Gender = profile.Gender,
+                            CreatedAt = profile.CreatedAt,
+                            UpdatedAt = profile.UpdatedAt
+                        },
+                    CVFiles = user.CVFiles.Select(cv => new AdminUserCVFileDto
+                    {
+                        CVFileId = cv.CVFileId,
+                        FileName = cv.FileName,
+                        FilePath = cv.FilePath,
+                        FileSize = cv.FileSize,
+                        FileType = cv.FileType,
+                        Status = cv.Status.ToString(),
+                        UploadedAt = cv.UploadedAt
+                    }).ToList()
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         public Task<User?> GetUserByIdAsync(
             int userId,
             CancellationToken cancellationToken = default)

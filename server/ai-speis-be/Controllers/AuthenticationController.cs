@@ -70,7 +70,8 @@ namespace ai_speis_be.Controllers
                 Role = user.Role.RoleName,
                 UserId = user.UserId,
                 FullName = user.FullName,
-                Email = user.Email
+                Email = user.Email,
+                ImageUrl = user.ImageUrl
             });
         }
 
@@ -128,7 +129,7 @@ namespace ai_speis_be.Controllers
         </div>
         <div class=""email-body"">
             <h2>Xin chào <span class=""highlight"">{WebUtility.HtmlEncode(newUser.FullName)}</span>,</h2>
-            <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>AI-SPEIS</strong> - Nền tảng luyện tập phỏng vấn thông minh dành cho sinh viên.</p>
+            <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>AI-SPEIS</strong> - Nền tảng luyện tập phỏng vấn thông minh dành cho người dùng.</p>
             <p>Để hoàn tất quá trình đăng ký và bắt đầu trải nghiệm mock interview cá nhân hóa, vui lòng kích hoạt tài khoản của bạn bằng cách bấm vào nút dưới đây:</p>
             
             <div class=""btn-container"">
@@ -228,7 +229,7 @@ namespace ai_speis_be.Controllers
             var jwtToken = _tokenService.GenerateToken(user.UserId, user.Role.RoleName, user.FullName, user.Email);
             await HttpContext.SignOutAsync("External");
 
-            var redirectUrl = $"http://localhost:3000/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}";
+            var redirectUrl = $"http://localhost:3000/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}&imageUrl={Uri.EscapeDataString(user.ImageUrl ?? "")}";
             return Redirect(redirectUrl);
         }
 

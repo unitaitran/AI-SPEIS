@@ -7,6 +7,9 @@ using ai_speis_be.Services.TokenService;
 using ai_speis_be.Services.EmailService;
 using ai_speis_be.Services.CVService;
 using ai_speis_be.Services.FileValidatorService;
+using ai_speis_be.Services.PdfExtractorService;
+using ai_speis_be.Services.GeminiAiParsingService;
+using ai_speis_be.Services.BackgroundWorker;
 using ai_speis_be.Repositories.QuestionRepo;
 using ai_speis_be.Services.QuestionService;
 using ai_speis_be.Repositories.SavedQuestionRepo;
@@ -83,6 +86,12 @@ builder.Services.AddScoped<IEmailSender, EmailService>();
 builder.Services.AddScoped<ICVRepository, CVRepository>();
 builder.Services.AddScoped<IFileValidatorService, FileValidatorService>();
 builder.Services.AddScoped<ICVService, CVService>();
+builder.Services.AddScoped<IPdfExtractorService, PdfExtractorService>();
+builder.Services.AddScoped<IGeminiAiParsingService, GeminiAiParsingService>();
+
+// Background Worker for CV Parsing
+builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
+builder.Services.AddHostedService<CvParsingBackgroundService>();
 
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();
@@ -120,6 +129,7 @@ builder.Services.AddAuthentication(options =>
     options.CallbackPath = "/api/Authentication/oauth/google/callback";
     options.CorrelationCookie.SecurePolicy = googleCookieSecurePolicy;
     options.CorrelationCookie.SameSite = googleCookieSameSite;
+
 })
 .AddJwtBearer(options =>
 {
@@ -173,6 +183,21 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+
+// Catch Google OAuth Correlation failed errors and redirect gracefully
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex) when (ex is Microsoft.AspNetCore.Authentication.AuthenticationFailureException
+        || (ex.InnerException is Microsoft.AspNetCore.Authentication.AuthenticationFailureException))
+    {
+        context.Response.Redirect("http://localhost:3000/#login?status=error&message=" + Uri.EscapeDataString("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."));
+    }
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 

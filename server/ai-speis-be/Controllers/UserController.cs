@@ -43,6 +43,33 @@ namespace ai_speis_be.Controllers
         }
 
         /// <summary>
+        /// Cập nhật ảnh đại diện (avatar).
+        /// </summary>
+        [HttpPost("me/avatar")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> UpdateAvatar(IFormFile file, CancellationToken cancellationToken)
+        {
+            if (!TryGetUserId(out var userId))
+                return InvalidTokenProblem();
+
+            var (success, errorMessage, newImageUrl) = await _userService.UpdateAvatarAsync(userId, file, cancellationToken);
+            
+            if (!success)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Lỗi tải ảnh",
+                    Detail = errorMessage ?? "Đã xảy ra lỗi khi tải ảnh.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            return Ok(new { ImageUrl = newImageUrl });
+        }
+
+        /// <summary>
         /// Cập nhật thông tin profile (FullName, PhoneNumber).
         /// </summary>
         [HttpPut("me/profile")]

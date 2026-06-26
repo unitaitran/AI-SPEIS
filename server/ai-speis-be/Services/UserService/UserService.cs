@@ -1,17 +1,22 @@
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Repositories.UserRepo;
+using ai_speis_be.Services.FileValidatorService;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Http;
+using System.IO;
 
 namespace ai_speis_be.Services.UserService
 {
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IFileValidatorService _fileValidatorService;
 
-        public UserService(IUserRepository userRepository)
+        public UserService(IUserRepository userRepository, IFileValidatorService fileValidatorService)
         {
             _userRepository = userRepository;
+            _fileValidatorService = fileValidatorService;
         }
 
         public Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
@@ -19,6 +24,15 @@ namespace ai_speis_be.Services.UserService
             CancellationToken cancellationToken = default)
         {
             return _userRepository.GetUsersAsync(query, cancellationToken);
+        }
+
+        public Task<AdminUserDetailDto?> GetAdminUserDetailAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            return _userRepository.GetAdminUserDetailAsync(
+                userId,
+                cancellationToken);
         }
 
         public async Task<LockUserResult> LockUserAsync(
@@ -115,6 +129,7 @@ namespace ai_speis_be.Services.UserService
                 PhoneNumber = registerDto.PhoneNumber,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
                 Status = false,
+                ImageUrl = "/AvatarImage/avt_default.jpg",
                 EmailConfirmationToken = GenerateEmailConfirmationToken(),
                 EmailConfirmationTokenExpiresAt = DateTime.UtcNow.AddHours(24),
                 CreatedAt = DateTime.UtcNow,
@@ -130,6 +145,7 @@ namespace ai_speis_be.Services.UserService
                 FullName = fullName,
                 Email = email,
                 Status = true,
+                ImageUrl = "/AvatarImage/avt_default.jpg",      
                 PasswordHash = null,
                 PhoneNumber = null,
                 EmailConfirmedAt = DateTime.UtcNow,
@@ -297,6 +313,51 @@ namespace ai_speis_be.Services.UserService
             await _userRepository.UpdateUserAsync(user, cancellationToken);
             return new UpdateProfileResult(UpdateProfileOutcome.Success, MapToUserMeResponseDto(user));
         }
+        public async Task<(bool Success, string? ErrorMessage, string? NewImageUrl)> UpdateAvatarAsync(
+            int userId,
+            IFormFile file,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            if (user is null)
+                return (false, "Không tìm thấy người dùng.", null);
+
+            var (isValid, errorMessage) = _fileValidatorService.ValidateImage(file);
+            if (!isValid)
+                return (false, errorMessage, null);
+
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "AvatarImage");
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var uniqueFileName = $"user_{userId}_{Guid.NewGuid().ToString("N").Substring(0, 8)}{Path.GetExtension(file.FileName).ToLower()}";
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream, cancellationToken);
+            }
+
+            // Xoá ảnh cũ nếu không phải ảnh mặc định
+            if (!string.IsNullOrEmpty(user.ImageUrl) && !user.ImageUrl.Contains("avt_default.jpg"))
+            {
+                var oldFileName = Path.GetFileName(user.ImageUrl);
+                var oldFilePath = Path.Combine(uploadsFolder, oldFileName);
+                if (File.Exists(oldFilePath))
+                {
+                    try { File.Delete(oldFilePath); } catch { /* Bỏ qua lỗi xoá file */ }
+                }
+            }
+
+            user.ImageUrl = $"/AvatarImage/{uniqueFileName}";
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+
+            return (true, null, user.ImageUrl);
+        }
 
         public async Task<ChangePasswordResult> ChangePasswordAsync(
             int userId,
@@ -321,6 +382,35 @@ namespace ai_speis_be.Services.UserService
             return new ChangePasswordResult(ChangePasswordOutcome.Success);
         }
 
+        public async Task<bool> UpdateUserRoleAsync(
+            int userId,
+            string roleName,
+            CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetUserByIdAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                return false;
+            }
+
+            var normalizedRole = roleName.Trim().ToLower();
+            if (normalizedRole != "admin" && normalizedRole != "user")
+            {
+                return false;
+            }
+
+            var roleId = normalizedRole == "admin" ? 1 : 2;
+
+            user.RoleId = roleId;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user, cancellationToken);
+            return true;
+        }
+
         // ── Private helpers ────────────────────────────────────────────────────
 
         private static UserMeResponseDto MapToUserMeResponseDto(User user) => new()
@@ -334,7 +424,8 @@ namespace ai_speis_be.Services.UserService
             IsLocked = user.IsLocked,
             CreatedAt = user.CreatedAt,
             UpdatedAt = user.UpdatedAt,
-            HasPassword = !string.IsNullOrEmpty(user.PasswordHash)
+            HasPassword = !string.IsNullOrEmpty(user.PasswordHash),
+            ImageUrl = user.ImageUrl
         };
     }
 }

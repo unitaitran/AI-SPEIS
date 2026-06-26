@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Lock, Camera, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Lock, Camera, User, CheckCircle2, AlertCircle, Pencil, ArrowLeft } from 'lucide-react';
 import { ENDPOINTS } from '../../../config/api';
 import Input from '../../UI/Input';
 import Button from '../../UI/Button';
+import { getAvatarUrl } from '../../../routes/auth';
 
 function ProfileModal({ onClose, onUserUpdated }) {
   const { t } = useTranslation('login');
@@ -11,8 +12,10 @@ function ProfileModal({ onClose, onUserUpdated }) {
   
   // Profile states
   const [fullName, setFullName] = useState('');
+  const [originalFullName, setOriginalFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [originalPhoneNumber, setOriginalPhoneNumber] = useState('');
   const [avatar, setAvatar] = useState('');
   const [hasPassword, setHasPassword] = useState(true);
   const [isPhoneEditable, setIsPhoneEditable] = useState(false);
@@ -48,8 +51,10 @@ function ProfileModal({ onClose, onUserUpdated }) {
 
         const data = await response.json();
         setFullName(data.fullName || '');
+        setOriginalFullName(data.fullName || '');
         setEmail(data.email || '');
         setPhoneNumber(data.phoneNumber || '');
+        setOriginalPhoneNumber(data.phoneNumber || '');
         setHasPassword(data.hasPassword !== false);
 
         // Google account with no phone number yet is allowed to add phone number once
@@ -57,12 +62,37 @@ function ProfileModal({ onClose, onUserUpdated }) {
         const hasNoPhone = !data.phoneNumber || data.phoneNumber.trim() === '';
         setIsPhoneEditable(isGoogleAccount && hasNoPhone);
 
-        // Load avatar from localStorage user object if it exists
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          const userData = JSON.parse(userStr);
-          if (userData.avatar) {
-            setAvatar(userData.avatar);
+        if (data.imageUrl) {
+          setAvatar(data.imageUrl);
+          
+          // Keep localStorage user details in sync with the fetched profile
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const userData = JSON.parse(userStr);
+              if (userData.avatar !== data.imageUrl || userData.fullName !== data.fullName) {
+                const updatedUser = {
+                  ...userData,
+                  fullName: data.fullName,
+                  avatar: data.imageUrl
+                };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                if (onUserUpdated) {
+                  onUserUpdated(updatedUser);
+                }
+              }
+            } catch (e) {
+              console.error('Failed to sync user storage', e);
+            }
+          }
+        } else {
+          // Load avatar from localStorage user object if it exists
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const userData = JSON.parse(userStr);
+            if (userData.avatar) {
+              setAvatar(userData.avatar);
+            }
           }
         }
       } catch (err) {
@@ -73,9 +103,9 @@ function ProfileModal({ onClose, onUserUpdated }) {
     };
 
     fetchProfile();
-  }, [t]);
+  }, [t, onUserUpdated]);
 
-  const handleAvatarChange = (event) => {
+  const handleAvatarChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -84,12 +114,53 @@ function ProfileModal({ onClose, onUserUpdated }) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatar(reader.result);
-      setError('');
-    };
-    reader.readAsDataURL(file);
+    setLoading(true);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(ENDPOINTS.UPDATE_AVATAR, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || t('avatar_upload_failed', 'Tải ảnh đại diện thất bại.'));
+      }
+
+      const newImageUrl = data.imageUrl;
+      setAvatar(newImageUrl);
+
+      // Cập nhật local storage
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const userData = JSON.parse(userStr);
+        const updatedUser = {
+          ...userData,
+          avatar: newImageUrl
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        if (onUserUpdated) {
+          onUserUpdated(updatedUser);
+        }
+      }
+
+      setSuccessMsg(t('avatar_success_msg', 'Cập nhật ảnh đại diện thành công.'));
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveProfile = async (e) => {
@@ -132,7 +203,9 @@ function ProfileModal({ onClose, onUserUpdated }) {
       }
 
       setFullName(data.fullName || '');
+      setOriginalFullName(data.fullName || '');
       setPhoneNumber(data.phoneNumber || '');
+      setOriginalPhoneNumber(data.phoneNumber || '');
       
       // Once successfully saved, phone number is no longer editable
       if (data.phoneNumber) {
@@ -217,17 +290,40 @@ function ProfileModal({ onClose, onUserUpdated }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+    >
       <div className="bg-surface-2 border border-border w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h3 className="text-lg font-bold text-text-primary">
-            {isChangePasswordMode 
-              ? (hasPassword ? t('profile_change_pwd_title', 'Đổi mật khẩu') : t('profile_create_pwd_title', 'Tạo mật khẩu'))
-              : t('profile_edit_title', 'Chỉnh sửa thông tin cá nhân')
-            }
-          </h3>
+          <div className="flex items-center gap-2">
+            {isChangePasswordMode && (
+              <button
+                type="button"
+                onClick={() => {
+                  setError('');
+                  setSuccessMsg('');
+                  setIsChangePasswordMode(false);
+                }}
+                className="text-text-secondary hover:text-text-primary hover:bg-surface-3 p-1.5 rounded-full transition-colors focus:outline-none cursor-pointer flex items-center justify-center"
+                aria-label="Go back"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <h3 className="text-lg font-bold text-text-primary">
+              {isChangePasswordMode 
+                ? (hasPassword ? t('profile_change_pwd_title', 'Đổi mật khẩu') : t('profile_create_pwd_title', 'Tạo mật khẩu'))
+                : t('profile_edit_title', 'Chỉnh sửa thông tin cá nhân')
+              }
+            </h3>
+          </div>
           <button 
             onClick={onClose}
             className="text-text-secondary hover:text-text-primary hover:bg-surface-3 p-1.5 rounded-full transition-colors focus:outline-none cursor-pointer"
@@ -263,7 +359,7 @@ function ProfileModal({ onClose, onUserUpdated }) {
               <div className="flex flex-col items-center gap-2">
                 <div className="relative w-24 h-24 rounded-full border border-border bg-surface-1 flex items-center justify-center overflow-hidden group shadow-sm">
                   {avatar ? (
-                    <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    <img src={getAvatarUrl(avatar)} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
                     <User size={40} className="text-text-secondary" />
                   )}
@@ -305,6 +401,7 @@ function ProfileModal({ onClose, onUserUpdated }) {
                   onChange={(e) => setFullName(e.target.value)}
                   required
                   disabled={loading}
+                  rightElement={<Pencil size={16} className="text-text-secondary" />}
                 />
                 
                 <Input
@@ -329,6 +426,7 @@ function ProfileModal({ onClose, onUserUpdated }) {
                     ? t('profile_phone_placeholder_edit', 'Nhập số điện thoại (chỉ được lưu 1 lần)')
                     : t('profile_phone_placeholder', 'Không có số điện thoại')
                   }
+                  rightElement={isPhoneEditable ? <Pencil size={16} className="text-text-secondary" /> : null}
                 />
               </div>
 
@@ -352,23 +450,17 @@ function ProfileModal({ onClose, onUserUpdated }) {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-border rounded-xl text-sm font-semibold text-text-primary hover:bg-surface-3 transition-colors focus:outline-none cursor-pointer"
-                disabled={loading}
-              >
-                {t('profile_cancel', 'HỦY')}
-              </button>
-              <Button
-                type="submit"
-                disabled={loading}
-                className="px-5 py-2 text-sm cursor-pointer"
-              >
-                {t('profile_save', 'LƯU THAY ĐỔI')}
-              </Button>
-            </div>
+            {(fullName !== originalFullName || (phoneNumber || '') !== (originalPhoneNumber || '')) && (
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="px-5 py-2 text-sm cursor-pointer"
+                >
+                  {t('profile_save', 'LƯU THAY ĐỔI')}
+                </Button>
+              </div>
+            )}
           </form>
         ) : (
           /* Change Password View */
@@ -426,18 +518,6 @@ function ProfileModal({ onClose, onUserUpdated }) {
 
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setError('');
-                  setSuccessMsg('');
-                  setIsChangePasswordMode(false);
-                }}
-                className="px-4 py-2 border border-border rounded-xl text-sm font-semibold text-text-primary hover:bg-surface-3 transition-colors focus:outline-none cursor-pointer"
-                disabled={loading}
-              >
-                {t('profile_cancel', 'HỦY')}
-              </button>
               <Button
                 type="submit"
                 disabled={loading}

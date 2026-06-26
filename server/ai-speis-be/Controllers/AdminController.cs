@@ -36,6 +36,34 @@ namespace ai_speis_be.Controllers
             return Ok(result);
         }
 
+        [HttpGet("users/{userId:int}")]
+        [ProducesResponseType(
+            typeof(AdminUserDetailDto),
+            StatusCodes.Status200OK)]
+        [ProducesResponseType(
+            typeof(ProblemDetails),
+            StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AdminUserDetailDto>> GetUserDetail(
+            int userId,
+            CancellationToken cancellationToken)
+        {
+            var user = await _userService.GetAdminUserDetailAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Title = "User not found",
+                    Detail = $"User with ID {userId} does not exist.",
+                    Status = StatusCodes.Status404NotFound
+                });
+            }
+
+            return Ok(user);
+        }
+
         [HttpGet("questions")]
         [ProducesResponseType(
             typeof(PagedResultDto<AdminQuestionListItemDto>),
@@ -144,6 +172,8 @@ namespace ai_speis_be.Controllers
             [FromBody] AdminQuestionUpdateRequestDto request,
             CancellationToken cancellationToken)
         {
+            if (questionId <= 0)
+             return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -179,6 +209,8 @@ namespace ai_speis_be.Controllers
             int questionId,
             CancellationToken cancellationToken)
         {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -215,6 +247,8 @@ namespace ai_speis_be.Controllers
             [FromBody] LockUserRequestDto request,
             CancellationToken cancellationToken)
         {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -275,6 +309,8 @@ namespace ai_speis_be.Controllers
             int userId,
             CancellationToken cancellationToken)
         {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
             var result = await _userService.UnlockUserAsync(
                 userId,
                 cancellationToken);
@@ -299,6 +335,35 @@ namespace ai_speis_be.Controllers
                 _ => throw new InvalidOperationException(
                     $"Kết quả mở khóa người dùng không được hỗ trợ: {result.Outcome}")
             };
+        }
+
+        [HttpPatch("users/{userId:int}/role")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateUserRole(
+            int userId,
+            [FromBody] UpdateUserRoleRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
+
+            if (string.IsNullOrWhiteSpace(request.RoleName))
+                return BadRequest(new { title = "Role không hợp lệ", detail = "RoleName không được để trống." });
+
+            var success = await _userService.UpdateUserRoleAsync(userId, request.RoleName, cancellationToken);
+            if (!success)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Title = "User not found or role invalid",
+                    Detail = $"User with ID {userId} does not exist or the role is invalid.",
+                    Status = StatusCodes.Status404NotFound
+                });
+            }
+
+            return Ok(new { Message = "Cập nhật vai trò người dùng thành công." });
         }
 
         private bool TryGetActingUserId(out int actingUserId)
