@@ -26,27 +26,50 @@ namespace ai_speis_be.Services.GeminiAiParsingService
                 var model = googleAi.GenerativeModel(model: "gemini-2.5-flash");
 
                 string prompt = @"
-You are an expert HR recruiter and technical interviewer assistant.
-Your task is to extract structured information from the following CV/resume text.
+You are an expert HR recruiter and document classifier.
+You will receive text extracted from a PDF file. Perform ALL 3 steps below and return a single JSON object.
 
-IMPORTANT RULES:
-1. Return STRICTLY a JSON object matching the schema below. No markdown, no extra text.
-2. For ""roleTarget"": Extract the applied position, job title, or main technical expertise (e.g., ""Backend Developer"", ""Frontend Developer"", ""Fullstack Developer"", ""DevOps Engineer"", ""Mobile Developer""). If not explicitly stated, infer from skills and projects.
-3. For ""skills"": Extract ONLY technical/programming skills. Categories:
+=== STEP 1: DOCUMENT CLASSIFICATION ===
+Determine if this document is a CV/resume. Score it from 0.0 to 1.0 based on these signals:
+- Has applicant/person name (weight: 0.15)
+- Has contact info: email, phone, or linkedin (weight: 0.15)
+- Has Education section with school/major/graduation info (weight: 0.20)
+- Has Skills or Technical Skills section (weight: 0.20)
+- Has Experience or Projects section with timeline (weight: 0.20)
+- Is NOT an invoice, contract, report, certificate, syllabus, or brochure (weight: 0.10)
+Sum the weights of signals found to get cvConfidenceScore.
+Set isValidCv=false with invalidReason if score < 0.50.
+
+=== STEP 2: CV ASSESSMENT (skip if isValidCv=false) ===
+Write in Vietnamese:
+- overallAssessment: 2-3 sentence overall evaluation of the candidate
+- strengths: Key strengths (skills, experience, education highlights)
+- weaknesses: Areas for improvement or gaps
+
+=== STEP 3: STRUCTURED DATA EXTRACTION (skip if isValidCv=false) ===
+RULES:
+1. For ""roleTarget"": Extract the applied position or infer from skills/projects.
+2. For ""skills"": Extract ONLY technical/programming skills. Categories:
    - ""Language"": Programming languages (Java, C#, Python, JavaScript, etc.)
    - ""Framework"": Frameworks and libraries (React, Spring Boot, .NET, Angular, etc.)
    - ""Database"": Database systems (MySQL, PostgreSQL, MongoDB, SQL Server, etc.)
    - ""Tool"": Development tools (Git, Docker, Jira, Jenkins, Kubernetes, etc.)
    - ""Cloud"": Cloud services (AWS, Azure, GCP, etc.)
-   - ""Other"": Other technical skills that don't fit above
-   DO NOT include: natural languages (English, Vietnamese), soft skills (teamwork, communication), or non-technical items.
-   Normalize skill names: use ""JavaScript"" not ""JS"", ""TypeScript"" not ""TS"". Merge duplicates (""Git"" and ""GitHub"" → keep only ""Git"").
-4. For ""projectSummary"": Write a brief 1-2 sentence summary of WHAT the project does and its purpose. Do NOT just put the duration here.
-5. For ""projects"": Put project duration in a separate ""duration"" field.
-6. For ""experience"": Extract only actual work/internship experience at companies. Do NOT merge projects into experience.
+   - ""Other"": Other technical skills
+   DO NOT include: natural languages, soft skills, or non-technical items.
+   Normalize: ""JavaScript"" not ""JS"", ""TypeScript"" not ""TS"". Merge duplicates.
+3. For ""projectSummary"": Write 1-2 sentences about WHAT the project does. NOT the duration.
+4. For ""projects"": Put duration in the ""duration"" field.
+5. For ""experience"": Only actual work/internship at companies. Do NOT merge projects here.
 
-JSON Schema:
+JSON Schema (return STRICTLY this, no markdown, no extra text):
 {
+  ""isValidCv"": true,
+  ""invalidReason"": """",
+  ""cvConfidenceScore"": 0.85,
+  ""overallAssessment"": """",
+  ""strengths"": """",
+  ""weaknesses"": """",
   ""roleTarget"": """",
   ""education"": [
     { ""school"": """", ""major"": """", ""gpa"": """", ""graduationYear"": """" }
@@ -62,9 +85,10 @@ JSON Schema:
   ]
 }
 
-If a field is not found, leave it as an empty string or empty array.
+If isValidCv=false, leave education/experience/projects/skills as empty arrays and roleTarget as empty string.
+If a field is not found, leave it as empty string or empty array.
 
-CV text:
+Document text:
 --------------------
 " + cvText;
 
