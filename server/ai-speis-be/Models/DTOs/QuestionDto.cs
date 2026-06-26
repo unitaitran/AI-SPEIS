@@ -12,23 +12,23 @@ namespace ai_speis_be.Models.DTOs
 
     public abstract class AdminQuestionMutationRequestDto : IValidatableObject
     {
-        [StringLength(4000)]
+        [StringLength(4000, ErrorMessage = "Nội dung câu hỏi không được vượt quá 4000 ký tự.")]
         public string? QuestionContent { get; set; }
 
-        [StringLength(100)]
+        [StringLength(100, ErrorMessage = "Ngành học không được vượt quá 100 ký tự.")]
         public string? Major { get; set; }
 
-        [StringLength(100)]
+        [StringLength(100, ErrorMessage = "Vị trí mục tiêu không được vượt quá 100 ký tự.")]
         public string? RoleTarget { get; set; }
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        [Required]
+        [Required(ErrorMessage = "Độ khó là bắt buộc.")]
         public QuestionDifficultyEnum? Difficulty { get; set; }
         
-        [StringLength(4000)]
+        [StringLength(4000, ErrorMessage = "Câu trả lời gợi ý không được vượt quá 4000 ký tự.")]
         public string? SuggestedAnswer { get; set; }
 
-        [StringLength(20)]
+        [StringLength(20, ErrorMessage = "Trạng thái không được vượt quá 20 ký tự.")]
         public string? Status { get; set; }
 
         public IEnumerable<ValidationResult> Validate(
@@ -37,28 +37,36 @@ namespace ai_speis_be.Models.DTOs
             if (NormalizeQuestionContent() is null)
             {
                 yield return new ValidationResult(
-                    "QuestionText or QuestionContent is required.",
+                    "Nội dung câu hỏi là bắt buộc.",
                     new[] { nameof(QuestionContent) });
             }
 
             if (Normalize(Major) is null)
             {
                 yield return new ValidationResult(
-                    "Major is required.",
+                    "Ngành học là bắt buộc.",
                     new[] { nameof(Major) });
             }
 
             if (Normalize(RoleTarget) is null)
             {
                 yield return new ValidationResult(
-                    "RoleTarget is required.",
+                    "Vị trí mục tiêu là bắt buộc.",
                     new[] { nameof(RoleTarget) });
+            }
+
+            if (Difficulty.HasValue &&
+                !Enum.IsDefined(typeof(QuestionDifficultyEnum), Difficulty.Value))
+            {
+                yield return new ValidationResult(
+                    "Độ khó phải là Easy, Medium hoặc Hard.",
+                    new[] { nameof(Difficulty) });
             }
 
             if (NormalizeSuggestedAnswer() is null)
             {
                 yield return new ValidationResult(
-                    "SuggestedAnswer is required.",
+                    "Câu trả lời gợi ý là bắt buộc.",
                     new[]
                     {
                         nameof(SuggestedAnswer)
@@ -69,7 +77,7 @@ namespace ai_speis_be.Models.DTOs
                 !string.IsNullOrWhiteSpace(Status))
             {
                 yield return new ValidationResult(
-                    "Status must be Active or Inactive.",
+                    "Trạng thái phải là Active hoặc Inactive.",
                     new[] { nameof(Status) });
             }
         }
@@ -146,19 +154,19 @@ namespace ai_speis_be.Models.DTOs
 
     public sealed class AdminQuestionQueryDto
     {
-        [Range(1, 1_000_000)]
+        [Range(1, 1_000_000, ErrorMessage = "Số trang phải từ 1 đến 1000000.")]
         public int PageNumber { get; set; } = 1;
 
-        [Range(1, 100)]
+        [Range(1, 100, ErrorMessage = "Kích thước trang phải từ 1 đến 100.")]
         public int PageSize { get; set; } = 10;
 
-        [StringLength(200)]
+        [StringLength(200, ErrorMessage = "Từ khóa không được vượt quá 200 ký tự.")]
         public string? Keyword { get; set; }
 
-        [StringLength(100)]
+        [StringLength(100, ErrorMessage = "Ngành học không được vượt quá 100 ký tự.")]
         public string? Major { get; set; }
 
-        [StringLength(100)]
+        [StringLength(100, ErrorMessage = "Vị trí mục tiêu không được vượt quá 100 ký tự.")]
         public string? RoleTarget { get; set; }
 
         public QuestionDifficultyEnum? Difficulty { get; set; }
@@ -168,19 +176,19 @@ namespace ai_speis_be.Models.DTOs
 
     public sealed class UserQuestionQueryDto
     {
-        [Range(1, 1_000_000)]
+        [Range(1, 1_000_000, ErrorMessage = "Số trang phải từ 1 đến 1000000.")]
         public int PageNumber { get; set; } = 1;
 
-        [Range(1, 100)]
+        [Range(1, 100, ErrorMessage = "Kích thước trang phải từ 1 đến 100.")]
         public int PageSize { get; set; } = 10;
 
-        [StringLength(100)]
+        [StringLength(100, ErrorMessage = "Ngành học không được vượt quá 100 ký tự.")]
         public string? Major { get; set; }
 
-        [StringLength(100)]
+        [StringLength(100, ErrorMessage = "Vị trí mục tiêu không được vượt quá 100 ký tự.")]
         public string? RoleTarget { get; set; }
 
-        [StringLength(20)]
+        [StringLength(20, ErrorMessage = "Độ khó không được vượt quá 20 ký tự.")]
         public string? Difficulty { get; set; }
     }
 
