@@ -1,4 +1,5 @@
 import { ENDPOINTS } from '../config/api';
+import { getStoredSession } from '../routes/auth';
 
 const parseJsonResponse = async (response) => {
   if (!response.ok) {
@@ -22,9 +23,9 @@ const getAuthHeaders = (includeJson = false) => {
     headers['Content-Type'] = 'application/json';
   }
 
-  const token = localStorage.getItem('token');
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  const session = getStoredSession();
+  if (session?.token) {
+    headers.Authorization = `Bearer ${session.token}`;
   }
 
   return headers;
