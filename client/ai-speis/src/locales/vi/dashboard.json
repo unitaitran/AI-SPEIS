@@ -86,8 +86,6 @@
     "confirm_delete_bookmark": "Bạn có chắc chắn muốn bỏ lưu câu hỏi này?",
     "filter_saved": "Đã lưu",
     "filter_unsaved": "Chưa lưu"
-<<<<<<< Updated upstream
-=======
   },
   "mycv": {
     "title": "CV của tôi",
@@ -186,6 +184,5 @@
     "mock_improvement_1_desc": "Nên cụ thể hóa kết quả đạt được. Thay vì ghi \"tối ưu hóa UI/UX\", hãy viết \"tối ưu UI/UX giúp cải thiện 25% tỷ lệ giữ chân người dùng\".",
     "mock_improvement_2_title": "Bổ sung link sản phẩm / Github",
     "mock_improvement_2_desc": "Các dự án nên có đường dẫn Github hoặc link demo trực tiếp để nhà tuyển dụng dễ dàng đánh giá mã nguồn thực tế."
->>>>>>> Stashed changes
   }
 }

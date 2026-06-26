@@ -86,8 +86,6 @@
     "confirm_delete_bookmark": "Are you sure you want to remove this bookmark?",
     "filter_saved": "Saved",
     "filter_unsaved": "Unsaved"
-<<<<<<< Updated upstream
-=======
   },
   "mycv": {
     "title": "My CV",
@@ -186,6 +184,5 @@
     "mock_improvement_1_desc": "Results should be quantified. Instead of 'optimized UI/UX', write 'optimized UI/UX helping improve user retention rate by 25%'.",
     "mock_improvement_2_title": "Add Github / Live Demo links",
     "mock_improvement_2_desc": "Projects should have Github links or live demos for recruiters to inspect real source code."
->>>>>>> Stashed changes
   }
 }

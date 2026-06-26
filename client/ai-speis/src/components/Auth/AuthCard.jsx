@@ -10,7 +10,7 @@ const AuthCard = ({ children, footerText, mascotText }) => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-surface-2 flex animate-in fade-in duration-700 ease-out relative">
+    <div className="w-full h-screen overflow-hidden bg-surface-2 flex animate-in fade-in duration-700 ease-out relative">
       {/* Language Switcher */}
       <button
         type="button"
@@ -42,8 +42,8 @@ const AuthCard = ({ children, footerText, mascotText }) => {
       </div>
 
       {/* Right Column - Form Area */}
-      <div className="w-full lg:flex-1 flex flex-col items-center justify-center h-full bg-surface-2 relative px-6 py-4 md:px-10 md:py-4 overflow-y-auto custom-scrollbar">
-        <div className="w-full max-w-[480px] flex flex-col items-center justify-center my-auto py-4">
+      <div className="w-full lg:flex-1 flex flex-col items-center justify-center h-full bg-surface-2 relative px-6 py-4 md:px-10 md:py-4">
+        <div className="w-full max-w-[480px] flex flex-col items-center justify-center py-4">
           {/* Logo Area */}
           <div className="flex justify-center mb-6 shrink-0">
             <img 

@@ -420,7 +420,7 @@
   color: var(--primary);
 }
 
-..action-btn:focus-visible {
+.action-btn:focus-visible {
   outline: 3px solid var(--primary-xlight);
   outline-offset: 2px;
 }
