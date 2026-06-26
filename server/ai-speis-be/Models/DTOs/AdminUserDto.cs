@@ -19,16 +19,16 @@ namespace ai_speis_be.Models.DTOs
 
     public sealed class AdminUserQueryDto
     {
-        [Range(1, 1_000_000)]
+        [Range(1, 1_000_000, ErrorMessage = "Số trang phải từ 1 đến 1000000.")]
         public int PageNumber { get; set; } = 1;
 
-        [Range(1, 100)]
+        [Range(1, 100, ErrorMessage = "Kích thước trang phải từ 1 đến 100.")]
         public int PageSize { get; set; } = 10;
 
-        [StringLength(200)]
+        [StringLength(200, ErrorMessage = "Từ khóa tìm kiếm không được vượt quá 200 ký tự.")]
         public string? Search { get; set; }
 
-        [StringLength(100)]
+        [StringLength(100, ErrorMessage = "Vai trò không được vượt quá 100 ký tự.")]
         public string? Role { get; set; }
 
         public bool? Status { get; set; }
@@ -55,7 +55,7 @@ namespace ai_speis_be.Models.DTOs
 
     public sealed class LockUserRequestDto
     {
-        [StringLength(500)]
+        [StringLength(500, ErrorMessage = "Lý do khóa không được vượt quá 500 ký tự.")]
         public string? Reason { get; set; }
     }
 

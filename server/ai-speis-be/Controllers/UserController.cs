@@ -34,8 +34,8 @@ namespace ai_speis_be.Controllers
             if (profile is null)
                 return NotFound(new ProblemDetails
                 {
-                    Title = "User not found",
-                    Detail = "The authenticated user account could not be found.",
+                    Title = "Không tìm thấy người dùng",
+                    Detail = "Không tìm thấy tài khoản người dùng đang xác thực.",
                     Status = StatusCodes.Status404NotFound
                 });
 
@@ -64,17 +64,17 @@ namespace ai_speis_be.Controllers
                 UpdateProfileOutcome.Success => Ok(result.Profile),
                 UpdateProfileOutcome.UserNotFound => NotFound(new ProblemDetails
                 {
-                    Title = "User not found",
-                    Detail = "The authenticated user account could not be found.",
+                    Title = "Không tìm thấy người dùng",
+                    Detail = "Không tìm thấy tài khoản người dùng đang xác thực.",
                     Status = StatusCodes.Status404NotFound
                 }),
                 UpdateProfileOutcome.PhoneNumberAlreadyExists => BadRequest(new ProblemDetails
                 {
-                    Title = "Phone number already exists",
+                    Title = "Số điện thoại đã tồn tại",
                     Detail = "Số điện thoại này đã được sử dụng bởi tài khoản khác.",
                     Status = StatusCodes.Status400BadRequest
                 }),
-                _ => throw new InvalidOperationException($"Unsupported outcome: {result.Outcome}")
+                _ => throw new InvalidOperationException($"Kết quả cập nhật hồ sơ không được hỗ trợ: {result.Outcome}")
             };
         }
 
@@ -101,23 +101,23 @@ namespace ai_speis_be.Controllers
                 ChangePasswordOutcome.Success => Ok(new { Message = "Mật khẩu đã được cập nhật thành công." }),
                 ChangePasswordOutcome.WrongCurrentPassword => BadRequest(new ProblemDetails
                 {
-                    Title = "Incorrect current password",
-                    Detail = "Current password is incorrect.",
+                    Title = "Mật khẩu hiện tại không đúng",
+                    Detail = "Mật khẩu hiện tại không đúng.",
                     Status = StatusCodes.Status400BadRequest
                 }),
                 ChangePasswordOutcome.GoogleAccount => BadRequest(new ProblemDetails
                 {
-                    Title = "Password change not supported",
-                    Detail = "This account uses Google Sign-In and does not have a password to change.",
+                    Title = "Không hỗ trợ đổi mật khẩu",
+                    Detail = "Tài khoản này đăng nhập bằng Google nên không có mật khẩu để thay đổi.",
                     Status = StatusCodes.Status400BadRequest
                 }),
                 ChangePasswordOutcome.UserNotFound => NotFound(new ProblemDetails
                 {
-                    Title = "User not found",
-                    Detail = "The authenticated user account could not be found.",
+                    Title = "Không tìm thấy người dùng",
+                    Detail = "Không tìm thấy tài khoản người dùng đang xác thực.",
                     Status = StatusCodes.Status404NotFound
                 }),
-                _ => throw new InvalidOperationException($"Unsupported outcome: {result.Outcome}")
+                _ => throw new InvalidOperationException($"Kết quả đổi mật khẩu không được hỗ trợ: {result.Outcome}")
             };
         }
 
@@ -129,8 +129,8 @@ namespace ai_speis_be.Controllers
         private UnauthorizedObjectResult InvalidTokenProblem()
             => Unauthorized(new ProblemDetails
             {
-                Title = "Invalid authentication token",
-                Detail = "The authenticated user identifier is missing or invalid.",
+                Title = "Token xác thực không hợp lệ",
+                Detail = "Thiếu hoặc sai định danh người dùng trong token xác thực.",
                 Status = StatusCodes.Status401Unauthorized
             });
     }

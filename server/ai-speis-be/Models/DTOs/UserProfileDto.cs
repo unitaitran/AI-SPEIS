@@ -26,7 +26,7 @@ namespace ai_speis_be.Models.DTOs
         [MaxLength(100, ErrorMessage = "Họ và tên không được vượt quá 100 ký tự.")]
         public string FullName { get; set; } = null!;
 
-        [MaxLength(32)]
+        [MaxLength(32, ErrorMessage = "Số điện thoại không được vượt quá 32 ký tự.")]
         [RegularExpression(@"^0\d{9}$", ErrorMessage = "Số điện thoại phải có 10 chữ số và bắt đầu bằng 0.")]
         public string? PhoneNumber { get; set; }
     }
