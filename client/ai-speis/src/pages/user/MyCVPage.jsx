@@ -513,7 +513,7 @@ function MyCVPage() {
    * --------------------------------------------------------------------- */
   return (
     <UserLayout>
-      <div className="mycv-container">
+      <div className="mycv-container animate-pageEntrance">
         {/* Page Header */}
         <section className="mycv-header">
           <div>

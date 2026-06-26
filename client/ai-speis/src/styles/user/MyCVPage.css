@@ -528,14 +528,15 @@
 }
 
 .mycv-btn--primary {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(111, 182, 232, 0.2);
+  box-shadow: 0 2px 8px rgba(111, 182, 232, 0.25);
 }
 
-.mycv-btn--primary:hover {
-  background: var(--primary-dark);
-  box-shadow: 0 4px 14px rgba(63, 127, 174, 0.25);
+.mycv-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #356a94 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(111, 182, 232, 0.35);
 }
 
 .mycv-btn--primary:disabled {

@@ -52,7 +52,7 @@ function DashboardPage() {
 
   return (
     <UserLayout>
-      <div className="space-y-8 pb-10">
+      <div className="space-y-8 pb-10 animate-pageEntrance">
 
         {/* Page Header */}
         <section>
@@ -65,8 +65,8 @@ function DashboardPage() {
         {/* Stats Row */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, idx) => (
-            <div key={idx} className="bg-surface-2 p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center relative overflow-hidden group hover:border-primary-light transition-colors">
-              <div className={`absolute top-0 right-0 w-16 h-16 -mr-4 -mt-4 rounded-full opacity-20 transition-transform group-hover:scale-150 ${stat.bg}`}></div>
+            <div key={idx} className="bg-surface-2 p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center relative overflow-hidden group hover:border-primary-light hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              <div className={`absolute top-0 right-0 w-16 h-16 -mr-4 -mt-4 rounded-full opacity-20 transition-transform duration-500 group-hover:scale-[1.8] ${stat.bg}`}></div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest line-clamp-1">
                   {stat.label}
@@ -104,7 +104,7 @@ function DashboardPage() {
                 {t('banner.desc', 'Bắt đầu mock interview dựa trên CV và vị trí bạn đang ứng tuyển. Hệ thống AI sẽ phân tích và đưa ra phản hồi chi tiết.')}
               </p>
             </div>
-            <button className="relative z-10 bg-white text-primary-dark hover:bg-primary-xlight py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between transition-colors shadow-md w-full sm:w-auto self-start group cursor-pointer">
+            <button className="relative z-10 bg-white text-primary-dark hover:bg-primary-xlight py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto self-start group cursor-pointer">
               {t('banner.button', 'BẮT ĐẦU PHỎNG VẤN')}
               <ArrowRight size={18} className="ml-4 transform group-hover:translate-x-1 transition-transform" />
             </button>
@@ -167,7 +167,7 @@ function DashboardPage() {
           <h2 className="text-xl font-bold text-text-primary mb-4">{t('suggestions.title', 'Gợi ý luyện tập hôm nay')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {suggestions.map((item, idx) => (
-              <div key={idx} className="bg-surface-2 rounded-xl border border-border shadow-sm flex flex-col group hover:border-primary-light transition-colors">
+              <div key={idx} className="bg-surface-2 rounded-xl border border-border shadow-sm flex flex-col group hover:border-primary-light hover:shadow-md hover:-translate-y-1 transition-all duration-300">
                 <div className="p-5 flex-1">
                   <div className="inline-flex items-center space-x-1.5 px-2 py-1 bg-surface-1 border border-border rounded text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-4">
                     <FileText size={12} />
