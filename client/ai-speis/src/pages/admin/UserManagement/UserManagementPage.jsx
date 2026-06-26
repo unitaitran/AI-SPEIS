@@ -13,8 +13,18 @@ import {
   ChevronsRight,
   ChevronUp,
   ChevronDown,
+  X,
+  Mail,
+  Phone,
+  Calendar,
+  Shield,
+  Unlock,
+  FileText,
+  CreditCard,
+  Activity,
 } from 'lucide-react';
 import { userService } from '../../../services/UserService';
+import { getAvatarUrl } from '../../../routes/auth';
 import '../../../styles/admin/UserManagementPage.css';
 
 function UserManagementPage() {
@@ -28,6 +38,12 @@ function UserManagementPage() {
     package: 'all',
   });
 
+  // User Details Modal states
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [detailUser, setDetailUser] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailError, setDetailError] = useState(null);
+
   const [selectedUsers, setSelectedUsers] = useState(new Set());
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,15 +55,32 @@ function UserManagementPage() {
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
   const [confirmModal, setConfirmModal] = useState(null);
+  const [roleModal, setRoleModal] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
   const startIndex = totalUsers === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endIndex = totalUsers === 0 ? 0 : Math.min(currentPage * pageSize, totalUsers);
 
-  // Fetch users on mount and when pagination or sort changes
+  const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
+
+  // Debounce search input to prevent excessive API requests
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+
+  // Reset to first page whenever filter inputs change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters.role, filters.status, filters.package, debouncedSearch]);
+
+  // Fetch users on mount and when pagination, sorting, or filters change
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, pageSize, sortBy, sortOrder]);
+  }, [currentPage, pageSize, sortBy, sortOrder, filters.role, filters.status, filters.package, debouncedSearch]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -64,7 +97,10 @@ function UserManagementPage() {
       const result = await userService.getUsers({
         page: currentPage,
         pageSize,
-        ...filters,
+        role: filters.role,
+        status: filters.status,
+        package: filters.package,
+        search: debouncedSearch,
         sortBy,
         sortOrder,
       });
@@ -110,11 +146,6 @@ function UserManagementPage() {
     setFilters((prev) => ({ ...prev, search: e.target.value }));
   };
 
-  // Handle filter button
-  const handleFilter = () => {
-    setCurrentPage(1);
-    fetchUsers();
-  };
 
   // Handle reset filters
   const handleReset = () => {
@@ -128,6 +159,27 @@ function UserManagementPage() {
     setSortOrder('asc');
     setCurrentPage(1);
     setSelectedUsers(new Set());
+  };
+
+  const handleViewDetails = async (userId) => {
+    setDetailModalOpen(true);
+    setLoadingDetail(true);
+    setDetailError(null);
+    setDetailUser(null);
+    try {
+      const data = await userService.getUserById(userId);
+      setDetailUser(data);
+    } catch (err) {
+      setDetailError(err?.message || t('loadError'));
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const closeDetailModal = () => {
+    setDetailModalOpen(false);
+    setDetailUser(null);
+    setDetailError(null);
   };
 
   // Handle user selection
@@ -146,7 +198,7 @@ function UserManagementPage() {
     if (selectedUsers.size === users.length) {
       setSelectedUsers(new Set());
     } else {
-      setSelectedUsers(new Set(users.map((u) => u.id)));
+      setSelectedUsers(new Set(users.map((u) => u.userId || u.id)));
     }
   };
 
@@ -371,6 +423,387 @@ function UserManagementPage() {
     );
   };
 
+  const UserDetailsModal = () => {
+    if (!detailModalOpen) return null;
+
+    const handleBackdropClick = (e) => {
+      if (e.target.classList.contains('modal-backdrop')) {
+        closeDetailModal();
+      }
+    };
+
+    return (
+      <div 
+        className="modal-backdrop user-detail-backdrop" 
+        onClick={handleBackdropClick}
+        role="dialog" 
+        aria-modal="true"
+      >
+        <div className="modal-card user-detail-card">
+          <button 
+            type="button" 
+            className="close-btn" 
+            onClick={closeDetailModal}
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+
+          {loadingDetail && (
+            <div className="detail-skeleton">
+              <div className="skeleton-avatar-row">
+                <div className="skeleton skeleton-circle animate-pulse" />
+                <div className="skeleton-title-group">
+                  <div className="skeleton skeleton-title animate-pulse" />
+                  <div className="skeleton skeleton-subtitle animate-pulse" />
+                </div>
+              </div>
+              <div className="skeleton-grid">
+                <div className="skeleton skeleton-box animate-pulse" />
+                <div className="skeleton skeleton-box animate-pulse" />
+                <div className="skeleton skeleton-box animate-pulse" />
+                <div className="skeleton skeleton-box animate-pulse" />
+              </div>
+            </div>
+          )}
+
+          {detailError && (
+            <div className="detail-error">
+              <AlertCircle size={40} className="error-icon" />
+              <h4>{t('loadError')}</h4>
+              <p>{detailError}</p>
+              <button type="button" className="btn-primary" onClick={closeDetailModal}>
+                {t('cancel')}
+              </button>
+            </div>
+          )}
+
+          {!loadingDetail && !detailError && detailUser && (
+            <>
+              {/* Header section */}
+              <div className="detail-header">
+                <div 
+                  className="avatar-wrapper"
+                  style={{ cursor: detailUser.imageUrl ? 'pointer' : 'default' }}
+                  onClick={() => detailUser.imageUrl && window.open(getAvatarUrl(detailUser.imageUrl), '_blank')}
+                  title={detailUser.imageUrl ? 'Bấm để phóng to ảnh đại diện' : undefined}
+                >
+                  {detailUser.imageUrl ? (
+                    <img 
+                      src={getAvatarUrl(detailUser.imageUrl)} 
+                      alt={detailUser.fullName} 
+                      className="user-avatar-img"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.style.display = 'none';
+                        const placeholder = e.target.nextSibling;
+                        if (placeholder) placeholder.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className="user-avatar-placeholder"
+                    style={{ 
+                      display: detailUser.imageUrl ? 'none' : 'flex'
+                    }}
+                  >
+                    {detailUser.fullName ? detailUser.fullName.charAt(0).toUpperCase() : '?'}
+                  </div>
+                </div>
+                
+                <div className="header-info">
+                  <h3 className="user-name">{detailUser.fullName || '-'}</h3>
+                  <div className="user-badges">
+                    <span className="role-badge">
+                      <Shield size={12} />
+                      {detailUser.role === 'admin' ? t('admin') : t('user')}
+                    </span>
+                    <span className={`status-badge ${detailUser.isLocked ? 'status-locked' : 'status-active'}`}>
+                      {detailUser.isLocked ? <Lock size={12} /> : <Unlock size={12} />}
+                      {detailUser.isLocked ? t('locked') : t('active')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detail body */}
+              <div className="detail-body">
+                {detailUser.isLocked && (
+                  <div className="lock-banner">
+                    <div className="lock-banner-header">
+                      <AlertCircle size={16} />
+                      <span>{t('accountSecurity')} - {t('locked')}</span>
+                    </div>
+                    <div className="lock-banner-details">
+                      {detailUser.lockReason && (
+                        <p><strong>{t('lockReason')}:</strong> {detailUser.lockReason}</p>
+                      )}
+                      {detailUser.lockedAt && (
+                        <p>
+                          <strong>{t('lockedAt')}:</strong>{' '}
+                          {new Date(detailUser.lockedAt).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Account details */}
+                <div className="detail-section">
+                  <h4 className="section-title">{t('accountSecurity')}</h4>
+                  <div className="info-grid">
+                    <div className="info-item">
+                      <Mail size={16} className="info-icon" />
+                      <div className="info-content">
+                        <span className="info-label">{t('email')}</span>
+                        <span className="info-value">{detailUser.email}</span>
+                      </div>
+                    </div>
+                    <div className="info-item">
+                      <Phone size={16} className="info-icon" />
+                      <div className="info-content">
+                        <span className="info-label">{t('phoneNumber')}</span>
+                        <span className="info-value">{detailUser.phoneNumber || '-'}</span>
+                      </div>
+                    </div>
+                    <div className="info-item">
+                      <Calendar size={16} className="info-icon" />
+                      <div className="info-content">
+                        <span className="info-label">{t('registerDate')}</span>
+                        <span className="info-value">
+                          {detailUser.createdAt 
+                            ? new Date(detailUser.createdAt).toLocaleDateString()
+                            : '-'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="info-item">
+                      <Shield size={16} className="info-icon" />
+                      <div className="info-content">
+                        <span className="info-label">Xác minh email</span>
+                        <span className={`info-value ${detailUser.emailConfirmedAt ? 'text-success' : 'text-warning'}`}>
+                          {detailUser.emailConfirmedAt 
+                            ? `${t('emailConfirmed')} (${new Date(detailUser.emailConfirmedAt).toLocaleDateString()})`
+                            : t('emailUnconfirmed')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gói & Quota */}
+                <div className="detail-section">
+                  <h4 className="section-title">{t('subscriptionQuota')}</h4>
+                  <div className="info-grid">
+                    <div className="info-item">
+                      <CreditCard size={16} className="info-icon" />
+                      <div className="info-content">
+                        <span className="info-label">{t('package')}</span>
+                        <span className="info-value package-highlight">{detailUser.package || '-'}</span>
+                      </div>
+                    </div>
+                    <div className="info-item">
+                      <Activity size={16} className="info-icon" />
+                      <div className="info-content">
+                        <span className="info-label">{t('quota')}</span>
+                        <span className="info-value quota-highlight">{detailUser.quota || '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Uploaded CVs list */}
+                <div className="detail-section">
+                  <h4 className="section-title">{t('cvListTitle')}</h4>
+                  {detailUser.cvFiles && detailUser.cvFiles.length > 0 ? (
+                    <div className="cv-list">
+                      {detailUser.cvFiles.map((cv) => {
+                        const sizeInKb = (cv.fileSize / 1024).toFixed(1);
+                        return (
+                          <div key={cv.cvFileId} className="cv-item-card">
+                            <div className="cv-item-left">
+                              <FileText className="cv-icon" size={24} />
+                              <div className="cv-info">
+                                <span className="cv-name" title={cv.fileName}>{cv.fileName}</span>
+                                <div className="cv-meta">
+                                  <span>{sizeInKb} KB</span>
+                                  <span className="meta-separator">•</span>
+                                  <span>{new Date(cv.uploadedAt).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="cv-item-right">
+                              <span className={`cv-status-badge cv-status-${cv.status.toLowerCase()}`}>
+                                {cv.status === 'Success' && t('cvStatusSuccess')}
+                                {cv.status === 'Pending' && t('cvStatusPending')}
+                                {cv.status === 'Processing' && t('cvStatusProcessing')}
+                                {cv.status === 'Failed' && t('cvStatusFailed')}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="empty-profile-banner">
+                      <FileText size={24} className="banner-icon" />
+                      <span>{t('noCVs')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+
+  const EditRoleModal = () => {
+    if (!roleModal) return null;
+
+    const handleSaveRole = async () => {
+      const { user, selectedRole } = roleModal;
+      
+      const isUpgradingToAdmin = user.role?.toLowerCase() === 'user' && selectedRole === 'admin';
+      
+      if (isUpgradingToAdmin) {
+        setConfirmAction({
+          type: 'upgradeRole',
+          user,
+          targetRole: selectedRole
+        });
+        setRoleModal(null);
+        return;
+      }
+
+      if (user.role?.toLowerCase() === selectedRole) {
+        setRoleModal(null);
+        return;
+      }
+
+      try {
+        await userService.assignRole(user.userId || user.id, selectedRole);
+        fetchUsers();
+        setRoleModal(null);
+        alert(t('roleUpdatedSuccess'));
+      } catch (err) {
+        alert(err?.message || 'Có lỗi xảy ra');
+      }
+    };
+
+    return (
+      <div 
+        className="modal-backdrop" 
+        onClick={(e) => e.target.classList.contains('modal-backdrop') && setRoleModal(null)}
+        role="dialog" 
+        aria-modal="true"
+      >
+        <div className="modal-card">
+          <div className="modal-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+            <h3 style={{ margin: 0 }}>{t('editRoleTitle')}</h3>
+            <button 
+              type="button" 
+              className="ghost-btn" 
+              onClick={() => setRoleModal(null)}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <p style={{ marginBottom: 'var(--spacing-md)' }}>
+            <strong>{t('fullName')}:</strong> {roleModal.user.fullName}
+          </p>
+          <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <label style={{ display: 'block', marginBottom: 'var(--spacing-xs)', fontWeight: 'var(--fw-semibold)' }}>
+              {t('selectRole')}
+            </label>
+            <select
+              className="filter-select"
+              style={{ width: '100%' }}
+              value={roleModal.selectedRole}
+              onChange={(e) => setRoleModal({ ...roleModal, selectedRole: e.target.value })}
+            >
+              <option value="user">{t('user')}</option>
+              <option value="admin">{t('admin')}</option>
+            </select>
+          </div>
+          <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)' }}>
+            <button type="button" className="btn-secondary" onClick={() => setRoleModal(null)}>
+              {t('cancel')}
+            </button>
+            <button type="button" className="btn-primary" onClick={handleSaveRole}>
+              {t('save')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ActionConfirmModal = () => {
+    if (!confirmAction) return null;
+
+    const handleConfirm = async () => {
+      const { type, user, targetRole } = confirmAction;
+      try {
+        if (type === 'upgradeRole') {
+          await userService.assignRole(user.userId || user.id, targetRole);
+          alert(t('roleUpdatedSuccess'));
+        } else if (type === 'lockUser') {
+          await userService.lockUser(user.userId || user.id);
+          alert(t('statusUpdatedSuccess'));
+        } else if (type === 'unlockUser') {
+          await userService.unlockUser(user.userId || user.id);
+          alert(t('statusUpdatedSuccess'));
+        }
+        fetchUsers();
+        setConfirmAction(null);
+      } catch (err) {
+        alert(err?.message || 'Có lỗi xảy ra');
+        setConfirmAction(null);
+      }
+    };
+
+    let title = '';
+    let description = '';
+
+    if (confirmAction.type === 'upgradeRole') {
+      title = t('editRoleTitle');
+      description = t('confirmUpgradeToAdmin');
+    } else if (confirmAction.type === 'lockUser') {
+      title = t('confirmLockTitle');
+      description = t('confirmLockUser');
+    } else if (confirmAction.type === 'unlockUser') {
+      title = t('confirmLockTitle');
+      description = t('confirmUnlockUser');
+    }
+
+    return (
+      <div 
+        className="modal-backdrop" 
+        onClick={(e) => e.target.classList.contains('modal-backdrop') && setConfirmAction(null)}
+        role="dialog" 
+        aria-modal="true"
+      >
+        <div className="modal-card">
+          <h3>{title}</h3>
+          <p style={{ margin: 'var(--spacing-md) 0' }}>{description}</p>
+          <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)' }}>
+            <button type="button" className="btn-secondary" onClick={() => setConfirmAction(null)}>
+              {t('cancel')}
+            </button>
+            <button type="button" className="btn-primary" onClick={handleConfirm}>
+              {confirmAction.type === 'upgradeRole' ? t('save') : (confirmAction.type === 'lockUser' ? t('lockUser') : t('unlockUser'))}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
   // Error state component
   const ErrorState = () => (
     <div className="error-state">
@@ -449,7 +882,7 @@ function UserManagementPage() {
                 className="filter-select"
               >
                 <option value="all">{t('allRoles')}</option>
-                <option value="student">{t('student')}</option>
+                <option value="user">{t('user')}</option>
                 <option value="admin">{t('admin')}</option>
               </select>
 
@@ -475,22 +908,13 @@ function UserManagementPage() {
                 <option value="premium">{t('premium')}</option>
                 <option value="pro">{t('pro')}</option>
               </select>
-            </div>
 
-            <div className="filter-actions">
               <button
-                className="btn-secondary"
+                className="btn-secondary filter-reset-btn"
                 type="button"
                 onClick={handleReset}
               >
                 {t('reset')}
-              </button>
-              <button
-                className="btn-primary"
-                type="button"
-                onClick={handleFilter}
-              >
-                {t('filter')}
               </button>
             </div>
           </div>
@@ -583,61 +1007,78 @@ function UserManagementPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedUsers.map((user) => (
-                      <tr key={user.id}>
-                        <td className="col-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={selectedUsers.has(user.id)}
-                            onChange={() => handleSelectUser(user.id)}
-                            className="select-checkbox"
-                          />
-                        </td>
-                        <td className="col-name">{user.fullName || '-'}</td>
-                        <td className="col-email">{user.email || '-'}</td>
-                        <td className="col-role">
-                          <span className="role-badge">{user.role || '-'}</span>
-                        </td>
-                        <td className="col-package">{user.package || '-'}</td>
-                        <td className="col-quota">{user.quota || '-'}</td>
-                        <td className="col-date">
-                          {user.registerDate
-                            ? new Date(user.registerDate).toLocaleDateString()
-                            : '-'}
-                        </td>
-                        <td className="col-status">
-                          <StatusBadge status={user.status} />
-                        </td>
-                        <td className="col-actions">
-                          <div className="action-buttons">
-                            <button
-                              className="action-btn"
-                              type="button"
-                              title={t('viewDetail')}
-                              aria-label={t('viewDetail')}
-                            >
-                              <Eye size={18} />
-                            </button>
-                            <button
-                              className="action-btn"
-                              type="button"
-                              title={t('assignRole')}
-                              aria-label={t('assignRole')}
-                            >
-                              <UserCog size={18} />
-                            </button>
-                            <button
-                              className="action-btn"
-                              type="button"
-                              title={t('lockUser')}
-                              aria-label={t('lockUser')}
-                            >
-                              <Lock size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {displayedUsers.map((user) => {
+                      const userIdVal = user.userId || user.id;
+                      const registerDateVal = user.createdAt || user.registerDate;
+                      return (
+                        <tr key={userIdVal}>
+                          <td className="col-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={selectedUsers.has(userIdVal)}
+                              onChange={() => handleSelectUser(userIdVal)}
+                              className="select-checkbox"
+                            />
+                          </td>
+                          <td className="col-name">{user.fullName || '-'}</td>
+                          <td className="col-email">{user.email || '-'}</td>
+                          <td className="col-role">
+                            <span className="role-badge">{user.role || '-'}</span>
+                          </td>
+                          <td className="col-package">{user.package || '-'}</td>
+                          <td className="col-quota">{user.quota || '-'}</td>
+                          <td className="col-date">
+                            {registerDateVal
+                              ? new Date(registerDateVal).toLocaleDateString()
+                              : '-'}
+                          </td>
+                          <td className="col-status">
+                            <StatusBadge status={user.status} />
+                          </td>
+                          <td className="col-actions">
+                            <div className="action-buttons">
+                              <button
+                                className="action-btn"
+                                type="button"
+                                title={t('viewDetail')}
+                                aria-label={t('viewDetail')}
+                                onClick={() => handleViewDetails(userIdVal)}
+                              >
+                                <Eye size={18} />
+                              </button>
+                              <button
+                                className="action-btn"
+                                type="button"
+                                title={t('assignRole')}
+                                aria-label={t('assignRole')}
+                                onClick={() => {
+                                  setRoleModal({
+                                    user: user,
+                                    selectedRole: user.role?.toLowerCase() || 'user'
+                                  });
+                                }}
+                              >
+                                <UserCog size={18} />
+                              </button>
+                              <button
+                                className="action-btn"
+                                type="button"
+                                title={user.status ? t('lockUser') : t('unlockUser')}
+                                aria-label={user.status ? t('lockUser') : t('unlockUser')}
+                                onClick={() => {
+                                  setConfirmAction({
+                                    type: user.status ? 'lockUser' : 'unlockUser',
+                                    user: user
+                                  });
+                                }}
+                              >
+                                {user.status ? <Lock size={18} /> : <Unlock size={18} />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
 
@@ -758,6 +1199,9 @@ function UserManagementPage() {
         )}
       </div>
       <ConfirmationModal />
+      <UserDetailsModal />
+      <EditRoleModal />
+      <ActionConfirmModal />
     </div>
   );
 }

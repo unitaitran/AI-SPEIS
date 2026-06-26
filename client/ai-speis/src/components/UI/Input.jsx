@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
-const Input = React.forwardRef(({ label, id, type = 'text', error, ...props }, ref) => {
+const Input = React.forwardRef(({ label, id, type = 'text', error, rightElement, ...props }, ref) => {
   const [showPassword, setShowPassword] = useState(false);
   
   const isPassword = type === 'password';
@@ -21,7 +21,7 @@ const Input = React.forwardRef(({ label, id, type = 'text', error, ...props }, r
           type={inputType}
           className={`w-full px-4 py-3 bg-surface-2 border rounded-[12px] text-[14px] font-normal text-text-primary placeholder:text-text-disabled outline-none transition-all duration-200 shadow-[0_2px_4px_rgba(31,45,61,0.02)]
             ${error ? 'border-error focus:border-error focus:ring-2 focus:ring-error-light focus:shadow-none' : 'border-border focus:border-primary focus:ring-4 focus:ring-primary-xlight focus:shadow-none hover:border-border-strong'}
-            ${isPassword ? 'pr-11' : ''}
+            ${isPassword || rightElement ? 'pr-11' : ''}
           `}
           {...props}
         />
@@ -35,6 +35,11 @@ const Input = React.forwardRef(({ label, id, type = 'text', error, ...props }, r
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
+        )}
+        {!isPassword && rightElement && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none text-text-secondary">
+            {rightElement}
+          </div>
         )}
       </div>
       {error && <span className="text-[12px] font-normal text-error mt-0.5">{error}</span>}

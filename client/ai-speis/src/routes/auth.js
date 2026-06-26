@@ -3,6 +3,7 @@ import {
   PUBLIC_ROUTES,
   USER_ROUTES,
 } from './routePaths';
+import { API_BASE_URL } from '../config/api';
 
 export const ROLES = {
   ADMIN: 'admin',
@@ -63,3 +64,12 @@ export function getDefaultRouteForRole(role) {
 
   return PUBLIC_ROUTES.LOGIN;
 }
+
+export function getAvatarUrl(avatarPath) {
+  if (!avatarPath) return null;
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://') || avatarPath.startsWith('data:')) {
+    return avatarPath;
+  }
+  return `${API_BASE_URL}${avatarPath}`;
+}
+

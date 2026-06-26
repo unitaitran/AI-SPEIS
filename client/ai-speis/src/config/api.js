@@ -9,6 +9,7 @@ export const ENDPOINTS = {
   RESET_PASSWORD: `${API_BASE_URL}/api/auth/reset-password`,
   GET_PROFILE: `${API_BASE_URL}/api/users/me`,
   UPDATE_PROFILE: `${API_BASE_URL}/api/users/me/profile`,
+  UPDATE_AVATAR: `${API_BASE_URL}/api/users/me/avatar`,
   CHANGE_PASSWORD: `${API_BASE_URL}/api/users/me/security`,
   CV_GET_MY: `${API_BASE_URL}/api/CVFile/MyCV`,
   CV_UPLOAD: `${API_BASE_URL}/api/CVFile/upload`,
@@ -25,4 +26,5 @@ export const ENDPOINTS = {
   ADMIN_USERS: `${API_BASE_URL}/api/admin/users`,
   ADMIN_USER_LOCK: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/lock`,
   ADMIN_USER_UNLOCK: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/unlock`,
+  ADMIN_USER_ROLE: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/role`,
 };
