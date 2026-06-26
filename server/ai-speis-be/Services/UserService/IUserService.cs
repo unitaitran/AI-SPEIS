@@ -35,6 +35,11 @@ namespace ai_speis_be.Services.UserService
             int userId,
             UpdateProfileRequestDto dto,
             CancellationToken cancellationToken = default);
+
+        Task<(bool Success, string? ErrorMessage, string? NewImageUrl)> UpdateAvatarAsync(
+            int userId,
+            Microsoft.AspNetCore.Http.IFormFile file,
+            CancellationToken cancellationToken = default);
         Task<ChangePasswordResult> ChangePasswordAsync(
             int userId,
             ChangePasswordRequestDto dto,
