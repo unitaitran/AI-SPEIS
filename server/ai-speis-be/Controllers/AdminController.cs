@@ -47,6 +47,9 @@ namespace ai_speis_be.Controllers
             int userId,
             CancellationToken cancellationToken)
         {
+           if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
+
             var user = await _userService.GetAdminUserDetailAsync(
                 userId,
                 cancellationToken);
@@ -55,8 +58,8 @@ namespace ai_speis_be.Controllers
             {
                 return NotFound(new ProblemDetails
                 {
-                    Title = "User not found",
-                    Detail = $"User with ID {userId} does not exist.",
+                    Title = "Không tìm thấy user",
+                    Detail = $"Không tìm thấy user với ID {userId}.",
                     Status = StatusCodes.Status404NotFound
                 });
             }
