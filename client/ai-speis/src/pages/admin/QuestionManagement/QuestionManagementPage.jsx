@@ -1,171 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react';
-//import { useTranslation } from 'react-i18next';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
   FileInput,
   Plus,
-  Eye,
   Edit3,
   Trash2,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  X,
+  AlertCircle
 } from 'lucide-react';
-import questionService from '../../../services/QuestionService';
-import './QuestionManagementPage.css';
-
-const MOCK_QUESTIONS = [
-  {
-    id: 'Q-001',
-    code: 'Q-001',
-    content: 'Explain what RESTful APIs are and why they are useful.',
-    role: 'Backend Developer',
-    techStack: 'Node.js',
-    type: 'Technical',
-    difficulty: 'Medium',
-    source: 'Internal',
-    status: 'Active',
-  },
-  {
-    id: 'Q-002',
-    code: 'Q-002',
-    content: 'How do you optimize React applications for performance?',
-    role: 'Frontend Developer',
-    techStack: 'React',
-    type: 'Technical',
-    difficulty: 'Medium',
-    source: 'Internal',
-    status: 'Draft',
-  },
-  {
-    id: 'Q-003',
-    code: 'Q-003',
-    content: 'What is the difference between CI and CD?',
-    role: 'DevOps Engineer',
-    techStack: 'AWS',
-    type: 'Behavioral',
-    difficulty: 'Easy',
-    source: 'External',
-    status: 'Active',
-  },
-  {
-    id: 'Q-004',
-    code: 'Q-004',
-    content: 'Describe how serverless architecture can be used in a microservices environment.',
-    role: 'Cloud Engineer',
-    techStack: 'AWS',
-    type: 'System Design',
-    difficulty: 'Hard',
-    source: 'Internal',
-    status: 'Active',
-  },
-  {
-    id: 'Q-005',
-    code: 'Q-005',
-    content: 'How would you write a unit test for a form validation function?',
-    role: 'QA Engineer',
-    techStack: 'JavaScript',
-    type: 'Technical',
-    difficulty: 'Easy',
-    source: 'Internal',
-    status: 'Disabled',
-  },
-  {
-    id: 'Q-006',
-    code: 'Q-006',
-    content: 'What considerations do you make when designing a scalable database schema?',
-    role: 'Data Engineer',
-    techStack: 'Python',
-    type: 'Technical',
-    difficulty: 'Hard',
-    source: 'External',
-    status: 'Draft',
-  },
-  {
-    id: 'Q-007',
-    code: 'Q-007',
-    content: 'Describe a challenging bug you fixed in production.',
-    role: 'Full Stack Engineer',
-    techStack: 'React',
-    type: 'Behavioral',
-    difficulty: 'Medium',
-    source: 'Internal',
-    status: 'Active',
-  },
-  {
-    id: 'Q-008',
-    code: 'Q-008',
-    content: 'How do you handle authentication and authorization in a web application?',
-    role: 'Full Stack Engineer',
-    techStack: 'Node.js',
-    type: 'Technical',
-    difficulty: 'Medium',
-    source: 'External',
-    status: 'Active',
-  },
-  {
-    id: 'Q-009',
-    code: 'Q-009',
-    content: 'What is the purpose of Docker and how does it compare with a virtual machine?',
-    role: 'DevOps Engineer',
-    techStack: 'Docker',
-    type: 'Technical',
-    difficulty: 'Medium',
-    source: 'Internal',
-    status: 'Active',
-  },
-  {
-    id: 'Q-010',
-    code: 'Q-010',
-    content: 'How do you ensure code quality when working in a distributed team?',
-    role: 'Backend Developer',
-    techStack: 'Java',
-    type: 'Behavioral',
-    difficulty: 'Easy',
-    source: 'External',
-    status: 'Draft',
-  },
-];
-
-const ROLE_OPTIONS = [
-  'all',
-  'Backend Developer',
-  'Frontend Developer',
-  'Full Stack Engineer',
-  'DevOps Engineer',
-  'QA Engineer',
-  'Data Engineer',
-  'Cloud Engineer',
-];
-
-const TECH_STACK_OPTIONS = [
-  'all',
-  'React',
-  'Node.js',
-  'JavaScript',
-  'Python',
-  'AWS',
-  'Docker',
-  'Java',
-];
-
-const QUESTION_TYPE_OPTIONS = [
-  'all',
-  'Technical',
-  'Behavioral',
-  'System Design',
-];
+import { questionService } from '../../../services/QuestionService';
+import '../../../styles/admin/QuestionManagementPage.css';
 
 const DIFFICULTY_OPTIONS = ['all', 'Easy', 'Medium', 'Hard'];
-
-const STATUS_CHIPS = [
-  { value: 'all', label: 'statusAll' },
-  { value: 'Active', label: 'statusActive' },
-  { value: 'Draft', label: 'statusDraft' },
-  { value: 'Disabled', label: 'statusDisabled' },
-];
 
 function QuestionManagementPage() {
   const { t } = useTranslation('questionBank');
@@ -173,132 +24,237 @@ function QuestionManagementPage() {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [useMockData, setUseMockData] = useState(false);
+
   const [filters, setFilters] = useState({
     search: '',
-    role: 'all',
-    techStack: 'all',
-    questionType: 'all',
+    roleTarget: 'all',
+    major: 'all',
     difficulty: 'all',
-    status: 'all',
+    includeDeleted: false,
   });
+
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 8;
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const pageSize = 10;
+
+  const [roleOptions, setRoleOptions] = useState(['all']);
+  const [majorOptions, setMajorOptions] = useState(['all']);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState(null);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [questionToEdit, setQuestionToEdit] = useState(null);
+  
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newQuestion, setNewQuestion] = useState({
+    questionContent: '',
+    suggestedAnswer: '',
+    difficulty: 'Easy',
+    roleTarget: '',
+    major: '',
+  });
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    const loadQuestions = async () => {
+    const loadFilters = async () => {
       try {
-        setLoading(true);
-        setError(null);
-        setUseMockData(false);
-
-        const result = await questionService.getQuestions();
-
-        if (Array.isArray(result)) {
-          setQuestions(result);
-        } else if (result?.items) {
-          setQuestions(result.items);
-        } else if (Array.isArray(result?.data)) {
-          setQuestions(result.data);
-        } else {
-          setQuestions(MOCK_QUESTIONS);
-          setUseMockData(true);
+        const filtersData = await questionService.getAdminQuestionFilters();
+        if (filtersData) {
+          setMajorOptions(['all', ...(filtersData.majors || [])]);
+          setRoleOptions(['all', ...(filtersData.roleTargets || [])]);
         }
-      } catch (fetchError) {
-        setError(fetchError.message || 'Unable to load questions');
-        setQuestions(MOCK_QUESTIONS);
-        setUseMockData(true);
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error('Failed to load filters', err);
       }
     };
-
-    loadQuestions();
+    loadFilters();
   }, []);
 
-  const handleFilterChange = (event) => {
-    const { name, value } = event.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+
+  const fetchQuestions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = {
+        pageNumber: currentPage,
+        pageSize,
+        keyword: debouncedSearch,
+        roleTarget: filters.roleTarget,
+        major: filters.major,
+        difficulty: filters.difficulty,
+        includeDeleted: filters.includeDeleted,
+      };
+      const result = await questionService.getAdminQuestions(params);
+      if (result && result.items) {
+        setQuestions(result.items);
+        setTotalItems(result.totalItems || 0);
+        setTotalPages(result.totalPages || 0);
+      } else {
+        setQuestions([]);
+        setTotalItems(0);
+        setTotalPages(0);
+      }
+    } catch (err) {
+      setError(err.message || 'Unable to load questions');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, pageSize, debouncedSearch, filters.roleTarget, filters.major, filters.difficulty, filters.includeDeleted]);
+
+  useEffect(() => {
+    fetchQuestions();
+  }, [fetchQuestions]);
+
+  const handleFilterChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFilters(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     setCurrentPage(1);
   };
 
-  const handleSearchChange = (event) => {
-    const { value } = event.target;
-    setFilters((prev) => ({ ...prev, search: value }));
-    setCurrentPage(1);
-  };
-
-  const handleStatusChipClick = (status) => {
-    setFilters((prev) => ({ ...prev, status }));
+  const handleSearchChange = (e) => {
+    setFilters(prev => ({ ...prev, search: e.target.value }));
     setCurrentPage(1);
   };
 
   const handleClearFilters = () => {
-    setFilters({
-      search: '',
-      role: 'all',
-      techStack: 'all',
-      questionType: 'all',
-      difficulty: 'all',
-      status: 'all',
-    });
+    setFilters({ search: '', roleTarget: 'all', major: 'all', difficulty: 'all', includeDeleted: false });
     setCurrentPage(1);
   };
 
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
-      const searchTerm = filters.search.trim().toLowerCase();
-      const matchesSearch = searchTerm
-        ? [question.code, question.content, question.source]
-            .filter(Boolean)
-            .some((value) => value.toLowerCase().includes(searchTerm))
-        : true;
+  const openDeleteModal = (question) => {
+    setQuestionToDelete(question);
+    setIsDeleteModalOpen(true);
+  };
 
-      const matchesRole = filters.role === 'all' || question.role === filters.role;
-      const matchesTechStack = filters.techStack === 'all' || question.techStack === filters.techStack;
-      const matchesType = filters.questionType === 'all' || question.type === filters.questionType;
-      const matchesDifficulty = filters.difficulty === 'all' || question.difficulty === filters.difficulty;
-      const matchesStatus = filters.status === 'all' || question.status === filters.status;
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setQuestionToDelete(null);
+  };
 
-      return matchesSearch && matchesRole && matchesTechStack && matchesType && matchesDifficulty && matchesStatus;
-    });
-  }, [questions, filters]);
+  const confirmDelete = async () => {
+    if (!questionToDelete) return;
+    try {
+      await questionService.deleteAdminQuestion(questionToDelete.questionId);
+      closeDeleteModal();
+      fetchQuestions();
+    } catch (err) {
+      alert(err.message || 'Failed to delete question');
+    }
+  };
 
-  const totalQuestions = filteredQuestions.length;
-  const totalPages = Math.max(1, Math.ceil(totalQuestions / pageSize));
-  const paginatedQuestions = filteredQuestions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const startIndex = totalQuestions === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endIndex = Math.min(currentPage * pageSize, totalQuestions);
+  const openEditModal = (question) => {
+    setQuestionToEdit({ ...question });
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setQuestionToEdit(null);
+  };
+
+  const confirmEdit = async () => {
+    if (!questionToEdit) return;
+    try {
+      await questionService.updateAdminQuestion(questionToEdit.questionId, questionToEdit);
+      closeEditModal();
+      fetchQuestions();
+    } catch (err) {
+      alert(err.message || 'Failed to update question');
+    }
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setQuestionToEdit(prev => ({ ...prev, [name]: value }));
+  };
+
+  const openAddModal = () => setIsAddModalOpen(true);
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    setNewQuestion({ questionContent: '', suggestedAnswer: '', difficulty: 'Easy', roleTarget: '', major: '' });
+  };
+
+  const handleAddChange = (e) => {
+    const { name, value } = e.target;
+    setNewQuestion(prev => ({ ...prev, [name]: value }));
+  };
+
+  const confirmAdd = async () => {
+    try {
+      await questionService.createAdminQuestion(newQuestion);
+      closeAddModal();
+      fetchQuestions();
+    } catch (err) {
+      alert(err.message || 'Failed to add question');
+    }
+  };
+
+  const openImportModal = () => setIsImportModalOpen(true);
+  const closeImportModal = () => {
+    setIsImportModalOpen(false);
+    setImportFile(null);
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setImportFile(e.target.files[0]);
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    try {
+      await questionService.importQuestions(importFile);
+      closeImportModal();
+      fetchQuestions();
+    } catch (err) {
+      alert(err.message || 'Failed to import questions');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const getPageNumbers = () => {
     const pages = [];
-    const startPage = Math.max(1, currentPage - 1);
-    const endPage = Math.min(totalPages, currentPage + 1);
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
-    if (startPage > 1) {
-      pages.push(1);
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
 
-    if (startPage > 2) {
-      pages.push('start-ellipsis');
-    }
-
+    if (startPage > 1) pages.push(1);
+    if (startPage > 2) pages.push('start-ellipsis');
     for (let page = startPage; page <= endPage; page += 1) {
       pages.push(page);
     }
-
-    if (endPage < totalPages - 1) {
-      pages.push('end-ellipsis');
-    }
-
-    if (endPage < totalPages) {
-      pages.push(totalPages);
-    }
+    if (endPage < totalPages - 1) pages.push('end-ellipsis');
+    if (endPage < totalPages) pages.push(totalPages);
 
     return pages;
   };
 
   const pageNumbers = getPageNumbers();
+
+  const getDifficultyLabel = (val) => {
+    if (val === 0 || val === '0') return 'Easy';
+    if (val === 1 || val === '1') return 'Medium';
+    if (val === 2 || val === '2') return 'Hard';
+    return String(val || '');
+  };
 
   return (
     <div className="question-management-page">
@@ -312,24 +268,16 @@ function QuestionManagementPage() {
           <div className="title-section">
             <h1 className="page-title">{t('pageTitle', 'Interview Question Management')}</h1>
             <p className="page-description">
-              {t('pageDescription', 'Manage the question bank by IT role, tech stack, difficulty, and interview type.')}
+              {t('pageDescription', 'Manage the question bank by IT role, major, and difficulty.')}
             </p>
           </div>
 
           <div className="page-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => console.log('Import Excel')}
-            >
+            <button type="button" className="btn-secondary" onClick={openImportModal}>
               <FileInput size={16} />
               {t('importExcel', 'Import Excel')}
             </button>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => console.log('Add question')}
-            >
+            <button type="button" className="btn-primary" onClick={openAddModal}>
               <Plus size={16} />
               {t('addQuestion', 'Add question')}
             </button>
@@ -338,103 +286,59 @@ function QuestionManagementPage() {
       </div>
 
       <section className="filter-card">
-        <div className="filter-layout">
-          <label className="filter-field search-field">
-            <Search size={18} />
+        <div className="filter-row">
+          <div className="filter-group search-group">
+            <Search size={20} />
             <input
               type="text"
               name="search"
               className="search-input"
               value={filters.search}
               onChange={handleSearchChange}
-              placeholder={t('searchPlaceholder', 'Search by question content, code, or source')}
+              placeholder={t('searchPlaceholder', 'Search by keyword')}
             />
-          </label>
-
-          <label className="filter-field">
-            <span>{t('roleLabel', 'Role')}</span>
-            <select
-              name="role"
-              value={filters.role}
-              onChange={handleFilterChange}
-              className="filter-select"
-            >
-              {ROLE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option === 'all' ? t('statusAll', 'All') : option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="filter-field">
-            <span>{t('techStackLabel', 'Tech Stack')}</span>
-            <select
-              name="techStack"
-              value={filters.techStack}
-              onChange={handleFilterChange}
-              className="filter-select"
-            >
-              {TECH_STACK_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option === 'all' ? t('statusAll', 'All') : option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="filter-field">
-            <span>{t('questionTypeLabel', 'Question Type')}</span>
-            <select
-              name="questionType"
-              value={filters.questionType}
-              onChange={handleFilterChange}
-              className="filter-select"
-            >
-              {QUESTION_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option === 'all' ? t('statusAll', 'All') : option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="filter-field">
-            <span>{t('difficultyLabel', 'Difficulty')}</span>
-            <select
-              name="difficulty"
-              value={filters.difficulty}
-              onChange={handleFilterChange}
-              className="filter-select"
-            >
-              {DIFFICULTY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option === 'all' ? t('statusAll', 'All') : option}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="filter-footer">
-          <div className="status-chip-row">
-            {STATUS_CHIPS.map((chip) => (
-              <button
-                type="button"
-                className={`status-chip ${filters.status === chip.value ? 'is-active' : ''}`}
-                onClick={() => handleStatusChipClick(chip.value)}
-                key={chip.value}
-              >
-                {t(chip.label, chip.label === 'statusAll' ? 'All' : chip.label)}
-              </button>
-            ))}
           </div>
 
-          <button
-            type="button"
-            className="btn-secondary btn-reset"
-            onClick={handleClearFilters}
+          <select
+            name="roleTarget"
+            value={filters.roleTarget}
+            onChange={handleFilterChange}
+            className="filter-select"
           >
+            {roleOptions.map((option) => (
+              <option key={option} value={option}>
+                {option === 'all' ? t('statusAll', 'All Roles') : option}
+              </option>
+            ))}
+          </select>
+
+          <select
+            name="major"
+            value={filters.major}
+            onChange={handleFilterChange}
+            className="filter-select"
+          >
+            {majorOptions.map((option) => (
+              <option key={option} value={option}>
+                {option === 'all' ? t('statusAll', 'All Majors') : option}
+              </option>
+            ))}
+          </select>
+
+          <select
+            name="difficulty"
+            value={filters.difficulty}
+            onChange={handleFilterChange}
+            className="filter-select"
+          >
+            {DIFFICULTY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option === 'all' ? t('statusAll', 'All Difficulties') : option}
+              </option>
+            ))}
+          </select>
+
+          <button type="button" className="btn-secondary btn-clear" onClick={handleClearFilters}>
             {t('clearFilters', 'Clear filters')}
           </button>
         </div>
@@ -442,70 +346,57 @@ function QuestionManagementPage() {
 
       <section className="table-card">
         <div className="table-header-row">
-          <div>
-            <p className="table-summary">
-              {t('showing', 'Showing')} {startIndex}-{endIndex} {t('of', 'of')} {totalQuestions} {t('questions', 'questions')}
-            </p>
-          </div>
-          {error && <p className="table-error">{error}</p>}
+          <p className="table-summary">
+            {t('tableSummary', 'Showing questions', { total: totalItems })}
+          </p>
         </div>
+
+        {error && (
+          <div className="error-message">
+            <AlertCircle size={20} />
+            <span>{error}</span>
+          </div>
+        )}
 
         <div className="table-scroll">
           <table className="question-table">
             <thead>
               <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    aria-label="Select all questions"
-                    checked={paginatedQuestions.length > 0 && paginatedQuestions.every((q) => q.selected)}
-                    readOnly
-                  />
-                </th>
-                <th>{t('tableCode', 'Code')}</th>
-                <th>{t('tableContent', 'Question Content')}</th>
-                <th>{t('tableRole', 'Role')}</th>
-                <th>{t('tableTechStack', 'Tech Stack')}</th>
-                <th>{t('tableType', 'Question Type')}</th>
-                <th>{t('tableDifficulty', 'Difficulty')}</th>
-                <th>{t('tableSource', 'Source')}</th>
-                <th>{t('tableStatus', 'Status')}</th>
-                <th>{t('tableActions', 'Actions')}</th>
+                <th style={{ width: '8%' }}>{t('tableId', 'ID')}</th>
+                <th style={{ width: '30%' }}>{t('tableQuestion', 'Question')}</th>
+                <th style={{ width: '15%' }}>{t('tableRole', 'Role Target')}</th>
+                <th style={{ width: '15%' }}>{t('tableMajor', 'Major')}</th>
+                <th style={{ width: '10%' }}>{t('tableDifficulty', 'Difficulty')}</th>
+                <th style={{ width: '12%', textAlign: 'center' }}>{t('tableActions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="10" className="loading-row">
-                    Loading questions...
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
+                    {t('loading', 'Loading questions...')}
                   </td>
                 </tr>
-              ) : paginatedQuestions.length === 0 ? (
+              ) : questions.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="empty-row">
-                    {t('noQuestions', 'No questions match the selected filter.')}
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
+                    {t('noResults', 'No questions found.')}
                   </td>
                 </tr>
               ) : (
-                paginatedQuestions.map((question) => (
-                  <tr key={question.id}>
+                questions.map((question) => (
+                  <tr key={question.questionId}>
+                    <td>Q-{question.questionId}</td>
                     <td>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${question.code}`}
-                        readOnly
-                      />
+                      <div className="question-content-preview">
+                        {question.questionContent}
+                      </div>
                     </td>
-                    <td>{question.code}</td>
-                    <td>{question.content}</td>
-                    <td>{question.role}</td>
-                    <td>{question.techStack}</td>
-                    <td>{question.type}</td>
-                    <td>{question.difficulty}</td>
-                    <td>{question.source}</td>
+                    <td>{question.roleTarget}</td>
+                    <td>{question.major}</td>
                     <td>
-                      <span className={`status-badge status-${question.status.toLowerCase()}`}>
-                        {question.status}
+                      <span className={`status-badge status-${getDifficultyLabel(question.difficulty).toLowerCase()}`}>
+                        {getDifficultyLabel(question.difficulty)}
                       </span>
                     </td>
                     <td>
@@ -513,26 +404,18 @@ function QuestionManagementPage() {
                         <button
                           type="button"
                           className="icon-button"
-                          onClick={() => console.log('View question', question.id)}
-                          title={t('actionView', 'View question')}
+                          title={t('edit', 'Edit')}
+                          onClick={() => openEditModal(question)}
                         >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() => console.log('Edit question', question.id)}
-                          title={t('actionEdit', 'Edit question')}
-                        >
-                          <Edit3 size={16} />
+                          <Edit3 size={18} />
                         </button>
                         <button
                           type="button"
                           className="icon-button danger"
-                          onClick={() => console.log('Delete question', question.id)}
-                          title={t('actionDelete', 'Delete question')}
+                          title={t('delete', 'Delete')}
+                          onClick={() => openDeleteModal(question)}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </td>
@@ -543,65 +426,268 @@ function QuestionManagementPage() {
           </table>
         </div>
 
-        <div className="pagination-row">
-          <div className="pagination-info">
-            {t('showing', 'Showing')} {startIndex}-{endIndex} {t('of', 'of')} {totalQuestions} {t('questions', 'questions')}
-          </div>
-          <div className="pagination-actions">
-            <button
-              type="button"
-              className="pagination-button"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(1)}
-              aria-label="First page"
-            >
-              <ChevronsLeft size={16} />
-            </button>
-            <button
-              type="button"
-              className="pagination-button"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              aria-label="Previous page"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            {pageNumbers.map((page) => (
-              <React.Fragment key={page}>
-                {typeof page === 'string' ? (
-                  <span className="pagination-ellipsis">…</span>
+        {totalPages > 1 && (
+          <div className="pagination">
+            <div className="pagination-buttons">
+              <button
+                className="pagination-btn"
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+              >
+                <ChevronsLeft size={18} />
+              </button>
+              <button
+                className="pagination-btn"
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              {pageNumbers.map((button) =>
+                button === 'start-ellipsis' || button === 'end-ellipsis' ? (
+                  <span key={button} className="pagination-ellipsis">
+                    …
+                  </span>
                 ) : (
                   <button
+                    key={button}
+                    className={`pagination-btn ${currentPage === button ? 'active' : ''}`}
                     type="button"
-                    className={`pagination-button ${page === currentPage ? 'is-active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => setCurrentPage(button)}
                   >
-                    {page}
+                    {button}
                   </button>
-                )}
-              </React.Fragment>
-            ))}
-            <button
-              type="button"
-              className="pagination-button"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              aria-label="Next page"
-            >
-              <ChevronRight size={16} />
-            </button>
-            <button
-              type="button"
-              className="pagination-button"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(totalPages)}
-              aria-label="Last page"
-            >
-              <ChevronsRight size={16} />
-            </button>
+                )
+              )}
+
+              <button
+                className="pagination-btn"
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              >
+                <ChevronRight size={18} />
+              </button>
+              <button
+                className="pagination-btn"
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+              >
+                <ChevronsRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3 className="modal-title">{t('deleteConfirmTitle', 'Delete Question')}</h3>
+              <button type="button" className="btn-close" onClick={closeDeleteModal}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>{t('deleteConfirmText', 'Are you sure you want to delete this question? This action cannot be undone.')}</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={closeDeleteModal}>
+                {t('cancel', 'Cancel')}
+              </button>
+              <button type="button" className="btn-danger" onClick={confirmDelete}>
+                {t('confirmDelete', 'Delete')}
+              </button>
+            </div>
           </div>
         </div>
-      </section>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && questionToEdit && (
+        <div className="modal-backdrop">
+          <div className="modal-card edit-modal">
+            <div className="modal-header">
+              <h3 className="modal-title">{t('editQuestionTitle', 'Edit Question')}</h3>
+              <button type="button" className="btn-close" onClick={closeEditModal}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-form-group">
+                <label className="modal-label">{t('tableQuestion', 'Question Content')}</label>
+                <textarea
+                  name="questionContent"
+                  className="modal-input textarea"
+                  value={questionToEdit.questionContent || ''}
+                  onChange={handleEditChange}
+                  rows={4}
+                />
+              </div>
+              <div className="modal-form-group">
+                <label className="modal-label">{t('tableAnswer', 'Suggested Answer')}</label>
+                <textarea
+                  name="suggestedAnswer"
+                  className="modal-input textarea"
+                  value={questionToEdit.suggestedAnswer || ''}
+                  onChange={handleEditChange}
+                  rows={4}
+                />
+              </div>
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('tableDifficulty', 'Difficulty')}</label>
+                  <select
+                    name="difficulty"
+                    className="modal-input"
+                    value={questionToEdit.difficulty || 'Easy'}
+                    onChange={handleEditChange}
+                  >
+                    {DIFFICULTY_OPTIONS.filter(d => d !== 'all').map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('tableRole', 'Role Target')}</label>
+                  <input
+                    type="text"
+                    name="roleTarget"
+                    className="modal-input"
+                    value={questionToEdit.roleTarget || ''}
+                    onChange={handleEditChange}
+                  />
+                </div>
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('tableMajor', 'Major')}</label>
+                  <input
+                    type="text"
+                    name="major"
+                    className="modal-input"
+                    value={questionToEdit.major || ''}
+                    onChange={handleEditChange}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={closeEditModal}>
+                {t('cancel', 'Cancel')}
+              </button>
+              <button type="button" className="btn-primary" onClick={confirmEdit}>
+                {t('saveChanges', 'Save Changes')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Modal */}
+      {isAddModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card edit-modal">
+            <div className="modal-header">
+              <h3 className="modal-title">{t('addQuestionTitle', 'Add Question')}</h3>
+              <button type="button" className="btn-close" onClick={closeAddModal}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-form-group">
+                <label className="modal-label">{t('tableQuestion', 'Question Content')}</label>
+                <textarea
+                  name="questionContent"
+                  className="modal-input textarea"
+                  value={newQuestion.questionContent || ''}
+                  onChange={handleAddChange}
+                  rows={4}
+                />
+              </div>
+              <div className="modal-form-group">
+                <label className="modal-label">{t('tableAnswer', 'Suggested Answer')}</label>
+                <textarea
+                  name="suggestedAnswer"
+                  className="modal-input textarea"
+                  value={newQuestion.suggestedAnswer || ''}
+                  onChange={handleAddChange}
+                  rows={4}
+                />
+              </div>
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('tableDifficulty', 'Difficulty')}</label>
+                  <select
+                    name="difficulty"
+                    className="modal-input"
+                    value={newQuestion.difficulty || 'Easy'}
+                    onChange={handleAddChange}
+                  >
+                    {DIFFICULTY_OPTIONS.filter(d => d !== 'all').map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('tableRole', 'Role Target')}</label>
+                  <input
+                    type="text"
+                    name="roleTarget"
+                    className="modal-input"
+                    value={newQuestion.roleTarget || ''}
+                    onChange={handleAddChange}
+                  />
+                </div>
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('tableMajor', 'Major')}</label>
+                  <input
+                    type="text"
+                    name="major"
+                    className="modal-input"
+                    value={newQuestion.major || ''}
+                    onChange={handleAddChange}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={closeAddModal}>
+                {t('cancel', 'Cancel')}
+              </button>
+              <button type="button" className="btn-primary" onClick={confirmAdd}>
+                {t('saveChanges', 'Save Changes')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {isImportModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3 className="modal-title">{t('importExcelTitle', 'Import Questions')}</h3>
+              <button type="button" className="btn-close" onClick={closeImportModal} disabled={importing}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>{t('importExcelDesc', 'Upload an Excel file to bulk import questions.')}</p>
+              <input type="file" accept=".xlsx, .xls" onChange={handleFileChange} />
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={closeImportModal} disabled={importing}>
+                {t('cancel', 'Cancel')}
+              </button>
+              <button type="button" className="btn-primary" onClick={confirmImport} disabled={!importFile || importing}>
+                {importing ? t('importing', 'Importing...') : t('import', 'Import')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

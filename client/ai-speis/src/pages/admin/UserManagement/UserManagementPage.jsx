@@ -663,34 +663,22 @@ function UserManagementPage() {
   const EditRoleModal = () => {
     if (!roleModal) return null;
 
-    const handleSaveRole = async () => {
+    const handleSaveRole = () => {
       const { user, selectedRole } = roleModal;
-      
-      const isUpgradingToAdmin = user.role?.toLowerCase() === 'user' && selectedRole === 'admin';
-      
-      if (isUpgradingToAdmin) {
-        setConfirmAction({
-          type: 'upgradeRole',
-          user,
-          targetRole: selectedRole
-        });
+
+      // No change - just close
+      if ((user.role?.toLowerCase() ?? '') === selectedRole) {
         setRoleModal(null);
         return;
       }
 
-      if (user.role?.toLowerCase() === selectedRole) {
-        setRoleModal(null);
-        return;
-      }
-
-      try {
-        await userService.assignRole(user.userId || user.id, selectedRole);
-        fetchUsers();
-        setRoleModal(null);
-        alert(t('roleUpdatedSuccess'));
-      } catch (err) {
-        alert(err?.message || 'Có lỗi xảy ra');
-      }
+      // Always show confirm modal before saving
+      setConfirmAction({
+        type: 'changeRole',
+        user,
+        targetRole: selectedRole,
+      });
+      setRoleModal(null);
     };
 
     return (
@@ -748,7 +736,7 @@ function UserManagementPage() {
     const handleConfirm = async () => {
       const { type, user, targetRole } = confirmAction;
       try {
-        if (type === 'upgradeRole') {
+        if (type === 'changeRole' || type === 'upgradeRole') {
           await userService.assignRole(user.userId || user.id, targetRole);
           alert(t('roleUpdatedSuccess'));
         } else if (type === 'lockUser') {
@@ -766,18 +754,31 @@ function UserManagementPage() {
       }
     };
 
+    const getRoleLabel = (role) => {
+      if (!role) return '';
+      return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+    };
+
     let title = '';
     let description = '';
+    let confirmBtnLabel = t('save');
+    let confirmBtnClass = 'btn-primary';
 
-    if (confirmAction.type === 'upgradeRole') {
+    if (confirmAction.type === 'changeRole' || confirmAction.type === 'upgradeRole') {
       title = t('editRoleTitle');
-      description = t('confirmUpgradeToAdmin');
+      const userName = confirmAction.user?.fullName || confirmAction.user?.email || '';
+      const newRoleLabel = getRoleLabel(confirmAction.targetRole);
+      description = t('confirmChangeRole', { userName, newRoleLabel, defaultValue: `Bạn có chắc chắn muốn thay đổi role của "${userName}" thành "${newRoleLabel}" không?` });
+      confirmBtnLabel = t('save', 'Lưu');
     } else if (confirmAction.type === 'lockUser') {
       title = t('confirmLockTitle');
       description = t('confirmLockUser');
+      confirmBtnLabel = t('lockUser');
+      confirmBtnClass = 'btn-danger';
     } else if (confirmAction.type === 'unlockUser') {
       title = t('confirmLockTitle');
       description = t('confirmUnlockUser');
+      confirmBtnLabel = t('unlockUser');
     }
 
     return (
@@ -787,15 +788,35 @@ function UserManagementPage() {
         role="dialog" 
         aria-modal="true"
       >
-        <div className="modal-card">
-          <h3>{title}</h3>
-          <p style={{ margin: 'var(--spacing-md) 0' }}>{description}</p>
-          <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)' }}>
+        <div className="modal-card" style={{ maxWidth: '440px' }}>
+          {/* Icon header */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '50%',
+              background: confirmBtnClass === 'btn-danger'
+                ? 'rgba(250, 119, 119, 0.12)'
+                : 'rgba(111, 182, 232, 0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: confirmBtnClass === 'btn-danger' ? 'var(--danger)' : 'var(--primary)',
+              fontSize: '24px',
+            }}>
+              {confirmBtnClass === 'btn-danger' ? '🔒' : '✏️'}
+            </div>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{title}</h3>
+          </div>
+          <p style={{ 
+            margin: '0 0 24px', 
+            color: 'var(--text-secondary)', 
+            textAlign: 'center',
+            lineHeight: '1.6',
+            fontSize: '0.95rem',
+          }}>{description}</p>
+          <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)' }}>
             <button type="button" className="btn-secondary" onClick={() => setConfirmAction(null)}>
               {t('cancel')}
             </button>
-            <button type="button" className="btn-primary" onClick={handleConfirm}>
-              {confirmAction.type === 'upgradeRole' ? t('save') : (confirmAction.type === 'lockUser' ? t('lockUser') : t('unlockUser'))}
+            <button type="button" className={confirmBtnClass} onClick={handleConfirm}>
+              {confirmBtnLabel}
             </button>
           </div>
         </div>

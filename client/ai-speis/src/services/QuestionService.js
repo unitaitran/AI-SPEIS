@@ -54,8 +54,38 @@ export const questionService = {
     return parseJsonResponse(response);
   },
 
-  createQuestion: async (questionData) => {
-    const response = await fetch(ENDPOINTS.QUESTIONS_GET, {
+  getAdminQuestionFilters: async () => {
+    const response = await fetch(ENDPOINTS.ADMIN_QUESTIONS_FILTERS, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    return parseJsonResponse(response);
+  },
+
+  getAdminQuestions: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.pageNumber) queryParams.append('PageNumber', params.pageNumber);
+    if (params.pageSize) queryParams.append('PageSize', params.pageSize);
+    if (params.keyword) queryParams.append('Keyword', params.keyword);
+    if (params.major && params.major !== 'all') queryParams.append('Major', params.major);
+    if (params.roleTarget && params.roleTarget !== 'all') queryParams.append('RoleTarget', params.roleTarget);
+    if (params.difficulty && params.difficulty !== 'all') queryParams.append('Difficulty', params.difficulty);
+    if (params.includeDeleted) queryParams.append('IncludeDeleted', params.includeDeleted);
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `${ENDPOINTS.ADMIN_QUESTIONS}?${queryString}` : ENDPOINTS.ADMIN_QUESTIONS;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    return parseJsonResponse(response);
+  },
+
+  createAdminQuestion: async (questionData) => {
+    const response = await fetch(ENDPOINTS.ADMIN_QUESTIONS, {
       method: 'POST',
       headers: getAuthHeaders(true),
       body: JSON.stringify(questionData),
@@ -64,12 +94,12 @@ export const questionService = {
     return parseJsonResponse(response);
   },
 
-  updateQuestion: async (questionId, questionData) => {
+  updateAdminQuestion: async (questionId, questionData) => {
     if (!questionId) {
       throw new Error('Missing question ID');
     }
 
-    const response = await fetch(ENDPOINTS.QUESTIONS_GET_BY_ID(questionId), {
+    const response = await fetch(ENDPOINTS.ADMIN_QUESTIONS_BY_ID(questionId), {
       method: 'PUT',
       headers: getAuthHeaders(true),
       body: JSON.stringify(questionData),
@@ -78,21 +108,39 @@ export const questionService = {
     return parseJsonResponse(response);
   },
 
-  deleteQuestion: async (questionId) => {
+  deleteAdminQuestion: async (questionId) => {
     if (!questionId) {
       throw new Error('Missing question ID');
     }
 
-    const response = await fetch(ENDPOINTS.QUESTIONS_GET_BY_ID(questionId), {
+    const response = await fetch(ENDPOINTS.ADMIN_QUESTIONS_BY_ID(questionId), {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
 
+    if (response.status === 204) return true;
     return parseJsonResponse(response);
   },
 
-  importExcel: async () => {
-    throw new Error('Import Excel is not supported by the current backend API');
+  importQuestions: async (file) => {
+    if (!file) {
+      throw new Error('No file provided');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers = getAuthHeaders();
+    // Remove Content-Type so browser can set it with the boundary for FormData
+    delete headers['Content-Type'];
+
+    const response = await fetch(ENDPOINTS.ADMIN_QUESTIONS_IMPORT, {
+      method: 'POST',
+      headers: headers,
+      body: formData,
+    });
+
+    return parseJsonResponse(response);
   },
 };
 

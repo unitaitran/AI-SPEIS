@@ -15,6 +15,10 @@ import enDashboard from './locales/en/dashboard.json';
 import viDashboard from './locales/vi/dashboard.json';
 import enAdminUsers from './locales/en/admin-users.json';
 import viAdminUsers from './locales/vi/admin-users.json';
+import enAdminDashboard from './locales/en/admin-dashboard.json';
+import viAdminDashboard from './locales/vi/admin-dashboard.json';
+import enQuestionBank from './locales/en/questionBank.json';
+import viQuestionBank from './locales/vi/questionBank.json';
 
 const resources = {
   en: {
@@ -23,6 +27,8 @@ const resources = {
     register: enRegister,
     dashboard: enDashboard,
     'admin-users': enAdminUsers,
+    'admin-dashboard': enAdminDashboard,
+    questionBank: enQuestionBank,
   },
   vi: {
     landing: viLanding,
@@ -30,6 +36,8 @@ const resources = {
     register: viRegister,
     dashboard: viDashboard,
     'admin-users': viAdminUsers,
+    'admin-dashboard': viAdminDashboard,
+    questionBank: viQuestionBank,
   },
 };
 

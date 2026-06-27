@@ -1,4 +1,5 @@
 // API Configuration
+// export const API_BASE_URL = 'https://localhost:7084'; 
 export const API_BASE_URL = 'http://localhost:5274';
 
 export const ENDPOINTS = {
@@ -27,4 +28,8 @@ export const ENDPOINTS = {
   ADMIN_USER_LOCK: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/lock`,
   ADMIN_USER_UNLOCK: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/unlock`,
   ADMIN_USER_ROLE: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/role`,
+  ADMIN_QUESTIONS: `${API_BASE_URL}/api/admin/questions`,
+  ADMIN_QUESTIONS_FILTERS: `${API_BASE_URL}/api/admin/questions/filters`,
+  ADMIN_QUESTIONS_BY_ID: (id) => `${API_BASE_URL}/api/admin/questions/${id}`,
+  ADMIN_QUESTIONS_IMPORT: `${API_BASE_URL}/api/admin/questions/import`,
 };

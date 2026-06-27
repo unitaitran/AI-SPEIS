@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Search, Bell, ChevronDown, Menu, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 function AdminTopbar({ onMenuClick }) {
+  const { t } = useTranslation('admin-dashboard');
   const [searchValue, setSearchValue] = useState('');
 
   const handleSearchChange = (e) => {
@@ -38,7 +40,7 @@ function AdminTopbar({ onMenuClick }) {
           <input
             type="text"
             className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-disabled"
-            placeholder="Search users, questions, transactions..."
+            placeholder={t('searchPlaceholder', 'Search users, questions, transactions...')}
             value={searchValue}
             onChange={handleSearchChange}
             onKeyDown={handleSearchSubmit}
@@ -69,7 +71,7 @@ function AdminTopbar({ onMenuClick }) {
             </div>
             <div className="hidden flex-col items-start text-left md:flex">
               <span className="text-sm font-semibold text-text-primary">Admin</span>
-              <span className="text-xs text-text-secondary/70">Super Admin</span>
+              <span className="text-xs text-text-secondary/70">{t('superAdmin', 'Super Admin')}</span>
             </div>
             <ChevronDown size={16} className="hidden text-text-secondary/60 transition-transform duration-300 md:block" />
           </button>

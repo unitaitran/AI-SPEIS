@@ -86,5 +86,6 @@
   "confirmUnlockUser": "Bạn có chắc chắn muốn mở khóa tài khoản của người dùng này không?",
   "save": "Lưu",
   "roleUpdatedSuccess": "Cập nhật vai trò người dùng thành công",
-  "statusUpdatedSuccess": "Cập nhật trạng thái người dùng thành công"
+  "statusUpdatedSuccess": "Cập nhật trạng thái người dùng thành công",
+  "confirmChangeRole": "Bạn có chắc chắn muốn thay đổi role của \"{{userName}}\" thành \"{{newRoleLabel}}\" không?"
 }

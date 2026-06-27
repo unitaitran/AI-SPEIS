@@ -1,0 +1,21 @@
+{
+  "breadcrumbAdmin": "Admin",
+  "overview": "Overview",
+  "overviewDesc": "Monitor platform activity, content, and business performance.",
+  "exportReport": "Export report",
+  "totalUsers": "Total users",
+  "questionBank": "Question bank",
+  "monthlyRevenue": "Monthly revenue",
+  "aiInterviews": "AI interviews",
+  "platformActivity": "Platform activity",
+  "platformActivityDesc": "Operational data and charts for the selected period appear here.",
+  "allSystemsNormal": "All systems normal",
+  "notImplemented": "This admin page has not been implemented yet.",
+  "pageNotFound": "Page not found",
+  "management": "Management",
+  "menuDashboard": "Dashboard",
+  "menuUsers": "Users",
+  "menuQuestions": "Questions",
+  "searchPlaceholder": "Search users, questions, transactions...",
+  "superAdmin": "Super Admin"
+}

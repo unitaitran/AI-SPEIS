@@ -1,0 +1,21 @@
+{
+  "breadcrumbAdmin": "Quản trị",
+  "overview": "Tổng quan",
+  "overviewDesc": "Theo dõi hoạt động hệ thống, nội dung và hiệu suất kinh doanh.",
+  "exportReport": "Xuất báo cáo",
+  "totalUsers": "Tổng người dùng",
+  "questionBank": "Ngân hàng câu hỏi",
+  "monthlyRevenue": "Doanh thu tháng",
+  "aiInterviews": "Phỏng vấn AI",
+  "platformActivity": "Hoạt động hệ thống",
+  "platformActivityDesc": "Dữ liệu hoạt động và biểu đồ trong thời gian đã chọn sẽ hiển thị ở đây.",
+  "allSystemsNormal": "Hệ thống hoạt động bình thường",
+  "notImplemented": "Trang quản trị này chưa được xây dựng.",
+  "pageNotFound": "Không tìm thấy trang",
+  "management": "Quản lý",
+  "menuDashboard": "Tổng quan",
+  "menuUsers": "Người dùng",
+  "menuQuestions": "Câu hỏi",
+  "searchPlaceholder": "Tìm kiếm người dùng, câu hỏi, giao dịch...",
+  "superAdmin": "Quản trị cấp cao"
+}

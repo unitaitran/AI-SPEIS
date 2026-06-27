@@ -5,21 +5,23 @@ import AdminDashboardPage from '../pages/admin/Dashboard/AdminDashboardPage';
 import UserManagementPage from '../pages/admin/UserManagement/UserManagementPage';
 import { navigate } from './navigation';
 import QuestionManagementPage from '../pages/admin/QuestionManagement/QuestionManagementPage';
-import {  } from "module";
+
+import { useTranslation } from 'react-i18next';
 
 function AdminRoutePlaceholder({ title }) {
+  const { t } = useTranslation('admin-dashboard');
   return (
     <div className="admin-dashboard-page">
       <div className="page-header">
         <div className="breadcrumb">
-          <span>Admin</span>
+          <span>{t('breadcrumbAdmin', 'Admin')}</span>
           <span className="separator">/</span>
           <span aria-current="page">{title}</span>
         </div>
         <div className="header-top">
           <div className="title-section">
             <h1 className="page-title">{title}</h1>
-            <p className="page-description">This admin page has not been implemented yet.</p>
+            <p className="page-description">{t('notImplemented', 'This admin page has not been implemented yet.')}</p>
           </div>
         </div>
       </div>

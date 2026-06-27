@@ -86,5 +86,6 @@
   "confirmUnlockUser": "Are you sure you want to unlock this user's account?",
   "save": "Save",
   "roleUpdatedSuccess": "User role updated successfully",
-  "statusUpdatedSuccess": "User status updated successfully"
+  "statusUpdatedSuccess": "User status updated successfully",
+  "confirmChangeRole": "Are you sure you want to change the role of \"{{userName}}\" to \"{{newRoleLabel}}\"?"
 }

@@ -1,12 +1,16 @@
 import React from 'react';
 import { Activity, CircleDollarSign, FileQuestion, Users } from 'lucide-react';
 
+import { useTranslation } from 'react-i18next';
+
 function AdminDashboardPage() {
+  const { t } = useTranslation('admin-dashboard');
+
   const metrics = [
-    { label: 'Total users', value: '12,480', change: '+8.2%', icon: Users },
-    { label: 'Question bank', value: '2,846', change: '+124', icon: FileQuestion },
-    { label: 'Monthly revenue', value: '$28,420', change: '+12.4%', icon: CircleDollarSign },
-    { label: 'AI interviews', value: '6,392', change: '+9.6%', icon: Activity },
+    { label: t('totalUsers', 'Total users'), value: '12,480', change: '+8.2%', icon: Users },
+    { label: t('questionBank', 'Question bank'), value: '2,846', change: '+124', icon: FileQuestion },
+    { label: t('monthlyRevenue', 'Monthly revenue'), value: '$28,420', change: '+12.4%', icon: CircleDollarSign },
+    { label: t('aiInterviews', 'AI interviews'), value: '6,392', change: '+9.6%', icon: Activity },
   ];
 
   return (
@@ -24,18 +28,18 @@ function AdminDashboardPage() {
       `}</style>
       <div className="mb-8">
         <div className="mb-4 flex items-center gap-2 text-xs text-text-secondary/70">
-          <span>Admin</span>
+          <span>{t('breadcrumbAdmin', 'Admin')}</span>
           <span className="mx-1 text-text-disabled">/</span>
-          <span aria-current="page">Overview</span>
+          <span aria-current="page">{t('overview', 'Overview')}</span>
         </div>
 
         <div className="flex flex-col items-stretch gap-8 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
             <h1 className="mb-2 text-2xl font-bold leading-[1.3] text-text-primary md:text-[32px] md:leading-[1.2]">
-              Overview
+              {t('overview', 'Overview')}
             </h1>
             <p className="text-base leading-[1.6] text-text-secondary">
-              Monitor platform activity, content, and business performance.
+              {t('overviewDesc', 'Monitor platform activity, content, and business performance.')}
             </p>
           </div>
 
@@ -43,7 +47,7 @@ function AdminDashboardPage() {
             className="min-h-10 w-full shrink-0 whitespace-nowrap rounded-xl bg-gradient-to-r from-primary to-primary-dark px-5 text-sm font-semibold text-white shadow-sm transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-md active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 md:w-auto"
             type="button"
           >
-            Export report
+            {t('exportReport', 'Export report')}
           </button>
         </div>
       </div>
@@ -72,13 +76,13 @@ function AdminDashboardPage() {
 
         <section className="flex min-h-[220px] flex-col items-start gap-6 rounded-xl border border-border/60 bg-surface-2 p-6 shadow-[0_2px_4px_rgba(31,45,61,0.05)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:shadow-[0_8px_24px_rgba(31,45,61,0.10)] md:min-h-[280px] md:flex-row md:justify-between">
           <div>
-            <h2 className="mb-2 text-xl leading-[1.4] text-text-primary">Platform activity</h2>
+            <h2 className="mb-2 text-xl leading-[1.4] text-text-primary">{t('platformActivity', 'Platform activity')}</h2>
             <p className="text-sm text-text-secondary">
-              Operational data and charts for the selected period appear here.
+              {t('platformActivityDesc', 'Operational data and charts for the selected period appear here.')}
             </p>
           </div>
           <span className="shrink-0 rounded-full bg-success-light px-3 py-1.5 text-[11px] font-semibold leading-[1.2] text-success shadow-sm">
-            All systems normal
+            {t('allSystemsNormal', 'All systems normal')}
           </span>
         </section>
       </div>
