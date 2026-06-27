@@ -1,4 +1,4 @@
-﻿using ai_speis_be.Models.DTOs;
+using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
@@ -44,6 +44,11 @@ namespace ai_speis_be.Services.QuestionService
         public QuestionService (IQuestionRepoitory repository)
         {
             _repository = repository;
+        }
+
+        public async Task<QuestionFiltersDto> GetQuestionFiltersAsync(CancellationToken cancellationToken = default)
+        {
+            return await _repository.GetQuestionFiltersAsync(cancellationToken);
         }
 
         public async Task<PagedResultDto<AdminQuestionListItemDto>> GetAdminQuestionsAsync(

@@ -67,6 +67,17 @@ namespace ai_speis_be.Controllers
             return Ok(user);
         }
 
+        [HttpGet("questions/filters")]
+        [ProducesResponseType(
+            typeof(QuestionFiltersDto),
+            StatusCodes.Status200OK)]
+        public async Task<ActionResult<QuestionFiltersDto>> GetQuestionFilters(
+            CancellationToken cancellationToken)
+        {
+            var result = await _questionService.GetQuestionFiltersAsync(cancellationToken);
+            return Ok(result);
+        }
+
         [HttpGet("questions")]
         [ProducesResponseType(
             typeof(PagedResultDto<AdminQuestionListItemDto>),

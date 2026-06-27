@@ -1,4 +1,4 @@
-﻿using ai_speis_be.Models.DTOs;
+using ai_speis_be.Models.DTOs;
 
 using Microsoft.AspNetCore.Http;
 
@@ -9,6 +9,7 @@ namespace ai_speis_be.Services.QuestionService
         Task<PagedResultDto<AdminQuestionListItemDto>> GetAdminQuestionsAsync(
             AdminQuestionQueryDto query,
             CancellationToken cancellationToken = default);
+        Task<QuestionFiltersDto> GetQuestionFiltersAsync(CancellationToken cancellationToken = default);
         Task<QuestionOperationResult> CreateAdminQuestionAsync(
             AdminQuestionCreateRequestDto request,
             int actingUserId,

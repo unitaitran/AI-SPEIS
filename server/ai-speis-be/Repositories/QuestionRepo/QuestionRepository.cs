@@ -1,4 +1,4 @@
-﻿using ai_speis_be.Models;
+using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -96,6 +96,27 @@ namespace ai_speis_be.Repositories.QuestionRepo
             await _context.SaveChangesAsync(cancellationToken);
         }
 
+        public async Task<QuestionFiltersDto> GetQuestionFiltersAsync(CancellationToken cancellationToken = default)
+        {
+            var majors = await _context.Questions
+                .Where(q => !q.IsDeleted && !string.IsNullOrEmpty(q.Major))
+                .Select(q => q.Major)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            var roles = await _context.Questions
+                .Where(q => !q.IsDeleted && !string.IsNullOrEmpty(q.RoleTarget))
+                .Select(q => q.RoleTarget)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            return new QuestionFiltersDto
+            {
+                Majors = majors,
+                RoleTargets = roles
+            };
+        }
+
         public async Task<PagedResultDto<Question>> GetQuestionsAsync(
             UserQuestionQueryDto query,
             CancellationToken cancellationToken = default)
@@ -134,12 +155,12 @@ namespace ai_speis_be.Repositories.QuestionRepo
             questions = WhereIf(
                 questions,
                 roleTarget is not null,
-                q => q.RoleTarget == roleTarget);
+                q => q.RoleTarget.Contains(roleTarget!));
 
             questions = WhereIf(
                 questions,
                 major is not null,
-                q => q.Major == major);
+                q => q.Major.Contains(major!));
 
             if (Enum.TryParse<QuestionDifficultyEnum>(
                 Normalize(query.Difficulty),
@@ -176,12 +197,12 @@ namespace ai_speis_be.Repositories.QuestionRepo
             questions = WhereIf(
                 questions,
                 major is not null,
-                q => q.Major == major);
+                q => q.Major.Contains(major!));
 
             questions = WhereIf(
                 questions,
                 roleTarget is not null,
-                q => q.RoleTarget == roleTarget);
+                q => q.RoleTarget.Contains(roleTarget!));
 
             questions = WhereIf(
                 questions,

@@ -127,6 +127,10 @@ export const userService = {
     return parseJsonResponse(response);
   },
 
+  getUserDetail(userId) {
+    return this.getUserById(userId);
+  },
+
   lockUser: async (userId, reason = '') => {
     if (!userId) {
       throw new Error('Missing user ID');

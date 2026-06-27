@@ -4,6 +4,8 @@ import AdminLayout from '../layouts/admin/AdminLayout';
 import AdminDashboardPage from '../pages/admin/Dashboard/AdminDashboardPage';
 import UserManagementPage from '../pages/admin/UserManagement/UserManagementPage';
 import { navigate } from './navigation';
+import QuestionManagementPage from '../pages/admin/QuestionManagement/QuestionManagementPage';
+import {  } from "module";
 
 function AdminRoutePlaceholder({ title }) {
   return (
@@ -41,8 +43,11 @@ function AdminRoutes({ pathname }) {
   if (activePathname === ADMIN_ROUTES.DASHBOARD) {
     content = <AdminDashboardPage />;
   } else if (activePathname === ADMIN_ROUTES.USERS) {
-    content = <UserManagementPage />;
-  } else {
+    content = <UserManagementPage />;  
+  }else if (activePathname === ADMIN_ROUTES.QUESTIONS) {
+  content = <QuestionManagementPage  />;
+}
+   else {
     content = <AdminRoutePlaceholder title={currentMenuItem?.label || 'Page not found'} />;
   }
 
