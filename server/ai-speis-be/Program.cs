@@ -151,7 +151,7 @@ builder.Services.AddAuthentication(options =>
             var userIdClaim = context.Principal?.FindFirst("UserId")?.Value;
             if (!int.TryParse(userIdClaim, out var userId))
             {
-                context.Fail("The user identifier claim is missing or invalid.");
+                context.Fail("Thiếu hoặc sai định danh người dùng trong token.");
                 return;
             }
 
@@ -163,7 +163,7 @@ builder.Services.AddAuthentication(options =>
 
             if (user is null || !user.Status || user.IsLocked)
             {
-                context.Fail("The user account is inactive or locked.");
+                context.Fail("Tài khoản người dùng chưa kích hoạt hoặc đã bị khóa.");
             }
         }
     };

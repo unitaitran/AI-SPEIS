@@ -1,4 +1,4 @@
-﻿using ai_speis_be.Models;
+using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
 
 namespace ai_speis_be.Repositories.QuestionRepo
@@ -26,6 +26,7 @@ namespace ai_speis_be.Repositories.QuestionRepo
         Task UpdateQuestionAsync(
             Question question,
             CancellationToken cancellationToken = default);
+        Task<QuestionFiltersDto> GetQuestionFiltersAsync(CancellationToken cancellationToken = default);
 
 
     }

@@ -152,7 +152,7 @@ namespace ai_speis_be.Services.CVService
 
             // Update status to Processing
             cvFile.Status = CVFileStatus.Processing;
-            cvFile.UpdatedAt = DateTime.Now;
+            cvFile.UpdatedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync();
 
             // Push to background queue
@@ -166,12 +166,24 @@ namespace ai_speis_be.Services.CVService
             var cvFile = await _dbContext.CVFiles.FindAsync(cvFileId);
             if (cvFile == null) return null;
 
+            string? errorMessage = null;
+            if (cvFile.Status == CVFileStatus.AnalysisFailed || cvFile.Status == CVFileStatus.ConfirmationRequired)
+            {
+                var profile = await _dbContext.CVExtractedProfiles
+                    .Where(p => p.CVFileId == cvFileId)
+                    .Select(p => new { p.ErrorMessage })
+                    .FirstOrDefaultAsync();
+                
+                errorMessage = profile?.ErrorMessage;
+            }
+
             return new CvParseStatusResponse
             {
                 CVFileId = cvFile.CVFileId,
                 Status = cvFile.Status.ToString(),
                 FileName = cvFile.FileName,
-                UploadedAt = cvFile.UploadedAt
+                UploadedAt = cvFile.UploadedAt,
+                ErrorMessage = errorMessage
             };
         }
 
@@ -187,6 +199,25 @@ namespace ai_speis_be.Services.CVService
 
             if (profile == null) return null;
 
+            // Safe JSON deserialization with try-catch
+            List<EducationDto> education;
+            List<ExperienceDto> experience;
+            try
+            {
+                var jsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                education = string.IsNullOrEmpty(profile.Education) || profile.Education == "[]"
+                    ? new List<EducationDto>()
+                    : JsonSerializer.Deserialize<List<EducationDto>>(profile.Education, jsonOpts) ?? new List<EducationDto>();
+                experience = string.IsNullOrEmpty(profile.Experience) || profile.Experience == "[]"
+                    ? new List<ExperienceDto>()
+                    : JsonSerializer.Deserialize<List<ExperienceDto>>(profile.Experience, jsonOpts) ?? new List<ExperienceDto>();
+            }
+            catch (JsonException)
+            {
+                education = new List<EducationDto>();
+                experience = new List<ExperienceDto>();
+            }
+
             return new CvParsedDataResponse
             {
                 CVFileId = cvFile.CVFileId,
@@ -194,12 +225,13 @@ namespace ai_speis_be.Services.CVService
                 RoleTarget = profile.RoleTarget,
                 IsConfirmed = profile.IsConfirmed,
                 CreatedAt = profile.CreatedAt,
-                Education = string.IsNullOrEmpty(profile.Education) || profile.Education == "[]"
-                    ? new List<EducationDto>()
-                    : JsonSerializer.Deserialize<List<EducationDto>>(profile.Education, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<EducationDto>(),
-                Experience = string.IsNullOrEmpty(profile.Experience) || profile.Experience == "[]"
-                    ? new List<ExperienceDto>()
-                    : JsonSerializer.Deserialize<List<ExperienceDto>>(profile.Experience, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<ExperienceDto>(),
+                OverallAssessment = profile.OverallAssessment,
+                Strengths = profile.Strengths,
+                Weaknesses = profile.Weaknesses,
+                ConfidenceScore = profile.ConfidenceScore,
+                ErrorMessage = profile.ErrorMessage,
+                Education = education,
+                Experience = experience,
                 Skills = profile.Skills.Select(s => new CvSkillResponse
                 {
                     CVSkillId = s.CVSkillId,
@@ -219,6 +251,9 @@ namespace ai_speis_be.Services.CVService
             };
         }
 
+        private static readonly HashSet<string> ValidCategories = new(StringComparer.OrdinalIgnoreCase)
+            { "Language", "Framework", "Database", "Tool", "Cloud", "Other" };
+
         public async Task<(bool Success, string? ErrorMessage)> ConfirmParsedDataAsync(int cvFileId, int userId, CvConfirmRequest request)
         {
             var cvFile = await _dbContext.CVFiles.FindAsync(cvFileId);
@@ -231,9 +266,31 @@ namespace ai_speis_be.Services.CVService
             if (cvFile.Status != CVFileStatus.ConfirmationRequired)
                 return (false, $"CV đang ở trạng thái '{cvFile.Status}', không thể xác nhận.");
 
-            // BR-27: Phải có ít nhất 1 skill
+            // === VALIDATION ===
+            if (string.IsNullOrWhiteSpace(request.RoleTarget))
+                return (false, "Vị trí ứng tuyển (RoleTarget) không được để trống.");
+
             if (request.Skills == null || request.Skills.Count == 0)
                 return (false, "Phải có ít nhất 1 skill để xác nhận.");
+
+            // Validate từng skill
+            foreach (var skill in request.Skills)
+            {
+                if (string.IsNullOrWhiteSpace(skill.SkillName))
+                    return (false, "Tên skill không được để trống.");
+                if (!string.IsNullOrEmpty(skill.Category) && !ValidCategories.Contains(skill.Category))
+                    return (false, $"Category '{skill.Category}' không hợp lệ. Chỉ chấp nhận: Language, Framework, Database, Tool, Cloud, Other.");
+            }
+
+            // Validate từng project
+            if (request.Projects != null)
+            {
+                foreach (var project in request.Projects)
+                {
+                    if (string.IsNullOrWhiteSpace(project.ProjectName))
+                        return (false, "Tên project không được để trống.");
+                }
+            }
 
             var profile = await _dbContext.CVExtractedProfiles
                 .Include(e => e.Skills)
@@ -244,7 +301,7 @@ namespace ai_speis_be.Services.CVService
                 return (false, "Chưa có dữ liệu trích xuất cho CV này.");
 
             // Update profile with confirmed data
-            profile.RoleTarget = request.RoleTarget;
+            profile.RoleTarget = request.RoleTarget.Trim();
             profile.Education = JsonSerializer.Serialize(request.Education);
             profile.Experience = JsonSerializer.Serialize(request.Experience);
             profile.IsConfirmed = true;
@@ -252,37 +309,45 @@ namespace ai_speis_be.Services.CVService
             profile.ConfirmedAt = DateTime.UtcNow;
             profile.UpdatedAt = DateTime.UtcNow;
 
-            // Replace skills
+            // Replace skills (auto-deduplicate by SkillName, case-insensitive)
             _dbContext.CVSkills.RemoveRange(profile.Skills);
+            var seenSkills = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var skill in request.Skills)
             {
-                profile.Skills.Add(new CVSkill
+                var trimmedName = skill.SkillName.Trim();
+                if (seenSkills.Add(trimmedName)) // Only add if not duplicate
                 {
-                    SkillName = skill.SkillName,
-                    Source = "USER",
-                    Category = string.IsNullOrEmpty(skill.Category) ? "Other" : skill.Category,
-                    CreatedAt = DateTime.UtcNow
-                });
+                    profile.Skills.Add(new CVSkill
+                    {
+                        SkillName = trimmedName,
+                        Source = "USER",
+                        Category = string.IsNullOrEmpty(skill.Category) ? "Other" : skill.Category,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
             }
 
             // Replace projects
             _dbContext.CVProjects.RemoveRange(profile.Projects);
-            foreach (var project in request.Projects)
+            if (request.Projects != null)
             {
-                profile.Projects.Add(new CVProject
+                foreach (var project in request.Projects)
                 {
-                    ProjectName = project.ProjectName,
-                    RoleDescription = project.RoleDescription,
-                    TechnologyStack = project.TechnologyStack,
-                    ProjectSummary = project.ProjectSummary,
-                    Duration = project.Duration,
-                    CreatedAt = DateTime.UtcNow
-                });
+                    profile.Projects.Add(new CVProject
+                    {
+                        ProjectName = project.ProjectName.Trim(),
+                        RoleDescription = project.RoleDescription,
+                        TechnologyStack = project.TechnologyStack,
+                        ProjectSummary = project.ProjectSummary,
+                        Duration = project.Duration,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
             }
 
             // Update CV status
             cvFile.Status = CVFileStatus.Confirmed;
-            cvFile.UpdatedAt = DateTime.Now;
+            cvFile.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync();
 

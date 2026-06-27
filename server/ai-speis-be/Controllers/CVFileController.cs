@@ -22,6 +22,13 @@ namespace ai_speis_be.Controllers
             _logger = logger;
         }
 
+        private bool TryGetUserId(out int userId)
+        {
+            userId = 0;
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            return !string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out userId);
+        }
+
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllCV()
@@ -30,10 +37,12 @@ namespace ai_speis_be.Controllers
             return Ok(CV);
         }
 
-        [HttpGet("user/{userId}")]
+        [HttpGet("user/{userId:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetUserCV(int userId)
         {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
             var cv = await _cvService.GetCVByUserIdAsync(userId);
             if (cv == null) return NotFound(new { Message = "Không tìm thấy CV của người dùng này." });
             return Ok(cv);
@@ -43,12 +52,10 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> UploadCV(IFormFile file)
         {
-            var userIdClaim = User.FindFirst("UserId")?.Value;
-            if (string.IsNullOrEmpty(userIdClaim)) 
+            if (!TryGetUserId(out int userId))
             {
-                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng." });
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
             }
-            int userId = int.Parse(userIdClaim);
 
             if (file == null)
             {
@@ -70,30 +77,27 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> GetMyCV()
         {
-            var userIdClaim = User.FindFirst("UserId")?.Value;
-            if (string.IsNullOrEmpty(userIdClaim)) 
+            if (!TryGetUserId(out int userId))
             {
-                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng trong token." });
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
             }
-            int userId = int.Parse(userIdClaim);
             var cv = await _cvService.GetMyCVAsync(userId);
             if (cv == null) return NotFound(new { Message = "Bạn chưa tải lên CV nào hoặc CV đã bị xóa." });
             return Ok(cv);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         [Authorize]
         public async Task<IActionResult> GetCVById(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+                
             var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            var currentUserIdClaim = User.FindFirst("UserId")?.Value;
-            
-            if (string.IsNullOrEmpty(currentUserRole) || string.IsNullOrEmpty(currentUserIdClaim))
+            if (string.IsNullOrEmpty(currentUserRole) || !TryGetUserId(out int currentUserId))
             {
                 return Unauthorized();
             }
-
-            int currentUserId = int.Parse(currentUserIdClaim);
 
             var cv = await _cvService.GetCVByIdAsync(id);
             if (cv == null)
@@ -118,14 +122,11 @@ namespace ai_speis_be.Controllers
         public async Task<IActionResult> DeleteCV(int id)
         {
             var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            var currentUserIdClaim = User.FindFirst("UserId")?.Value;
             
-            if (string.IsNullOrEmpty(currentUserRole) || string.IsNullOrEmpty(currentUserIdClaim))
+            if (string.IsNullOrEmpty(currentUserRole) || !TryGetUserId(out int currentUserId))
             {
                 return Unauthorized();
             }
-
-            int currentUserId = int.Parse(currentUserIdClaim);
 
             var cv = await _cvService.GetCVByIdAsync(id);
             if (cv == null)
@@ -157,17 +158,22 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> TriggerParse(int id)
         {
-            var userIdClaim = User.FindFirst("UserId")?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng." });
+            try
+            {
+                if (!TryGetUserId(out int userId))
+                    return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
 
-            int userId = int.Parse(userIdClaim);
+                var (success, errorMessage) = await _cvService.TriggerParseAsync(id, userId);
+                if (!success)
+                    return BadRequest(new { Message = errorMessage });
 
-            var (success, errorMessage) = await _cvService.TriggerParseAsync(id, userId);
-            if (!success)
-                return BadRequest(new { Message = errorMessage });
-
-            return Ok(new { Message = "Đã bắt đầu phân tích CV. Vui lòng kiểm tra trạng thái." });
+                return Ok(new { Message = "Đã bắt đầu phân tích CV. Vui lòng kiểm tra trạng thái." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi không mong muốn khi gọi TriggerParse cho CV ID: {Id}", id);
+                return StatusCode(500, new { Message = "Đã xảy ra lỗi không mong muốn trên máy chủ." });
+            }
         }
 
         /// <summary>
@@ -205,17 +211,22 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> ConfirmParsedData(int id, [FromBody] CvConfirmRequest request)
         {
-            var userIdClaim = User.FindFirst("UserId")?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng." });
+            try
+            {
+                if (!TryGetUserId(out int userId))
+                    return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
 
-            int userId = int.Parse(userIdClaim);
+                var (success, errorMessage) = await _cvService.ConfirmParsedDataAsync(id, userId, request);
+                if (!success)
+                    return BadRequest(new { Message = errorMessage });
 
-            var (success, errorMessage) = await _cvService.ConfirmParsedDataAsync(id, userId, request);
-            if (!success)
-                return BadRequest(new { Message = errorMessage });
-
-            return Ok(new { Message = "Xác nhận dữ liệu CV thành công." });
+                return Ok(new { Message = "Xác nhận dữ liệu CV thành công." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi không mong muốn khi xác nhận dữ liệu cho CV ID: {Id}", id);
+                return StatusCode(500, new { Message = "Đã xảy ra lỗi không mong muốn trên máy chủ." });
+            }
         }
     }
-}
+}

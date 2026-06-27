@@ -49,12 +49,19 @@ namespace ai_speis_be.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Experience")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsConfirmed")
                         .HasColumnType("bit");
+
+                    b.Property<string>("OverallAssessment")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RawAiOutput")
                         .HasColumnType("nvarchar(max)");
@@ -63,8 +70,14 @@ namespace ai_speis_be.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Strengths")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Weaknesses")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("ExtractedProfileId");
 
@@ -357,6 +370,10 @@ namespace ai_speis_be.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("IsLocked")
                         .HasColumnType("bit");

@@ -4,6 +4,17 @@ namespace ai_speis_be.DTOs.CvParsing
 {
     public class CvParsedResult
     {
+        // CV Classification
+        public bool IsValidCv { get; set; } = true;
+        public string? InvalidReason { get; set; }
+        public decimal CvConfidenceScore { get; set; } = 1.0m;
+
+        // CV Assessment
+        public string? OverallAssessment { get; set; }
+        public string? Strengths { get; set; }
+        public string? Weaknesses { get; set; }
+
+        // CV Parsed Data
         public string? RoleTarget { get; set; }
         public List<EducationDto> Education { get; set; } = new();
         public List<ExperienceDto> Experience { get; set; } = new();

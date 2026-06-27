@@ -6,7 +6,6 @@ const statusMap = {
 };
 
 const roleMap = {
-  student: 'user',
   user: 'user',
   admin: 'admin',
 };
@@ -178,8 +177,31 @@ export const userService = {
     return parseJsonResponse(response);
   },
 
-  assignRole: async () => {
-    throw new Error('Assign role is not supported by the current backend API');
+  assignRole: async (userId, roleName) => {
+    if (!userId) {
+      throw new Error('Missing user ID');
+    }
+    if (!roleName) {
+      throw new Error('Missing role name');
+    }
+
+    const url = ENDPOINTS.ADMIN_USER_ROLE(userId);
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ roleName }),
+    });
+
+    return parseJsonResponse(response);
   },
 
   assignPackage: async () => {

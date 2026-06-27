@@ -81,10 +81,18 @@
   /* Border & Shadow */
   --border-radius: 8px;
   --border-radius-sm: 4px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 16px;
+  --border-radius-pill: 999px;
   --box-shadow: 0 4px 12px rgba(31, 45, 61, 0.08);
   --box-shadow-sm: 0 2px 4px rgba(31, 45, 61, 0.05);
+  --box-shadow-md: 0 8px 24px rgba(31, 45, 61, 0.10);
+  --box-shadow-lg: 0 16px 48px rgba(31, 45, 61, 0.14);
+  --box-shadow-glow: 0 0 0 4px rgba(111, 182, 232, 0.15);
 
   /* Transition */
   --transition-fast: 0.2s ease;
   --transition-normal: 0.3s ease;
+  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }

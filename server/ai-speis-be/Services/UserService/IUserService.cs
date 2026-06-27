@@ -8,6 +8,9 @@ namespace ai_speis_be.Services.UserService
         Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
             AdminUserQueryDto query,
             CancellationToken cancellationToken = default);
+        Task<AdminUserDetailDto?> GetAdminUserDetailAsync(
+            int userId,
+            CancellationToken cancellationToken = default);
         Task<LockUserResult> LockUserAsync(
             int userId,
             int actingUserId,
@@ -32,9 +35,18 @@ namespace ai_speis_be.Services.UserService
             int userId,
             UpdateProfileRequestDto dto,
             CancellationToken cancellationToken = default);
+
+        Task<(bool Success, string? ErrorMessage, string? NewImageUrl)> UpdateAvatarAsync(
+            int userId,
+            Microsoft.AspNetCore.Http.IFormFile file,
+            CancellationToken cancellationToken = default);
         Task<ChangePasswordResult> ChangePasswordAsync(
             int userId,
             ChangePasswordRequestDto dto,
+            CancellationToken cancellationToken = default);
+        Task<bool> UpdateUserRoleAsync(
+            int userId,
+            string roleName,
             CancellationToken cancellationToken = default);
     }
 }

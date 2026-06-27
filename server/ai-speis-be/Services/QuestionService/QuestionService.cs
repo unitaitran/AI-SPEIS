@@ -1,4 +1,4 @@
-﻿using ai_speis_be.Models.DTOs;
+using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
@@ -44,6 +44,11 @@ namespace ai_speis_be.Services.QuestionService
         public QuestionService (IQuestionRepoitory repository)
         {
             _repository = repository;
+        }
+
+        public async Task<QuestionFiltersDto> GetQuestionFiltersAsync(CancellationToken cancellationToken = default)
+        {
+            return await _repository.GetQuestionFiltersAsync(cancellationToken);
         }
 
         public async Task<PagedResultDto<AdminQuestionListItemDto>> GetAdminQuestionsAsync(
@@ -193,7 +198,7 @@ namespace ai_speis_be.Services.QuestionService
             {
                 return new QuestionImportOperationResult(
                     QuestionImportOutcome.InvalidFile,
-                    ErrorMessage: "The uploaded file is not a readable .xlsx workbook.");
+                    ErrorMessage: "File tải lên không phải workbook .xlsx có thể đọc được.");
             }
 
             var now = DateTime.UtcNow;
@@ -308,7 +313,7 @@ namespace ai_speis_be.Services.QuestionService
         {
             if (file is null || file.Length == 0)
             {
-                return "Please upload a non-empty .xlsx file.";
+                return "Vui lòng tải lên file .xlsx không rỗng.";
             }
 
             if (!string.Equals(
@@ -316,13 +321,13 @@ namespace ai_speis_be.Services.QuestionService
                 ".xlsx",
                 StringComparison.OrdinalIgnoreCase))
             {
-                return "Only .xlsx files are supported.";
+                return "Chỉ hỗ trợ file .xlsx.";
             }
 
             if (!string.IsNullOrWhiteSpace(file.ContentType) &&
                 !AllowedExcelContentTypes.Contains(file.ContentType))
             {
-                return "Invalid file type. Please upload an Excel .xlsx file.";
+                return "Loại file không hợp lệ. Vui lòng tải lên file Excel .xlsx.";
             }
 
             return null;
@@ -343,7 +348,7 @@ namespace ai_speis_be.Services.QuestionService
 
             var worksheetEntry = GetFirstWorksheetEntry(archive)
                 ?? throw new InvalidDataException(
-                    "The uploaded workbook does not contain a worksheet.");
+                    "Workbook tải lên không chứa worksheet.");
 
             var sharedStrings = ReadSharedStrings(archive);
 
@@ -466,7 +471,7 @@ namespace ai_speis_be.Services.QuestionService
             if (rowElements.Count == 0)
             {
                 throw new InvalidDataException(
-                    "The uploaded workbook does not contain any rows.");
+                    "Workbook tải lên không chứa dòng dữ liệu nào.");
             }
 
             Dictionary<string, string>? headerColumns = null;
@@ -495,7 +500,7 @@ namespace ai_speis_be.Services.QuestionService
                     if (missingColumns.Count > 0)
                     {
                         throw new InvalidDataException(
-                            $"The uploaded workbook is missing required columns: {string.Join(", ", missingColumns)}.");
+                            $"Workbook tải lên thiếu các cột bắt buộc: {string.Join(", ", missingColumns)}.");
                     }
 
                     continue;
@@ -529,7 +534,7 @@ namespace ai_speis_be.Services.QuestionService
             if (headerColumns is null)
             {
                 throw new InvalidDataException(
-                    "The uploaded workbook does not contain a header row.");
+                    "Workbook tải lên không chứa dòng tiêu đề.");
             }
 
             return dataRows;
@@ -653,7 +658,7 @@ namespace ai_speis_be.Services.QuestionService
             if (!string.IsNullOrWhiteSpace(difficultyValue) &&
                 !TryParseNamedEnum(difficultyValue, out difficulty))
             {
-                errors.Add("difficulty must be Easy, Medium, or Hard.");
+                errors.Add("difficulty phải là Easy, Medium hoặc Hard.");
             }
 
             if (!string.IsNullOrWhiteSpace(statusValue))
@@ -662,11 +667,11 @@ namespace ai_speis_be.Services.QuestionService
                     statusValue,
                     out var status))
                 {
-                    errors.Add("status must be Active or Inactive.");
+                    errors.Add("status phải là Active hoặc Inactive.");
                 }
                 else if (status != AdminQuestionStatus.Active)
                 {
-                    errors.Add("status must be Active for imported questions.");
+                    errors.Add("status phải là Active đối với câu hỏi import.");
                 }
             }
 
@@ -689,7 +694,7 @@ namespace ai_speis_be.Services.QuestionService
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                errors.Add($"{field} is required.");
+                errors.Add($"{field} là bắt buộc.");
             }
         }
 
@@ -701,7 +706,7 @@ namespace ai_speis_be.Services.QuestionService
         {
             if (value.Length > maxLength)
             {
-                errors.Add($"{field} must be at most {maxLength} characters.");
+                errors.Add($"{field} không được vượt quá {maxLength} ký tự.");
             }
         }
 

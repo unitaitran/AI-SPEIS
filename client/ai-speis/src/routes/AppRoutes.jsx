@@ -38,6 +38,7 @@ function AppRoutes() {
       const fullName = urlParams.get('fullName');
       const email = urlParams.get('email');
       const role = urlParams.get('role');
+      const imageUrl = urlParams.get('imageUrl');
 
       if (token) {
         localStorage.setItem('token', token);
@@ -45,7 +46,8 @@ function AppRoutes() {
           userId: parseInt(userId, 10),
           fullName: fullName,
           email: email,
-          role: role
+          role: role,
+          avatar: imageUrl
         }));
         
         const dashboardPath = getDefaultRouteForRole(role);
