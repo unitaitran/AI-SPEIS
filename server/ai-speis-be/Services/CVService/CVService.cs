@@ -63,14 +63,8 @@ namespace ai_speis_be.Services.CVService
                     await file.CopyToAsync(fileStream);
                 }
 
-                // 4.5. Soft delete previous active CV
-                var activeCV = await _cvRepository.GetActiveCVByUserIdAsync(userId);
-                if (activeCV != null)
-                {
-                    activeCV.Status = CVFileStatus.Archived;
-                    activeCV.UpdatedAt = DateTime.Now;
-                    await _cvRepository.UpdateCVAsync(activeCV);
-                }
+                // 4.5. Soft delete ALL previous active CVs 
+                await _cvRepository.ArchiveAllActiveCVsByUserIdAsync(userId);
 
                 // 5. Save metadata to database
                 var cvFile = new CVFile

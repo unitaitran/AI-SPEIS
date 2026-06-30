@@ -24,7 +24,7 @@ namespace ai_speis_be.Repositories.CVRepo
 
         public async Task<CVFile?> GetCVByIdAsync(int id)
         {
-            return await _context.CVFiles.Include(c => c.User).FirstOrDefaultAsync(c => c.CVFileId == id);
+            return await _context.CVFiles.Include(c => c.User).FirstOrDefaultAsync(c => c.CVFileId == id && c.Status != CVFileStatus.Archived);
         }
 
         public async Task<CVFile?> GetCVByUserIdAsync(int userId)
@@ -55,6 +55,22 @@ namespace ai_speis_be.Repositories.CVRepo
             return await _context.CVFiles
                 .Include(c => c.User)
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.Status != CVFileStatus.Archived);
+        }
+
+        public async Task ArchiveAllActiveCVsByUserIdAsync(int userId)
+        {
+            var activeCVs = await _context.CVFiles
+                .Where(c => c.UserId == userId && c.Status != CVFileStatus.Archived)
+                .ToListAsync();
+
+            foreach (var cv in activeCVs)
+            {
+                cv.Status = CVFileStatus.Archived;
+                cv.UpdatedAt = DateTime.Now;
+            }
+
+            if (activeCVs.Count > 0)
+                await _context.SaveChangesAsync();
         }
 
         public async Task<CVFile> UpdateCVAsync(CVFile cvFile)
