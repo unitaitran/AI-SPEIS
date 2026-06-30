@@ -1,11 +1,12 @@
-using System;
-using System.Threading.Tasks;
+using ai_speis_be.DTOs.CvParsing;
+using ai_speis_be.Repositories.CVRepo;
+using ai_speis_be.Services.CVService;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using ai_speis_be.Services.CVService;
-using ai_speis_be.DTOs.CvParsing;
+using System;
+using System.Threading.Tasks;
 
 namespace ai_speis_be.Controllers
 {
@@ -31,20 +32,20 @@ namespace ai_speis_be.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllCV()
+        public async Task<IActionResult> GetAllCV([FromQuery] CVQueryParameters query, CancellationToken cancellationToken)
         {
-            var CV = await _cvService.GetAllCVsAsync();
+            var CV = await _cvService.GetAllCVsAsync(query);
             return Ok(CV);
         }
 
         [HttpGet("user/{userId:int}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetUserCV(int userId)
+        public async Task<IActionResult> GetUserCV(int userId, [FromQuery] CVQueryParameters query, CancellationToken cancellationToken)
         {
             if (userId <= 0)
                 return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
-            var cv = await _cvService.GetCVByUserIdAsync(userId);
-            if (cv == null) return NotFound(new { Message = "Không tìm thấy CV của người dùng này." });
+            var cv = await _cvService.GetCVByUserIdAsync(userId, query);
+            if (cv == null) return NotFound(new { Message = "Người dùng chưa upload CV nào" });
             return Ok(cv);
         }
 

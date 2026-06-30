@@ -7,9 +7,9 @@ namespace ai_speis_be.Repositories.CVRepo
 {
     public interface ICVRepository
     {
-        Task<IEnumerable<CVFile>> GetAllCVAsync();
+        Task<PagedResult<CVFile>> GetAllCVAsync(CVQueryParameters query, CancellationToken cancellationToken = default);
         Task<CVFile?> GetCVByIdAsync(int id);
-        Task<CVFile?> GetCVByUserIdAsync(int userId);    
+        Task<PagedResult<CVFile>> GetCVByUserIdAsync(int userId, CVQueryParameters query, CancellationToken cancellationToken = default);    
         Task<CVFile> AddCVAsync(CVFile cvFile);
         Task<bool> DeleteCVAsync(int id);     
         Task<CVFile?> GetActiveCVByUserIdAsync(int userId);

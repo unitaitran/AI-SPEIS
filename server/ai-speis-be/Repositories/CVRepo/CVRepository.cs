@@ -1,10 +1,13 @@
+using ai_speis_be.Models;
+using ai_speis_be.Models.DTOs;
+using ai_speis_be.Models.Enums;
+using iText.Kernel.Geom;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using ai_speis_be.Models;
-using ai_speis_be.Models.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace ai_speis_be.Repositories.CVRepo
 {
@@ -16,10 +19,29 @@ namespace ai_speis_be.Repositories.CVRepo
             _context = context;
         }
         
-        public async Task<IEnumerable<CVFile>> GetAllCVAsync()
+        public async Task<PagedResult<CVFile>> GetAllCVAsync(CVQueryParameters query, CancellationToken cancellationToken = default)
         {
             var CVFiles = _context.CVFiles.AsQueryable();
-            return await CVFiles.ToListAsync();
+            if(!string.IsNullOrEmpty(query.Status) && Enum.TryParse<CVFileStatus>(query.Status, true, out var statusEnum))
+            {
+                CVFiles = CVFiles.Where(c => c.Status == statusEnum);
+            }
+            var totalItems =await CVFiles.CountAsync(cancellationToken);
+            var orderdCVs = ApplySorting(CVFiles, query.SortBy, query.IsAscending);
+            var items = await orderdCVs
+                .Skip((query.PageNumber - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToListAsync(cancellationToken);
+            return new PagedResult<CVFile>
+            {
+                Items = items,
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalItems = totalItems
+            };
+
+
+            
         }
 
         public async Task<CVFile?> GetCVByIdAsync(int id)
@@ -27,9 +49,28 @@ namespace ai_speis_be.Repositories.CVRepo
             return await _context.CVFiles.Include(c => c.User).FirstOrDefaultAsync(c => c.CVFileId == id && c.Status != CVFileStatus.Archived);
         }
 
-        public async Task<CVFile?> GetCVByUserIdAsync(int userId)
+        public async Task<PagedResult<CVFile>> GetCVByUserIdAsync(int userId,CVQueryParameters query, CancellationToken cancellationToken = default)
         {
-            return await _context.CVFiles.Include(c => c.User).FirstOrDefaultAsync(c => c.UserId == userId);
+            var cvFiles = _context.CVFiles.AsNoTracking();
+            if(!string.IsNullOrEmpty(query.Status) && Enum.TryParse<CVFileStatus>(query.Status, true, out var statusEnum))
+            {
+                cvFiles = cvFiles.Where(c => c.Status == statusEnum);
+            }
+            var totalItems = await cvFiles.CountAsync(cancellationToken);
+            var orderedItems = ApplySorting(cvFiles, query.SortBy, query.IsAscending);
+            var items = await orderedItems
+                .Skip((query.PageNumber - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToListAsync(cancellationToken);
+            return new PagedResult<CVFile>
+            {
+                Items = items,  
+                TotalItems = totalItems,    
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize,
+            };
+
+         
         }
 
         public async Task<CVFile> AddCVAsync(CVFile cvFile)
@@ -79,5 +120,29 @@ namespace ai_speis_be.Repositories.CVRepo
             await _context.SaveChangesAsync();
             return cvFile;
         }
+        private static IOrderedQueryable<CVFile> ApplySorting(
+            IQueryable<CVFile> query,
+            string sortBy,
+            bool isAscending)
+        {
+            var property = (sortBy ?? "UploadedAt").Trim().ToLowerInvariant();
+            return (property, isAscending) switch
+            {
+                
+                ("UserId", true) => query.OrderBy(c => c.UserId).ThenBy(c => c.CVFileId),
+                ("UserId", false) => query.OrderByDescending(c => c.UserId).ThenByDescending(c => c.CVFileId),
+                // Mặc định sort theo UploadedAt
+                (_, true) => query.OrderBy(c => c.UploadedAt).ThenBy(c => c.CVFileId),
+                _ => query.OrderByDescending(c => c.UploadedAt).ThenByDescending(c => c.CVFileId)
+            };
+        }
     } 
+    public class CVQueryParameters
+    {
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+        public string? Status { get; set; } // Map từ CVFileStatus
+        public string SortBy { get; set; } = "UploadedAt";
+        public bool IsAscending { get; set; } = false;
+    }
 }
