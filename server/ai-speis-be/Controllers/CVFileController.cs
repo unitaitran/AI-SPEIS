@@ -87,6 +87,18 @@ namespace ai_speis_be.Controllers
             return Ok(cv);
         }
 
+        [HttpGet("history")]
+        [Authorize]
+        public async Task<IActionResult> GetMyCVHistory([FromQuery] CVQueryParameters query)
+        {
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+            }
+            var cvs = await _cvService.GetCVByUserIdAsync(userId, query);
+            return Ok(cvs);
+        }
+
         [HttpGet("{id:int}")]
         [Authorize]
         public async Task<IActionResult> GetCVById(int id)

@@ -13,6 +13,7 @@ export const ENDPOINTS = {
   UPDATE_AVATAR: `${API_BASE_URL}/api/users/me/avatar`,
   CHANGE_PASSWORD: `${API_BASE_URL}/api/users/me/security`,
   CV_GET_MY: `${API_BASE_URL}/api/CVFile/MyCV`,
+  CV_GET_HISTORY: `${API_BASE_URL}/api/CVFile/history`,
   CV_UPLOAD: `${API_BASE_URL}/api/CVFile/upload`,
   CV_DELETE: (id) => `${API_BASE_URL}/api/CVFile/${id}`,
   CV_PARSE: (id) => `${API_BASE_URL}/api/CVFile/${id}/parse`,

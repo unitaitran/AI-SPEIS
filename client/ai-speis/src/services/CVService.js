@@ -28,6 +28,14 @@ const cvService = {
     return handleResponse(response);
   },
 
+  /** GET /api/CVFile/history */
+  getMyCVHistory: async (pageNumber = 1, pageSize = 10) => {
+    const response = await fetch(`${ENDPOINTS.CV_GET_HISTORY}?PageNumber=${pageNumber}&PageSize=${pageSize}`, {
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
+
   /** POST /api/CVFile/upload (multipart) */
   uploadCV: async (file) => {
     const formData = new FormData();

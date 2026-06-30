@@ -3,6 +3,7 @@ import DashboardPage from '../pages/user/DashboardPage';
 import { navigate } from './navigation';
 import { USER_ROUTES } from './routePaths';
 import MyCVPage from '../pages/user/MyCVPage';
+import CVJDManagementPage from '../pages/user/CVJDManagementPage';
 import QuestionsPage from '../pages/user/QuestionsPage';
 
 function UserRoutes({ pathname }) {
@@ -11,6 +12,7 @@ function UserRoutes({ pathname }) {
   const isKnownRoute =
     pathname === USER_ROUTES.DASHBOARD ||
     pathname === USER_ROUTES.CV ||
+    pathname === USER_ROUTES.CV_DETAIL ||
     pathname === USER_ROUTES.QUESTIONS;
 
   useEffect(() => {
@@ -20,6 +22,10 @@ function UserRoutes({ pathname }) {
   }, [isKnownRoute, isUserRoot, isProfileRoute]);
 
   if (pathname === USER_ROUTES.CV) {
+    return <CVJDManagementPage />;
+  }
+
+  if (pathname === USER_ROUTES.CV_DETAIL) {
     return <MyCVPage />;
   }
 
