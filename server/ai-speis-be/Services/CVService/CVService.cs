@@ -89,10 +89,20 @@ namespace ai_speis_be.Services.CVService
             }
         }
 
-        public async Task<IEnumerable<CVDto>> GetAllCVsAsync()
+        public async Task<PagedResultDto<CVDto>> GetAllCVsAsync(CVQueryParameters query)
         {
-            var cvs = await _cvRepository.GetAllCVAsync();
-            return cvs.Select(MapToDto);
+            // 1. Gọi Repo để lấy danh sách Entity phân trang
+            var pagedCVFiles = await _cvRepository.GetAllCVAsync(query);
+            // 2. Map từng Entity CVFile sang CVDto
+            var cvDtos = pagedCVFiles.Items.Select(MapToDto).ToList();
+            // 3. Trả về DTO phân trang
+            return new PagedResultDto<CVDto>
+            {
+                Items = cvDtos,
+                PageNumber = pagedCVFiles.PageNumber,
+                PageSize = pagedCVFiles.PageSize,
+                TotalItems = pagedCVFiles.TotalItems
+            };
         }
 
         public async Task<CVDto?> GetCVByIdAsync(int id)
@@ -101,10 +111,18 @@ namespace ai_speis_be.Services.CVService
             return cv != null ? MapToDto(cv) : null;
         }
 
-        public async Task<CVDto?> GetCVByUserIdAsync(int userId)
+        public async Task<PagedResultDto<CVDto>> GetCVByUserIdAsync(int userId, CVQueryParameters query)
         {
-            var cv = await _cvRepository.GetCVByUserIdAsync(userId);
-            return cv != null ? MapToDto(cv) : null;
+            var pagedCVs = await _cvRepository.GetCVByUserIdAsync(userId, query);
+            var cvDtos = pagedCVs.Items.Select(MapToDto).ToList();
+
+            return new PagedResultDto<CVDto>
+            {
+                Items = cvDtos,
+                PageNumber = pagedCVs.PageNumber,
+                PageSize = pagedCVs.PageSize,
+                TotalItems = pagedCVs.TotalItems
+            };
         }
 
         public async Task<(bool Success, string? ErrorMessage)> DeleteCVAsync(int id)
