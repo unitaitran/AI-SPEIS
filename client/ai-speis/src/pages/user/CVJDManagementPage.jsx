@@ -17,45 +17,56 @@ import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
+import jdService from '../../services/JDService';
+import { API_BASE_URL } from '../../config/api';
 import '../../styles/user/MyCVPage.css';
 
 function CVJDManagementPage() {
   const { t } = useTranslation('dashboard');
-  const [activeTab, setActiveTab] = useState('cv'); // 'cv' or 'jd'
   
   // CV State
   const [cvs, setCvs] = useState([]);
   const [isLoadingCvs, setIsLoadingCvs] = useState(true);
 
-  // JD Mock State
-  const [mockJDs, setMockJDs] = useState([
-    {
-      id: 1,
-      fileName: 'Senior_Frontend_Developer_JD.pdf',
-      uploadedAt: new Date().toISOString(),
-      company: 'Tech Corp',
-      type: 'pdf'
-    }
-  ]);
+  // JD State
+  const [jds, setJds] = useState([]);
+  const [isLoadingJds, setIsLoadingJds] = useState(true);
   const [showJDModal, setShowJDModal] = useState(false);
   const [jdUploadType, setJdUploadType] = useState('file'); // 'file' or 'text'
   const [jdText, setJdText] = useState('');
 
   useEffect(() => {
     fetchCVHistory();
+    fetchJDHistory();
   }, []);
 
   const fetchCVHistory = async () => {
     setIsLoadingCvs(true);
     try {
-      const result = await cvService.getMyCVHistory(1, 20); // Get first 20 CVs
+      const result = await cvService.getMyCVHistory(1, 10); 
       if (result && result.items) {
-        setCvs(result.items);
+        // Chỉ lấy CV active cuối cùng
+        const latestCV = result.items.find(cv => getStatusString(cv.status) !== 'Archived');
+        setCvs(latestCV ? [latestCV] : []);
       }
     } catch (err) {
       console.error('Lỗi khi lấy lịch sử CV:', err);
     } finally {
       setIsLoadingCvs(false);
+    }
+  };
+
+  const fetchJDHistory = async () => {
+    setIsLoadingJds(true);
+    try {
+      const result = await jdService.getMyJDHistory(1, 5); // Tối đa 5 JDs
+      if (result && result.items) {
+        setJds(result.items);
+      }
+    } catch (err) {
+      console.error('Lỗi khi lấy lịch sử JD:', err);
+    } finally {
+      setIsLoadingJds(false);
     }
   };
 
@@ -98,34 +109,37 @@ function CVJDManagementPage() {
     alert('Tính năng xem chi tiết JD đang được phát triển.');
   };
 
-  // Upload CV (Mock directly to CV_DETAIL which handles actual upload, or show alert)
-  const handleUploadCV = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // In a real app, we might upload here then refresh the list.
-      // But MyCVPage currently handles its own upload. Let's navigate to MyCVPage so the user can upload.
-      navigate(USER_ROUTES.CV_DETAIL);
-    }
-  };
-
-  // Handle JD Upload submission (Mock)
-  const submitJDUpload = () => {
-    if (mockJDs.length >= 5) {
+  // Handle JD Upload submission
+  const submitJDUpload = async (file = null) => {
+    if (jds.length >= 5) {
       alert('Đã đạt giới hạn 5 JD!');
       return;
     }
     
-    const newJd = {
-      id: Date.now(),
-      fileName: jdUploadType === 'file' ? 'New_JD.pdf' : 'Pasted_Text_JD.txt',
-      uploadedAt: new Date().toISOString(),
-      company: 'Unknown Company',
-      type: jdUploadType
-    };
-    
-    setMockJDs([newJd, ...mockJDs]);
-    setShowJDModal(false);
-    setJdText('');
+    try {
+      if (jdUploadType === 'file' && file) {
+        await jdService.uploadJD(file);
+      } else if (jdUploadType === 'text' && jdText.trim()) {
+        await jdService.submitJDText(jdText.trim());
+      }
+      setShowJDModal(false);
+      setJdText('');
+      fetchJDHistory();
+    } catch (err) {
+      alert('Lỗi khi tải lên JD: ' + err.message);
+    }
+  };
+
+  const handleDeleteJD = async (id, e) => {
+    e.stopPropagation();
+    if (window.confirm('Bạn có chắc chắn muốn xóa JD này?')) {
+      try {
+        await jdService.deleteJD(id);
+        fetchJDHistory();
+      } catch (err) {
+        alert('Lỗi khi xóa JD: ' + err.message);
+      }
+    }
   };
 
   return (
@@ -141,162 +155,124 @@ function CVJDManagementPage() {
           </div>
         </section>
 
-        {/* Tabs */}
-        <div className="flex border-b border-border mb-6">
-          <button
-            className={`px-6 py-3 text-sm font-semibold transition-colors relative ${activeTab === 'cv' ? 'text-primary' : 'text-text-secondary hover:text-text-primary'}`}
-            onClick={() => setActiveTab('cv')}
-          >
-            <div className="flex items-center gap-2">
-              <FileText size={18} />
-              Danh sách CV ({cvs.length})
-            </div>
-            {activeTab === 'cv' && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md" />
-            )}
-          </button>
-          <button
-            className={`px-6 py-3 text-sm font-semibold transition-colors relative ${activeTab === 'jd' ? 'text-primary' : 'text-text-secondary hover:text-text-primary'}`}
-            onClick={() => setActiveTab('jd')}
-          >
-            <div className="flex items-center gap-2">
-              <Briefcase size={18} />
-              Danh sách JD ({mockJDs.length}/5)
-            </div>
-            {activeTab === 'jd' && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-md" />
-            )}
-          </button>
-        </div>
-
-        {/* Tab Content: CVs */}
-        {activeTab === 'cv' && (
-          <div className="space-y-4">
+        {/* 2 Columns Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          
+          {/* Section: CVs (Left Column) */}
+          <div className="space-y-4 bg-surface-1 p-6 rounded-2xl border border-border">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-text-primary">Lịch sử upload CV</h2>
-              <button className="mycv-btn mycv-btn--primary" onClick={() => navigate(USER_ROUTES.CV_DETAIL)}>
-                <Upload size={16} />
-                Tải CV mới
-              </button>
+              <h2 className="text-lg font-semibold text-text-primary">CV hiện tại của bạn</h2>
+              {cvs.length > 0 && !isLoadingCvs && (
+                <button className="mycv-btn mycv-btn--outline" onClick={() => handleCVClick(cvs[0].cvFileId)}>
+                  <Eye size={16} />
+                  Xem chi tiết
+                </button>
+              )}
             </div>
 
             {isLoadingCvs ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-text-secondary">Đang tải danh sách CV...</p>
+                <p className="text-text-secondary">Đang tải CV...</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {cvs.map(cv => {
-                  const isLatest = getStatusString(cv.status) !== 'Archived';
-                  return (
-                    <div key={cv.cvFileId} className="mycv-info-card hover:border-primary transition-colors cursor-pointer" onClick={() => handleCVClick(cv.cvFileId)}>
-                      <div className={`mycv-info-card-accent ${isLatest ? 'bg-primary' : 'bg-surface-3'}`} />
-                      <div className="mycv-info-left flex-1 overflow-hidden">
-                        <div className={`mycv-info-icon-box ${isLatest ? 'bg-primary/10 text-primary' : 'bg-surface-2 text-text-disabled'}`}>
-                          <FileText size={24} />
-                        </div>
-                        <div className="mycv-info-details min-w-0 flex-1">
-                          <div className="flex justify-between items-start gap-2">
-                            <h3 className="font-semibold text-text-primary truncate" title={cv.fileName}>
-                              {cv.fileName}
-                            </h3>
-                            {getStatusBadge(cv.status)}
-                          </div>
-                          <p className="mycv-info-date mt-1">Tải lên: {formatDate(cv.uploadedAt)}</p>
-                          {isLatest && (
-                            <p className="text-xs text-primary font-medium mt-2 flex items-center gap-1">
-                              <CheckCircle2 size={12} /> CV đang sử dụng
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mycv-info-actions border-l border-border pl-4 ml-2">
-                        <button className="p-2 text-text-secondary hover:text-primary transition-colors" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); handleCVClick(cv.cvFileId); }}>
-                          <Eye size={18} />
-                        </button>
-                      </div>
+              <div>
+                {cvs.length > 0 ? (
+                  <div className="space-y-4">
+                    {/* CV Preview */}
+                    <div className="w-full h-[600px] rounded-xl border border-border overflow-hidden bg-surface-2">
+                      <iframe 
+                        src={`${API_BASE_URL}${cvs[0].filePath}#toolbar=0&navpanes=0`} 
+                        title="CV Preview"
+                        className="w-full h-full"
+                      />
                     </div>
-                  );
-                })}
-              </div>
-            )}
-            
-            {!isLoadingCvs && cvs.length === 0 && (
-              <div className="text-center py-12 bg-surface-2 rounded-xl border border-dashed border-border">
-                <FileText size={48} className="mx-auto text-text-disabled mb-4" />
-                <p className="text-text-secondary">Bạn chưa tải lên CV nào.</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-surface-2 rounded-xl border border-dashed border-border h-[500px] flex flex-col items-center justify-center">
+                    <FileText size={48} className="mx-auto text-text-disabled mb-4" />
+                    <p className="text-text-secondary mb-4">Bạn chưa có CV nào được sử dụng.</p>
+                    <button className="mycv-btn mycv-btn--primary" onClick={() => navigate(USER_ROUTES.CV_DETAIL)}>
+                      <Upload size={16} />
+                      Tải CV lên ngay
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
 
-        {/* Tab Content: JDs */}
-        {activeTab === 'jd' && (
-          <div className="space-y-4">
+          {/* Section: JDs (Right Column) */}
+          <div className="space-y-4 bg-surface-1 p-6 rounded-2xl border border-border">
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-text-primary">Job Description (JD)</h2>
-                <p className="text-sm text-text-secondary mt-1">Bạn có thể lưu tối đa 5 JD để luyện phỏng vấn sát với yêu cầu thực tế.</p>
+                <p className="text-sm text-text-secondary mt-1">Lưu tối đa 5 JD để luyện phỏng vấn.</p>
               </div>
               <button 
-                className={`mycv-btn ${mockJDs.length >= 5 ? 'mycv-btn--default opacity-50 cursor-not-allowed' : 'mycv-btn--primary'}`}
-                onClick={() => mockJDs.length < 5 && setShowJDModal(true)}
-                disabled={mockJDs.length >= 5}
+                className={`mycv-btn ${jds.length >= 5 ? 'mycv-btn--default opacity-50 cursor-not-allowed' : 'mycv-btn--primary'} flex-shrink-0`}
+                onClick={() => jds.length < 5 && setShowJDModal(true)}
+                disabled={jds.length >= 5}
               >
                 <Plus size={16} />
-                Thêm JD mới
+                Thêm JD
               </button>
             </div>
 
-            {mockJDs.length >= 5 && (
+            {jds.length >= 5 && (
               <div className="bg-warning/10 border border-warning/30 text-warning px-4 py-3 rounded-lg flex items-center gap-3 mb-4">
-                <AlertCircle size={20} />
-                <span className="text-sm">Bạn đã đạt giới hạn tối đa 5 JD. Vui lòng xóa bớt JD cũ để có thể thêm mới.</span>
+                <AlertCircle size={20} className="flex-shrink-0" />
+                <span className="text-xs">Bạn đã đạt giới hạn 5 JD. Hãy xóa JD cũ để thêm mới.</span>
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {mockJDs.map(jd => (
-                <div key={jd.id} className="mycv-info-card hover:border-primary transition-colors cursor-pointer" onClick={() => handleJDClick(jd.id)}>
-                  <div className="mycv-info-card-accent bg-[#4A90E2]" />
-                  <div className="mycv-info-left flex-1 overflow-hidden">
-                    <div className="mycv-info-icon-box bg-[#4A90E2]/10 text-[#4A90E2]">
-                      <Briefcase size={24} />
-                    </div>
-                    <div className="mycv-info-details min-w-0 flex-1">
-                      <div className="flex justify-between items-start gap-2">
-                        <h3 className="font-semibold text-text-primary truncate" title={jd.fileName}>
-                          {jd.fileName}
-                        </h3>
-                        <span className="mycv-badge mycv-badge--info text-[10px] uppercase">
-                          {jd.type === 'file' ? 'PDF' : 'Text'}
-                        </span>
+            {isLoadingJds ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-text-secondary">Đang tải danh sách JD...</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {jds.map(jd => (
+                  <div key={jd.jdFileId} className="mycv-info-card hover:border-primary transition-colors cursor-pointer" onClick={() => handleJDClick(jd.jdFileId)}>
+                    <div className="mycv-info-card-accent bg-[#4A90E2]" />
+                    <div className="mycv-info-left flex-1 overflow-hidden">
+                      <div className="mycv-info-icon-box bg-[#4A90E2]/10 text-[#4A90E2]">
+                        <Briefcase size={24} />
                       </div>
-                      <p className="text-sm text-text-secondary mt-1 font-medium">{jd.company}</p>
-                      <p className="mycv-info-date mt-1">Tải lên: {formatDate(jd.uploadedAt)}</p>
+                      <div className="mycv-info-details min-w-0 flex-1">
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="font-semibold text-sm text-text-primary truncate" title={jd.fileName || 'JD Text'}>
+                            {jd.fileName || 'JD nhập bằng Text'}
+                          </h3>
+                          <span className="mycv-badge mycv-badge--info text-[10px] uppercase whitespace-nowrap">
+                            {jd.inputType === 1 ? 'Text' : 'PDF'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-text-secondary mt-1">Tải lên: {formatDate(jd.uploadedAt)}</p>
+                      </div>
+                    </div>
+                    <div className="mycv-info-actions border-l border-border pl-3 ml-2 flex gap-1">
+                      <button className="p-1.5 text-text-secondary hover:text-primary transition-colors bg-surface-2 rounded hover:bg-primary/10" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); handleJDClick(jd.jdFileId); }}>
+                        <Eye size={16} />
+                      </button>
+                      <button className="p-1.5 text-text-secondary hover:text-error transition-colors bg-surface-2 rounded hover:bg-error/10" title="Xóa" onClick={(e) => handleDeleteJD(jd.jdFileId, e)}>
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
-                  <div className="mycv-info-actions border-l border-border pl-4 ml-2">
-                    <button className="p-2 text-text-secondary hover:text-primary transition-colors" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); handleJDClick(jd.id); }}>
-                      <Eye size={18} />
-                    </button>
-                    <button className="p-2 text-text-secondary hover:text-error transition-colors" title="Xóa" onClick={(e) => { e.stopPropagation(); setMockJDs(mockJDs.filter(item => item.id !== jd.id)); }}>
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             
-            {mockJDs.length === 0 && (
-              <div className="text-center py-12 bg-surface-2 rounded-xl border border-dashed border-border">
+            {!isLoadingJds && jds.length === 0 && (
+              <div className="text-center py-12 bg-surface-2 rounded-xl border border-dashed border-border flex flex-col items-center justify-center">
                 <Briefcase size={48} className="mx-auto text-text-disabled mb-4" />
                 <p className="text-text-secondary">Bạn chưa có JD nào.</p>
               </div>
             )}
           </div>
-        )}
+        </div>
 
       </div>
 
@@ -340,7 +316,7 @@ function CVJDManagementPage() {
                   <p className="text-sm text-text-secondary mb-4">Hỗ trợ định dạng PDF (tối đa 5MB)</p>
                   <label className="mycv-btn mycv-btn--primary mx-auto w-max cursor-pointer">
                     Chọn tệp
-                    <input type="file" accept=".pdf" hidden onChange={(e) => { if(e.target.files.length) submitJDUpload() }} />
+                    <input type="file" accept=".pdf" hidden onChange={(e) => { if(e.target.files.length) submitJDUpload(e.target.files[0]) }} />
                   </label>
                 </div>
               ) : (
@@ -361,7 +337,7 @@ function CVJDManagementPage() {
               {jdUploadType === 'text' && (
                 <button 
                   className="mycv-btn mycv-btn--primary" 
-                  onClick={submitJDUpload}
+                  onClick={() => submitJDUpload()}
                   disabled={!jdText.trim()}
                 >
                   Xác nhận lưu

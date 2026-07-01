@@ -1,6 +1,6 @@
-﻿namespace ai_speis_be.Repositories.CVRepo
+namespace ai_speis_be.Repositories.CVRepo
 {
-    public class JDQueryParameters
+    public class CVQueryParameters
     {
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
