@@ -5,6 +5,8 @@ import { USER_ROUTES } from './routePaths';
 import MyCVPage from '../pages/user/MyCVPage';
 import CVJDManagementPage from '../pages/user/CVJDManagementPage';
 import QuestionsPage from '../pages/user/QuestionsPage';
+import DeviceReadinessCheckPage from '../pages/user/DeviceReadinessCheckPage';
+import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
 
 function UserRoutes({ pathname }) {
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
@@ -13,7 +15,9 @@ function UserRoutes({ pathname }) {
     pathname === USER_ROUTES.DASHBOARD ||
     pathname === USER_ROUTES.CV ||
     pathname === USER_ROUTES.CV_DETAIL ||
-    pathname === USER_ROUTES.QUESTIONS;
+    pathname === USER_ROUTES.QUESTIONS ||
+    pathname === USER_ROUTES.DEVICE_CHECK ||
+    pathname === USER_ROUTES.INTERVIEW_ROOM;
 
   useEffect(() => {
     if (isUserRoot || isProfileRoute || !isKnownRoute) {
@@ -31,6 +35,14 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.QUESTIONS) {
     return <QuestionsPage />;
+  }
+
+  if (pathname === USER_ROUTES.DEVICE_CHECK) {
+    return <DeviceReadinessCheckPage />;
+  }
+
+  if (pathname === USER_ROUTES.INTERVIEW_ROOM) {
+    return <AIInterviewRoomPage />;
   }
 
   return isKnownRoute ? <DashboardPage /> : null;

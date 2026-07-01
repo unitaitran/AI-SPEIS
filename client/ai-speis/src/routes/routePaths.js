@@ -10,6 +10,8 @@ export const USER_ROUTES = {
   CV: '/user/cv-management',
   CV_DETAIL: '/user/cv',
   QUESTIONS: '/user/questions',
+  DEVICE_CHECK: '/user/interview/device-check',
+  INTERVIEW_ROOM: '/user/interview/room',
 };
 
 export const AUTHENTICATED_ADMIN_ROUTES = {

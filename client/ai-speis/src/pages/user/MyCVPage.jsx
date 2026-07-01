@@ -26,6 +26,8 @@ import {
 import UserLayout from '../../layouts/user/UserLayout';
 import cvService from '../../services/CVService';
 import { API_BASE_URL } from '../../config/api';
+import { navigate } from '../../routes/navigation';
+import { USER_ROUTES } from '../../routes/routePaths';
 import '../../styles/user/MyCVPage.css';
 
 /* ========================================================================= */
@@ -1016,10 +1018,14 @@ function MyCVPage() {
                         <p>{t('mycv.practice_desc', 'AI đã cá nhân hóa bộ câu hỏi phỏng vấn dựa trên CV vừa tải lên.')}</p>
                       </div>
                     </div>
-                    <a href="#dashboard" className="mycv-btn mycv-btn--primary mycv-btn--sm">
+                    <button
+                      type="button"
+                      className="mycv-btn mycv-btn--primary mycv-btn--sm"
+                      onClick={() => navigate(USER_ROUTES.DEVICE_CHECK)}
+                    >
                       {t('mycv.start_practice', 'Bắt đầu phỏng vấn ngay')}
                       <ChevronRight size={14} />
-                    </a>
+                    </button>
                   </div>
                 )}
               </>

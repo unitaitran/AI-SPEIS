@@ -155,7 +155,13 @@ function UserSidebar({ isOpen, onNavigate }) {
 
       {/* Start Interview Button */}
       <div className="p-4 shrink-0 bg-surface-2 border-t border-border">
-        <button className="w-full bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-sm font-semibold py-3 px-4 rounded transition-all shadow-sm cursor-pointer">
+        <button
+          className="w-full bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-sm font-semibold py-3 px-4 rounded transition-all shadow-sm cursor-pointer"
+          onClick={() => {
+            navigate(USER_ROUTES.DEVICE_CHECK);
+            if (onNavigate) onNavigate();
+          }}
+        >
           {t('sidebar.start_interview', 'Bắt đầu phỏng vấn')}
         </button>
       </div>
