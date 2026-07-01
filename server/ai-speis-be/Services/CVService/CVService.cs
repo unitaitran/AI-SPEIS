@@ -89,7 +89,7 @@ namespace ai_speis_be.Services.CVService
             }
         }
 
-        public async Task<PagedResultDto<CVDto>> GetAllCVsAsync(CVQueryParameters query)
+        public async Task<PagedResultDto<CVDto>> GetAllCVsAsync(JDQueryParameters query)
         {
             // 1. Gọi Repo để lấy danh sách Entity phân trang
             var pagedCVFiles = await _cvRepository.GetAllCVAsync(query);
@@ -111,7 +111,7 @@ namespace ai_speis_be.Services.CVService
             return cv != null ? MapToDto(cv) : null;
         }
 
-        public async Task<PagedResultDto<CVDto>> GetCVByUserIdAsync(int userId, CVQueryParameters query)
+        public async Task<PagedResultDto<CVDto>> GetCVByUserIdAsync(int userId, JDQueryParameters query)
         {
             var pagedCVs = await _cvRepository.GetCVByUserIdAsync(userId, query);
             var cvDtos = pagedCVs.Items.Select(MapToDto).ToList();
