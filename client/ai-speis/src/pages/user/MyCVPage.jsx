@@ -22,8 +22,11 @@ import {
   X,
   Edit3,
   Clock,
+  ArrowLeft
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
+import { navigate } from '../../routes/navigation';
+import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import { API_BASE_URL } from '../../config/api';
 import '../../styles/user/MyCVPage.css';
@@ -515,7 +518,14 @@ function MyCVPage() {
     <UserLayout>
       <div className="mycv-container animate-pageEntrance">
         {/* Page Header */}
-        <section className="mycv-header">
+        <section className="mycv-header relative flex flex-col md:flex-row">
+          <button 
+            className="md:absolute md:right-[100%] md:mr-4 w-10 h-10 flex-shrink-0 flex items-center justify-center bg-surface-1 text-text-secondary hover:text-primary rounded-xl border border-border shadow-sm transition-colors mt-0 mb-4 md:mb-0 z-10"
+            onClick={() => navigate(USER_ROUTES.CV)}
+            title="Quay lại"
+          >
+            <ArrowLeft size={20} />
+          </button>
           <div>
             <h1 className="mycv-title">{t('mycv.title', 'CV của tôi')}</h1>
             <p className="mycv-subtitle">

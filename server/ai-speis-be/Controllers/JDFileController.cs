@@ -49,6 +49,18 @@ namespace ai_speis_be.Controllers
           
             return Ok(JD);
         }
+
+        [HttpGet("history")]
+        [Authorize]
+        public async Task<IActionResult> GetMyJDHistory([FromQuery] JDQueryParameters query)
+        {
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+            }
+            var jds = await _jdService.GetJDByUserIdAsync(userId, query);
+            return Ok(jds);
+        }
         [HttpPost("upload")]
         [Authorize]
         public async Task<IActionResult> UploadJD(IFormFile file)

@@ -32,7 +32,7 @@ namespace ai_speis_be.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllCV([FromQuery] JDQueryParameters query, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetAllCV([FromQuery] CVQueryParameters query, CancellationToken cancellationToken)
         {
             var CV = await _cvService.GetAllCVsAsync(query);
             return Ok(CV);
@@ -40,7 +40,7 @@ namespace ai_speis_be.Controllers
 
         [HttpGet("user/{userId:int}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetUserCV(int userId, [FromQuery] JDQueryParameters query, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetUserCV(int userId, [FromQuery] CVQueryParameters query, CancellationToken cancellationToken)
         {
             if (userId <= 0)
                 return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });

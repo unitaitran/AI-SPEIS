@@ -19,7 +19,7 @@ namespace ai_speis_be.Repositories.CVRepo
             _context = context;
         }
         
-        public async Task<PagedResult<CVFile>> GetAllCVAsync(JDQueryParameters query, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<CVFile>> GetAllCVAsync(CVQueryParameters query, CancellationToken cancellationToken = default)
         {
             var CVFiles = _context.CVFiles.AsQueryable();
             if(!string.IsNullOrEmpty(query.Status) && Enum.TryParse<CVFileStatus>(query.Status, true, out var statusEnum))
@@ -49,7 +49,7 @@ namespace ai_speis_be.Repositories.CVRepo
             return await _context.CVFiles.Include(c => c.User).FirstOrDefaultAsync(c => c.CVFileId == id && c.Status != CVFileStatus.Archived);
         }
 
-        public async Task<PagedResult<CVFile>> GetCVByUserIdAsync(int userId,JDQueryParameters query, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<CVFile>> GetCVByUserIdAsync(int userId,CVQueryParameters query, CancellationToken cancellationToken = default)
         {
             var cvFiles = _context.CVFiles.AsNoTracking().Where(c => c.UserId == userId);
             if(!string.IsNullOrEmpty(query.Status) && Enum.TryParse<CVFileStatus>(query.Status, true, out var statusEnum))
