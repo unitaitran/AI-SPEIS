@@ -64,5 +64,6 @@ namespace ai_speis_be.Models
         public virtual  Role Role { get; set; } = null!;
         
         public virtual ICollection<CVFile> CVFiles { get; set; } = new List<CVFile>();
+        public virtual ICollection<JDFile> JDFiles { get; set; } = new List<JDFile>();
     }
 }

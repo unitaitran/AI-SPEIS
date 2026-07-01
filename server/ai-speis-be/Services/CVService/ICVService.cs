@@ -11,9 +11,9 @@ namespace ai_speis_be.Services.CVService
     public interface ICVService
     {
         Task<(bool Success, string? ErrorMessage, CVDto? CVDto)> UploadCVAsync(int userId, IFormFile file);
-        Task<PagedResultDto<CVDto>> GetAllCVsAsync(CVQueryParameters query);
+        Task<PagedResultDto<CVDto>> GetAllCVsAsync(JDQueryParameters query);
         Task<CVDto?> GetCVByIdAsync(int id);
-        Task<PagedResultDto<CVDto>> GetCVByUserIdAsync(int userId, CVQueryParameters query);
+        Task<PagedResultDto<CVDto>> GetCVByUserIdAsync(int userId, JDQueryParameters query);
         Task<(bool Success, string? ErrorMessage)> DeleteCVAsync(int id);
         Task<CVDto?> GetMyCVAsync(int userId);
 
