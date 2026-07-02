@@ -18,5 +18,6 @@ namespace ai_speis_be.Services.JDService
         Task<object?> GetParseStatusAsync(int userId, int jdId);
         Task<JdParsedDataResponse?> GetParsedDataAsync(int userId, int jdId);
         Task<bool> ConfirmParsedDataAsync(int userId, int jdId, JdConfirmRequest request);
+        Task<CvJdMatchResultResponse?> MatchCvToJdAsync(int userId, int jdId, int cvId);
     }
 }

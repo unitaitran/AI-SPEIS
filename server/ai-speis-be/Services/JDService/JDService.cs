@@ -7,6 +7,7 @@ using ai_speis_be.Services.BackgroundWorker;
 using ai_speis_be.DTOs.JdParsing;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using ai_speis_be.Services.GeminiAiParsingService;
 
 namespace ai_speis_be.Services.JDService
 {
@@ -16,13 +17,15 @@ namespace ai_speis_be.Services.JDService
         private readonly IFileValidatorService _fileValidatorService;
         private readonly ApplicationDbContext _context;
         private readonly IJdParseQueue _jdParseQueue;
+        private readonly IGeminiAiParsingService _aiParsingService;
 
-        public JDService(IJDRepository jdRepository, IFileValidatorService fileValidatorService, ApplicationDbContext context, IJdParseQueue jdParseQueue)
+        public JDService(IJDRepository jdRepository, IFileValidatorService fileValidatorService, ApplicationDbContext context, IJdParseQueue jdParseQueue, IGeminiAiParsingService aiParsingService)
         {
             _jdRepository = jdRepository;
             _fileValidatorService = fileValidatorService;
             _context = context;
             _jdParseQueue = jdParseQueue;
+            _aiParsingService = aiParsingService;
         }
 
         // ===================== DELETE =====================
@@ -251,6 +254,62 @@ namespace ai_speis_be.Services.JDService
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        public async Task<CvJdMatchResultResponse?> MatchCvToJdAsync(int userId, int jdId, int cvId)
+        {
+            // 1. Verify CV and JD belong to User
+            var cvFile = await _context.CVFiles.FirstOrDefaultAsync(c => c.CVFileId == cvId && c.UserId == userId);
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+
+            if (cvFile == null || jdFile == null) return null;
+
+            // 2. Fetch Parsed Profiles
+            var cvProfile = await _context.CVExtractedProfiles
+                .Include(p => p.Skills)
+                .Include(p => p.Projects)
+                .FirstOrDefaultAsync(p => p.CVFileId == cvId);
+
+            var jdProfile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
+
+            if (cvProfile == null || jdProfile == null) return null;
+
+            // 3. Serialize into JSON for AI Context
+            var cvJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                cvProfile.RoleTarget,
+                cvProfile.OverallAssessment,
+                cvProfile.Strengths,
+                cvProfile.Weaknesses,
+                cvProfile.Experience,
+                cvProfile.Education,
+                Skills = cvProfile.Skills.Select(s => s.SkillName).ToList(),
+                Projects = cvProfile.Projects.Select(p => p.ProjectSummary).ToList()
+            });
+
+            var jdJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                jdProfile.JobTitle,
+                jdProfile.ExperienceLevel,
+                jdProfile.RequiredSkills,
+                jdProfile.NiceToHaveSkills,
+                jdProfile.Responsibilities,
+                jdProfile.CompanyCharacteristics
+            });
+
+            // 4. Call AI Matching
+            var (success, result, raw, error) = await _aiParsingService.EvaluateCvAgainstJdAsync(cvJson, jdJson);
+            
+            if (!success || result == null)
+            {
+                return new CvJdMatchResultResponse
+                {
+                    Success = false,
+                    ErrorMessage = error ?? "Lỗi phân tích AI."
+                };
+            }
+
+            return result;
         }
     }
 }
