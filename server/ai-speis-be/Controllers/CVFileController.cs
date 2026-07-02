@@ -171,6 +171,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> TriggerParse(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+
             try
             {
                 if (!TryGetUserId(out int userId))
@@ -196,7 +199,13 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> GetParseStatus(int id)
         {
-            var result = await _cvService.GetParseStatusAsync(id);
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+
+            if (!TryGetUserId(out int userId))
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var result = await _cvService.GetParseStatusAsync(id, userId);
             if (result == null)
                 return NotFound(new { Message = "Không tìm thấy file CV." });
 
@@ -210,7 +219,13 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> GetParsedData(int id)
         {
-            var result = await _cvService.GetParsedDataAsync(id);
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+
+            if (!TryGetUserId(out int userId))
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var result = await _cvService.GetParsedDataAsync(id, userId);
             if (result == null)
                 return NotFound(new { Message = "Chưa có dữ liệu trích xuất cho CV này." });
 
@@ -224,6 +239,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> ConfirmParsedData(int id, [FromBody] CvConfirmRequest request)
         {
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+
             try
             {
                 if (!TryGetUserId(out int userId))

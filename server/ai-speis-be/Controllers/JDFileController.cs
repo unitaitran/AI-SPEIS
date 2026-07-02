@@ -174,6 +174,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> TriggerParse(int jdId)
         {
+            if (jdId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "JD ID phải là số nguyên dương." });
+
             if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
 
             var result = await _jdService.TriggerParseAsync(userId, jdId);
@@ -186,6 +189,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> GetParseStatus(int jdId)
         {
+            if (jdId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "JD ID phải là số nguyên dương." });
+
             if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
 
             var status = await _jdService.GetParseStatusAsync(userId, jdId);
@@ -198,6 +204,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> GetParsedData(int jdId)
         {
+            if (jdId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "JD ID phải là số nguyên dương." });
+
             if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
 
             var data = await _jdService.GetParsedDataAsync(userId, jdId);
@@ -210,6 +219,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> ConfirmParsedData(int jdId, [FromBody] JdConfirmRequest request)
         {
+            if (jdId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "JD ID phải là số nguyên dương." });
+
             if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
 
             if (!ModelState.IsValid) return BadRequest(ModelState);

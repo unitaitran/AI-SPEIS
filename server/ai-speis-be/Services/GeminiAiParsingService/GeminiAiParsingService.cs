@@ -28,7 +28,9 @@ namespace ai_speis_be.Services.GeminiAiParsingService
 
                 string prompt = @"
 You are an expert HR recruiter and document classifier.
-You will receive text extracted from a PDF file. Perform ALL 3 steps below and return a single JSON object.
+You will receive text extracted from a PDF file. The document can be in Vietnamese or English.
+Perform ALL 3 steps below and return a single JSON object.
+IMPORTANT: YOU MUST OUTPUT ALL EXTRACTED DATA AND ASSESSMENTS STRICTLY IN VIETNAMESE, REGARDLESS OF THE ORIGINAL DOCUMENT'S LANGUAGE.
 
 === STEP 1: DOCUMENT CLASSIFICATION ===
 Determine if this document is a CV/resume. Score it from 0.0 to 1.0 based on these signals:
@@ -43,9 +45,9 @@ Set isValidCv=false with invalidReason if score < 0.50.
 
 === STEP 2: CV ASSESSMENT (skip if isValidCv=false) ===
 Write in Vietnamese:
-- overallAssessment: 2-3 sentence overall evaluation of the candidate
-- strengths: Key strengths (skills, experience, education highlights)
-- weaknesses: Areas for improvement or gaps
+- overallAssessment: 2-3 sentence overall evaluation of the candidate (in Vietnamese)
+- strengths: Key strengths (skills, experience, education highlights) (in Vietnamese)
+- weaknesses: Areas for improvement or gaps (in Vietnamese)
 
 === STEP 3: STRUCTURED DATA EXTRACTION (skip if isValidCv=false) ===
 RULES:
@@ -173,7 +175,9 @@ Document text:
 
                 string prompt = @"
 You are an expert IT recruiter and document classifier.
-You will receive text extracted from a Job Description (JD) file or raw text input. Perform ALL 3 steps below and return a single JSON object.
+You will receive text extracted from a Job Description (JD) file or raw text input. The JD can be in Vietnamese or English.
+Perform ALL 3 steps below and return a single JSON object.
+IMPORTANT: YOU MUST OUTPUT ALL EXTRACTED DATA STRICTLY IN VIETNAMESE, REGARDLESS OF THE ORIGINAL JD'S LANGUAGE. Translate fields like Job Title, Experience Level, and Responsibilities if necessary.
 
 === STEP 1: DOCUMENT CLASSIFICATION ===
 Determine if this document is actually a Job Description (JD). Score it from 0.0 to 1.0 based on these signals:
@@ -186,26 +190,26 @@ Sum the weights of signals found to get jdConfidenceScore.
 Set isValidJd=false with invalidReason if score < 0.50.
 
 === STEP 2: STRUCTURED DATA EXTRACTION (skip if isValidJd=false) ===
-Extract the following information from the JD:
-- jobTitle: The main job title being recruited.
-- experienceLevel: e.g. Junior, Mid-level, Senior, Fresher, Intern (infer if not explicit).
+Extract the following information from the JD (Translate to Vietnamese):
+- jobTitle: The main job title being recruited (e.g. Lập trình viên Backend, Chuyên viên Frontend).
+- experienceLevel: e.g. Thực tập sinh, Fresher, Junior, Mid-level, Senior (infer if not explicit).
 - requiredSkills: Array of MUST HAVE technical and soft skills.
 - niceToHaveSkills: Array of PLUS or nice-to-have skills.
-- responsibilities: A short paragraph summarizing the key responsibilities (max 3 sentences).
-- companyCharacteristics: Extract any specific traits, culture, domain, or environment of the company (e.g. ""Product company in FinTech"", ""Fast-paced startup"", ""Agile environment"").
+- responsibilities: A short paragraph summarizing the key responsibilities (max 3 sentences in Vietnamese).
+- companyCharacteristics: Extract any specific traits, culture, domain, or environment of the company (e.g. ""Công ty làm Product về EdTech"", ""Môi trường Startup năng động"", ""Làm việc Agile"").
 
 === STEP 3: JSON FORMATTING ===
 Return ONLY a raw JSON object (no markdown tags, no ```json) matching this exact structure:
 {
   ""isValidJd"": true/false,
   ""jdConfidenceScore"": 0.85,
-  ""invalidReason"": ""This is a recipe, not a JD"" (or null if valid),
-  ""jobTitle"": ""Backend Developer"",
+  ""invalidReason"": ""Đây là công thức nấu ăn, không phải JD"" (or null if valid),
+  ""jobTitle"": ""Lập trình viên Backend"",
   ""experienceLevel"": ""Junior"",
   ""requiredSkills"": [""C#"", "".NET Core"", ""SQL Server""],
   ""niceToHaveSkills"": [""Docker"", ""Redis""],
-  ""responsibilities"": ""Develop and maintain APIs. Collaborate with frontend team."",
-  ""companyCharacteristics"": ""Product company focusing on AI in EdTech. Agile culture.""
+  ""responsibilities"": ""Phát triển và bảo trì các API. Phối hợp với đội frontend để hoàn thiện tính năng."",
+  ""companyCharacteristics"": ""Công ty Product tập trung vào AI trong mảng EdTech. Văn hóa Agile.""
 }
 
 Ensure the output is valid JSON.
