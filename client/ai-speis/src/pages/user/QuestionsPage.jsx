@@ -63,7 +63,7 @@ function QuestionsPage() {
         }
 
         // Fetch all questions
-        const questionsResponse = await fetch(ENDPOINTS.QUESTIONS_GET, {
+        const questionsResponse = await fetch(`${ENDPOINTS.QUESTIONS_GET}?pageSize=100000`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
