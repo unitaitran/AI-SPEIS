@@ -96,6 +96,10 @@ builder.Services.AddScoped<IJDRepository, JDRepository>();
 builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
 builder.Services.AddHostedService<CvParsingBackgroundService>();
 
+// Background Worker for JD Parsing
+builder.Services.AddSingleton<IJdParseQueue, JdParseQueue>();
+builder.Services.AddHostedService<JdParsingBackgroundService>();
+
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();
 builder.Services.AddScoped<IQuestionService, QuestionService>();
@@ -270,3 +274,5 @@ static string? FindEnvFile()
 
     return null;
 }
+
+public partial class Program { }

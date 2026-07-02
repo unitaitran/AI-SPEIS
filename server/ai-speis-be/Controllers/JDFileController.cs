@@ -1,5 +1,6 @@
 using ai_speis_be.Services.JDService;
 using ai_speis_be.Models.DTOs;
+using ai_speis_be.DTOs.JdParsing;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ai_speis_be.Repositories.JDRepo;
@@ -167,6 +168,56 @@ namespace ai_speis_be.Controllers
             return Ok(new { Message = "Xóa file JD thành công." });
         }
 
-    }
+        // ===================== AI PARSING ENDPOINTS =====================
 
+        [HttpPost("{jdId}/parse")]
+        [Authorize]
+        public async Task<IActionResult> TriggerParse(int jdId)
+        {
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var result = await _jdService.TriggerParseAsync(userId, jdId);
+            if (!result) return BadRequest(new { success = false, message = "Could not start parsing. File might not exist or is already parsed." });
+
+            return Ok(new { success = true, message = "Parsing started successfully" });
+        }
+
+        [HttpGet("{jdId}/status")]
+        [Authorize]
+        public async Task<IActionResult> GetParseStatus(int jdId)
+        {
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var status = await _jdService.GetParseStatusAsync(userId, jdId);
+            if (status == null) return NotFound(new { success = false, message = "JD not found" });
+
+            return Ok(new { success = true, data = status });
+        }
+
+        [HttpGet("{jdId}/parsed-data")]
+        [Authorize]
+        public async Task<IActionResult> GetParsedData(int jdId)
+        {
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var data = await _jdService.GetParsedDataAsync(userId, jdId);
+            if (data == null) return NotFound(new { success = false, message = "Parsed data not found or JD not parsed yet" });
+
+            return Ok(new { success = true, data });
+        }
+
+        [HttpPut("{jdId}/confirm")]
+        [Authorize]
+        public async Task<IActionResult> ConfirmParsedData(int jdId, [FromBody] JdConfirmRequest request)
+        {
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var result = await _jdService.ConfirmParsedDataAsync(userId, jdId, request);
+            if (!result) return BadRequest(new { success = false, message = "Failed to confirm data. JD might not exist or data is invalid." });
+
+            return Ok(new { success = true, message = "JD data confirmed successfully" });
+        }
+    }
 }

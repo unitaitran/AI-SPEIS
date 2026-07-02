@@ -3,6 +3,10 @@ using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.JDRepo;
 using ai_speis_be.Services.FileValidatorService;
+using ai_speis_be.Services.BackgroundWorker;
+using ai_speis_be.DTOs.JdParsing;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace ai_speis_be.Services.JDService
 {
@@ -11,12 +15,14 @@ namespace ai_speis_be.Services.JDService
         private readonly IJDRepository _jdRepository;
         private readonly IFileValidatorService _fileValidatorService;
         private readonly ApplicationDbContext _context;
+        private readonly IJdParseQueue _jdParseQueue;
 
-        public JDService(IJDRepository jdRepository, IFileValidatorService fileValidatorService, ApplicationDbContext context)
+        public JDService(IJDRepository jdRepository, IFileValidatorService fileValidatorService, ApplicationDbContext context, IJdParseQueue jdParseQueue)
         {
             _jdRepository = jdRepository;
             _fileValidatorService = fileValidatorService;
             _context = context;
+            _jdParseQueue = jdParseQueue;
         }
 
         // ===================== DELETE =====================
@@ -159,6 +165,92 @@ namespace ai_speis_be.Services.JDService
                 UploadedAt = jd.UploadedAt,
                 UpdatedAt = jd.UpdatedAt
             };
+        }
+
+        // ===================== AI PARSING =====================
+
+        public async Task<bool> TriggerParseAsync(int userId, int jdId)
+        {
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+            if (jdFile == null) return false;
+
+            if (jdFile.Status == JDFileStatus.Processing || jdFile.Status == JDFileStatus.Confirmed)
+                return false; // Already parsing or done
+
+            // Delete old profile if exists
+            var oldProfile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
+            if (oldProfile != null)
+            {
+                _context.JDExtractedProfiles.Remove(oldProfile);
+            }
+
+            jdFile.Status = JDFileStatus.Processing;
+            jdFile.ErrorMessage = null;
+            await _context.SaveChangesAsync();
+
+            await _jdParseQueue.QueueJdForParsingAsync(jdId);
+            return true;
+        }
+
+        public async Task<object?> GetParseStatusAsync(int userId, int jdId)
+        {
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+            if (jdFile == null) return null;
+
+            return new
+            {
+                Status = jdFile.Status.ToString(),
+                ErrorMessage = jdFile.ErrorMessage
+            };
+        }
+
+        public async Task<JdParsedDataResponse?> GetParsedDataAsync(int userId, int jdId)
+        {
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+            if (jdFile == null) return null;
+
+            var profile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
+            if (profile == null) return null;
+
+            return new JdParsedDataResponse
+            {
+                ExtractedProfileId = profile.ExtractedProfileId,
+                JDFileId = profile.JDFileId,
+                JobTitle = profile.JobTitle,
+                ExperienceLevel = profile.ExperienceLevel,
+                RequiredSkills = JsonSerializer.Deserialize<List<string>>(profile.RequiredSkills) ?? new List<string>(),
+                NiceToHaveSkills = JsonSerializer.Deserialize<List<string>>(profile.NiceToHaveSkills) ?? new List<string>(),
+                Responsibilities = profile.Responsibilities,
+                CompanyCharacteristics = profile.CompanyCharacteristics,
+                ConfidenceScore = profile.ConfidenceScore,
+                WarningMessage = profile.ConfidenceScore < 0.80m ? "Confidence score is low. Please verify the extracted data carefully." : null
+            };
+        }
+
+        public async Task<bool> ConfirmParsedDataAsync(int userId, int jdId, JdConfirmRequest request)
+        {
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+            if (jdFile == null) return false;
+
+            var profile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
+            if (profile == null) return false;
+
+            profile.JobTitle = request.JobTitle;
+            profile.ExperienceLevel = request.ExperienceLevel;
+            profile.RequiredSkills = JsonSerializer.Serialize(request.RequiredSkills);
+            profile.NiceToHaveSkills = JsonSerializer.Serialize(request.NiceToHaveSkills);
+            profile.Responsibilities = request.Responsibilities;
+            profile.CompanyCharacteristics = request.CompanyCharacteristics;
+            
+            profile.IsConfirmed = true;
+            profile.ConfirmedBy = userId;
+            profile.ConfirmedAt = DateTime.UtcNow;
+            profile.UpdatedAt = DateTime.UtcNow;
+
+            jdFile.Status = JDFileStatus.Confirmed;
+            await _context.SaveChangesAsync();
+
+            return true;
         }
     }
 }

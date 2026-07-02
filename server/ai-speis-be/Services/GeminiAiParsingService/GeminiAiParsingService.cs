@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using ai_speis_be.DTOs.CvParsing;
+using ai_speis_be.DTOs.JdParsing;
 using Microsoft.Extensions.Configuration;
 using Mscc.GenerativeAI;
 using Mscc.GenerativeAI.Types;
@@ -161,6 +162,79 @@ Document text:
                 }
             }
             throw new Exception("Quá số lần thử lại khi gọi API Gemini.");
+        }
+
+        public async Task<(bool Success, JdParsedResult? Data, string? RawResponse, string? Error)> ParseJdTextAsync(string jdText)
+        {
+            try
+            {
+                var googleAi = new GoogleAI(_apiKey);
+                var model = googleAi.GenerativeModel(model: "gemini-2.5-flash");
+
+                string prompt = @"
+You are an expert IT recruiter and document classifier.
+You will receive text extracted from a Job Description (JD) file or raw text input. Perform ALL 3 steps below and return a single JSON object.
+
+=== STEP 1: DOCUMENT CLASSIFICATION ===
+Determine if this document is actually a Job Description (JD). Score it from 0.0 to 1.0 based on these signals:
+- Has a clear Job Title (weight: 0.20)
+- Has Requirements / Required Skills section (weight: 0.25)
+- Has Responsibilities / What you will do section (weight: 0.25)
+- Has Company introduction / Benefits / Salary (weight: 0.20)
+- Is NOT a CV/resume, invoice, contract, report, or syllabus (weight: 0.10)
+Sum the weights of signals found to get jdConfidenceScore.
+Set isValidJd=false with invalidReason if score < 0.50.
+
+=== STEP 2: STRUCTURED DATA EXTRACTION (skip if isValidJd=false) ===
+Extract the following information from the JD:
+- jobTitle: The main job title being recruited.
+- experienceLevel: e.g. Junior, Mid-level, Senior, Fresher, Intern (infer if not explicit).
+- requiredSkills: Array of MUST HAVE technical and soft skills.
+- niceToHaveSkills: Array of PLUS or nice-to-have skills.
+- responsibilities: A short paragraph summarizing the key responsibilities (max 3 sentences).
+- companyCharacteristics: Extract any specific traits, culture, domain, or environment of the company (e.g. ""Product company in FinTech"", ""Fast-paced startup"", ""Agile environment"").
+
+=== STEP 3: JSON FORMATTING ===
+Return ONLY a raw JSON object (no markdown tags, no ```json) matching this exact structure:
+{
+  ""isValidJd"": true/false,
+  ""jdConfidenceScore"": 0.85,
+  ""invalidReason"": ""This is a recipe, not a JD"" (or null if valid),
+  ""jobTitle"": ""Backend Developer"",
+  ""experienceLevel"": ""Junior"",
+  ""requiredSkills"": [""C#"", "".NET Core"", ""SQL Server""],
+  ""niceToHaveSkills"": [""Docker"", ""Redis""],
+  ""responsibilities"": ""Develop and maintain APIs. Collaborate with frontend team."",
+  ""companyCharacteristics"": ""Product company focusing on AI in EdTech. Agile culture.""
+}
+
+Ensure the output is valid JSON.
+
+=== JD TEXT TO ANALYZE ===
+" + jdText;
+
+                var response = await model.GenerateContent(prompt);
+                string jsonText = response.Text ?? "";
+
+                // Clean up possible markdown fences
+                if (jsonText.StartsWith("```"))
+                {
+                    jsonText = jsonText.Trim('`', '\n', '\r');
+                    if (jsonText.StartsWith("json"))
+                    {
+                        jsonText = jsonText.Substring(4).Trim();
+                    }
+                }
+
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var result = JsonSerializer.Deserialize<JdParsedResult>(jsonText, options);
+
+                return (true, result, response.Text, null);
+            }
+            catch (Exception ex)
+            {
+                return (false, null, null, ex.Message);
+            }
         }
     }
 }

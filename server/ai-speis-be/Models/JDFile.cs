@@ -34,6 +34,8 @@ namespace ai_speis_be.Models
         [Required]
         public DateTime UploadedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
+        [MaxLength(500)]
+        public string? ErrorMessage { get; set; }
         // Navigation properties
         public virtual User User { get; set; } = null!;
     }

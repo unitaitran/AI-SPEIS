@@ -6,7 +6,7 @@ namespace ai_speis_be.Services.FileValidatorService
 {
     public class FileValidatorService : IFileValidatorService
     {
-        private const long MinSizeInBytes = 100 * 1024; // 0.1 MB = 102,400 bytes
+        private const long MinSizeInBytes = 1024; // 1 KB = 1,024 bytes
         private const long MaxSizeInBytes = 5 * 1024 * 1024; // 5 MB = 5,242,880 bytes
         private readonly string[] _allowedExtensions = { ".pdf" };
         private readonly string[] _allowedMimeTypes = { "application/pdf" };
@@ -22,7 +22,7 @@ namespace ai_speis_be.Services.FileValidatorService
             if (file.Length < MinSizeInBytes || file.Length > MaxSizeInBytes)
             {
                 double currentSizeMb = file.Length / 1024.0 / 1024.0;
-                return (false, $"Kích thước file phải nằm trong khoảng từ 0.1 MB đến 5 MB. (File hiện tại: {currentSizeMb:F2} MB)");
+                return (false, $"Kích thước file không được nhỏ hơn 1 KB và tối đa là 5 MB. (File hiện tại: {currentSizeMb:F2} MB)");
             }
 
             // Validate Extension

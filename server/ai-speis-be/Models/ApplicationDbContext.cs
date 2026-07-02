@@ -18,6 +18,7 @@ namespace ai_speis_be.Models
         public DbSet<Question> Questions { get; set; } = null!;
         public DbSet<SavedQuestion> SavedQuestion { get; set; } = null!;
         public DbSet<JDFile> JDFiles { get; set; } = null!;
+        public DbSet<JDExtractedProfile> JDExtractedProfiles { get; set; } = null!;
   
 
 
