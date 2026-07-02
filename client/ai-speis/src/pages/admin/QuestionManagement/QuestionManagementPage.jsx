@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
@@ -206,9 +206,15 @@ function QuestionManagementPage() {
     setImportFile(null);
   };
 
-  const handleFileChange = (e) => {
+  const handleImportFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      setImportFile(e.target.files[0]);
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert(t('importSizeError', 'Kích thước file vượt quá 5MB. Vui lòng chọn file nhỏ hơn.'));
+        e.target.value = '';
+        return;
+      }
+      setImportFile(file);
     }
   };
 
@@ -249,15 +255,33 @@ function QuestionManagementPage() {
 
   const pageNumbers = getPageNumbers();
 
+  const getDifficultyClass = (val) => {
+    if (val === 0 || val === '0') return 'easy';
+    if (val === 1 || val === '1') return 'medium';
+    if (val === 2 || val === '2') return 'hard';
+    return String(val || '').toLowerCase();
+  };
+
   const getDifficultyLabel = (val) => {
-    if (val === 0 || val === '0') return 'Easy';
-    if (val === 1 || val === '1') return 'Medium';
-    if (val === 2 || val === '2') return 'Hard';
+    if (val === 0 || val === '0') return t('diffEasy', 'Easy');
+    if (val === 1 || val === '1') return t('diffMedium', 'Medium');
+    if (val === 2 || val === '2') return t('diffHard', 'Hard');
     return String(val || '');
   };
 
   return (
-    <div className="question-management-page">
+    <div className="question-management-page w-full animate-[fadeIn_0.5s_ease]">
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes cardEntrance {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .table-row-animate {
+          animation: cardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+          animation-delay: var(--delay, 0ms);
+        }
+      `}</style>
       <div className="page-header">
         <div className="breadcrumb">
           <span>{t('breadcrumbAdmin', 'Admin')}</span>
@@ -333,7 +357,7 @@ function QuestionManagementPage() {
           >
             {DIFFICULTY_OPTIONS.map((option) => (
               <option key={option} value={option}>
-                {option === 'all' ? t('statusAll', 'All Difficulties') : option}
+                {option === 'all' ? t('statusAll', 'All Difficulties') : t(`diff${option}`, option)}
               </option>
             ))}
           </select>
@@ -347,7 +371,7 @@ function QuestionManagementPage() {
       <section className="table-card">
         <div className="table-header-row">
           <p className="table-summary">
-            {t('tableSummary', 'Showing questions', { total: totalItems })}
+            {t('tableSummary', 'Showing {{total}} questions', { total: totalItems })}
           </p>
         </div>
 
@@ -384,9 +408,9 @@ function QuestionManagementPage() {
                   </td>
                 </tr>
               ) : (
-                questions.map((question) => (
-                  <tr key={question.questionId}>
-                    <td>Q-{question.questionId}</td>
+                questions.map((question, index) => (
+                  <tr key={question.questionId} className="table-row-animate" style={{ '--delay': `${index * 40}ms` }}>
+                    <td>{question.questionCode || `Q-${question.questionId}`}</td>
                     <td>
                       <div className="question-content-preview">
                         {question.questionContent}
@@ -395,7 +419,7 @@ function QuestionManagementPage() {
                     <td>{question.roleTarget}</td>
                     <td>{question.major}</td>
                     <td>
-                      <span className={`status-badge status-${getDifficultyLabel(question.difficulty).toLowerCase()}`}>
+                      <span className={`status-badge status-${getDifficultyClass(question.difficulty)}`}>
                         {getDifficultyLabel(question.difficulty)}
                       </span>
                     </td>
@@ -549,7 +573,7 @@ function QuestionManagementPage() {
                     value={questionToEdit.difficulty || 'Easy'}
                     onChange={handleEditChange}
                   >
-                    {DIFFICULTY_OPTIONS.filter(d => d !== 'all').map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {DIFFICULTY_OPTIONS.filter(d => d !== 'all').map(opt => <option key={opt} value={opt}>{t(`diff${opt}`, opt)}</option>)}
                   </select>
                 </div>
                 <div className="modal-form-group">
@@ -626,7 +650,7 @@ function QuestionManagementPage() {
                     value={newQuestion.difficulty || 'Easy'}
                     onChange={handleAddChange}
                   >
-                    {DIFFICULTY_OPTIONS.filter(d => d !== 'all').map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {DIFFICULTY_OPTIONS.filter(d => d !== 'all').map(opt => <option key={opt} value={opt}>{t(`diff${opt}`, opt)}</option>)}
                   </select>
                 </div>
                 <div className="modal-form-group">
@@ -675,7 +699,7 @@ function QuestionManagementPage() {
             </div>
             <div className="modal-body">
               <p>{t('importExcelDesc', 'Upload an Excel file to bulk import questions.')}</p>
-              <input type="file" accept=".xlsx, .xls" onChange={handleFileChange} />
+              <input type="file" accept=".xlsx, .xls" onChange={handleImportFileChange} />
             </div>
             <div className="modal-footer">
               <button type="button" className="btn-secondary" onClick={closeImportModal} disabled={importing}>

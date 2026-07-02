@@ -8,7 +8,7 @@ namespace ai_speis_be.Services.JDService
     public interface IJDService
     {
         Task<(bool Success, string? ErrorMessage, JDDto? JDDto)> UploadJDAsync(int userId, IFormFile file);
-        Task<(bool Success, string? ErrorMessage, JDDto? JDDto)> SubmitJDTextAsync(int userId, string rawText);
+        Task<(bool Success, string? ErrorMessage, JDDto? JDDto)> SubmitJDTextAsync(int userId, string fileName, string rawText);
         Task<PagedResultDto<JDDto>> GetAllJDsAsync(JDQueryParameters query);
         Task<JDDto?> GetJDByIdAsync(int id);
         Task<PagedResultDto<JDDto>> GetJDByUserIdAsync(int userId, JDQueryParameters query);

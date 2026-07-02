@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, Globe } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AdminMenuItem from '../AdminMenuItem/AdminMenuItem';
 import { ADMIN_MENU_ITEMS } from '../../../constants/adminMenu';
@@ -14,12 +14,6 @@ function AdminSidebar({ isOpen, pathname, onNavigate }) {
     onNavigate?.();
   };
 
-  const handleLogout = () => {
-    // TODO: Implement logout logic
-    localStorage.removeItem('token');
-    navigate('/login');
-    console.log('Logout clicked');
-  };
 
   return (
     <aside
@@ -43,7 +37,7 @@ function AdminSidebar({ isOpen, pathname, onNavigate }) {
         {ADMIN_MENU_ITEMS.map((item) => (
           <AdminMenuItem
             key={item.id}
-            item={{ ...item, label: t(`menu${item.label}`, item.label) }}
+            item={{ ...item, label: t(`menu_${item.id}`, item.label) }}
             isActive={pathname === item.path}
             onClick={(event) => handleMenuClick(event, item.path)}
           />
@@ -61,13 +55,7 @@ function AdminSidebar({ isOpen, pathname, onNavigate }) {
           </div>
           <span className="text-xs font-bold uppercase opacity-60 bg-black/5 px-2 py-1 rounded-md">{i18n.language === 'vi' ? 'VI' : 'EN'}</span>
         </button>
-        <button
-          className="flex min-h-11 w-full items-center gap-2.5 rounded-xl border border-border/60 bg-white/50 px-3 py-2.5 text-sm font-medium text-text-secondary backdrop-blur-sm transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-error/30 hover:bg-error-light hover:text-error hover:shadow-sm active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
-          onClick={handleLogout}
-        >
-          <LogOut size={20} className="shrink-0" />
-          <span>{t('logout', 'Logout')}</span>
-        </button>
+
       </div>
     </aside>
   );

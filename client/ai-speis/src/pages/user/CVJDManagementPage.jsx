@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Upload,
@@ -11,7 +11,13 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  Type
+  Type,
+  Loader2,
+  Target,
+  Award,
+  Star,
+  CheckSquare,
+  Building
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
@@ -21,9 +27,7 @@ import jdService from '../../services/JDService';
 import { API_BASE_URL } from '../../config/api';
 import '../../styles/user/MyCVPage.css';
 
-function CVJDManagementPage() {
-  const { t } = useTranslation('dashboard');
-  
+function CVJDManagementPage() {  
   // CV State
   const [cvs, setCvs] = useState([]);
   const [isLoadingCvs, setIsLoadingCvs] = useState(true);
@@ -34,6 +38,45 @@ function CVJDManagementPage() {
   const [showJDModal, setShowJDModal] = useState(false);
   const [jdUploadType, setJdUploadType] = useState('file'); // 'file' or 'text'
   const [jdText, setJdText] = useState('');
+  const [jdTextName, setJdTextName] = useState('');
+  const [showJDInfoModal, setShowJDInfoModal] = useState(false);
+  const [selectedJDParsedData, setSelectedJDParsedData] = useState(null);
+  const jdPollTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => stopJdPolling();
+  }, []);
+
+  const stopJdPolling = () => {
+    if (jdPollTimerRef.current) {
+      clearInterval(jdPollTimerRef.current);
+      jdPollTimerRef.current = null;
+    }
+  };
+
+  const startJdPolling = (jdId) => {
+    stopJdPolling();
+    jdPollTimerRef.current = setInterval(async () => {
+      try {
+        const statusResp = await jdService.getParseStatus(jdId);
+        const statusStr = getStatusString(statusResp.data.status);
+        if (statusStr === 'ConfirmationRequired' || statusStr === 'Confirmed') {
+          stopJdPolling();
+          fetchJDHistory();
+          const parsed = await jdService.getParsedData(jdId);
+          setSelectedJDParsedData(parsed.data);
+          setShowJDInfoModal(true);
+        } else if (statusStr === 'AnalysisFailed' || statusStr === 'Failed') {
+          stopJdPolling();
+          fetchJDHistory();
+          const errorMsg = "Đây không phải là JD/CV hoặc bạn đang upload chưa phải thông tin JD hoàn thiện. Hãy thử lại.";
+          alert(errorMsg);
+        }
+      } catch (err) {
+        // keep polling
+      }
+    }, 3000);
+  };
 
   useEffect(() => {
     fetchCVHistory();
@@ -45,8 +88,11 @@ function CVJDManagementPage() {
     try {
       const result = await cvService.getMyCVHistory(1, 10); 
       if (result && result.items) {
-        // Chỉ lấy CV active cuối cùng
-        const latestCV = result.items.find(cv => getStatusString(cv.status) !== 'Archived');
+        // Chỉ lấy CV active cuối cùng (loại bỏ Archived và AnalysisFailed/Failed)
+        const latestCV = result.items.find(cv => {
+          const status = getStatusString(cv.status);
+          return status !== 'Archived' && status !== 'AnalysisFailed' && status !== 'Failed';
+        });
         setCvs(latestCV ? [latestCV] : []);
       }
     } catch (err) {
@@ -106,7 +152,35 @@ function CVJDManagementPage() {
   };
 
   const handleJDClick = (id) => {
-    alert('Tính năng xem chi tiết JD đang được phát triển.');
+    // Navigate or default action
+  };
+
+  const handleJDActionClick = async (jdId, e) => {
+    e.stopPropagation();
+    const jd = jds.find(j => j.jdFileId === jdId);
+    if (!jd) return;
+    
+    const statusStr = getStatusString(jd.status);
+    if (statusStr === 'Pending' || statusStr === 'Failed' || statusStr === 'AnalysisFailed') {
+      try {
+        await jdService.triggerParse(jdId);
+        setJds(prev => prev.map(j => j.jdFileId === jdId ? { ...j, status: 1 } : j));
+        startJdPolling(jdId);
+      } catch (err) {
+        alert('Không thể bắt đầu phân tích: ' + err.message);
+      }
+    } else if (statusStr === 'Processing') {
+      startJdPolling(jdId);
+      alert('JD đang được xử lý, vui lòng chờ...');
+    } else if (statusStr === 'ConfirmationRequired' || statusStr === 'Confirmed') {
+      try {
+        const parsed = await jdService.getParsedData(jdId);
+        setSelectedJDParsedData(parsed.data);
+        setShowJDInfoModal(true);
+      } catch (err) {
+        alert('Lỗi lấy dữ liệu: ' + err.message);
+      }
+    }
   };
 
   // Handle JD Upload submission
@@ -115,15 +189,21 @@ function CVJDManagementPage() {
       alert('Đã đạt giới hạn 5 JD!');
       return;
     }
+
+    if (file && file.size > 5 * 1024 * 1024) {
+      alert('File tải lên vượt quá dung lượng tối đa 5MB. Vui lòng chọn file khác.');
+      return;
+    }
     
     try {
       if (jdUploadType === 'file' && file) {
         await jdService.uploadJD(file);
-      } else if (jdUploadType === 'text' && jdText.trim()) {
-        await jdService.submitJDText(jdText.trim());
+      } else if (jdUploadType === 'text' && jdText.trim() && jdTextName.trim()) {
+        await jdService.submitJDText(jdTextName.trim(), jdText.trim());
       }
       setShowJDModal(false);
       setJdText('');
+      setJdTextName('');
       fetchJDHistory();
     } catch (err) {
       alert('Lỗi khi tải lên JD: ' + err.message);
@@ -245,17 +325,24 @@ function CVJDManagementPage() {
                           <h3 className="font-semibold text-sm text-text-primary truncate" title={jd.fileName || 'JD Text'}>
                             {jd.fileName || 'JD nhập bằng Text'}
                           </h3>
-                          <span className="mycv-badge mycv-badge--info text-[10px] uppercase whitespace-nowrap">
-                            {jd.inputType === 1 ? 'Text' : 'PDF'}
-                          </span>
                         </div>
                         <p className="text-xs text-text-secondary mt-1">Tải lên: {formatDate(jd.uploadedAt)}</p>
                       </div>
                     </div>
-                    <div className="mycv-info-actions border-l border-border pl-3 ml-2 flex gap-1">
-                      <button className="p-1.5 text-text-secondary hover:text-primary transition-colors bg-surface-2 rounded hover:bg-primary/10" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); handleJDClick(jd.jdFileId); }}>
-                        <Eye size={16} />
-                      </button>
+                    <div className="mycv-info-actions border-l border-border pl-3 ml-2 flex gap-2">
+                      {getStatusString(jd.status) === 'ConfirmationRequired' || getStatusString(jd.status) === 'Confirmed' ? (
+                        <button className="mycv-btn mycv-btn--outline mycv-btn--sm py-1.5 px-3" onClick={(e) => handleJDActionClick(jd.jdFileId, e)}>
+                          <Eye size={14} /> Xem
+                        </button>
+                      ) : getStatusString(jd.status) === 'Processing' ? (
+                        <button className="mycv-btn mycv-btn--warning mycv-btn--sm py-1.5 px-3" disabled>
+                          <Loader2 size={14} className="animate-spin" /> Đang xử lí
+                        </button>
+                      ) : (
+                        <button className="mycv-btn mycv-btn--primary mycv-btn--sm py-1.5 px-3" onClick={(e) => handleJDActionClick(jd.jdFileId, e)}>
+                          <CheckCircle2 size={14} /> Check tỉ lệ
+                        </button>
+                      )}
                       <button className="p-1.5 text-text-secondary hover:text-error transition-colors bg-surface-2 rounded hover:bg-error/10" title="Xóa" onClick={(e) => handleDeleteJD(jd.jdFileId, e)}>
                         <Trash2 size={16} />
                       </button>
@@ -320,14 +407,26 @@ function CVJDManagementPage() {
                   </label>
                 </div>
               ) : (
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">Nội dung JD</label>
-                  <textarea 
-                    className="w-full bg-surface-2 border border-border rounded-lg p-3 text-text-primary min-h-[200px] focus:outline-none focus:border-primary resize-none"
-                    placeholder="Dán nội dung Job Description vào đây..."
-                    value={jdText}
-                    onChange={(e) => setJdText(e.target.value)}
-                  ></textarea>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">Tên Job Description</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-surface-2 border border-border rounded-lg p-3 text-text-primary focus:outline-none focus:border-primary"
+                      placeholder="VD: Frontend Developer tại công ty X..."
+                      value={jdTextName}
+                      onChange={(e) => setJdTextName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">Nội dung JD</label>
+                    <textarea 
+                      className="w-full bg-surface-2 border border-border rounded-lg p-3 text-text-primary min-h-[200px] focus:outline-none focus:border-primary resize-none"
+                      placeholder="Dán nội dung Job Description vào đây..."
+                      value={jdText}
+                      onChange={(e) => setJdText(e.target.value)}
+                    ></textarea>
+                  </div>
                 </div>
               )}
             </div>
@@ -338,11 +437,116 @@ function CVJDManagementPage() {
                 <button 
                   className="mycv-btn mycv-btn--primary" 
                   onClick={() => submitJDUpload()}
-                  disabled={!jdText.trim()}
+                  disabled={!jdText.trim() || !jdTextName.trim()}
                 >
                   Xác nhận lưu
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* JD Info Modal */}
+      {showJDInfoModal && selectedJDParsedData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-1 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col animate-pageEntrance border border-border">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
+              <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
+                <div className="p-1.5 bg-primary text-white rounded-md shadow-sm">
+                  <Briefcase size={18} />
+                </div>
+                Kết quả phân tích JD
+              </h3>
+              <button onClick={() => setShowJDInfoModal(false)} className="p-1 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-4 overflow-y-auto flex-1 space-y-6 bg-surface-1">
+              
+              {/* Header Cards (2 columns) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-surface-2 p-4 rounded-lg border border-border/50 shadow-sm">
+                   <div className="flex items-center gap-2 mb-2">
+                     <Target size={16} className="text-primary" />
+                     <h4 className="text-base font-semibold text-text-primary">Chức danh & Cấp bậc</h4>
+                   </div>
+                   <div className="space-y-1">
+                     <p className="text-sm text-text-secondary"><strong className="text-text-primary">Vị trí:</strong> {selectedJDParsedData.jobTitle || 'Không xác định'}</p>
+                     <p className="text-sm text-text-secondary"><strong className="text-text-primary">Cấp bậc:</strong> {selectedJDParsedData.experienceLevel || 'Không xác định'}</p>
+                   </div>
+                </div>
+                <div className="bg-surface-2 p-4 rounded-lg border border-border/50 shadow-sm">
+                   <div className="flex items-center gap-2 mb-2">
+                     <CheckCircle2 size={16} className="text-[#4A90E2]" />
+                     <h4 className="text-base font-semibold text-text-primary">Mức độ tương thích CV</h4>
+                   </div>
+                   <p className="text-sm text-text-secondary leading-relaxed">
+                     Tính năng check tỉ lệ đang được phát triển. Tạm thời bạn có thể tự đối chiếu CV với JD.
+                   </p>
+                </div>
+              </div>
+
+              {/* Skills Section */}
+              <div className="space-y-4">
+                <div>
+                   <div className="flex items-center gap-2 mb-2">
+                     <CheckSquare size={16} className="text-success" />
+                     <h4 className="text-base font-semibold text-text-primary">Kỹ năng yêu cầu (Bắt buộc)</h4>
+                   </div>
+                   <div className="flex flex-wrap gap-2">
+                     {selectedJDParsedData.requiredSkills?.length > 0 ? (
+                       selectedJDParsedData.requiredSkills.map((sk, i) => (
+                          <span key={i} className="px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-medium">{sk}</span>
+                       ))
+                     ) : (
+                       <span className="text-sm text-text-secondary italic">Không có dữ liệu</span>
+                     )}
+                   </div>
+                </div>
+
+                <div>
+                   <div className="flex items-center gap-2 mb-2">
+                     <Star size={16} className="text-warning" />
+                     <h4 className="text-base font-semibold text-text-primary">Kỹ năng ưu tiên (Nice-to-have)</h4>
+                   </div>
+                   <div className="flex flex-wrap gap-2">
+                     {selectedJDParsedData.niceToHaveSkills?.length > 0 ? (
+                       selectedJDParsedData.niceToHaveSkills.map((sk, i) => (
+                          <span key={i} className="px-2.5 py-1 bg-info/10 text-info border border-info/20 rounded text-xs font-medium">{sk}</span>
+                       ))
+                     ) : (
+                       <span className="text-sm text-text-secondary italic">Không có dữ liệu</span>
+                     )}
+                   </div>
+                </div>
+              </div>
+
+              {/* Detail Text Sections */}
+              <div className="space-y-4 border-t border-border/50 pt-4">
+                <div>
+                   <div className="flex items-center gap-2 mb-2">
+                     <Award size={16} className="text-primary" />
+                     <h4 className="text-base font-semibold text-text-primary">Trách nhiệm công việc</h4>
+                   </div>
+                   <div className="bg-surface-2 p-4 rounded-lg border border-border/50">
+                     <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{selectedJDParsedData.responsibilities || 'Không có dữ liệu'}</p>
+                   </div>
+                </div>
+                <div>
+                   <div className="flex items-center gap-2 mb-2">
+                     <Building size={16} className="text-primary" />
+                     <h4 className="text-base font-semibold text-text-primary">Đặc điểm công ty</h4>
+                   </div>
+                   <div className="bg-surface-2 p-4 rounded-lg border border-border/50">
+                     <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{selectedJDParsedData.companyCharacteristics || 'Không có dữ liệu'}</p>
+                   </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>

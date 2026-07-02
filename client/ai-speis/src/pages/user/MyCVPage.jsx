@@ -12,12 +12,10 @@ import {
   Briefcase,
   FolderGit2,
   Trash2,
-  ChevronRight,
   Info,
   Sparkles,
   GraduationCap,
   Target,
-  RefreshCw,
   Check,
   X,
   Edit3,
@@ -237,7 +235,8 @@ function MyCVPage() {
         ) {
           stopPolling();
           setIsParsing(false);
-          setError(t('mycv.error_analysis_failed', 'AI phân tích CV thất bại. Vui lòng thử lại.'));
+          const errorMsg = "Đây không phải là JD/CV hoặc bạn đang upload chưa phải thông tin CV hoàn thiện. Hãy thử lại.";
+          setError(errorMsg);
           // Refresh CV data
           await fetchCV();
         } else if (normalizeStatus(statusResp.status) === STATUS.CONFIRMED) {
@@ -736,16 +735,7 @@ function MyCVPage() {
               </div>
             )}
 
-            {/* ---------- Re-parse for failed status ---------- */}
-            {cvStatus === STATUS.ANALYSIS_FAILED && (
-              <div className="mycv-retry-banner">
-                <AlertCircle size={18} />
-                <span>{t('mycv.analysis_failed_msg', 'Phân tích thất bại. Nhấn nút bên dưới để thử lại.')}</span>
-                <button onClick={handleTriggerParse} className="mycv-btn mycv-btn--primary mycv-btn--sm">
-                  <RefreshCw size={14} /> {t('mycv.retry_parse', 'Thử lại')}
-                </button>
-              </div>
-            )}
+
 
             {/* ---------- Extracted Details ---------- */}
             {hasExtractedData && (
@@ -1014,24 +1004,7 @@ function MyCVPage() {
                   </div>
                 </div>
 
-                {/* ---------- Action Alert Banner ---------- */}
-                {isConfirmed && (
-                  <div className="mycv-ready-banner">
-                    <div className="mycv-ready-banner-left">
-                      <div className="mycv-ready-banner-icon">
-                        <Sparkles size={18} />
-                      </div>
-                      <div>
-                        <h4>{t('mycv.ready_to_practice', 'Sẵn sàng để luyện tập?')}</h4>
-                        <p>{t('mycv.practice_desc', 'AI đã cá nhân hóa bộ câu hỏi phỏng vấn dựa trên CV vừa tải lên.')}</p>
-                      </div>
-                    </div>
-                    <a href="#dashboard" className="mycv-btn mycv-btn--primary mycv-btn--sm">
-                      {t('mycv.start_practice', 'Bắt đầu phỏng vấn ngay')}
-                      <ChevronRight size={14} />
-                    </a>
-                  </div>
-                )}
+                
               </>
             )}
           </div>

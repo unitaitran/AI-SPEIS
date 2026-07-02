@@ -18,8 +18,11 @@ namespace ai_speis_be.Models.DTOs
         public DateTime ? UpdatedAt { get; set; } 
         
     }
-     public class SubmitJDTextRequest
+    public class SubmitJDTextRequest
     {
+        [Required(ErrorMessage = "Tên JD không được để trống.")]
+        public string FileName { get; set; } = null!;
+
         [Required(ErrorMessage = "Nội dung JD không được để trống.")]
         [MinLength(50, ErrorMessage = "Nội dung JD phải có ít nhất 50 ký tự.")]
         [MaxLength(50000, ErrorMessage = "Nội dung JD không được vượt quá 50.000 ký tự.")]

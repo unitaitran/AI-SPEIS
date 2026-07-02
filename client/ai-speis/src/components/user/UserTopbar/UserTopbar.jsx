@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings, Globe } from 'lucide-react';
+import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings, Globe, Loader2 } from 'lucide-react';
 import { navigate } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import { getAvatarUrl } from '../../../routes/auth';
+import cvService from '../../../services/CVService';
+import jdService from '../../../services/JDService';
 
 function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   const { t, i18n } = useTranslation('dashboard');
@@ -35,6 +37,41 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const [isProcessingBg, setIsProcessingBg] = useState(false);
+
+  useEffect(() => {
+    let intervalId;
+    const checkProcessingStatus = async () => {
+      try {
+        let processing = false;
+        
+        // Check CV
+        const cvRes = await cvService.getMyCVHistory(1, 1);
+        if (cvRes?.items?.length > 0) {
+          const cvStatus = cvRes.items[0].status; // 0: Pending, 1: Processing
+          if (cvStatus === 0 || cvStatus === 1) processing = true;
+        }
+        
+        // Check JD
+        if (!processing) {
+          const jdRes = await jdService.getMyJDHistory(1, 1);
+          if (jdRes?.items?.length > 0) {
+            const jdStatus = jdRes.items[0].status;
+            if (jdStatus === 0 || jdStatus === 1) processing = true;
+          }
+        }
+        
+        setIsProcessingBg(processing);
+      } catch (e) {
+        // ignore errors
+      }
+    };
+
+    checkProcessingStatus();
+    intervalId = setInterval(checkProcessingStatus, 5000);
+    return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -84,6 +121,14 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
           <Ticket size={16} className="text-primary-dark mr-2" />
           <span>5 {t('topbar.quota_remaining', 'lượt phỏng vấn')}</span>
         </div>
+
+        {/* Processing Indicator */}
+        {isProcessingBg && (
+          <div className="hidden sm:flex items-center text-primary-dark bg-primary-xlight/50 px-3 py-1.5 rounded-full border border-primary-light/50 shadow-sm animate-pulse" title="AI đang phân tích tài liệu">
+            <Loader2 size={16} className="animate-spin mr-2" />
+            <span className="text-xs font-medium">Đang phân tích</span>
+          </div>
+        )}
 
         {/* Notification */}
         <button className="relative p-2 text-text-secondary hover:text-primary-dark hover:bg-primary-xlight rounded-full transition-colors" aria-label="Notifications">

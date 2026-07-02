@@ -98,7 +98,7 @@ namespace ai_speis_be.Controllers
 
             _logger.LogInformation("User {UserId} submit JD bằng text ({Length} ký tự)", userId, request.RawText.Length);
 
-            var (success, errorMessage, jdDto) = await _jdService.SubmitJDTextAsync(userId, request.RawText);
+            var (success, errorMessage, jdDto) = await _jdService.SubmitJDTextAsync(userId, request.FileName, request.RawText);
             if (!success)
             {
                 return BadRequest(new { Message = errorMessage });
