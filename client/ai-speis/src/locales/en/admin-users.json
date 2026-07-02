@@ -4,7 +4,7 @@
   "breadcrumb": "Users",
   "search": "Search by name, email or phone number",
   "allRoles": "All Roles",
-  "student": "Student",
+  "user": "User",
   "admin": "Admin",
   "allStatus": "All Status",
   "active": "Active",
@@ -30,9 +30,9 @@
   "noUsersDesc": "No user data is available.",
   "noUsersBackendTitle": "User endpoint not implemented",
   "noUsersBackendDesc": "The user service is not available yet; please try again later.",
-  "confirmLockTitle": "Confirm lock users",
+  "confirmLockTitle": "Confirm Lock Users",
   "confirmLockDescription": "Are you sure you want to lock {{count}} selected users?",
-  "confirmAssignPackageTitle": "Confirm assign package",
+  "confirmAssignPackageTitle": "Confirm Assign Package",
   "confirmAssignPackageDescription": "Are you sure you want to assign a package to {{count}} selected users?",
   "cancel": "Cancel",
   "firstPage": "First page",
@@ -48,16 +48,68 @@
   "viewDetail": "View Detail",
   "assignRole": "Assign Role",
   "lockUser": "Lock User",
+  "unlockUser": "Unlock User",
+
   "detailTitle": "User Details",
+  "userDetailTitle": "User Details",
   "detailSubtitle": "Review the full profile and account status for this user.",
   "loading": "Loading user details",
   "close": "Close",
   "detailLoadError": "Unable to load user details.",
   "noDetailAvailable": "No detailed information is available.",
+
   "phoneNumber": "Phone Number",
+  "gender": "Gender",
+  "school": "School",
+  "major": "Major",
+  "gpa": "GPA",
+  "targetPosition": "Target Position",
+
   "remainingQuota": "Remaining Quota",
   "lastLogin": "Last Login",
   "createdDate": "Created Date",
   "updatedDate": "Updated Date",
-  "avatarLabel": "User Avatar"
+  "avatarLabel": "User Avatar",
+
+  "academicProfile": "Uploaded CVs",
+  "subscriptionQuota": "Subscription & Quotas",
+  "accountSecurity": "Security & Account Status",
+
+  "noProfileData": "Profile details not updated yet",
+
+  "emailConfirmed": "Email Verified",
+  "emailUnconfirmed": "Email Unverified",
+  "passwordSet": "Password Set",
+  "passwordNotSet": "Password Not Set",
+
+  "lockReason": "Lock Reason",
+  "lockedAt": "Locked At",
+  "lockedBy": "Locked By ID",
+
+  "genderMale": "Male",
+  "genderFemale": "Female",
+  "genderOther": "Other",
+  "genderNone": "Not updated",
+
+  "cvListTitle": "Uploaded CVs",
+  "noCVs": "This user has not uploaded any CVs yet",
+  "uploadDate": "Upload Date",
+  "fileSize": "File Size",
+
+  "cvStatusPending": "Pending",
+  "cvStatusProcessing": "Processing",
+  "cvStatusSuccess": "Success",
+  "cvStatusFailed": "Failed",
+
+  "editRoleTitle": "Edit User Role",
+  "selectRole": "Select Role",
+
+  "confirmUpgradeToAdmin": "Are you sure you want to upgrade this user to Admin? Admin users can access system management features.",
+  "confirmLockUser": "Are you sure you want to lock this user's account?",
+  "confirmUnlockUser": "Are you sure you want to unlock this user's account?",
+
+  "save": "Save",
+
+  "roleUpdatedSuccess": "User role updated successfully",
+  "statusUpdatedSuccess": "User status updated successfully"
 }

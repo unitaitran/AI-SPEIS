@@ -250,7 +250,7 @@ function QuestionsPage() {
 
   return (
     <UserLayout>
-      <div className="space-y-6 pb-12">
+      <div className="space-y-6 pb-12 animate-pageEntrance">
         {/* Header Title - Standardized with Dashboard size */}
         <div>
           <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">
@@ -295,7 +295,7 @@ function QuestionsPage() {
               setShowSavedOnly(prev => !prev);
               setCurrentPage(1);
             }}
-            className={`flex items-center gap-2 px-5 py-3.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer uppercase tracking-wider shadow-sm border ${
+            className={`flex items-center gap-2 px-5 py-3.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap cursor-pointer uppercase tracking-wider shadow-sm hover:-translate-y-0.5 hover:shadow-md border ${
               showSavedOnly
                 ? 'border-primary bg-primary-xlight text-primary-dark hover:bg-primary-light'
                 : 'border-transparent bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary'
@@ -307,7 +307,7 @@ function QuestionsPage() {
 
           <button
             type="submit"
-            className="bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-xs font-bold px-7 py-3.5 rounded-xl transition-all cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-sm"
+            className="bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 text-white text-xs font-bold px-7 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md"
           >
             {t('questions.search_button', 'Tìm kiếm')}
           </button>
@@ -432,7 +432,7 @@ function QuestionsPage() {
                     return (
                       <div
                         key={q.questionId}
-                        className="bg-surface-2 border border-border hover:border-primary-light hover:shadow-[0_4px_20px_rgba(111,182,232,0.08)] rounded-xl p-5 sm:p-6 transition-all relative group flex flex-col justify-between"
+                        className="bg-surface-2 border border-border hover:border-primary-light hover:shadow-lg hover:-translate-y-1 rounded-xl p-5 sm:p-6 transition-all duration-300 relative group flex flex-col justify-between"
                       >
                         <div>
                           {/* Tags line and Actions */}

@@ -5,7 +5,6 @@ import AdminDashboardPage from '../pages/admin/Dashboard/AdminDashboardPage';
 import UserManagementPage from '../pages/admin/UserManagement/UserManagementPage';
 import { navigate } from './navigation';
 import QuestionManagementPage from '../pages/admin/QuestionManagement/QuestionManagementPage';
-import {  } from "module";
 
 function AdminRoutePlaceholder({ title }) {
   return (

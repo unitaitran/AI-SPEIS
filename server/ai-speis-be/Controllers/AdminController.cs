@@ -36,6 +36,34 @@ namespace ai_speis_be.Controllers
             return Ok(result);
         }
 
+        [HttpGet("users/{userId:int}")]
+        [ProducesResponseType(
+            typeof(AdminUserDetailDto),
+            StatusCodes.Status200OK)]
+        [ProducesResponseType(
+            typeof(ProblemDetails),
+            StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AdminUserDetailDto>> GetUserDetail(
+            int userId,
+            CancellationToken cancellationToken)
+        {
+            var user = await _userService.GetAdminUserDetailAsync(
+                userId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Title = "User not found",
+                    Detail = $"User with ID {userId} does not exist.",
+                    Status = StatusCodes.Status404NotFound
+                });
+            }
+
+            return Ok(user);
+        }
+
         [HttpGet("questions")]
         [ProducesResponseType(
             typeof(PagedResultDto<AdminQuestionListItemDto>),
@@ -79,7 +107,7 @@ namespace ai_speis_be.Controllers
                 result.Question is null)
             {
                 throw new InvalidOperationException(
-                    $"Unsupported create question outcome: {result.Outcome}");
+                    $"Kết quả tạo câu hỏi không được hỗ trợ: {result.Outcome}");
             }
 
             return Created(
@@ -117,12 +145,12 @@ namespace ai_speis_be.Controllers
                 QuestionImportOutcome.Imported => Ok(result.Summary),
                 QuestionImportOutcome.InvalidFile => BadRequest(new ProblemDetails
                 {
-                    Title = "Invalid Excel import file",
+                    Title = "File Excel import không hợp lệ",
                     Detail = result.ErrorMessage,
                     Status = StatusCodes.Status400BadRequest
                 }),
                 _ => throw new InvalidOperationException(
-                    $"Unsupported question import outcome: {result.Outcome}")
+                    $"Kết quả import câu hỏi không được hỗ trợ: {result.Outcome}")
             };
         }
 
@@ -144,6 +172,8 @@ namespace ai_speis_be.Controllers
             [FromBody] AdminQuestionUpdateRequestDto request,
             CancellationToken cancellationToken)
         {
+            if (questionId <= 0)
+             return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -163,7 +193,7 @@ namespace ai_speis_be.Controllers
                 QuestionOperationOutcome.QuestionDeleted => BadRequest(
                     CreateQuestionDeletedProblem(questionId)),
                 _ => throw new InvalidOperationException(
-                    $"Unsupported update question outcome: {result.Outcome}")
+                    $"Kết quả cập nhật câu hỏi không được hỗ trợ: {result.Outcome}")
             };
         }
 
@@ -179,6 +209,8 @@ namespace ai_speis_be.Controllers
             int questionId,
             CancellationToken cancellationToken)
         {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -196,7 +228,7 @@ namespace ai_speis_be.Controllers
                 QuestionOperationOutcome.QuestionNotFound => NotFound(
                     CreateQuestionNotFoundProblem(questionId)),
                 _ => throw new InvalidOperationException(
-                    $"Unsupported delete question outcome: {result.Outcome}")
+                    $"Kết quả xóa câu hỏi không được hỗ trợ: {result.Outcome}")
             };
         }
 
@@ -215,6 +247,8 @@ namespace ai_speis_be.Controllers
             [FromBody] LockUserRequestDto request,
             CancellationToken cancellationToken)
         {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
             if (!TryGetActingUserId(out var actingUserId))
             {
                 return Unauthorized(CreateInvalidAuthenticationProblem());
@@ -230,34 +264,34 @@ namespace ai_speis_be.Controllers
             {
                 LockUserOutcome.Locked => Ok(CreateLockResponse(
                     userId,
-                    "User account has been locked successfully.")),
+                    "Khóa tài khoản người dùng thành công.")),
                 LockUserOutcome.AlreadyLocked => Ok(CreateLockResponse(
                     userId,
-                    "User account is already locked.")),
+                    "Tài khoản người dùng đã bị khóa.")),
                 LockUserOutcome.UserNotFound => NotFound(new ProblemDetails
                 {
-                    Title = "User not found",
-                    Detail = $"User with ID {userId} does not exist.",
+                    Title = "Không tìm thấy người dùng",
+                    Detail = $"Không tìm thấy người dùng với ID {userId}.",
                     Status = StatusCodes.Status404NotFound
                 }),
                 LockUserOutcome.CannotLockSelf => StatusCode(
                     StatusCodes.Status403Forbidden,
                     new ProblemDetails
                     {
-                        Title = "Self-lock is not allowed",
-                        Detail = "Administrators cannot lock their own account.",
+                        Title = "Không thể tự khóa tài khoản",
+                        Detail = "Quản trị viên không thể khóa tài khoản của chính mình.",
                         Status = StatusCodes.Status403Forbidden
                     }),
                 LockUserOutcome.ProtectedRole => StatusCode(
                     StatusCodes.Status403Forbidden,
                     new ProblemDetails
                     {
-                        Title = "Protected account",
-                        Detail = "This account has a higher administrative role and cannot be locked.",
+                        Title = "Tài khoản được bảo vệ",
+                        Detail = "Tài khoản này có quyền quản trị cao hơn nên không thể bị khóa.",
                         Status = StatusCodes.Status403Forbidden
                     }),
                 _ => throw new InvalidOperationException(
-                    $"Unsupported lock user outcome: {result.Outcome}")
+                    $"Kết quả khóa người dùng không được hỗ trợ: {result.Outcome}")
             };
         }
 
@@ -275,6 +309,8 @@ namespace ai_speis_be.Controllers
             int userId,
             CancellationToken cancellationToken)
         {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
             var result = await _userService.UnlockUserAsync(
                 userId,
                 cancellationToken);
@@ -283,22 +319,51 @@ namespace ai_speis_be.Controllers
             {
                 UnlockUserOutcome.Unlocked => Ok(CreateUnlockResponse(
                     userId,
-                    "User account has been unlocked successfully.")),
+                    "Mở khóa tài khoản người dùng thành công.")),
                 UnlockUserOutcome.UserNotFound => NotFound(new ProblemDetails
                 {
-                    Title = "User not found",
-                    Detail = $"User with ID {userId} does not exist.",
+                    Title = "Không tìm thấy người dùng",
+                    Detail = $"Không tìm thấy người dùng với ID {userId}.",
                     Status = StatusCodes.Status404NotFound
                 }),
                 UnlockUserOutcome.NotLocked => BadRequest(new ProblemDetails
                 {
-                    Title = "User account is not locked",
-                    Detail = $"User with ID {userId} is not in LOCKED status.",
+                    Title = "Tài khoản người dùng chưa bị khóa",
+                    Detail = $"Người dùng với ID {userId} không ở trạng thái bị khóa.",
                     Status = StatusCodes.Status400BadRequest
                 }),
                 _ => throw new InvalidOperationException(
-                    $"Unsupported unlock user outcome: {result.Outcome}")
+                    $"Kết quả mở khóa người dùng không được hỗ trợ: {result.Outcome}")
             };
+        }
+
+        [HttpPatch("users/{userId:int}/role")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateUserRole(
+            int userId,
+            [FromBody] UpdateUserRoleRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            if (userId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
+
+            if (string.IsNullOrWhiteSpace(request.RoleName))
+                return BadRequest(new { title = "Role không hợp lệ", detail = "RoleName không được để trống." });
+
+            var success = await _userService.UpdateUserRoleAsync(userId, request.RoleName, cancellationToken);
+            if (!success)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Title = "User not found or role invalid",
+                    Detail = $"User with ID {userId} does not exist or the role is invalid.",
+                    Status = StatusCodes.Status404NotFound
+                });
+            }
+
+            return Ok(new { Message = "Cập nhật vai trò người dùng thành công." });
         }
 
         private bool TryGetActingUserId(out int actingUserId)
@@ -311,8 +376,8 @@ namespace ai_speis_be.Controllers
         {
             return new ProblemDetails
             {
-                Title = "Invalid authentication token",
-                Detail = "The authenticated user identifier is missing or invalid.",
+                Title = "Token xác thực không hợp lệ",
+                Detail = "Thiếu hoặc sai định danh người dùng trong token xác thực.",
                 Status = StatusCodes.Status401Unauthorized
             };
         }
@@ -321,8 +386,8 @@ namespace ai_speis_be.Controllers
         {
             return new ProblemDetails
             {
-                Title = "Question not found",
-                Detail = $"Question with ID {questionId} does not exist.",
+                Title = "Không tìm thấy câu hỏi",
+                Detail = $"Không tìm thấy câu hỏi với ID {questionId}.",
                 Status = StatusCodes.Status404NotFound
             };
         }
@@ -331,8 +396,8 @@ namespace ai_speis_be.Controllers
         {
             return new ProblemDetails
             {
-                Title = "Question is deleted",
-                Detail = $"Question with ID {questionId} has been soft-deleted and cannot be updated.",
+                Title = "Câu hỏi đã bị xóa",
+                Detail = $"Câu hỏi với ID {questionId} đã bị xóa mềm và không thể cập nhật.",
                 Status = StatusCodes.Status400BadRequest
             };
         }

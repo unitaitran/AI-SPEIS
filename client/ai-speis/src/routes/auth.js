@@ -3,11 +3,25 @@ import {
   PUBLIC_ROUTES,
   USER_ROUTES,
 } from './routePaths';
+import { API_BASE_URL } from '../config/api';
 
 export const ROLES = {
   ADMIN: 'admin',
   USER: 'user',
 };
+
+export function decodeJwt(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
 
 export function getStoredSession() {
   const token = localStorage.getItem('token');
@@ -50,3 +64,12 @@ export function getDefaultRouteForRole(role) {
 
   return PUBLIC_ROUTES.LOGIN;
 }
+
+export function getAvatarUrl(avatarPath) {
+  if (!avatarPath) return null;
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://') || avatarPath.startsWith('data:')) {
+    return avatarPath;
+  }
+  return `${API_BASE_URL}${avatarPath}`;
+}
+

@@ -14,6 +14,13 @@ namespace ai_speis_be.DTOs.CvParsing
         public bool IsConfirmed { get; set; }
         public DateTime CreatedAt { get; set; }
 
+        // AI Assessment (readonly — FE chỉ hiển thị, không cho sửa)
+        public string? OverallAssessment { get; set; }
+        public string? Strengths { get; set; }
+        public string? Weaknesses { get; set; }
+        public decimal? ConfidenceScore { get; set; }
+        public string? ErrorMessage { get; set; }
+
         public List<EducationDto> Education { get; set; } = new();
         public List<ExperienceDto> Experience { get; set; } = new();
         public List<CvProjectResponse> Projects { get; set; } = new();
@@ -47,5 +54,6 @@ namespace ai_speis_be.DTOs.CvParsing
         public string Status { get; set; } = string.Empty;
         public string FileName { get; set; } = string.Empty;
         public DateTime UploadedAt { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 }

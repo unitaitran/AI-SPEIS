@@ -16,6 +16,7 @@ namespace ai_speis_be.Models.DTOs
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public bool HasPassword { get; init; }
+        public string? ImageUrl { get; init; }
     }
 
     // ─── Requests ────────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ namespace ai_speis_be.Models.DTOs
         [MaxLength(100, ErrorMessage = "Họ và tên không được vượt quá 100 ký tự.")]
         public string FullName { get; set; } = null!;
 
-        [MaxLength(32)]
+        [MaxLength(32, ErrorMessage = "Số điện thoại không được vượt quá 32 ký tự.")]
         [RegularExpression(@"^0\d{9}$", ErrorMessage = "Số điện thoại phải có 10 chữ số và bắt đầu bằng 0.")]
         public string? PhoneNumber { get; set; }
     }

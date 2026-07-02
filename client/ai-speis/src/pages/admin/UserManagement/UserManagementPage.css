@@ -427,7 +427,7 @@
   color: var(--text-secondary);
 }
 
-.detail-error {
+.detail-error { 
   display: flex;
   align-items: center;
   gap: 10px;

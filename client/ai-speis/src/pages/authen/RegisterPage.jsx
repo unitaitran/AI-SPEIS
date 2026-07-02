@@ -7,7 +7,7 @@ const RegisterPage = () => {
   const { t } = useTranslation('register');
 
   return (
-    <div className="min-h-screen w-full flex flex-col relative">
+    <div className="h-screen overflow-hidden w-full flex flex-col relative">
       <AuthCard 
         footerText=""
         mascotText={t('mascot_greeting')}
