@@ -173,10 +173,10 @@ namespace ai_speis_be.Services.CVService
             return (true, null);
         }
 
-        public async Task<CvParseStatusResponse?> GetParseStatusAsync(int cvFileId)
+        public async Task<CvParseStatusResponse?> GetParseStatusAsync(int cvFileId, int userId)
         {
             var cvFile = await _dbContext.CVFiles.FindAsync(cvFileId);
-            if (cvFile == null) return null;
+            if (cvFile == null || cvFile.UserId != userId) return null;
 
             string? errorMessage = null;
             if (cvFile.Status == CVFileStatus.AnalysisFailed || cvFile.Status == CVFileStatus.ConfirmationRequired)
@@ -199,10 +199,10 @@ namespace ai_speis_be.Services.CVService
             };
         }
 
-        public async Task<CvParsedDataResponse?> GetParsedDataAsync(int cvFileId)
+        public async Task<CvParsedDataResponse?> GetParsedDataAsync(int cvFileId, int userId)
         {
             var cvFile = await _dbContext.CVFiles.FindAsync(cvFileId);
-            if (cvFile == null) return null;
+            if (cvFile == null || cvFile.UserId != userId) return null;
 
             var profile = await _dbContext.CVExtractedProfiles
                 .Include(e => e.Skills)

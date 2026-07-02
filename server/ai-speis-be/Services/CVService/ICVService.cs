@@ -19,8 +19,8 @@ namespace ai_speis_be.Services.CVService
 
         // CV Parsing methods (Step 7)
         Task<(bool Success, string? ErrorMessage)> TriggerParseAsync(int cvFileId, int userId);
-        Task<CvParseStatusResponse?> GetParseStatusAsync(int cvFileId);
-        Task<CvParsedDataResponse?> GetParsedDataAsync(int cvFileId);
+        Task<CvParseStatusResponse?> GetParseStatusAsync(int cvFileId, int userId);
+        Task<CvParsedDataResponse?> GetParsedDataAsync(int cvFileId, int userId);
         Task<(bool Success, string? ErrorMessage)> ConfirmParsedDataAsync(int cvFileId, int userId, CvConfirmRequest request);
     }
 }
