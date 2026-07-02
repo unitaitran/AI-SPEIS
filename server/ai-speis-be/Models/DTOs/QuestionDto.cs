@@ -179,7 +179,7 @@ namespace ai_speis_be.Models.DTOs
         [Range(1, 1_000_000, ErrorMessage = "Số trang phải từ 1 đến 1000000.")]
         public int PageNumber { get; set; } = 1;
 
-        [Range(1, 100, ErrorMessage = "Kích thước trang phải từ 1 đến 100.")]
+        [Range(1, 100000, ErrorMessage = "Kích thước trang phải từ 1 đến 100000.")]
         public int PageSize { get; set; } = 10;
 
         [StringLength(100, ErrorMessage = "Ngành học không được vượt quá 100 ký tự.")]
