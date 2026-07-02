@@ -41,11 +41,11 @@ const jdService = {
   },
 
   /** POST /api/JDFile/text */
-  submitJDText: async (rawText) => {
+  submitJDText: async (fileName, rawText) => {
     const response = await fetch(ENDPOINTS.JD_SUBMIT_TEXT, {
       method: 'POST',
       headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rawText }),
+      body: JSON.stringify({ fileName, rawText }),
     });
     return handleResponse(response);
   },
@@ -55,6 +55,44 @@ const jdService = {
     const response = await fetch(ENDPOINTS.JD_DELETE(id), {
       method: 'DELETE',
       headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  /** POST /api/JDFile/{id}/parse */
+  triggerParse: async (id) => {
+    const response = await fetch(ENDPOINTS.JD_PARSE(id), {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    });
+    return handleResponse(response);
+  },
+
+  /** GET /api/JDFile/{id}/status */
+  getParseStatus: async (id) => {
+    const response = await fetch(ENDPOINTS.JD_STATUS(id), {
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
+
+  /** GET /api/JDFile/{id}/parsed-data */
+  getParsedData: async (id) => {
+    const response = await fetch(ENDPOINTS.JD_PARSED_DATA(id), {
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
+
+  /** PUT /api/JDFile/{id}/confirm */
+  confirmParsedData: async (id, data) => {
+    const response = await fetch(ENDPOINTS.JD_CONFIRM(id), {
+      method: 'PUT',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     });
     return handleResponse(response);
   },

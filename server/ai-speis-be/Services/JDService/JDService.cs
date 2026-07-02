@@ -123,7 +123,7 @@ namespace ai_speis_be.Services.JDService
 
         // ===================== SUBMIT TEXT =====================
 
-        public async Task<(bool Success, string? ErrorMessage, JDDto? JDDto)> SubmitJDTextAsync(int userId, string rawText)
+        public async Task<(bool Success, string? ErrorMessage, JDDto? JDDto)> SubmitJDTextAsync(int userId, string fileName, string rawText)
         {
             try
             {
@@ -132,7 +132,8 @@ namespace ai_speis_be.Services.JDService
                     UserId = userId,
                     InputType = JDInputType.Text,
                     RawText = rawText.Trim(),
-                    // FileName, FilePath, FileSize, FileType đều null — không có file
+                    FileName = fileName,
+                    // FilePath, FileSize, FileType đều null — không có file
                     Status = JDFileStatus.Pending,
                     UploadedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
