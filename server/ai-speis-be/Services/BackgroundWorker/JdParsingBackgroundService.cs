@@ -117,6 +117,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                         JDFileId = jdFile.JDFileId,
                         JobTitle = parsedData.JobTitle,
                         ExperienceLevel = parsedData.ExperienceLevel,
+                        RoleTarget = parsedData.RoleTarget,
                         RequiredSkills = JsonSerializer.Serialize(parsedData.RequiredSkills ?? new System.Collections.Generic.List<string>()),
                         NiceToHaveSkills = JsonSerializer.Serialize(parsedData.NiceToHaveSkills ?? new System.Collections.Generic.List<string>()),
                         Responsibilities = parsedData.Responsibilities,

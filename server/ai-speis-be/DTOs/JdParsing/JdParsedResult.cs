@@ -19,6 +19,9 @@ namespace ai_speis_be.DTOs.JdParsing
         [JsonPropertyName("experienceLevel")]
         public string? ExperienceLevel { get; set; }
 
+        [JsonPropertyName("roleTarget")]
+        public string? RoleTarget { get; set; }
+
         [JsonPropertyName("requiredSkills")]
         public List<string> RequiredSkills { get; set; } = new List<string>();
 
