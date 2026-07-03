@@ -22,6 +22,9 @@ namespace ai_speis_be.Models
         [MaxLength(100)]
         public string? ExperienceLevel { get; set; }
 
+        [MaxLength(100)]
+        public string? RoleTarget { get; set; }
+
         [Column(TypeName = "nvarchar(max)")]
         public string RequiredSkills { get; set; } = "[]";
 

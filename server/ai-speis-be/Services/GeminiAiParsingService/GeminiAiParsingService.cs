@@ -193,6 +193,7 @@ Set isValidJd=false with invalidReason if score < 0.50.
 Extract the following information from the JD (Translate to Vietnamese):
 - jobTitle: The main job title being recruited (e.g. Lập trình viên Backend, Chuyên viên Frontend).
 - experienceLevel: e.g. Thực tập sinh, Fresher, Junior, Mid-level, Senior (infer if not explicit).
+- roleTarget: Identify the target role. It MUST be normalized to one of the following exact values: ""BA"", ""Tester"", ""Backend"", ""Frontend"", ""Fullstack"", ""Mobile"", ""DevOps"", ""Data Science"", ""Design"", ""Project Manager"", ""Other"". (If the role is not IT-related or doesn't fit, use ""Other"").
 - requiredSkills: Array of MUST HAVE technical and soft skills.
 - niceToHaveSkills: Array of PLUS or nice-to-have skills.
 - responsibilities: A short paragraph summarizing the key responsibilities (max 3 sentences in Vietnamese).
@@ -206,6 +207,7 @@ Return ONLY a raw JSON object (no markdown tags, no ```json) matching this exact
   ""invalidReason"": ""Đây là công thức nấu ăn, không phải JD"" (or null if valid),
   ""jobTitle"": ""Lập trình viên Backend"",
   ""experienceLevel"": ""Junior"",
+  ""roleTarget"": ""Backend"",
   ""requiredSkills"": [""C#"", "".NET Core"", ""SQL Server""],
   ""niceToHaveSkills"": [""Docker"", ""Redis""],
   ""responsibilities"": ""Phát triển và bảo trì các API. Phối hợp với đội frontend để hoàn thiện tính năng."",

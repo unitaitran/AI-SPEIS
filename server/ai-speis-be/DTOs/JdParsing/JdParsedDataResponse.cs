@@ -6,6 +6,7 @@ namespace ai_speis_be.DTOs.JdParsing
         public int JDFileId { get; set; }
         public string? JobTitle { get; set; }
         public string? ExperienceLevel { get; set; }
+        public string? RoleTarget { get; set; }
         public List<string> RequiredSkills { get; set; } = new List<string>();
         public List<string> NiceToHaveSkills { get; set; } = new List<string>();
         public string? Responsibilities { get; set; }

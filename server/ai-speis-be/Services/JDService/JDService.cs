@@ -219,6 +219,7 @@ namespace ai_speis_be.Services.JDService
                 JDFileId = profile.JDFileId,
                 JobTitle = profile.JobTitle,
                 ExperienceLevel = profile.ExperienceLevel,
+                RoleTarget = profile.RoleTarget,
                 RequiredSkills = JsonSerializer.Deserialize<List<string>>(profile.RequiredSkills) ?? new List<string>(),
                 NiceToHaveSkills = JsonSerializer.Deserialize<List<string>>(profile.NiceToHaveSkills) ?? new List<string>(),
                 Responsibilities = profile.Responsibilities,
@@ -238,6 +239,7 @@ namespace ai_speis_be.Services.JDService
 
             profile.JobTitle = request.JobTitle;
             profile.ExperienceLevel = request.ExperienceLevel;
+            profile.RoleTarget = request.RoleTarget;
             profile.RequiredSkills = JsonSerializer.Serialize(request.RequiredSkills);
             profile.NiceToHaveSkills = JsonSerializer.Serialize(request.NiceToHaveSkills);
             profile.Responsibilities = request.Responsibilities;

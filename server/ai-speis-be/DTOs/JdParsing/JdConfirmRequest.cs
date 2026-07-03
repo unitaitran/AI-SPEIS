@@ -11,6 +11,9 @@ namespace ai_speis_be.DTOs.JdParsing
         [MaxLength(100)]
         public string? ExperienceLevel { get; set; }
 
+        [MaxLength(100)]
+        public string? RoleTarget { get; set; }
+
         public List<string> RequiredSkills { get; set; } = new List<string>();
 
         public List<string> NiceToHaveSkills { get; set; } = new List<string>();
