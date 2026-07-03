@@ -240,5 +240,64 @@ Ensure the output is valid JSON.
                 return (false, null, null, ex.Message);
             }
         }
+
+        public async Task<(bool Success, CvJdMatchResultResponse? Data, string? RawResponse, string? Error)> EvaluateCvAgainstJdAsync(string cvJson, string jdJson)
+        {
+            try
+            {
+                var googleAi = new GoogleAI(_apiKey);
+                var model = googleAi.GenerativeModel(model: "gemini-2.5-flash");
+
+                string prompt = $@"
+You are an expert Technical Recruiter.
+You are given two JSON strings: one represents a Candidate's CV, and the other represents a Job Description (JD).
+Your task is to compare them and evaluate how well the candidate fits the job.
+Please return a single JSON object.
+
+IMPORTANT: YOU MUST OUTPUT ALL EXTRACTED DATA (Advice, SuitabilityLevel, etc.) STRICTLY IN VIETNAMESE.
+
+=== JSON SCHEMA (return STRICTLY this exact structure, no markdown tags) ===
+{{
+  ""success"": true,
+  ""matchScore"": 85,
+  ""suitabilityLevel"": ""Rất phù hợp"", // e.g. ""Rất phù hợp"", ""Phù hợp"", ""Cần cải thiện"", ""Không phù hợp""
+  ""matchingSkills"": [""C#"", ""SQL Server"", ""React""],
+  ""missingSkills"": [""Docker"", ""Kubernetes""],
+  ""advice"": ""Ứng viên có nền tảng tốt về Backend nhưng thiếu kinh nghiệm triển khai Cloud (Docker/K8s). Nên trau dồi thêm.""
+}}
+
+=== CV JSON ===
+{cvJson}
+
+=== JD JSON ===
+{jdJson}
+";
+
+                var response = await model.GenerateContent(prompt);
+                string jsonText = response.Text ?? "";
+
+                // Clean up possible markdown fences
+                if (jsonText.StartsWith("```"))
+                {
+                    jsonText = jsonText.Trim('`', '\n', '\r');
+                    if (jsonText.StartsWith("json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        jsonText = jsonText.Substring(4).Trim();
+                    }
+                }
+
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var result = JsonSerializer.Deserialize<CvJdMatchResultResponse>(jsonText, options);
+
+                if (result == null)
+                    return (false, null, jsonText, "Lỗi deserialize JSON trả về từ Gemini.");
+
+                return (true, result, response.Text, null);
+            }
+            catch (Exception ex)
+            {
+                return (false, null, null, $"Lỗi khi gọi Gemini API: {ex.Message}");
+            }
+        }
     }
 }

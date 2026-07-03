@@ -231,5 +231,32 @@ namespace ai_speis_be.Controllers
 
             return Ok(new { success = true, message = "JD data confirmed successfully" });
         }
+
+        /// <summary>
+        /// FT-23: Đánh giá độ phù hợp của CV so với JD
+        /// </summary>
+        [HttpPost("{jdId}/match-cv/{cvId}")]
+        [Authorize]
+        public async Task<IActionResult> MatchCvToJd(int jdId, int cvId)
+        {
+            if (jdId <= 0 || cvId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "JD ID và CV ID phải là số nguyên dương." });
+
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var result = await _jdService.MatchCvToJdAsync(userId, jdId, cvId);
+
+            if (result == null)
+            {
+                return NotFound(new { Message = "Không tìm thấy CV/JD, hoặc CV/JD chưa được AI trích xuất dữ liệu. Vui lòng parse trước khi thực hiện Matching." });
+            }
+
+            if (!result.Success)
+            {
+                return StatusCode(500, new { Message = result.ErrorMessage });
+            }
+
+            return Ok(result);
+        }
     }
 }

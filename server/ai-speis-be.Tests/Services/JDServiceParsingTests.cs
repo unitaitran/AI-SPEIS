@@ -8,6 +8,7 @@ using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.JDRepo;
 using ai_speis_be.Services.BackgroundWorker;
 using ai_speis_be.Services.FileValidatorService;
+using ai_speis_be.Services.GeminiAiParsingService;
 using ai_speis_be.Services.JDService;
 using Microsoft.EntityFrameworkCore;
 using Moq;
@@ -19,8 +20,9 @@ namespace ai_speis_be.Tests.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly Mock<IJDRepository> _mockJdRepo;
-        private readonly Mock<IFileValidatorService> _mockFileValidator;
-        private readonly Mock<IJdParseQueue> _mockJdQueue;
+        private readonly Mock<IFileValidatorService> _mockFileValidatorService;
+        private readonly Mock<IJdParseQueue> _mockJdParseQueue;
+        private readonly Mock<IGeminiAiParsingService> _mockAiParsingService;
         private readonly JDService _jdService;
 
         public JDServiceParsingTests()
@@ -31,14 +33,16 @@ namespace ai_speis_be.Tests.Services
 
             _context = new ApplicationDbContext(options);
             _mockJdRepo = new Mock<IJDRepository>();
-            _mockFileValidator = new Mock<IFileValidatorService>();
-            _mockJdQueue = new Mock<IJdParseQueue>();
+            _mockFileValidatorService = new Mock<IFileValidatorService>();
+            _mockJdParseQueue = new Mock<IJdParseQueue>();
+            _mockAiParsingService = new Mock<IGeminiAiParsingService>();
 
             _jdService = new JDService(
                 _mockJdRepo.Object,
-                _mockFileValidator.Object,
+                _mockFileValidatorService.Object,
                 _context,
-                _mockJdQueue.Object
+                _mockJdParseQueue.Object,
+                _mockAiParsingService.Object
             );
         }
 
@@ -71,7 +75,7 @@ namespace ai_speis_be.Tests.Services
             var updatedJd = await _context.JDFiles.FindAsync(new object[] { jdId });
             Assert.NotNull(updatedJd);
             Assert.Equal(JDFileStatus.Processing, updatedJd.Status);
-            _mockJdQueue.Verify(q => q.QueueJdForParsingAsync(jdId), Times.Once);
+            _mockJdParseQueue.Verify(q => q.QueueJdForParsingAsync(jdId), Times.Once);
         }
 
         [Fact]
@@ -94,7 +98,7 @@ namespace ai_speis_be.Tests.Services
 
             // Assert
             Assert.False(result);
-            _mockJdQueue.Verify(q => q.QueueJdForParsingAsync(It.IsAny<int>()), Times.Never);
+            _mockJdParseQueue.Verify(q => q.QueueJdForParsingAsync(It.IsAny<int>()), Times.Never);
         }
 
         [Fact]
