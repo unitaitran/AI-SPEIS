@@ -26,6 +26,8 @@ const CHECK_STATUS = Object.freeze({
 });
 
 const REQUIRED_CHECK_IDS = ['microphone', 'recording'];
+const VOICE_ACTIVITY_THRESHOLD = 0.025;
+const VOICE_ACTIVITY_REQUIRED_FRAMES = 5;
 
 const SAMPLE_TEXT =
   'Xin chào, tôi tên là [Tên của bạn]. Tôi đang thực hiện kiểm tra thiết bị cho nền tảng AI-SPEIS. Tôi xác nhận rằng tôi đang ở trong môi trường yên tĩnh và sẵn sàng cho buổi phỏng vấn.';
@@ -78,6 +80,20 @@ function stopRecorder(recorder) {
   } catch (error) {
     // Recorder can already be stopping; track cleanup is handled separately.
   }
+}
+
+function stopAudioContext(audioContext) {
+  if (!audioContext || audioContext.state === 'closed') return;
+
+  audioContext.close().catch(() => {
+    // AudioContext can be closing already; MediaStream cleanup is handled separately.
+  });
+}
+
+function createNoVoiceDetectedError() {
+  const error = new Error('Không nhận diện được tín hiệu giọng nói trong phiên ghi âm thử.');
+  error.name = 'NoVoiceDetectedError';
+  return error;
 }
 
 function getMediaSupport() {
@@ -242,13 +258,17 @@ function DeviceReadinessCheckPage() {
   const [checks, setChecks] = useState(() => cloneCheckingState());
   const [isChecking, setIsChecking] = useState(false);
   const [message, setMessage] = useState(null);
+  const [voiceActive, setVoiceActive] = useState(false);
   const activeStreamRef = useRef(null);
   const activeRecorderRef = useRef(null);
+  const activeAudioContextRef = useRef(null);
   const runIdRef = useRef(0);
 
   const cleanupActiveMedia = useCallback(() => {
     stopRecorder(activeRecorderRef.current);
     activeRecorderRef.current = null;
+    stopAudioContext(activeAudioContextRef.current);
+    activeAudioContextRef.current = null;
     stopMediaStream(activeStreamRef.current);
     activeStreamRef.current = null;
   }, []);
@@ -263,28 +283,94 @@ function DeviceReadinessCheckPage() {
     }));
   }, []);
 
-  const runRecordingProbe = useCallback((stream) => {
+  const runRecordingProbe = useCallback((stream, onVoiceActive) => {
     return new Promise((resolve, reject) => {
       let hasSettled = false;
       let recorder;
       let stopTimer;
       let guardTimer;
+      let audioContext;
+      let analyser;
+      let source;
+      let frameData;
+      let animationFrameId;
+      let activeFrames = 0;
+      let voiceDetected = false;
+      let previousVoiceActive = false;
+
+      const setProbeVoiceActive = (nextVoiceActive) => {
+        if (previousVoiceActive === nextVoiceActive) return;
+        previousVoiceActive = nextVoiceActive;
+        onVoiceActive(nextVoiceActive);
+      };
 
       const settle = (callback) => {
         if (hasSettled) return;
         hasSettled = true;
         window.clearTimeout(stopTimer);
         window.clearTimeout(guardTimer);
+        if (animationFrameId) {
+          window.cancelAnimationFrame(animationFrameId);
+        }
+        setProbeVoiceActive(false);
+        if (source) {
+          source.disconnect();
+        }
+        if (analyser) {
+          analyser.disconnect();
+        }
+        stopAudioContext(audioContext);
+        if (activeAudioContextRef.current === audioContext) {
+          activeAudioContextRef.current = null;
+        }
         callback();
       };
 
       try {
         recorder = new MediaRecorder(stream);
         activeRecorderRef.current = recorder;
+
+        const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+
+        if (!AudioContextConstructor) {
+          const error = new Error('Browser không hỗ trợ Web Audio API để kiểm tra tín hiệu giọng nói.');
+          error.name = 'NotSupportedError';
+          throw error;
+        }
+
+        audioContext = new AudioContextConstructor();
+        activeAudioContextRef.current = audioContext;
+        source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.72;
+        source.connect(analyser);
+        frameData = new Uint8Array(analyser.fftSize);
       } catch (error) {
         reject(error);
         return;
       }
+
+      const watchVoiceActivity = () => {
+        analyser.getByteTimeDomainData(frameData);
+
+        let total = 0;
+        for (let index = 0; index < frameData.length; index += 1) {
+          const centeredSample = (frameData[index] - 128) / 128;
+          total += centeredSample * centeredSample;
+        }
+
+        const rms = Math.sqrt(total / frameData.length);
+        const nextVoiceActive = rms >= VOICE_ACTIVITY_THRESHOLD;
+
+        activeFrames = nextVoiceActive ? activeFrames + 1 : 0;
+        if (activeFrames >= VOICE_ACTIVITY_REQUIRED_FRAMES) {
+          voiceDetected = true;
+        }
+
+        setProbeVoiceActive(nextVoiceActive);
+        animationFrameId = window.requestAnimationFrame(watchVoiceActivity);
+      };
 
       recorder.ondataavailable = () => {
         // Intentionally do not read, store, upload, or persist audio chunks.
@@ -295,24 +381,31 @@ function DeviceReadinessCheckPage() {
       };
 
       recorder.onstop = () => {
-        settle(() => resolve());
+        settle(() => {
+          if (voiceDetected) {
+            resolve();
+          } else {
+            reject(createNoVoiceDetectedError());
+          }
+        });
       };
 
       try {
+        watchVoiceActivity();
         recorder.start(100);
 
         stopTimer = window.setTimeout(() => {
           if (recorder.state !== 'inactive') {
             recorder.stop();
           }
-        }, 700);
+        }, 3600);
 
         guardTimer = window.setTimeout(() => {
           if (recorder.state !== 'inactive') {
             stopRecorder(recorder);
           }
           settle(() => reject(new Error('Recording readiness check timed out.')));
-        }, 2500);
+        }, 5200);
       } catch (error) {
         settle(() => reject(error));
       }
@@ -325,6 +418,7 @@ function DeviceReadinessCheckPage() {
 
     cleanupActiveMedia();
     setIsChecking(true);
+    setVoiceActive(false);
     setMessage({
       type: 'info',
       text: 'AI-SPEIS đang kiểm tra trình duyệt, microphone và khả năng ghi âm ngắn.',
@@ -394,13 +488,13 @@ function DeviceReadinessCheckPage() {
         return;
       }
 
-      await runRecordingProbe(stream);
+      await runRecordingProbe(stream, setVoiceActive);
 
       if (runIdRef.current !== runId) return;
 
       updateCheck('recording', {
         status: CHECK_STATUS.PASSED,
-        detail: 'MediaRecorder đã tạo và dừng phiên ghi âm thử thành công.',
+        detail: 'MediaRecorder đã tạo, nhận tín hiệu giọng nói và dừng phiên ghi âm thử thành công.',
         meta: 'Passed',
       });
       setMessage({
@@ -412,7 +506,17 @@ function DeviceReadinessCheckPage() {
 
       const supportError = error?.name === 'NotSupportedError';
 
-      if (supportError || error?.message?.includes('Recording readiness')) {
+      if (error?.name === 'NoVoiceDetectedError') {
+        updateCheck('recording', {
+          status: CHECK_STATUS.FAILED,
+          detail: 'Không nhận diện được tín hiệu giọng nói đủ rõ trong phiên ghi âm thử.',
+          meta: 'Failed',
+        });
+        setMessage({
+          type: 'error',
+          text: 'Microphone có quyền truy cập nhưng chưa bắt được giọng nói thật. Hãy nói gần microphone hơn và Retry Check.',
+        });
+      } else if (supportError || error?.message?.includes('Recording readiness')) {
         updateCheck('recording', {
           status: CHECK_STATUS.FAILED,
           detail: error?.message || 'Không thể khởi chạy MediaRecorder.',
@@ -441,7 +545,11 @@ function DeviceReadinessCheckPage() {
         });
       }
     } finally {
+      if (runIdRef.current === runId) {
+        setVoiceActive(false);
+      }
       stopRecorder(activeRecorderRef.current);
+      stopAudioContext(activeAudioContextRef.current);
       stopMediaStream(stream);
 
       if (activeStreamRef.current === stream) {
@@ -449,6 +557,7 @@ function DeviceReadinessCheckPage() {
       }
 
       activeRecorderRef.current = null;
+      activeAudioContextRef.current = null;
 
       if (runIdRef.current === runId) {
         setIsChecking(false);
@@ -487,6 +596,7 @@ function DeviceReadinessCheckPage() {
     return Object.values(checks).some((check) => check.status === CHECK_STATUS.FAILED);
   }, [checks]);
 
+  const recordingFailed = checks.recording?.status === CHECK_STATUS.FAILED;
   const panelState = requiredPassed ? CHECK_STATUS.PASSED : hasFailure ? CHECK_STATUS.FAILED : CHECK_STATUS.CHECKING;
 
   const handleContinue = () => {
@@ -575,7 +685,18 @@ function DeviceReadinessCheckPage() {
                   : 'Đọc đoạn văn mẫu ở bên phải trong môi trường yên tĩnh rồi bấm Retry Check nếu cần.'}
               </p>
             </div>
-            <div className="device-waveform" aria-hidden="true">
+            {recordingFailed && (
+              <button
+                type="button"
+                className="device-panel-retry-button"
+                onClick={runReadinessCheck}
+                disabled={isChecking}
+              >
+                <RefreshCw size={18} className={isChecking ? 'device-spin' : ''} />
+                Retry Check
+              </button>
+            )}
+            <div className={`device-waveform${voiceActive ? ' device-waveform--active' : ''}`} aria-hidden="true">
               {Array.from({ length: 15 }).map((_, index) => (
                 <span key={index} />
               ))}

@@ -20,15 +20,14 @@ import {
   X,
   Edit3,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  ChevronRight
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import { API_BASE_URL } from '../../config/api';
-import { navigate } from '../../routes/navigation';
-import { USER_ROUTES } from '../../routes/routePaths';
 import '../../styles/user/MyCVPage.css';
 
 /* ========================================================================= */

@@ -358,6 +358,36 @@
   line-height: 1.7;
 }
 
+.device-panel-retry-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(231, 111, 111, 0.28);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--error);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--box-shadow-sm);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+.device-panel-retry-button:hover:not(:disabled) {
+  background: var(--error-light);
+  border-color: rgba(231, 111, 111, 0.42);
+  transform: translateY(-1px);
+}
+
+.device-panel-retry-button:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
 .device-waveform {
   display: flex;
   align-items: center;
@@ -369,10 +399,15 @@
 
 .device-waveform span {
   width: 6px;
-  min-height: 16px;
+  height: 16px;
   border-radius: 999px;
   background: var(--border-strong);
+  transition: height 0.18s ease, background 0.18s ease;
+}
+
+.device-waveform--active span {
   animation: device-wave 1.4s ease-in-out infinite;
+  background: var(--primary-dark);
 }
 
 .device-waveform span:nth-child(2n) {
@@ -389,6 +424,10 @@
 
 .device-recording-panel--passed .device-waveform span {
   background: var(--success);
+}
+
+.device-recording-panel--passed .device-waveform:not(.device-waveform--active) span {
+  animation: none;
 }
 
 .device-recording-panel--failed .device-waveform span {
