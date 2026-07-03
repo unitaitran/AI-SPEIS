@@ -1018,7 +1018,7 @@
 }
 
 .user-detail-card {
-  width: min(700px, 95vw);
+  width: min(700px, 95vw) !important;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -1221,6 +1221,12 @@
 }
 
 /* ========== Detail Sections ========== */
+.table-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--spacing-sm);
+}
+
 .detail-section {
   display: flex;
   flex-direction: column;
@@ -1253,6 +1259,7 @@
   border: 1px solid rgba(215, 227, 236, 0.5);
   border-radius: var(--border-radius-md);
   transition: all var(--transition-smooth);
+  min-width: 0;
 }
 
 .info-item:hover {

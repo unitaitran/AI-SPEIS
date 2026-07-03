@@ -213,6 +213,126 @@ namespace ai_speis_be.Migrations
                     b.ToTable("CVSkill");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.JDExtractedProfile", b =>
+                {
+                    b.Property<int>("ExtractedProfileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExtractedProfileId"));
+
+                    b.Property<string>("CompanyCharacteristics")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("ConfidenceScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ConfirmedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ExperienceLevel")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("JDFileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("JobTitle")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("NiceToHaveSkills")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RawAiOutput")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequiredSkills")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Responsibilities")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ExtractedProfileId");
+
+                    b.HasIndex("ConfirmedBy");
+
+                    b.HasIndex(new[] { "JDFileId" }, "IX_JDExtractedProfile_JDFileId")
+                        .IsUnique();
+
+                    b.ToTable("JDExtractedProfile");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.JDFile", b =>
+                {
+                    b.Property<int>("JDFileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JDFileId"));
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("FileName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FilePath")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("InputType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RawText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("JDFileId");
+
+                    b.HasIndex(new[] { "JDFileId" }, "IX_JDFile_JDFileId")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "UserId" }, "IX_JDFile_UserId");
+
+                    b.ToTable("JDFile");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
                 {
                     b.Property<int>("QuestionId")
@@ -521,6 +641,34 @@ namespace ai_speis_be.Migrations
                     b.Navigation("ExtractedProfile");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.JDExtractedProfile", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.User", "ConfirmedByUser")
+                        .WithMany()
+                        .HasForeignKey("ConfirmedBy");
+
+                    b.HasOne("ai_speis_be.Models.JDFile", "JDFile")
+                        .WithMany()
+                        .HasForeignKey("JDFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ConfirmedByUser");
+
+                    b.Navigation("JDFile");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.JDFile", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.User", "User")
+                        .WithMany("JDFiles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
                 {
                     b.HasOne("ai_speis_be.Models.User", "User")
@@ -583,6 +731,8 @@ namespace ai_speis_be.Migrations
             modelBuilder.Entity("ai_speis_be.Models.User", b =>
                 {
                     b.Navigation("CVFiles");
+
+                    b.Navigation("JDFiles");
                 });
 #pragma warning restore 612, 618
         }

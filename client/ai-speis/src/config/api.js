@@ -1,4 +1,5 @@
 // API Configuration
+// export const API_BASE_URL = 'https://localhost:7084'; 
 export const API_BASE_URL = 'http://localhost:5274';
 
 export const ENDPOINTS = {
@@ -12,12 +13,17 @@ export const ENDPOINTS = {
   UPDATE_AVATAR: `${API_BASE_URL}/api/users/me/avatar`,
   CHANGE_PASSWORD: `${API_BASE_URL}/api/users/me/security`,
   CV_GET_MY: `${API_BASE_URL}/api/CVFile/MyCV`,
+  CV_GET_HISTORY: `${API_BASE_URL}/api/CVFile/history`,
   CV_UPLOAD: `${API_BASE_URL}/api/CVFile/upload`,
   CV_DELETE: (id) => `${API_BASE_URL}/api/CVFile/${id}`,
   CV_PARSE: (id) => `${API_BASE_URL}/api/CVFile/${id}/parse`,
   CV_STATUS: (id) => `${API_BASE_URL}/api/CVFile/${id}/status`,
   CV_PARSED_DATA: (id) => `${API_BASE_URL}/api/CVFile/${id}/parsed-data`,
   CV_CONFIRM: (id) => `${API_BASE_URL}/api/CVFile/${id}/confirm`,
+  JD_GET_HISTORY: `${API_BASE_URL}/api/JDFile/history`,
+  JD_UPLOAD: `${API_BASE_URL}/api/JDFile/upload`,
+  JD_SUBMIT_TEXT: `${API_BASE_URL}/api/JDFile/text`,
+  JD_DELETE: (id) => `${API_BASE_URL}/api/JDFile/${id}`,
   QUESTIONS_GET: `${API_BASE_URL}/api/questions`,
   QUESTIONS_GET_BY_ID: (id) => `${API_BASE_URL}/api/questions/${id}`,
   SAVED_QUESTIONS_GET: `${API_BASE_URL}/api/SavedQuestions`,
@@ -27,4 +33,8 @@ export const ENDPOINTS = {
   ADMIN_USER_LOCK: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/lock`,
   ADMIN_USER_UNLOCK: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/unlock`,
   ADMIN_USER_ROLE: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/role`,
+  ADMIN_QUESTIONS: `${API_BASE_URL}/api/admin/questions`,
+  ADMIN_QUESTIONS_FILTERS: `${API_BASE_URL}/api/admin/questions/filters`,
+  ADMIN_QUESTIONS_BY_ID: (id) => `${API_BASE_URL}/api/admin/questions/${id}`,
+  ADMIN_QUESTIONS_IMPORT: `${API_BASE_URL}/api/admin/questions/import`,
 };

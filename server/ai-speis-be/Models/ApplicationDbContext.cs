@@ -17,6 +17,9 @@ namespace ai_speis_be.Models
         public DbSet<CVProject> CVProjects { get; set; } = null!;
         public DbSet<Question> Questions { get; set; } = null!;
         public DbSet<SavedQuestion> SavedQuestion { get; set; } = null!;
+        public DbSet<JDFile> JDFiles { get; set; } = null!;
+        public DbSet<JDExtractedProfile> JDExtractedProfiles { get; set; } = null!;
+  
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -46,6 +49,12 @@ namespace ai_speis_be.Models
                 .HasOne(cv => cv.User)
                 .WithMany(u => u.CVFiles)
                 .HasForeignKey(cv => cv.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<JDFile>()
+                .HasOne(jd => jd.User)
+                .WithMany(u => u.JDFiles)
+                .HasForeignKey(jd => jd.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // CVExtractedProfile — 1:1 with CVFile
@@ -103,4 +112,4 @@ namespace ai_speis_be.Models
 
         }
     }
-}
+}

@@ -46,11 +46,13 @@ function UserManagementPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
+  const [confirmModal, setConfirmModal] = useState(null);
+<<<<<<<<< Temporary merge branch 1
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailUser, setDetailUser] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
+=========
   const [roleModal, setRoleModal] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
 
@@ -150,105 +152,125 @@ function UserManagementPage() {
     setSelectedUsers(new Set());
   };
 
-  const getUserId = (user) => user?.userId || user?.id || '';
+  const handleViewDetails = async (userId) => {
+    setDetailModalOpen(true);
+    setLoadingDetail(true);
+    setDetailError(null);
+    setDetailUser(null);
+    try {
+      const data = await userService.getUserById(userId);
+      setDetailUser(data);
+    } catch (err) {
+      setDetailError(err?.message || t('loadError'));
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
-  const normalizeStatus = useCallback((status) => {
-    if (status == null) {
-      return '';
+  const closeDetailModal = () => {
+    setDetailModalOpen(false);
+    setDetailUser(null);
+    setDetailError(null);
+  };
+
+  // Handle user selection
+  const handleSelectUser = (userId) => {
+    const newSelected = new Set(selectedUsers);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedUsers(newSelected);
+  };
+
+  // Handle select all
+  const handleSelectAll = () => {
+    if (selectedUsers.size === users.length) {
+      setSelectedUsers(new Set());
+    } else {
+      setSelectedUsers(new Set(users.map((u) => u.userId || u.id)));
+    }
+  };
+
+  // Handle batch actions (TODO: implement when backend ready)
+  const handleLockSelected = () => {
+    setConfirmModal({
+      type: 'lock',
+      count: selectedUsers.size,
+      userIds: Array.from(selectedUsers),
+    });
+  };
+
+  const handleAssignPackage = () => {
+    setConfirmModal({
+      type: 'assignPackage',
+      count: selectedUsers.size,
+      userIds: Array.from(selectedUsers),
+    });
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirmModal) {
+      return;
     }
 
-    if (typeof status === 'boolean') {
-      return status ? 'active' : 'locked';
+    if (confirmModal.type === 'lock') {
+      console.log('Confirmed lock selected users:', confirmModal.userIds);
+    } else {
+      console.log('Confirmed assign package to users:', confirmModal.userIds);
     }
 
-    if (typeof status === 'number') {
-      return status === 1 ? 'active' : 'locked';
+    setConfirmModal(null);
+  };
+
+  const handleCancelAction = () => {
+    setConfirmModal(null);
+  };
+
+  const getDetailField = (source, keys) => {
+    if (!source) {
+      return null;
     }
 
-    if (typeof status === 'string') {
-      const normalized = status.trim().toLowerCase();
-      if (normalized === 'active' || normalized === 'locked') {
-        return normalized;
-      }
-      if (normalized.includes('lock')) {
-        return 'locked';
-      }
-      if (normalized.includes('active')) {
-        return 'active';
-      }
-      return normalized;
-    }
-
-    if (typeof status === 'object') {
-      if (typeof status.isLocked === 'boolean') {
-        return status.isLocked ? 'locked' : 'active';
-      }
-      if (typeof status.value === 'string') {
-        return normalizeStatus(status.value);
-      }
-      if (typeof status.name === 'string') {
-        return normalizeStatus(status.name);
-      }
-      if (typeof status.status === 'string') {
-        return normalizeStatus(status.status);
+    for (let i = 0; i < keys.length; i += 1) {
+      const value = source[keys[i]];
+      if (value !== undefined && value !== null && value !== '') {
+        return value;
       }
     }
 
-    return '';
-  }, []);
+    return null;
+  };
 
-  const compareValues = useCallback((a, b, field) => {
-    const getFieldValue = (item) => {
-      if (!item) {
-        return '';
-      }
-
-      switch (field) {
-        case 'fullName':
-          return (item.fullName || item.name || '').toLowerCase();
-        case 'email':
-          return (item.email || '').toLowerCase();
-        case 'role':
-          return (item.role || item.roleName || '').toLowerCase();
-        case 'registerDate': {
-          const value = item.registerDate || item.createdAt || item.createdDate || item.registeredAt || '';
-          return value ? new Date(value).getTime() : 0;
-        }
-        case 'status':
-          return normalizeStatus(item.status ?? item.isLocked ?? item.locked);
-        default:
-          return '';
-      }
-    };
-
-    const left = getFieldValue(a);
-    const right = getFieldValue(b);
-
-    if (left < right) {
-      return -1;
+  const formatDateValue = (value) => {
+    if (!value) {
+      return null;
     }
-    if (left > right) {
-      return 1;
-    }
-    return 0;
-  }, [normalizeStatus]);
 
-  const handleViewDetails = async (user) => {
-    const id = getUserId(user);
-    if (!id) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    return date.toLocaleString();
+  };
+
+  const handleOpenDetail = async (userId) => {
+    if (!userId) {
       return;
     }
 
     setShowDetailModal(true);
-    setDetailLoading(true);
-    setDetailError(null);
     setDetailUser(null);
+    setDetailError(null);
+    setDetailLoading(true);
 
     try {
-      const data = await userService.getUserById(id);
-      setDetailUser(data);
+      const result = await userService.getUserDetail(userId);
+      setDetailUser(result);
     } catch (err) {
-      setDetailError(err?.message || t('loadError'));
+      setDetailError(err?.message || t('detailLoadError'));
     } finally {
       setDetailLoading(false);
     }
@@ -270,56 +292,84 @@ function UserManagementPage() {
     if (nextSelected.has(id)) {
       nextSelected.delete(id);
     } else {
-      nextSelected.add(id);
-    }
-    setSelectedUsers(nextSelected);
-  };
-
-  const handleSelectAll = () => {
-    if (selectedUsers.size === displayedUsers.length) {
-      setSelectedUsers(new Set());
-    } else {
-      setSelectedUsers(new Set(displayedUsers.map((user) => getUserId(user))));
-    }
-  };
-
-  const handleLockSelected = () => {
-    setConfirmAction({
-      type: 'lockSelected',
-      count: selectedUsers.size,
-      userIds: Array.from(selectedUsers),
-    });
-  };
-
-  const handleAssignPackage = () => {
-    setConfirmAction({
-      type: 'assignPackage',
-      count: selectedUsers.size,
-      userIds: Array.from(selectedUsers),
-    });
-  };
-
-  const handleOpenRoleModal = (user) => {
-    setRoleModal({
-      user,
-      selectedRole: (user?.role || '').toLowerCase() === 'admin' ? 'admin' : 'user',
-    });
-  };
-
-  const handleToggleLock = (user) => {
-    const isLocked = normalizeStatus(user?.status ?? user?.isLocked) === 'locked';
-    setConfirmAction({
-      type: isLocked ? 'unlockUser' : 'lockUser',
-      user,
-    });
-  };
-
-  const toggleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
       setSortBy(field);
       setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+  const normalizeStatus = (status) => {
+  if (status == null) return '';
+
+  if (typeof status === 'string') {
+    return status.toLowerCase();
+  }
+
+  if (typeof status === 'boolean') {
+    return status ? 'active' : 'locked';
+  }
+
+  if (typeof status === 'number') {
+    return status === 1 ? 'active' : 'locked';
+  }
+
+  if (typeof status === 'object') {
+    return (
+      status.name?.toLowerCase() ||
+      status.value?.toLowerCase() ||
+      status.status?.toLowerCase() ||
+      ''
+    );
+  }
+
+  return '';
+};
+
+  const compareValues = (a, b, field) => {
+    const normalizeStatusValue = (value) => {
+      if (typeof value === 'boolean') {
+        return value ? 'active' : 'locked';
+      }
+
+      if (typeof value === 'string') {
+        return value.trim().toLowerCase();
+      }
+
+      return '';
+    };
+
+    const getField = (item) => {
+      if (!item) {
+        return '';
+      }
+
+      switch (field) {
+        case 'fullName':
+          return item.fullName?.toLowerCase() ?? '';
+        case 'email':
+          return item.email?.toLowerCase() ?? '';
+        case 'role':
+          return item.role?.toLowerCase() ?? '';
+        case 'registerDate':
+          return item.registerDate ? new Date(item.registerDate).getTime() : 0;
+        case 'status':
+<<<<<<<<< Temporary merge branch 1
+          return normalizeStatus(item.status);
+=========
+          return normalizeStatusValue(item.status);
+>>>>>>>>> Temporary merge branch 2
+        default:
+          return '';
+      }
+    };
+
+    const left = getField(a);
+    const right = getField(b);
+
+    if (left < right) {
+      return -1;
+    }
+    if (left > right) {
+      return 1;
     }
     setCurrentPage(1);
   };
@@ -365,7 +415,8 @@ function UserManagementPage() {
 
     return buttons;
   }, [currentPage, totalPages]);
-
+  
+  // Status badge component
   const StatusBadge = ({ status }) => {
     const normalizedStatus = normalizeStatus(status);
     const statusMap = {
@@ -406,15 +457,87 @@ function UserManagementPage() {
     </div>
   );
 
-  const ErrorState = () => (
-    <div className="error-state">
-      <AlertCircle size={20} />
-      <div>
-        <p>{t('loadError')}</p>
-        <p className="error-subtext">{t('tryAgain')}</p>
+  const DetailModal = () => {
+    if (!showDetailModal) {
+      return null;
+    }
+
+    const avatarUrl = getDetailField(detailUser, ['avatarUrl', 'avatar', 'photoUrl', 'picture']);
+    const fullName = getDetailField(detailUser, ['fullName', 'name']);
+    const email = getDetailField(detailUser, ['email']);
+    const phoneNumber = getDetailField(detailUser, ['phoneNumber', 'phone', 'mobile']);
+    const roleValue = getDetailField(detailUser, ['role']);
+    const packageValue = getDetailField(detailUser, ['package', 'subscription', 'packageName']);
+    const quotaValue = getDetailField(detailUser, ['remainingQuota', 'quota', 'quotaRemaining']);
+    const statusValue = getDetailField(detailUser, ['status']);
+    const registrationDate = formatDateValue(getDetailField(detailUser, ['registrationDate', 'registerDate', 'createdAt', 'createdDate']));
+    const lastLogin = formatDateValue(getDetailField(detailUser, ['lastLogin', 'lastLoginAt', 'lastActivity']));
+    const createdDate = formatDateValue(getDetailField(detailUser, ['createdAt', 'createdDate']));
+    const updatedDate = formatDateValue(getDetailField(detailUser, ['updatedAt', 'updatedDate']));
+
+    const detailRows = [
+      { label: t('email'), value: email },
+      { label: t('phoneNumber'), value: phoneNumber },
+      { label: t('role'), value: roleValue },
+      { label: t('package'), value: packageValue },
+      { label: t('remainingQuota'), value: quotaValue },
+      { label: t('status'), value: statusValue },
+      { label: t('registrationDate'), value: registrationDate },
+      { label: t('lastLogin'), value: lastLogin },
+      { label: t('createdDate'), value: createdDate },
+      { label: t('updatedDate'), value: updatedDate },
+    ].filter((row) => row.value != null);
+
+    return (
+      <div className="modal-backdrop" role="dialog" aria-modal="true">
+        <div className="modal-card detail-modal-card">
+          <div className="modal-header">
+            <div>
+              <h3>{t('detailTitle')}</h3>
+              <p className="modal-description">{t('detailSubtitle')}</p>
+            </div>
+            <button type="button" className="modal-close-btn" onClick={closeDetailModal}>
+              {t('close')}
+            </button>
+          </div>
+
+          {detailLoading ? (
+            <div className="detail-loading">{t('loading')}...</div>
+          ) : detailError ? (
+            <div className="detail-error">
+              <AlertCircle size={18} />
+              <span>{detailError}</span>
+            </div>
+          ) : detailUser ? (
+            <div className="detail-body">
+              {avatarUrl && (
+                <div className="detail-avatar-card">
+                  <img src={avatarUrl} alt={fullName || t('avatarLabel')} className="detail-avatar" />
+                </div>
+              )}
+
+              <div className="detail-grid">
+                {fullName && (
+                  <div className="detail-item detail-fullname">
+                    <span className="detail-label">{t('fullName')}</span>
+                    <span className="detail-value">{fullName}</span>
+                  </div>
+                )}
+                {detailRows.map((row) => (
+                  <div className="detail-item" key={row.label}>
+                    <span className="detail-label">{row.label}</span>
+                    <span className="detail-value">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="detail-empty">{t('noDetailAvailable')}</div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const UserDetailsModal = () => {
     if (!showDetailModal) {
@@ -640,33 +763,33 @@ function UserManagementPage() {
       return null;
     }
 
-    const handleSaveRole = async () => {
+    const handleSaveRole = () => {
       const { user, selectedRole } = roleModal;
-      const id = getUserId(user);
-      const isUpgradingToAdmin = (user?.role || '').toLowerCase() === 'user' && selectedRole === 'admin';
-
+      
+      const isUpgradingToAdmin = user.role?.toLowerCase() === 'user' && selectedRole === 'admin';
+      
       if (isUpgradingToAdmin) {
         setConfirmAction({
           type: 'upgradeRole',
           user,
-          targetRole: selectedRole,
+          targetRole: selectedRole
         });
         setRoleModal(null);
         return;
       }
 
-      if ((user?.role || '').toLowerCase() === selectedRole) {
+      if (user.role?.toLowerCase() === selectedRole) {
         setRoleModal(null);
         return;
       }
 
       try {
-        await userService.assignRole(id, selectedRole);
-        await fetchUsers();
+        await userService.assignRole(user.userId || user.id, selectedRole);
+        fetchUsers();
         setRoleModal(null);
-        window.alert(t('roleUpdatedSuccess'));
+        alert(t('roleUpdatedSuccess'));
       } catch (err) {
-        window.alert(err?.message || 'Có lỗi xảy ra');
+        alert(err?.message || 'Có lỗi xảy ra');
       }
     };
 
@@ -729,8 +852,8 @@ function UserManagementPage() {
 
       try {
         if (type === 'upgradeRole') {
-          await userService.assignRole(getUserId(user), targetRole);
-          window.alert(t('roleUpdatedSuccess'));
+          await userService.assignRole(user.userId || user.id, targetRole);
+          alert(t('roleUpdatedSuccess'));
         } else if (type === 'lockUser') {
           await userService.lockUser(getUserId(user));
           window.alert(t('statusUpdatedSuccess'));
@@ -753,30 +876,23 @@ function UserManagementPage() {
       }
     };
 
+    const getRoleLabel = (role) => {
+      if (!role) return '';
+      return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+    };
+
     let title = '';
     let description = '';
-    let confirmLabel = t('cancel');
 
-    if (confirmAction.type === 'upgradeRole') {
+    if (confirmAction.type === 'changeRole' || confirmAction.type === 'upgradeRole') {
       title = t('editRoleTitle');
       description = t('confirmUpgradeToAdmin');
-      confirmLabel = t('save');
     } else if (confirmAction.type === 'lockUser') {
       title = t('confirmLockTitle');
       description = t('confirmLockUser');
-      confirmLabel = t('lockUser');
     } else if (confirmAction.type === 'unlockUser') {
       title = t('confirmLockTitle');
       description = t('confirmUnlockUser');
-      confirmLabel = t('unlockUser');
-    } else if (confirmAction.type === 'lockSelected') {
-      title = t('confirmLockTitle');
-      description = t('confirmLockDescription', { count: confirmAction.count });
-      confirmLabel = t('lockSelected');
-    } else if (confirmAction.type === 'assignPackage') {
-      title = t('confirmAssignPackageTitle');
-      description = t('confirmAssignPackageDescription', { count: confirmAction.count });
-      confirmLabel = t('assignPackage');
     }
 
     return (
@@ -786,15 +902,35 @@ function UserManagementPage() {
         role="dialog"
         aria-modal="true"
       >
-        <div className="modal-card">
-          <h3>{title}</h3>
-          <p style={{ margin: 'var(--spacing-md) 0' }}>{description}</p>
-          <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)' }}>
+        <div className="modal-card" style={{ maxWidth: '440px' }}>
+          {/* Icon header */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '50%',
+              background: confirmBtnClass === 'btn-danger'
+                ? 'rgba(250, 119, 119, 0.12)'
+                : 'rgba(111, 182, 232, 0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: confirmBtnClass === 'btn-danger' ? 'var(--danger)' : 'var(--primary)',
+              fontSize: '24px',
+            }}>
+              {confirmBtnClass === 'btn-danger' ? '🔒' : '✏️'}
+            </div>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{title}</h3>
+          </div>
+          <p style={{ 
+            margin: '0 0 24px', 
+            color: 'var(--text-secondary)', 
+            textAlign: 'center',
+            lineHeight: '1.6',
+            fontSize: '0.95rem',
+          }}>{description}</p>
+          <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-md)' }}>
             <button type="button" className="btn-secondary" onClick={() => setConfirmAction(null)}>
               {t('cancel')}
             </button>
             <button type="button" className="btn-primary" onClick={handleConfirm}>
-              {confirmLabel}
+              {confirmAction.type === 'upgradeRole' ? t('save') : (confirmAction.type === 'lockUser' ? t('lockUser') : t('unlockUser'))}
             </button>
           </div>
         </div>
@@ -1072,7 +1208,8 @@ function UserManagementPage() {
           </div>
         )}
       </div>
-
+      <DetailModal />
+      <ConfirmationModal />
       <UserDetailsModal />
       <EditRoleModal />
       <ActionConfirmModal />
@@ -1081,4 +1218,3 @@ function UserManagementPage() {
 }
 
 export default UserManagementPage;
-

@@ -1,0 +1,256 @@
+using ai_speis_be.Models;
+using ai_speis_be.Models.DTOs;
+using ai_speis_be.Models.Enums;
+using ai_speis_be.Repositories.JDRepo;
+using ai_speis_be.Services.FileValidatorService;
+using ai_speis_be.Services.BackgroundWorker;
+using ai_speis_be.DTOs.JdParsing;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+
+namespace ai_speis_be.Services.JDService
+{
+    public class JDService : IJDService
+    {
+        private readonly IJDRepository _jdRepository;
+        private readonly IFileValidatorService _fileValidatorService;
+        private readonly ApplicationDbContext _context;
+        private readonly IJdParseQueue _jdParseQueue;
+
+        public JDService(IJDRepository jdRepository, IFileValidatorService fileValidatorService, ApplicationDbContext context, IJdParseQueue jdParseQueue)
+        {
+            _jdRepository = jdRepository;
+            _fileValidatorService = fileValidatorService;
+            _context = context;
+            _jdParseQueue = jdParseQueue;
+        }
+
+        // ===================== DELETE =====================
+
+        public async Task<(bool Success, string? ErrorMessage)> DeleteJDAsync(int id)
+        {
+            // Controller đã verify tồn tại và phân quyền → gọi thẳng repo, không query lại
+            var deleted = await _jdRepository.DeleteJDAsync(id);
+            if (deleted == null)
+            {
+                return (false, "Không tìm thấy JD");
+            }
+            return (true, null);
+        }
+
+        // ===================== GET =====================
+
+        public async Task<PagedResultDto<JDDto>> GetAllJDsAsync(JDQueryParameters query)
+        {
+            var pagedJDFiles = await _jdRepository.GetAllJDAsync(query);
+            var jdDtos = pagedJDFiles.Items.Select(MapToDto).ToList();
+            return new PagedResultDto<JDDto>
+            {
+                Items = jdDtos,
+                PageNumber = pagedJDFiles.PageNumber,
+                PageSize = pagedJDFiles.PageSize,
+                TotalItems = pagedJDFiles.TotalItems
+            };
+        }
+
+        public async Task<JDDto?> GetJDByIdAsync(int id)
+        {
+            var jdFile = await _jdRepository.GetJDByIdAsync(id);
+            return jdFile != null ? MapToDto(jdFile) : null;
+        }
+
+        public async Task<PagedResultDto<JDDto>> GetJDByUserIdAsync(int userId, JDQueryParameters query)
+        {
+            var pagedJDFiles = await _jdRepository.GetJDByUserIdAsync(userId, query);
+            var jdDtos = pagedJDFiles.Items.Select(MapToDto).ToList();
+            return new PagedResultDto<JDDto>
+            {
+                Items = jdDtos,
+                PageNumber = pagedJDFiles.PageNumber,
+                PageSize = pagedJDFiles.PageSize,
+                TotalItems = pagedJDFiles.TotalItems
+            };
+        }
+
+        // ===================== UPLOAD FILE =====================
+
+        public async Task<(bool Success, string? ErrorMessage, JDDto? JDDto)> UploadJDAsync(int userId, IFormFile file)
+        {
+            var (isValid, validationError) = _fileValidatorService.ValidatePdf(file);
+            if (!isValid)
+            {
+                return (false, validationError, null);
+            }
+
+            try
+            {
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "jds");
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+
+                var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName).ToLower()}";
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(fileStream);
+                }
+
+                var jdFile = new JDFile
+                {
+                    UserId = userId,
+                    InputType = JDInputType.File,
+                    // RawText = null → background worker sẽ extract PDF và điền sau
+                    FileName = file.FileName,
+                    FilePath = $"/uploads/jds/{uniqueFileName}",
+                    FileSize = file.Length,
+                    FileType = file.ContentType,
+                    Status = JDFileStatus.Pending,
+                    UploadedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+
+                var savedJD = await _jdRepository.AddJDAsync(jdFile);
+                return (true, null, MapToDto(savedJD));
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Lỗi hệ thống khi tải file: {ex.Message}", null);
+            }
+        }
+
+        // ===================== SUBMIT TEXT =====================
+
+        public async Task<(bool Success, string? ErrorMessage, JDDto? JDDto)> SubmitJDTextAsync(int userId, string rawText)
+        {
+            try
+            {
+                var jdFile = new JDFile
+                {
+                    UserId = userId,
+                    InputType = JDInputType.Text,
+                    RawText = rawText.Trim(),
+                    // FileName, FilePath, FileSize, FileType đều null — không có file
+                    Status = JDFileStatus.Pending,
+                    UploadedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+
+                var saved = await _jdRepository.AddJDAsync(jdFile);
+                return (true, null, MapToDto(saved));
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Lỗi hệ thống khi lưu JD: {ex.Message}", null);
+            }
+        }
+
+        // ===================== HELPER =====================
+
+        private JDDto MapToDto(JDFile jd)
+        {
+            return new JDDto
+            {
+                JDFileId = jd.JDFileId,
+                UserId = jd.UserId,
+                InputType = jd.InputType,
+                RawText = jd.RawText,
+                FileName = jd.FileName,
+                FilePath = jd.FilePath,
+                FileSize = jd.FileSize,
+                FileType = jd.FileType,
+                Status = jd.Status,
+                UploadedAt = jd.UploadedAt,
+                UpdatedAt = jd.UpdatedAt
+            };
+        }
+
+        // ===================== AI PARSING =====================
+
+        public async Task<bool> TriggerParseAsync(int userId, int jdId)
+        {
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+            if (jdFile == null) return false;
+
+            if (jdFile.Status == JDFileStatus.Processing || jdFile.Status == JDFileStatus.Confirmed)
+                return false; // Already parsing or done
+
+            // Delete old profile if exists
+            var oldProfile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
+            if (oldProfile != null)
+            {
+                _context.JDExtractedProfiles.Remove(oldProfile);
+            }
+
+            jdFile.Status = JDFileStatus.Processing;
+            jdFile.ErrorMessage = null;
+            await _context.SaveChangesAsync();
+
+            await _jdParseQueue.QueueJdForParsingAsync(jdId);
+            return true;
+        }
+
+        public async Task<object?> GetParseStatusAsync(int userId, int jdId)
+        {
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+            if (jdFile == null) return null;
+
+            return new
+            {
+                Status = jdFile.Status.ToString(),
+                ErrorMessage = jdFile.ErrorMessage
+            };
+        }
+
+        public async Task<JdParsedDataResponse?> GetParsedDataAsync(int userId, int jdId)
+        {
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+            if (jdFile == null) return null;
+
+            var profile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
+            if (profile == null) return null;
+
+            return new JdParsedDataResponse
+            {
+                ExtractedProfileId = profile.ExtractedProfileId,
+                JDFileId = profile.JDFileId,
+                JobTitle = profile.JobTitle,
+                ExperienceLevel = profile.ExperienceLevel,
+                RequiredSkills = JsonSerializer.Deserialize<List<string>>(profile.RequiredSkills) ?? new List<string>(),
+                NiceToHaveSkills = JsonSerializer.Deserialize<List<string>>(profile.NiceToHaveSkills) ?? new List<string>(),
+                Responsibilities = profile.Responsibilities,
+                CompanyCharacteristics = profile.CompanyCharacteristics,
+                ConfidenceScore = profile.ConfidenceScore,
+                WarningMessage = profile.ConfidenceScore < 0.80m ? "Confidence score is low. Please verify the extracted data carefully." : null
+            };
+        }
+
+        public async Task<bool> ConfirmParsedDataAsync(int userId, int jdId, JdConfirmRequest request)
+        {
+            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
+            if (jdFile == null) return false;
+
+            var profile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
+            if (profile == null) return false;
+
+            profile.JobTitle = request.JobTitle;
+            profile.ExperienceLevel = request.ExperienceLevel;
+            profile.RequiredSkills = JsonSerializer.Serialize(request.RequiredSkills);
+            profile.NiceToHaveSkills = JsonSerializer.Serialize(request.NiceToHaveSkills);
+            profile.Responsibilities = request.Responsibilities;
+            profile.CompanyCharacteristics = request.CompanyCharacteristics;
+            
+            profile.IsConfirmed = true;
+            profile.ConfirmedBy = userId;
+            profile.ConfirmedAt = DateTime.UtcNow;
+            profile.UpdatedAt = DateTime.UtcNow;
+
+            jdFile.Status = JDFileStatus.Confirmed;
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+    }
+}

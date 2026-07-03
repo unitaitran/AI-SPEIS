@@ -7,7 +7,8 @@ export const USER_ROUTES = {
   ROOT: '/user',
   DASHBOARD: '/user/dashboard',
   PROFILE: '/user/profile',
-  CV: '/user/cv',
+  CV: '/user/cv-management',
+  CV_DETAIL: '/user/cv',
   QUESTIONS: '/user/questions',
 };
 

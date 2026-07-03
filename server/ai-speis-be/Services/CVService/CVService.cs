@@ -63,14 +63,8 @@ namespace ai_speis_be.Services.CVService
                     await file.CopyToAsync(fileStream);
                 }
 
-                // 4.5. Soft delete previous active CV
-                var activeCV = await _cvRepository.GetActiveCVByUserIdAsync(userId);
-                if (activeCV != null)
-                {
-                    activeCV.Status = CVFileStatus.Archived;
-                    activeCV.UpdatedAt = DateTime.Now;
-                    await _cvRepository.UpdateCVAsync(activeCV);
-                }
+                // 4.5. Soft delete ALL previous active CVs 
+                await _cvRepository.ArchiveAllActiveCVsByUserIdAsync(userId);
 
                 // 5. Save metadata to database
                 var cvFile = new CVFile
@@ -95,10 +89,20 @@ namespace ai_speis_be.Services.CVService
             }
         }
 
-        public async Task<IEnumerable<CVDto>> GetAllCVsAsync()
+        public async Task<PagedResultDto<CVDto>> GetAllCVsAsync(CVQueryParameters query)
         {
-            var cvs = await _cvRepository.GetAllCVAsync();
-            return cvs.Select(MapToDto);
+            // 1. Gọi Repo để lấy danh sách Entity phân trang
+            var pagedCVFiles = await _cvRepository.GetAllCVAsync(query);
+            // 2. Map từng Entity CVFile sang CVDto
+            var cvDtos = pagedCVFiles.Items.Select(MapToDto).ToList();
+            // 3. Trả về DTO phân trang
+            return new PagedResultDto<CVDto>
+            {
+                Items = cvDtos,
+                PageNumber = pagedCVFiles.PageNumber,
+                PageSize = pagedCVFiles.PageSize,
+                TotalItems = pagedCVFiles.TotalItems
+            };
         }
 
         public async Task<CVDto?> GetCVByIdAsync(int id)
@@ -107,10 +111,18 @@ namespace ai_speis_be.Services.CVService
             return cv != null ? MapToDto(cv) : null;
         }
 
-        public async Task<CVDto?> GetCVByUserIdAsync(int userId)
+        public async Task<PagedResultDto<CVDto>> GetCVByUserIdAsync(int userId, CVQueryParameters query)
         {
-            var cv = await _cvRepository.GetCVByUserIdAsync(userId);
-            return cv != null ? MapToDto(cv) : null;
+            var pagedCVs = await _cvRepository.GetCVByUserIdAsync(userId, query);
+            var cvDtos = pagedCVs.Items.Select(MapToDto).ToList();
+
+            return new PagedResultDto<CVDto>
+            {
+                Items = cvDtos,
+                PageNumber = pagedCVs.PageNumber,
+                PageSize = pagedCVs.PageSize,
+                TotalItems = pagedCVs.TotalItems
+            };
         }
 
         public async Task<(bool Success, string? ErrorMessage)> DeleteCVAsync(int id)
@@ -161,10 +173,10 @@ namespace ai_speis_be.Services.CVService
             return (true, null);
         }
 
-        public async Task<CvParseStatusResponse?> GetParseStatusAsync(int cvFileId)
+        public async Task<CvParseStatusResponse?> GetParseStatusAsync(int cvFileId, int userId)
         {
             var cvFile = await _dbContext.CVFiles.FindAsync(cvFileId);
-            if (cvFile == null) return null;
+            if (cvFile == null || cvFile.UserId != userId) return null;
 
             string? errorMessage = null;
             if (cvFile.Status == CVFileStatus.AnalysisFailed || cvFile.Status == CVFileStatus.ConfirmationRequired)
@@ -187,10 +199,10 @@ namespace ai_speis_be.Services.CVService
             };
         }
 
-        public async Task<CvParsedDataResponse?> GetParsedDataAsync(int cvFileId)
+        public async Task<CvParsedDataResponse?> GetParsedDataAsync(int cvFileId, int userId)
         {
             var cvFile = await _dbContext.CVFiles.FindAsync(cvFileId);
-            if (cvFile == null) return null;
+            if (cvFile == null || cvFile.UserId != userId) return null;
 
             var profile = await _dbContext.CVExtractedProfiles
                 .Include(e => e.Skills)

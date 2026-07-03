@@ -1,11 +1,12 @@
-using System;
-using System.Threading.Tasks;
+using ai_speis_be.DTOs.CvParsing;
+using ai_speis_be.Repositories.CVRepo;
+using ai_speis_be.Services.CVService;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using ai_speis_be.Services.CVService;
-using ai_speis_be.DTOs.CvParsing;
+using System;
+using System.Threading.Tasks;
 
 namespace ai_speis_be.Controllers
 {
@@ -31,20 +32,20 @@ namespace ai_speis_be.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllCV()
+        public async Task<IActionResult> GetAllCV([FromQuery] CVQueryParameters query, CancellationToken cancellationToken)
         {
-            var CV = await _cvService.GetAllCVsAsync();
+            var CV = await _cvService.GetAllCVsAsync(query);
             return Ok(CV);
         }
 
         [HttpGet("user/{userId:int}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetUserCV(int userId)
+        public async Task<IActionResult> GetUserCV(int userId, [FromQuery] CVQueryParameters query, CancellationToken cancellationToken)
         {
             if (userId <= 0)
                 return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
-            var cv = await _cvService.GetCVByUserIdAsync(userId);
-            if (cv == null) return NotFound(new { Message = "Không tìm thấy CV của người dùng này." });
+            var cv = await _cvService.GetCVByUserIdAsync(userId, query);
+            if (cv == null) return NotFound(new { Message = "Người dùng chưa upload CV nào" });
             return Ok(cv);
         }
 
@@ -84,6 +85,18 @@ namespace ai_speis_be.Controllers
             var cv = await _cvService.GetMyCVAsync(userId);
             if (cv == null) return NotFound(new { Message = "Bạn chưa tải lên CV nào hoặc CV đã bị xóa." });
             return Ok(cv);
+        }
+
+        [HttpGet("history")]
+        [Authorize]
+        public async Task<IActionResult> GetMyCVHistory([FromQuery] CVQueryParameters query)
+        {
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+            }
+            var cvs = await _cvService.GetCVByUserIdAsync(userId, query);
+            return Ok(cvs);
         }
 
         [HttpGet("{id:int}")]
@@ -158,6 +171,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> TriggerParse(int id)
         {
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+
             try
             {
                 if (!TryGetUserId(out int userId))
@@ -183,7 +199,13 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> GetParseStatus(int id)
         {
-            var result = await _cvService.GetParseStatusAsync(id);
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+
+            if (!TryGetUserId(out int userId))
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var result = await _cvService.GetParseStatusAsync(id, userId);
             if (result == null)
                 return NotFound(new { Message = "Không tìm thấy file CV." });
 
@@ -197,7 +219,13 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> GetParsedData(int id)
         {
-            var result = await _cvService.GetParsedDataAsync(id);
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+
+            if (!TryGetUserId(out int userId))
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var result = await _cvService.GetParsedDataAsync(id, userId);
             if (result == null)
                 return NotFound(new { Message = "Chưa có dữ liệu trích xuất cho CV này." });
 
@@ -211,6 +239,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> ConfirmParsedData(int id, [FromBody] CvConfirmRequest request)
         {
+            if (id <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
+
             try
             {
                 if (!TryGetUserId(out int userId))

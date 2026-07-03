@@ -57,7 +57,6 @@
   "close": "Close",
   "detailLoadError": "Unable to load user details.",
   "noDetailAvailable": "No detailed information is available.",
-
   "phoneNumber": "Phone Number",
   "gender": "Gender",
   "school": "School",
@@ -111,5 +110,6 @@
   "save": "Save",
 
   "roleUpdatedSuccess": "User role updated successfully",
-  "statusUpdatedSuccess": "User status updated successfully"
+  "statusUpdatedSuccess": "User status updated successfully",
+  "confirmChangeRole": "Are you sure you want to change the role of \"{{userName}}\" to \"{{newRoleLabel}}\"?"
 }
