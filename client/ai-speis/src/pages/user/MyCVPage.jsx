@@ -20,7 +20,8 @@ import {
   X,
   Edit3,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  ChevronRight
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
@@ -1004,6 +1005,28 @@ function MyCVPage() {
                   </div>
                 </div>
 
+                {/* ---------- Action Alert Banner ---------- */}
+                {isConfirmed && (
+                  <div className="mycv-ready-banner">
+                    <div className="mycv-ready-banner-left">
+                      <div className="mycv-ready-banner-icon">
+                        <Sparkles size={18} />
+                      </div>
+                      <div>
+                        <h4>{t('mycv.ready_to_practice', 'Sẵn sàng để luyện tập?')}</h4>
+                        <p>{t('mycv.practice_desc', 'AI đã cá nhân hóa bộ câu hỏi phỏng vấn dựa trên CV vừa tải lên.')}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="mycv-btn mycv-btn--primary mycv-btn--sm"
+                      onClick={() => navigate(USER_ROUTES.DEVICE_CHECK)}
+                    >
+                      {t('mycv.start_practice', 'Bắt đầu phỏng vấn ngay')}
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
                 
               </>
             )}
