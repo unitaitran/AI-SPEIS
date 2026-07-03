@@ -51,7 +51,7 @@ namespace ai_speis_be.Repositories.CVRepo
 
         public async Task<PagedResult<CVFile>> GetCVByUserIdAsync(int userId,CVQueryParameters query, CancellationToken cancellationToken = default)
         {
-            var cvFiles = _context.CVFiles.AsNoTracking();
+            var cvFiles = _context.CVFiles.AsNoTracking().Where(c => c.UserId == userId);
             if(!string.IsNullOrEmpty(query.Status) && Enum.TryParse<CVFileStatus>(query.Status, true, out var statusEnum))
             {
                 cvFiles = cvFiles.Where(c => c.Status == statusEnum);
@@ -129,20 +129,13 @@ namespace ai_speis_be.Repositories.CVRepo
             return (property, isAscending) switch
             {
                 
-                ("UserId", true) => query.OrderBy(c => c.UserId).ThenBy(c => c.CVFileId),
-                ("UserId", false) => query.OrderByDescending(c => c.UserId).ThenByDescending(c => c.CVFileId),
+                ("userid", true) => query.OrderBy(c => c.UserId).ThenBy(c => c.CVFileId),
+                ("userid", false) => query.OrderByDescending(c => c.UserId).ThenByDescending(c => c.CVFileId),
                 // Mặc định sort theo UploadedAt
                 (_, true) => query.OrderBy(c => c.UploadedAt).ThenBy(c => c.CVFileId),
                 _ => query.OrderByDescending(c => c.UploadedAt).ThenByDescending(c => c.CVFileId)
             };
         }
     } 
-    public class CVQueryParameters
-    {
-        public int PageNumber { get; set; } = 1;
-        public int PageSize { get; set; } = 10;
-        public string? Status { get; set; } // Map từ CVFileStatus
-        public string SortBy { get; set; } = "UploadedAt";
-        public bool IsAscending { get; set; } = false;
-    }
+   
 }

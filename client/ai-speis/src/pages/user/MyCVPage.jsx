@@ -12,18 +12,19 @@ import {
   Briefcase,
   FolderGit2,
   Trash2,
-  ChevronRight,
   Info,
   Sparkles,
   GraduationCap,
   Target,
-  RefreshCw,
   Check,
   X,
   Edit3,
   Clock,
+  ArrowLeft
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
+import { navigate } from '../../routes/navigation';
+import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import { API_BASE_URL } from '../../config/api';
 import { navigate } from '../../routes/navigation';
@@ -236,7 +237,8 @@ function MyCVPage() {
         ) {
           stopPolling();
           setIsParsing(false);
-          setError(t('mycv.error_analysis_failed', 'AI phân tích CV thất bại. Vui lòng thử lại.'));
+          const errorMsg = "Đây không phải là JD/CV hoặc bạn đang upload chưa phải thông tin CV hoàn thiện. Hãy thử lại.";
+          setError(errorMsg);
           // Refresh CV data
           await fetchCV();
         } else if (normalizeStatus(statusResp.status) === STATUS.CONFIRMED) {
@@ -517,7 +519,14 @@ function MyCVPage() {
     <UserLayout>
       <div className="mycv-container animate-pageEntrance">
         {/* Page Header */}
-        <section className="mycv-header">
+        <section className="mycv-header relative flex flex-col md:flex-row">
+          <button 
+            className="md:absolute md:right-[100%] md:mr-4 w-10 h-10 flex-shrink-0 flex items-center justify-center bg-surface-1 text-text-secondary hover:text-primary rounded-xl border border-border shadow-sm transition-colors mt-0 mb-4 md:mb-0 z-10"
+            onClick={() => navigate(USER_ROUTES.CV)}
+            title="Quay lại"
+          >
+            <ArrowLeft size={20} />
+          </button>
           <div>
             <h1 className="mycv-title">{t('mycv.title', 'CV của tôi')}</h1>
             <p className="mycv-subtitle">
@@ -728,16 +737,7 @@ function MyCVPage() {
               </div>
             )}
 
-            {/* ---------- Re-parse for failed status ---------- */}
-            {cvStatus === STATUS.ANALYSIS_FAILED && (
-              <div className="mycv-retry-banner">
-                <AlertCircle size={18} />
-                <span>{t('mycv.analysis_failed_msg', 'Phân tích thất bại. Nhấn nút bên dưới để thử lại.')}</span>
-                <button onClick={handleTriggerParse} className="mycv-btn mycv-btn--primary mycv-btn--sm">
-                  <RefreshCw size={14} /> {t('mycv.retry_parse', 'Thử lại')}
-                </button>
-              </div>
-            )}
+
 
             {/* ---------- Extracted Details ---------- */}
             {hasExtractedData && (
@@ -1028,6 +1028,7 @@ function MyCVPage() {
                     </button>
                   </div>
                 )}
+                
               </>
             )}
           </div>

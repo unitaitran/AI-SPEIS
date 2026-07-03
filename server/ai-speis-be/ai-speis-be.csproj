@@ -30,7 +30,12 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\**</DefaultItemExcludes>
+  </PropertyGroup>
+
   <ItemGroup>
+    <Watch Remove="wwwroot\**" />
     <Watch Remove="wwwroot\**\*" />
   </ItemGroup>
 

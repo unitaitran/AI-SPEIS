@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, FileText, Clock, Layers, Users, Package, Lock, Database } from 'lucide-react';
+import { LayoutDashboard, FileText, Clock, Package, Lock, Database } from 'lucide-react';
 import { navigate, NAVIGATION_EVENT } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 
@@ -17,13 +17,6 @@ const MENU_GROUPS = [
     items: [
       { id: 'questions', label: 'Câu hỏi', icon: Database, path: USER_ROUTES.QUESTIONS },
       { id: 'history', label: 'Lịch sử phỏng vấn', icon: Clock, path: '#history' },
-      { id: 'flashcards', label: 'Flashcards', icon: Layers, path: '#flashcards' },
-    ]
-  },
-  {
-    label: 'CỘNG ĐỒNG',
-    items: [
-      { id: 'community', label: 'Cộng đồng', icon: Users, path: '#community' },
     ]
   },
   {

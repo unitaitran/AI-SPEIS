@@ -148,7 +148,7 @@ namespace ai_speis_be.Tests.Services
             var cvFile = await SeedCVFile(CVFileStatus.ConfirmationRequired);
 
             // Act
-            var result = await _sut.GetParseStatusAsync(cvFile.CVFileId);
+            var result = await _sut.GetParseStatusAsync(cvFile.UserId, cvFile.CVFileId);
 
             // Assert
             Assert.NotNull(result);
@@ -161,7 +161,7 @@ namespace ai_speis_be.Tests.Services
         [Fact]
         public async Task GetParseStatus_NonExistent_ReturnsNull()
         {
-            var result = await _sut.GetParseStatusAsync(999);
+            var result = await _sut.GetParseStatusAsync(1, 999);
             Assert.Null(result);
         }
 
@@ -174,7 +174,7 @@ namespace ai_speis_be.Tests.Services
             await SeedProfile(cvFile.CVFileId);
 
             // Act
-            var result = await _sut.GetParsedDataAsync(cvFile.CVFileId);
+            var result = await _sut.GetParsedDataAsync(cvFile.UserId, cvFile.CVFileId);
 
             // Assert
             Assert.NotNull(result);
@@ -198,7 +198,7 @@ namespace ai_speis_be.Tests.Services
             var cvFile = await SeedCVFile(CVFileStatus.Pending);
 
             // Act
-            var result = await _sut.GetParsedDataAsync(cvFile.CVFileId);
+            var result = await _sut.GetParsedDataAsync(cvFile.UserId, cvFile.CVFileId);
 
             // Assert
             Assert.Null(result);
@@ -255,6 +255,7 @@ namespace ai_speis_be.Tests.Services
 
             var request = new CvConfirmRequest
             {
+                RoleTarget = "Backend Developer",
                 Skills = new List<SkillDto>() // Empty!
             };
 

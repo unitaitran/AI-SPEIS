@@ -25,8 +25,7 @@ namespace ai_speis_be.Repositories.QuestionRepo
             var totalItems = await questions.CountAsync(cancellationToken);
 
             var items = await questions
-                .OrderByDescending(q => q.CreatedAt)
-                .ThenByDescending(q => q.QuestionId)
+                .OrderBy(q => q.QuestionId)
                 .Skip((query.PageNumber - 1) * query.PageSize)
                 .Take(query.PageSize)
                 .ToListAsync(cancellationToken);

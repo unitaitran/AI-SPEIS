@@ -18,7 +18,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.OpenApi.Models;
-
+using ai_speis_be.Services.JDService;
+using ai_speis_be.Repositories.JDRepo;
 
 LoadEnvFile();
 
@@ -88,10 +89,16 @@ builder.Services.AddScoped<IFileValidatorService, FileValidatorService>();
 builder.Services.AddScoped<ICVService, CVService>();
 builder.Services.AddScoped<IPdfExtractorService, PdfExtractorService>();
 builder.Services.AddScoped<IGeminiAiParsingService, GeminiAiParsingService>();
+builder.Services.AddScoped<IJDService, JDService>();
+builder.Services.AddScoped<IJDRepository, JDRepository>();
 
 // Background Worker for CV Parsing
 builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
 builder.Services.AddHostedService<CvParsingBackgroundService>();
+
+// Background Worker for JD Parsing
+builder.Services.AddSingleton<IJdParseQueue, JdParseQueue>();
+builder.Services.AddHostedService<JdParsingBackgroundService>();
 
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();
@@ -267,3 +274,5 @@ static string? FindEnvFile()
 
     return null;
 }
+
+public partial class Program { }

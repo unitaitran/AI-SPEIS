@@ -179,7 +179,7 @@ namespace ai_speis_be.Models.DTOs
         [Range(1, 1_000_000, ErrorMessage = "Số trang phải từ 1 đến 1000000.")]
         public int PageNumber { get; set; } = 1;
 
-        [Range(1, 100, ErrorMessage = "Kích thước trang phải từ 1 đến 100.")]
+        [Range(1, 100000, ErrorMessage = "Kích thước trang phải từ 1 đến 100000.")]
         public int PageSize { get; set; } = 10;
 
         [StringLength(100, ErrorMessage = "Ngành học không được vượt quá 100 ký tự.")]
@@ -195,6 +195,7 @@ namespace ai_speis_be.Models.DTOs
     public sealed class AdminQuestionListItemDto
     {
         public int QuestionId { get; set; }
+        public string QuestionCode => $"Q-{QuestionId}";
         public int UserId { get; set; }
         public string QuestionContent { get; set; } = string.Empty;
         public string SuggestedAnswer { get; set; } = string.Empty;
@@ -212,6 +213,7 @@ namespace ai_speis_be.Models.DTOs
     public class QuestionResponseDto
     {
         public int QuestionId { get; set; }
+        public string QuestionCode => $"Q-{QuestionId}";
         public int UserId { get; set; }
         public string QuestionContent { get; set; } = string.Empty;
         public string SuggestedAnswer { get; set; } = string.Empty;

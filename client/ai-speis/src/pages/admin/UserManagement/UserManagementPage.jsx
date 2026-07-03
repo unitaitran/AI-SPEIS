@@ -580,7 +580,7 @@ function UserManagementPage() {
                     <div className="info-item">
                       <Shield size={16} className="info-icon" />
                       <div className="info-content">
-                        <span className="info-label">Xác minh email</span>
+                        <span className="info-label">{t('emailVerification', 'Xác minh email')}</span>
                         <span className={`info-value ${detailUser.emailConfirmedAt ? 'text-success' : 'text-warning'}`}>
                           {detailUser.emailConfirmedAt 
                             ? `${t('emailConfirmed')} (${new Date(detailUser.emailConfirmedAt).toLocaleDateString()})`
@@ -841,7 +841,7 @@ function UserManagementPage() {
       {/* Page Header */}
       <div className="page-header">
         <div className="breadcrumb">
-          <span>Admin</span>
+          <span>{t('breadcrumbAdmin', 'Admin')}</span>
           <span className="separator">/</span>
           <span aria-current="page">{t('breadcrumb')}</span>
         </div>
