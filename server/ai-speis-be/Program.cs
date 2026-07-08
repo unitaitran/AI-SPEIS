@@ -20,6 +20,8 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.OpenApi.Models;
 using ai_speis_be.Services.JDService;
 using ai_speis_be.Repositories.JDRepo;
+using ai_speis_be.Repositories.InterviewCampaignRepo;
+using ai_speis_be.Services.InterviewSessionService;
 
 LoadEnvFile();
 
@@ -107,6 +109,10 @@ builder.Services.AddScoped<IQuestionService, QuestionService>();
 // Register Saved Questions
 builder.Services.AddScoped<ISavedQuestionRepository, SavedQuestionRepository>();
 builder.Services.AddScoped<ISavedQuestionService, SavedQuestionService>();
+
+// Register Interview Session & Campaign
+builder.Services.AddScoped<IInterviewCampaignRepository, InterviewCampaignRepository>();
+builder.Services.AddScoped<IInterviewSessionService, InterviewSessionService>();
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
