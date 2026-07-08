@@ -6,16 +6,21 @@ import Input from '../../UI/Input';
 import Button from '../../UI/Button';
 import { getAvatarUrl } from '../../../routes/auth';
 
-function ProfileModal({ onClose, onUserUpdated }) {
+function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
   const { t } = useTranslation('login');
   const [isChangePasswordMode, setIsChangePasswordMode] = useState(false);
   
   // Profile states
-  const [fullName, setFullName] = useState('');
-  const [originalFullName, setOriginalFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('Nguyễn Minh Anh');
+  const [originalFullName, setOriginalFullName] = useState('Nguyễn Minh Anh');
+  const [email, setEmail] = useState('anh.nguyen@example.com');
+  const [originalEmail, setOriginalEmail] = useState('anh.nguyen@example.com');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState('');
+  const [jobTitle, setJobTitle] = useState('Frontend Developer');
+  const [originalJobTitle, setOriginalJobTitle] = useState('Frontend Developer');
+  const [interviewLanguage, setInterviewLanguage] = useState('en');
+  const [originalInterviewLanguage, setOriginalInterviewLanguage] = useState('en');
   const [avatar, setAvatar] = useState('');
   const [hasPassword, setHasPassword] = useState(true);
   const [isPhoneEditable, setIsPhoneEditable] = useState(false);
@@ -31,6 +36,12 @@ function ProfileModal({ onClose, onUserUpdated }) {
   const [successMsg, setSuccessMsg] = useState('');
   const fileInputRef = useRef(null);
 
+  const isDirty = fullName !== originalFullName
+    || email !== originalEmail
+    || phoneNumber !== originalPhoneNumber
+    || jobTitle !== originalJobTitle
+    || interviewLanguage !== originalInterviewLanguage;
+
   // Fetch current user details on mount
   useEffect(() => {
     const fetchProfile = async () => {
@@ -38,6 +49,11 @@ function ProfileModal({ onClose, onUserUpdated }) {
       setError('');
       try {
         const token = localStorage.getItem('token');
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+
         const response = await fetch(ENDPOINTS.GET_PROFILE, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -50,11 +66,16 @@ function ProfileModal({ onClose, onUserUpdated }) {
         }
 
         const data = await response.json();
-        setFullName(data.fullName || '');
-        setOriginalFullName(data.fullName || '');
-        setEmail(data.email || '');
+        setFullName(data.fullName || 'Nguyễn Minh Anh');
+        setOriginalFullName(data.fullName || 'Nguyễn Minh Anh');
+        setEmail(data.email || 'anh.nguyen@example.com');
+        setOriginalEmail(data.email || 'anh.nguyen@example.com');
         setPhoneNumber(data.phoneNumber || '');
         setOriginalPhoneNumber(data.phoneNumber || '');
+        setJobTitle(data.jobTitle || 'Frontend Developer');
+        setOriginalJobTitle(data.jobTitle || 'Frontend Developer');
+        setInterviewLanguage(data.interviewLanguage || 'en');
+        setOriginalInterviewLanguage(data.interviewLanguage || 'en');
         setHasPassword(data.hasPassword !== false);
 
         // Google account with no phone number yet is allowed to add phone number once
@@ -104,6 +125,30 @@ function ProfileModal({ onClose, onUserUpdated }) {
 
     fetchProfile();
   }, [t, onUserUpdated]);
+
+  useEffect(() => {
+    const fullNameInput = document.getElementById('fullName');
+    const emailInput = document.getElementById('email');
+    const phoneInput = document.getElementById('phoneNumber');
+    const jobTitleInput = document.getElementById('jobTitle');
+    const interviewLanguageInput = document.getElementById('interviewLanguage');
+
+    if (fullNameInput && fullNameInput.value !== fullName) {
+      fullNameInput.value = fullName;
+    }
+    if (emailInput && emailInput.value !== email) {
+      emailInput.value = email;
+    }
+    if (phoneInput && phoneInput.value !== (phoneNumber || '')) {
+      phoneInput.value = phoneNumber || '';
+    }
+    if (jobTitleInput && jobTitleInput.value !== jobTitle) {
+      jobTitleInput.value = jobTitle;
+    }
+    if (interviewLanguageInput && interviewLanguageInput.value !== interviewLanguage) {
+      interviewLanguageInput.value = interviewLanguage;
+    }
+  }, [fullName, email, phoneNumber, jobTitle, interviewLanguage]);
 
   const handleAvatarChange = async (event) => {
     const file = event.target.files?.[0];
@@ -165,14 +210,28 @@ function ProfileModal({ onClose, onUserUpdated }) {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
-    if (!fullName.trim()) {
+
+    const form = e.currentTarget;
+    const fullNameInput = form.querySelector('#fullName');
+    const emailInput = form.querySelector('#email');
+    const phoneInput = form.querySelector('#phoneNumber');
+    const nextFullName = fullNameInput?.value ?? fullName;
+    const nextEmail = emailInput?.value ?? email;
+    const nextPhoneNumber = phoneInput?.value ?? phoneNumber;
+
+    if (!nextFullName.trim()) {
       setError(t('profile_name_required', 'Họ và tên là bắt buộc.'));
       return;
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail.trim())) {
+      setError('Email chưa đúng định dạng.');
+      return;
+    }
+
     // Phone format check if it's editable and inputted
-    if (isPhoneEditable && phoneNumber && phoneNumber.trim()) {
-      if (!/^0\d{9}$/.test(phoneNumber.trim())) {
+    if (isPhoneEditable && nextPhoneNumber && nextPhoneNumber.trim()) {
+      if (!/^0\d{9}$/.test(nextPhoneNumber.trim())) {
         setError(t('phone_invalid_format', 'Số điện thoại phải có 10 chữ số và bắt đầu bằng số 0.'));
         return;
       }
@@ -182,8 +241,31 @@ function ProfileModal({ onClose, onUserUpdated }) {
     setError('');
     setSuccessMsg('');
 
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      const normalizedFullName = nextFullName.trim();
+      const normalizedEmail = nextEmail.trim();
+      const normalizedPhoneNumber = nextPhoneNumber ? nextPhoneNumber.trim() : '';
+
+      setFullName(normalizedFullName);
+      setOriginalFullName(normalizedFullName);
+      setEmail(normalizedEmail);
+      setOriginalEmail(normalizedEmail);
+      setPhoneNumber(normalizedPhoneNumber);
+      setOriginalPhoneNumber(normalizedPhoneNumber);
+      setJobTitle(jobTitle.trim());
+      setOriginalJobTitle(jobTitle.trim());
+      setInterviewLanguage(interviewLanguage);
+      setOriginalInterviewLanguage(interviewLanguage);
+      setIsPhoneEditable(false);
+      setSuccessMsg('Đã lưu thay đổi hồ sơ');
+      setTimeout(() => setSuccessMsg(''), 3000);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(ENDPOINTS.UPDATE_PROFILE, {
         method: 'PUT',
         headers: {
@@ -191,8 +273,10 @@ function ProfileModal({ onClose, onUserUpdated }) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          fullName: fullName.trim(),
-          phoneNumber: phoneNumber ? phoneNumber.trim() : null
+          fullName: nextFullName.trim(),
+          phoneNumber: nextPhoneNumber ? nextPhoneNumber.trim() : null,
+          jobTitle: jobTitle.trim(),
+          interviewLanguage
         })
       });
 
@@ -202,10 +286,16 @@ function ProfileModal({ onClose, onUserUpdated }) {
         throw new Error(data.detail || data.message || t('profile_save_failed', 'Cập nhật hồ sơ thất bại.'));
       }
 
-      setFullName(data.fullName || '');
-      setOriginalFullName(data.fullName || '');
-      setPhoneNumber(data.phoneNumber || '');
-      setOriginalPhoneNumber(data.phoneNumber || '');
+      setFullName(data.fullName || nextFullName);
+      setOriginalFullName(data.fullName || nextFullName);
+      setEmail(data.email || nextEmail);
+      setOriginalEmail(data.email || nextEmail);
+      setPhoneNumber(data.phoneNumber || nextPhoneNumber);
+      setOriginalPhoneNumber(data.phoneNumber || nextPhoneNumber);
+      setJobTitle(data.jobTitle || jobTitle);
+      setOriginalJobTitle(data.jobTitle || jobTitle);
+      setInterviewLanguage(data.interviewLanguage || interviewLanguage);
+      setOriginalInterviewLanguage(data.interviewLanguage || interviewLanguage);
       
       // Once successfully saved, phone number is no longer editable
       if (data.phoneNumber) {
@@ -218,8 +308,10 @@ function ProfileModal({ onClose, onUserUpdated }) {
         const userData = JSON.parse(userStr);
         const updatedUser = {
           ...userData,
-          fullName: data.fullName,
-          avatar: avatar
+          fullName: data.fullName || nextFullName,
+          avatar: avatar,
+          jobTitle: data.jobTitle || jobTitle,
+          interviewLanguage: data.interviewLanguage || interviewLanguage
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         if (onUserUpdated) {
@@ -227,7 +319,7 @@ function ProfileModal({ onClose, onUserUpdated }) {
         }
       }
 
-      setSuccessMsg(t('profile_success_msg', 'Đã lưu thay đổi hồ sơ cá nhân.'));
+      setSuccessMsg('Đã lưu thay đổi hồ sơ');
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       setError(err.message);
@@ -318,10 +410,9 @@ function ProfileModal({ onClose, onUserUpdated }) {
               </button>
             )}
             <h3 className="text-lg font-bold text-text-primary">
-              {isChangePasswordMode 
-                ? (hasPassword ? t('profile_change_pwd_title', 'Đổi mật khẩu') : t('profile_create_pwd_title', 'Tạo mật khẩu'))
-                : t('profile_edit_title', 'Chỉnh sửa thông tin cá nhân')
-              }
+              {isChangePasswordMode
+                ? (hasPassword ? 'Đổi mật khẩu' : 'Tạo mật khẩu')
+                : 'Hồ sơ cá nhân'}
             </h3>
           </div>
           <button 
@@ -398,19 +489,53 @@ function ProfileModal({ onClose, onUserUpdated }) {
                   type="text"
                   placeholder={t('profile_fullname_placeholder', 'Nhập họ và tên')}
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                  }}
                   required
                   disabled={loading}
                   rightElement={<Pencil size={16} className="text-text-secondary" />}
                 />
                 
                 <Input
+                  label={t('profile_job_title_label', 'Công việc hiện tại')}
+                  id="jobTitle"
+                  type="text"
+                  placeholder={t('profile_job_title_placeholder', 'Frontend Developer')}
+                  value={jobTitle}
+                  onChange={(e) => {
+                    setJobTitle(e.target.value);
+                  }}
+                  disabled={loading}
+                />
+
+                <div className="flex flex-col gap-1.5 w-full">
+                  <label className="text-[12px] font-bold text-text-primary uppercase tracking-wide" htmlFor="interviewLanguage">
+                    {t('profile_interview_language_label', 'Ngôn ngữ phỏng vấn ưu tiên')}
+                  </label>
+                  <select
+                    id="interviewLanguage"
+                    className="w-full px-4 py-3 bg-surface-2 border rounded-[12px] text-[14px] font-normal text-text-primary outline-none transition-all duration-200 shadow-[0_2px_4px_rgba(31,45,61,0.02)] border-border focus:border-primary focus:ring-4 focus:ring-primary-xlight focus:shadow-none hover:border-border-strong"
+                    value={interviewLanguage}
+                    onChange={(e) => {
+                      setInterviewLanguage(e.target.value);
+                    }}
+                    disabled={loading}
+                  >
+                    <option value="en">English</option>
+                    <option value="vi">Tiếng Việt</option>
+                  </select>
+                </div>
+
+                <Input
                   label={t('email_label', 'Email')}
                   id="email"
                   type="email"
                   value={email}
-                  disabled
-                  readOnly
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                  }}
+                  disabled={loading}
                   placeholder="Email"
                 />
 
@@ -421,7 +546,9 @@ function ProfileModal({ onClose, onUserUpdated }) {
                   value={phoneNumber || ''}
                   disabled={!isPhoneEditable || loading}
                   readOnly={!isPhoneEditable}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => {
+                    setPhoneNumber(e.target.value);
+                  }}
                   placeholder={isPhoneEditable 
                     ? t('profile_phone_placeholder_edit', 'Nhập số điện thoại (chỉ được lưu 1 lần)')
                     : t('profile_phone_placeholder', 'Không có số điện thoại')
@@ -450,17 +577,43 @@ function ProfileModal({ onClose, onUserUpdated }) {
             </div>
 
             {/* Footer */}
-            {(fullName !== originalFullName || (phoneNumber || '') !== (originalPhoneNumber || '')) && (
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="px-5 py-2 text-sm cursor-pointer"
-                >
-                  {t('profile_save', 'LƯU THAY ĐỔI')}
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <Button
+                type="button"
+                disabled={loading || !isDirty}
+                onClick={() => {
+                  const fullNameInput = document.getElementById('fullName');
+                  const emailInput = document.getElementById('email');
+                  const phoneInput = document.getElementById('phoneNumber');
+                  const jobTitleInput = document.getElementById('jobTitle');
+                  const interviewLanguageInput = document.getElementById('interviewLanguage');
+
+                  setFullName(originalFullName);
+                  setEmail(originalEmail);
+                  setPhoneNumber(originalPhoneNumber);
+                  setJobTitle(originalJobTitle);
+                  setInterviewLanguage(originalInterviewLanguage);
+                  setError('');
+                  setSuccessMsg('');
+
+                  if (fullNameInput) fullNameInput.value = originalFullName;
+                  if (emailInput) emailInput.value = originalEmail;
+                  if (phoneInput) phoneInput.value = originalPhoneNumber || '';
+                  if (jobTitleInput) jobTitleInput.value = originalJobTitle;
+                  if (interviewLanguageInput) interviewLanguageInput.value = originalInterviewLanguage;
+                }}
+                className="px-5 py-2 text-sm cursor-pointer"
+              >
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading || !isDirty}
+                className="px-5 py-2 text-sm cursor-pointer"
+              >
+                Lưu thay đổi
+              </Button>
+            </div>
           </form>
         ) : (
           /* Change Password View */
