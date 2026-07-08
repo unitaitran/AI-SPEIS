@@ -7,6 +7,7 @@ import CVJDManagementPage from '../pages/user/CVJDManagementPage';
 import QuestionsPage from '../pages/user/QuestionsPage';
 import DeviceReadinessCheckPage from '../pages/user/DeviceReadinessCheckPage';
 import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
+import ProfilePage from '../pages/user/ProfilePage';
 
 function UserRoutes({ pathname }) {
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
@@ -20,10 +21,14 @@ function UserRoutes({ pathname }) {
     pathname === USER_ROUTES.INTERVIEW_ROOM;
 
   useEffect(() => {
-    if (isUserRoot || isProfileRoute || !isKnownRoute) {
+    if ((isUserRoot || !isKnownRoute) && !isProfileRoute) {
       navigate(USER_ROUTES.DASHBOARD, { replace: true });
     }
   }, [isKnownRoute, isUserRoot, isProfileRoute]);
+
+  if (isProfileRoute) {
+    return <ProfilePage />;
+  }
 
   if (pathname === USER_ROUTES.CV) {
     return <CVJDManagementPage />;

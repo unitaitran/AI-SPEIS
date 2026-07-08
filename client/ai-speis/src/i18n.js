@@ -2,8 +2,8 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
-import enLanding from './locales/en/landing.json';
-import viLanding from './locales/vi/landing.json';
+import enHomepage from './locales/en/homepage.json';
+import viHomepage from './locales/vi/homepage.json';
 
 import enLogin from './locales/en/login.json';
 import viLogin from './locales/vi/login.json';
@@ -22,7 +22,7 @@ import viQuestionBank from './locales/vi/questionBank.json';
 
 const resources = {
   en: {
-    landing: enLanding,
+    homepage: enHomepage,
     login: enLogin,
     register: enRegister,
     dashboard: enDashboard,
@@ -31,7 +31,7 @@ const resources = {
     questionBank: enQuestionBank,
   },
   vi: {
-    landing: viLanding,
+    homepage: viHomepage,
     login: viLogin,
     register: viRegister,
     dashboard: viDashboard,
@@ -48,8 +48,8 @@ i18n
     resources,
     fallbackLng: 'vi',
     supportedLngs: ['vi', 'en'],
-    defaultNS: 'landing',
-    ns: ['landing', 'login', 'register', 'dashboard'],
+    defaultNS: 'homepage',
+    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'questionBank'],
     interpolation: {
       escapeValue: false,
     },

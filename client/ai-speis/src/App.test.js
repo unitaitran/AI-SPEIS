@@ -63,7 +63,8 @@ test('renders editable user profile fields', () => {
   expect(screen.getByLabelText(/ngôn ngữ phỏng vấn ưu tiên/i)).toBeInTheDocument();
 });
 
-test('enables actions after editing and can cancel changes', () => {
+test('enables actions after editing and can cancel changes', async () => {
+  const user = userEvent.setup();
   render(<ProfilePage />);
 
   const fullNameInput = screen.getByLabelText(/họ và tên/i);
@@ -73,34 +74,39 @@ test('enables actions after editing and can cancel changes', () => {
   expect(saveButton).toBeDisabled();
   expect(cancelButton).toBeDisabled();
 
-  userEvent.clear(fullNameInput);
-  userEvent.type(fullNameInput, 'Trần Minh Anh');
+  await user.clear(fullNameInput);
+  await user.type(fullNameInput, 'Trần Minh Anh');
 
   expect(saveButton).toBeEnabled();
   expect(cancelButton).toBeEnabled();
 
-  userEvent.click(cancelButton);
+  await user.click(cancelButton);
 
   expect(fullNameInput).toHaveValue('Nguyễn Minh Anh');
   expect(saveButton).toBeDisabled();
 });
 
-test('validates email and saves valid profile changes', () => {
+test('validates email and saves valid profile changes', async () => {
+  const user = userEvent.setup();
   render(<ProfilePage />);
 
   const emailInput = screen.getByLabelText(/^email$/i);
   const saveButton = screen.getByRole('button', { name: /lưu thay đổi/i });
 
-  userEvent.clear(emailInput);
-  userEvent.type(emailInput, 'invalid-email');
-  userEvent.click(saveButton);
+  await user.clear(emailInput);
+  await user.type(emailInput, 'invalid-email');
+  await user.click(saveButton);
 
-  expect(screen.getByText(/email chưa đúng định dạng/i)).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByText(/email chưa đúng định dạng/i)).toBeInTheDocument();
+  });
 
-  userEvent.clear(emailInput);
-  userEvent.type(emailInput, 'user@example.com');
-  userEvent.click(saveButton);
+  await user.clear(emailInput);
+  await user.type(emailInput, 'user@example.com');
+  await user.click(saveButton);
 
-  expect(screen.getByText(/đã lưu thay đổi hồ sơ/i)).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByText(/đã lưu thay đổi hồ sơ/i)).toBeInTheDocument();
+  });
   expect(saveButton).toBeDisabled();
 });
