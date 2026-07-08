@@ -19,6 +19,8 @@ namespace ai_speis_be.Models
         public DbSet<SavedQuestion> SavedQuestion { get; set; } = null!;
         public DbSet<JDFile> JDFiles { get; set; } = null!;
         public DbSet<JDExtractedProfile> JDExtractedProfiles { get; set; } = null!;
+        public DbSet<InterviewSession> InterviewSessions { get; set; } = null!;
+        public DbSet<InterviewCampaign> InterviewCampaigns { get; set; } = null!;
   
 
 
@@ -108,6 +110,32 @@ namespace ai_speis_be.Models
                 .HasOne(usq => usq.Question)
                 .WithMany()
                 .HasForeignKey(usq => usq.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // InterviewCampaign Relationships
+            modelBuilder.Entity<InterviewCampaign>()
+                .HasOne(c => c.User)
+                .WithMany()
+                .HasForeignKey(c => c.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<InterviewCampaign>()
+                .HasOne(c => c.CVExtractedProfile)
+                .WithMany()
+                .HasForeignKey(c => c.CVExtractedProfileId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InterviewCampaign>()
+                .HasOne(c => c.JDExtractedProfile)
+                .WithMany()
+                .HasForeignKey(c => c.JDExtractedProfileId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // InterviewSession Relationships
+            modelBuilder.Entity<InterviewSession>()
+                .HasOne(s => s.InterviewCampaign)
+                .WithMany(c => c.InterviewSessions)
+                .HasForeignKey(s => s.InterviewCampaignId)
                 .OnDelete(DeleteBehavior.Cascade);
 
         }

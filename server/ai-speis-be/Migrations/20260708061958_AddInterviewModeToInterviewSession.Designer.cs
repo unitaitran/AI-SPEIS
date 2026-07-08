@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ai_speis_be.Models;
 
@@ -11,9 +12,11 @@ using ai_speis_be.Models;
 namespace ai_speis_be.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708061958_AddInterviewModeToInterviewSession")]
+    partial class AddInterviewModeToInterviewSession
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -213,19 +216,25 @@ namespace ai_speis_be.Migrations
                     b.ToTable("CVSkill");
                 });
 
-            modelBuilder.Entity("ai_speis_be.Models.InterviewCampaign", b =>
+            modelBuilder.Entity("ai_speis_be.Models.InterviewSession", b =>
                 {
-                    b.Property<int>("InterviewCampaignId")
+                    b.Property<int>("InterviewSessionId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InterviewCampaignId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InterviewSessionId"));
 
                     b.Property<int>("CVExtractedProfileId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("Difficulty")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InterviewRoundType")
+                        .HasColumnType("int");
 
                     b.Property<int>("JDExtractedProfileId")
                         .HasColumnType("int");
@@ -238,43 +247,6 @@ namespace ai_speis_be.Migrations
                     b.Property<int>("Mode")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("InterviewCampaignId");
-
-                    b.HasIndex("CVExtractedProfileId");
-
-                    b.HasIndex("JDExtractedProfileId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("InterviewCampaign");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.InterviewSession", b =>
-                {
-                    b.Property<int>("InterviewSessionId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InterviewSessionId"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Difficulty")
-                        .HasColumnType("int");
-
-                    b.Property<int>("InterviewCampaignId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("InterviewRoundType")
-                        .HasColumnType("int");
-
                     b.Property<int>("QuestionCount")
                         .HasColumnType("int");
 
@@ -284,9 +256,16 @@ namespace ai_speis_be.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("InterviewSessionId");
 
-                    b.HasIndex("InterviewCampaignId");
+                    b.HasIndex("CVExtractedProfileId");
+
+                    b.HasIndex("JDExtractedProfileId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("InterviewSession");
                 });
@@ -723,7 +702,7 @@ namespace ai_speis_be.Migrations
                     b.Navigation("ExtractedProfile");
                 });
 
-            modelBuilder.Entity("ai_speis_be.Models.InterviewCampaign", b =>
+            modelBuilder.Entity("ai_speis_be.Models.InterviewSession", b =>
                 {
                     b.HasOne("ai_speis_be.Models.CVExtractedProfile", "CVExtractedProfile")
                         .WithMany()
@@ -748,17 +727,6 @@ namespace ai_speis_be.Migrations
                     b.Navigation("JDExtractedProfile");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.InterviewSession", b =>
-                {
-                    b.HasOne("ai_speis_be.Models.InterviewCampaign", "InterviewCampaign")
-                        .WithMany("InterviewSessions")
-                        .HasForeignKey("InterviewCampaignId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("InterviewCampaign");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.JDExtractedProfile", b =>
@@ -846,11 +814,6 @@ namespace ai_speis_be.Migrations
                     b.Navigation("Projects");
 
                     b.Navigation("Skills");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.InterviewCampaign", b =>
-                {
-                    b.Navigation("InterviewSessions");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.User", b =>

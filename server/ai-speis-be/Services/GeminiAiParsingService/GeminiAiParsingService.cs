@@ -192,7 +192,7 @@ Set isValidJd=false with invalidReason if score < 0.50.
 === STEP 2: STRUCTURED DATA EXTRACTION (skip if isValidJd=false) ===
 Extract the following information from the JD (Translate to Vietnamese):
 - jobTitle: The main job title being recruited (e.g. Lập trình viên Backend, Chuyên viên Frontend).
-- experienceLevel: e.g. Thực tập sinh, Fresher, Junior, Mid-level, Senior (infer if not explicit).
+- experienceLevel: Normalize and output strictly as one of: ""Intern"", ""Fresher"", ""Junior"", ""Mid-level"", ""Senior"", ""Lead"". (Infer if not explicit).
 - roleTarget: Identify the target role. It MUST be normalized to one of the following exact values: ""BA"", ""Tester"", ""Backend"", ""Frontend"", ""Fullstack"", ""Mobile"", ""DevOps"", ""Data Science"", ""Design"", ""Project Manager"", ""Other"". (If the role is not IT-related or doesn't fit, use ""Other"").
 - requiredSkills: Array of MUST HAVE technical and soft skills.
 - niceToHaveSkills: Array of PLUS or nice-to-have skills.
