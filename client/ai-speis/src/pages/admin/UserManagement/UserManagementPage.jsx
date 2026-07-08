@@ -30,6 +30,8 @@ import '../../../styles/admin/UserManagementPage.css';
 function UserManagementPage() {
   const { t } = useTranslation('admin-users');
 
+  const getUserId = (user) => user?.userId ?? user?.id ?? user?._id ?? null;
+
   const [filters, setFilters] = useState({
     search: '',
     role: 'all',
@@ -47,14 +49,13 @@ function UserManagementPage() {
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
   const [confirmModal, setConfirmModal] = useState(null);
-<<<<<<<<< Temporary merge branch 1
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailUser, setDetailUser] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
-=========
   const [roleModal, setRoleModal] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
   const startIndex = totalUsers === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -152,34 +153,41 @@ function UserManagementPage() {
     setSelectedUsers(new Set());
   };
 
-  const handleViewDetails = async (userId) => {
-    setDetailModalOpen(true);
-    setLoadingDetail(true);
+  const handleViewDetails = async (userOrId) => {
+    const id = typeof userOrId === 'object' ? getUserId(userOrId) : userOrId;
+    if (!id) return;
+
+    setShowDetailModal(true);
+    setDetailLoading(true);
     setDetailError(null);
     setDetailUser(null);
     try {
-      const data = await userService.getUserById(userId);
+      // Prefer getUserDetail if available; fallback to getUserById
+      const data = (userService.getUserDetail) ? await userService.getUserDetail(id) : await userService.getUserById(id);
       setDetailUser(data);
     } catch (err) {
       setDetailError(err?.message || t('loadError'));
     } finally {
-      setLoadingDetail(false);
+      setDetailLoading(false);
     }
   };
 
   const closeDetailModal = () => {
-    setDetailModalOpen(false);
+    setShowDetailModal(false);
     setDetailUser(null);
     setDetailError(null);
   };
 
   // Handle user selection
-  const handleSelectUser = (userId) => {
+  const handleSelectUser = (userOrId) => {
+    const id = typeof userOrId === 'object' ? getUserId(userOrId) : userOrId;
+    if (!id) return;
+
     const newSelected = new Set(selectedUsers);
-    if (newSelected.has(userId)) {
-      newSelected.delete(userId);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
     } else {
-      newSelected.add(userId);
+      newSelected.add(id);
     }
     setSelectedUsers(newSelected);
   };
@@ -215,12 +223,7 @@ function UserManagementPage() {
       return;
     }
 
-    if (confirmModal.type === 'lock') {
-      console.log('Confirmed lock selected users:', confirmModal.userIds);
-    } else {
-      console.log('Confirmed assign package to users:', confirmModal.userIds);
-    }
-
+    // Batch action confirmed (actual implementation depends on backend readiness)
     setConfirmModal(null);
   };
 
@@ -256,47 +259,9 @@ function UserManagementPage() {
     return date.toLocaleString();
   };
 
-  const handleOpenDetail = async (userId) => {
-    if (!userId) {
-      return;
-    }
+  // (handleOpenDetail removed - consolidated into handleViewDetails)
 
-    setShowDetailModal(true);
-    setDetailUser(null);
-    setDetailError(null);
-    setDetailLoading(true);
-
-    try {
-      const result = await userService.getUserDetail(userId);
-      setDetailUser(result);
-    } catch (err) {
-      setDetailError(err?.message || t('detailLoadError'));
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
-  const closeDetailModal = () => {
-    setShowDetailModal(false);
-    setDetailUser(null);
-    setDetailError(null);
-  };
-
-  const handleSelectUser = (user) => {
-    const id = getUserId(user);
-    if (!id) {
-      return;
-    }
-
-    const nextSelected = new Set(selectedUsers);
-    if (nextSelected.has(id)) {
-      nextSelected.delete(id);
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
-    }
-    setCurrentPage(1);
-  };
+  // (duplicate handleSelectUser removed - unified earlier)
   const normalizeStatus = (status) => {
   if (status == null) return '';
 
@@ -352,11 +317,7 @@ function UserManagementPage() {
         case 'registerDate':
           return item.registerDate ? new Date(item.registerDate).getTime() : 0;
         case 'status':
-<<<<<<<<< Temporary merge branch 1
           return normalizeStatus(item.status);
-=========
-          return normalizeStatusValue(item.status);
->>>>>>>>> Temporary merge branch 2
         default:
           return '';
       }
@@ -365,14 +326,49 @@ function UserManagementPage() {
     const left = getField(a);
     const right = getField(b);
 
-    if (left < right) {
-      return -1;
-    }
-    if (left > right) {
-      return 1;
+    if (left < right) return -1;
+    if (left > right) return 1;
+    return 0;
+  };
+
+  // Sorting helper
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
     }
     setCurrentPage(1);
   };
+
+  // Open role modal
+  const handleOpenRoleModal = (user) => {
+    if (!user) return;
+    setRoleModal({ user, selectedRole: (user.role || 'user') });
+  };
+
+  // Toggle lock/unlock - open confirm action
+  const handleToggleLock = (user) => {
+    if (!user) return;
+    const status = normalizeStatus(user?.status ?? user?.isLocked);
+    if (status === 'locked') {
+      setConfirmAction({ type: 'unlockUser', user });
+    } else {
+      setConfirmAction({ type: 'lockUser', user });
+    }
+  };
+
+  // Error state UI
+  const ErrorState = () => (
+    <div className="error-state">
+      <AlertCircle size={24} />
+      <div>
+        <p>{t('loadError') || 'Unable to load data.'}</p>
+        {error && <p className="error-subtext">{error}</p>}
+      </div>
+    </div>
+  );
 
   const displayedUsers = useMemo(() => {
     if (!sortBy) {
@@ -457,107 +453,27 @@ function UserManagementPage() {
     </div>
   );
 
+  // Unified detail modal (replaces duplicate DetailModal + UserDetailsModal)
   const DetailModal = () => {
-    if (!showDetailModal) {
-      return null;
-    }
+    if (!showDetailModal) return null;
 
-    const avatarUrl = getDetailField(detailUser, ['avatarUrl', 'avatar', 'photoUrl', 'picture']);
-    const fullName = getDetailField(detailUser, ['fullName', 'name']);
-    const email = getDetailField(detailUser, ['email']);
-    const phoneNumber = getDetailField(detailUser, ['phoneNumber', 'phone', 'mobile']);
-    const roleValue = getDetailField(detailUser, ['role']);
-    const packageValue = getDetailField(detailUser, ['package', 'subscription', 'packageName']);
-    const quotaValue = getDetailField(detailUser, ['remainingQuota', 'quota', 'quotaRemaining']);
-    const statusValue = getDetailField(detailUser, ['status']);
-    const registrationDate = formatDateValue(getDetailField(detailUser, ['registrationDate', 'registerDate', 'createdAt', 'createdDate']));
-    const lastLogin = formatDateValue(getDetailField(detailUser, ['lastLogin', 'lastLoginAt', 'lastActivity']));
-    const createdDate = formatDateValue(getDetailField(detailUser, ['createdAt', 'createdDate']));
-    const updatedDate = formatDateValue(getDetailField(detailUser, ['updatedAt', 'updatedDate']));
+    const avatarUrl = getDetailField(detailUser, ['avatarUrl', 'avatar', 'photoUrl', 'picture']) || detailUser?.imageUrl;
+    const fullName = getDetailField(detailUser, ['fullName', 'name']) || detailUser?.fullName;
 
-    const detailRows = [
-      { label: t('email'), value: email },
-      { label: t('phoneNumber'), value: phoneNumber },
-      { label: t('role'), value: roleValue },
-      { label: t('package'), value: packageValue },
-      { label: t('remainingQuota'), value: quotaValue },
-      { label: t('status'), value: statusValue },
-      { label: t('registrationDate'), value: registrationDate },
-      { label: t('lastLogin'), value: lastLogin },
-      { label: t('createdDate'), value: createdDate },
-      { label: t('updatedDate'), value: updatedDate },
-    ].filter((row) => row.value != null);
-
-    return (
-      <div className="modal-backdrop" role="dialog" aria-modal="true">
-        <div className="modal-card detail-modal-card">
-          <div className="modal-header">
-            <div>
-              <h3>{t('detailTitle')}</h3>
-              <p className="modal-description">{t('detailSubtitle')}</p>
-            </div>
-            <button type="button" className="modal-close-btn" onClick={closeDetailModal}>
-              {t('close')}
-            </button>
-          </div>
-
-          {detailLoading ? (
-            <div className="detail-loading">{t('loading')}...</div>
-          ) : detailError ? (
-            <div className="detail-error">
-              <AlertCircle size={18} />
-              <span>{detailError}</span>
-            </div>
-          ) : detailUser ? (
-            <div className="detail-body">
-              {avatarUrl && (
-                <div className="detail-avatar-card">
-                  <img src={avatarUrl} alt={fullName || t('avatarLabel')} className="detail-avatar" />
-                </div>
-              )}
-
-              <div className="detail-grid">
-                {fullName && (
-                  <div className="detail-item detail-fullname">
-                    <span className="detail-label">{t('fullName')}</span>
-                    <span className="detail-value">{fullName}</span>
-                  </div>
-                )}
-                {detailRows.map((row) => (
-                  <div className="detail-item" key={row.label}>
-                    <span className="detail-label">{row.label}</span>
-                    <span className="detail-value">{row.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="detail-empty">{t('noDetailAvailable')}</div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const UserDetailsModal = () => {
-    if (!showDetailModal) {
-      return null;
-    }
+    const registrationDate = formatDateValue(getDetailField(detailUser, ['registrationDate', 'registerDate', 'createdAt', 'createdDate']) || detailUser?.createdAt);
 
     const handleBackdropClick = (e) => {
-      if (e.target.classList.contains('modal-backdrop')) {
-        closeDetailModal();
-      }
+      if (e.target.classList && e.target.classList.contains('modal-backdrop')) closeDetailModal();
     };
 
     return (
       <div className="modal-backdrop user-detail-backdrop" onClick={handleBackdropClick} role="dialog" aria-modal="true">
-        <div className="modal-card user-detail-card">
+        <div className="modal-card detail-modal-card user-detail-card">
           <button type="button" className="close-btn" onClick={closeDetailModal} aria-label="Close">
             <X size={20} />
           </button>
 
-          {detailLoading && (
+          {detailLoading ? (
             <div className="detail-skeleton">
               <div className="skeleton-avatar-row">
                 <div className="skeleton skeleton-circle animate-pulse" />
@@ -573,9 +489,7 @@ function UserManagementPage() {
                 <div className="skeleton skeleton-box animate-pulse" />
               </div>
             </div>
-          )}
-
-          {detailError && (
+          ) : detailError ? (
             <div className="detail-error">
               <AlertCircle size={40} className="error-icon" />
               <h4>{t('loadError')}</h4>
@@ -584,40 +498,19 @@ function UserManagementPage() {
                 {t('cancel')}
               </button>
             </div>
-          )}
-
-          {!detailLoading && !detailError && detailUser && (
+          ) : detailUser ? (
             <>
               <div className="detail-header">
-                <div
-                  className="avatar-wrapper"
-                  style={{ cursor: detailUser.imageUrl ? 'pointer' : 'default' }}
-                  onClick={() => detailUser.imageUrl && window.open(getAvatarUrl(detailUser.imageUrl), '_blank')}
-                  title={detailUser.imageUrl ? 'Bấm để phóng to ảnh đại diện' : undefined}
-                >
-                  {detailUser.imageUrl ? (
-                    <img
-                      src={getAvatarUrl(detailUser.imageUrl)}
-                      alt={detailUser.fullName}
-                      className="user-avatar-img"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.style.display = 'none';
-                        const placeholder = e.target.nextSibling;
-                        if (placeholder) placeholder.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className="user-avatar-placeholder"
-                    style={{ display: detailUser.imageUrl ? 'none' : 'flex' }}
-                  >
-                    {detailUser.fullName ? detailUser.fullName.charAt(0).toUpperCase() : '?'}
-                  </div>
+                <div className="avatar-wrapper" title={avatarUrl ? t('avatarLabel') : undefined} onClick={() => avatarUrl && window.open(getAvatarUrl(avatarUrl), '_blank')}>
+                  {avatarUrl ? (
+                    <img src={getAvatarUrl(avatarUrl)} alt={fullName || t('avatarLabel')} className="user-avatar-img" />
+                  ) : (
+                    <div className="user-avatar-placeholder">{fullName ? fullName.charAt(0).toUpperCase() : '?'}</div>
+                  )}
                 </div>
 
                 <div className="header-info">
-                  <h3 className="user-name">{detailUser.fullName || '-'}</h3>
+                  <h3 className="user-name">{fullName || '-'}</h3>
                   <div className="user-badges">
                     <span className="role-badge">
                       <Shield size={12} />
@@ -639,15 +532,8 @@ function UserManagementPage() {
                       <span>{t('accountSecurity')} - {t('locked')}</span>
                     </div>
                     <div className="lock-banner-details">
-                      {detailUser.lockReason && (
-                        <p><strong>{t('lockReason')}:</strong> {detailUser.lockReason}</p>
-                      )}
-                      {detailUser.lockedAt && (
-                        <p>
-                          <strong>{t('lockedAt')}:</strong>{' '}
-                          {new Date(detailUser.lockedAt).toLocaleString()}
-                        </p>
-                      )}
+                      {detailUser.lockReason && (<p><strong>{t('lockReason')}:</strong> {detailUser.lockReason}</p>)}
+                      {detailUser.lockedAt && (<p><strong>{t('lockedAt')}:</strong> {new Date(detailUser.lockedAt).toLocaleString()}</p>)}
                     </div>
                   </div>
                 )}
@@ -673,9 +559,7 @@ function UserManagementPage() {
                       <Calendar size={16} className="info-icon" />
                       <div className="info-content">
                         <span className="info-label">{t('registerDate')}</span>
-                        <span className="info-value">
-                          {detailUser.createdAt ? new Date(detailUser.createdAt).toLocaleDateString() : '-'}
-                        </span>
+                        <span className="info-value">{registrationDate || '-'}</span>
                       </div>
                     </div>
                     <div className="info-item">
@@ -683,9 +567,7 @@ function UserManagementPage() {
                       <div className="info-content">
                         <span className="info-label">{t('emailVerified')}</span>
                         <span className={`info-value ${detailUser.emailConfirmedAt ? 'text-success' : 'text-warning'}`}>
-                          {detailUser.emailConfirmedAt
-                            ? `${t('emailConfirmed')} (${new Date(detailUser.emailConfirmedAt).toLocaleDateString()})`
-                            : t('emailUnconfirmed')}
+                          {detailUser.emailConfirmedAt ? `${t('emailConfirmed')} (${new Date(detailUser.emailConfirmedAt).toLocaleDateString()})` : t('emailUnconfirmed')}
                         </span>
                       </div>
                     </div>
@@ -752,6 +634,8 @@ function UserManagementPage() {
                 </div>
               </div>
             </>
+          ) : (
+            <div className="detail-empty">{t('noDetailAvailable')}</div>
           )}
         </div>
       </div>
@@ -763,7 +647,7 @@ function UserManagementPage() {
       return null;
     }
 
-    const handleSaveRole = () => {
+    const handleSaveRole = async () => {
       const { user, selectedRole } = roleModal;
       
       const isUpgradingToAdmin = user.role?.toLowerCase() === 'user' && selectedRole === 'admin';
@@ -894,6 +778,8 @@ function UserManagementPage() {
       title = t('confirmLockTitle');
       description = t('confirmUnlockUser');
     }
+
+    const confirmBtnClass = (confirmAction.type === 'lockUser' || confirmAction.type === 'lockSelected') ? 'btn-danger' : 'btn-primary';
 
     return (
       <div
@@ -1209,8 +1095,6 @@ function UserManagementPage() {
         )}
       </div>
       <DetailModal />
-      <ConfirmationModal />
-      <UserDetailsModal />
       <EditRoleModal />
       <ActionConfirmModal />
     </div>

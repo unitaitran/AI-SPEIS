@@ -27,6 +27,7 @@ import './styles/reset.css';
 import './styles/variables.css';
 import './styles/globals.css';
 import './App.css';
+import Button from './components/UI/Button';
 import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
 import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
@@ -145,15 +146,20 @@ function App() {
           </a>
 
           <nav className="desktop-nav" aria-label={t('aria.navigation')}>
-            {navKeys.map((key, index) => (
-              <a
-                key={key}
-                className={index === 0 ? 'nav-link active' : 'nav-link'}
-                href={navHrefs[index]}
-              >
-                {t(`nav.${key}`)}
-              </a>
-            ))}
+            {navKeys.map((key, index) => {
+              const href = navHrefs[index];
+              const normalizedHash = currentHash.split('?')[0] || '#hero';
+              const isActive = normalizedHash === href || (normalizedHash === '' && href === '#hero');
+              return (
+                <a
+                  key={key}
+                  className={`nav-link ${isActive ? 'active' : ''}`}
+                  href={href}
+                >
+                  {t(`nav.${key}`)}
+                </a>
+              );
+            })}
           </nav>
 
           <div className="topbar-actions">
@@ -166,56 +172,18 @@ function App() {
               <Globe size={18} />
               <span>{i18n.language === 'vi' ? 'VI / EN' : 'EN / VI'}</span>
             </button>
-            <a className="primary-button subtle" href="#login">
-              {t('buttons.login')}
-            </a>
+            <button
+              type="button"
+              className="hidden md:inline-block"
+              onClick={() => (window.location.hash = '#login')}
+            >
+              <Button className="px-3 py-1.5 min-h-9 w-auto">{t('buttons.login')}</Button>
+            </button>
           </div>
         </div>
       </header>
 
       <main className="page-content">
-        <section className="hero-section" id="hero">
-          <div className="hero-copy">
-            <span className="eyebrow">{t('hero.tag')}</span>
-            <h1>{t('hero.title')}</h1>
-            <p className="hero-text">{t('hero.text')}</p>
-
-            <div className="hero-actions">
-              <a className="primary-button" href="#flow">
-                {t('buttons.startInterview')}
-                <ChevronRight size={18} />
-              </a>
-              <a className="secondary-button" href="#features">
-                {t('buttons.howItWorks')}
-              </a>
-            </div>
-
-            <div className="hero-insights">
-              {heroCards.map((item) => (
-                <div className="insight-card" key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="hero-visual">
-            <div className="mascot-stage">
-              <div className="mascot-card">
-                <div className="mascot-header">
-                  <span className="status-dot" />
-                  <span>{t('mascot.status')}</span>
-                </div>
-                <img src="/mascot_AI-SPEIS-removebg.png" alt="AI-SPEIS mascot" className="mascot-image" />
-                <div className="mascot-note">
-                  <Bot size={18} />
-                  <span>{t('mascot.note')}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <section className="trust-strip" aria-label={t('aria.highlights')}>
           {highlights.map((item) => (
@@ -345,84 +313,103 @@ function App() {
           </div>
         </section>
 
-        <section className="cta-section">
-          <div>
-            <span className="section-kicker">{t('sections.cta.kicker')}</span>
-            <h2>{t('sections.cta.title')}</h2>
-            <p>{t('sections.cta.text')}</p>
-          </div>
+        <section className="hero-section" id="hero">
+          <div className="mx-auto max-w-[1200px] grid grid-cols-1 md:grid-cols-12 gap-6 items-center py-12">
+            <div className="md:col-span-7 lg:col-span-6 px-4 md:px-0">
+              <span className="text-sm font-semibold tracking-wide text-primary uppercase block mb-3">{t('hero.tag')}</span>
+              <h1 className="text-h1 font-extrabold text-text-primary leading-tight mb-4">{t('hero.title')}</h1>
+              <p className="text-body text-text-secondary mb-6">{t('hero.text')}</p>
 
-          <div className="cta-actions">
-            <a className="primary-button" href="#hero">
-              {t('buttons.startInterview')}
-              <ChevronRight size={18} />
-            </a>
-            <a className="ghost-button" href="#features">
-              {t('buttons.viewFeatures')}
-            </a>
-          </div>
-        </section>
-      </main>
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <Button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-5 py-3"
+                  onClick={() => (window.location.hash = '#flow')}
+                >
+                  {t('buttons.startInterview')}
+                  <ChevronRight size={18} />
+                </Button>
 
-      {/* Already Logged In Popup */}
-      {showLoggedInPopup && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 popup-overlay cursor-pointer"
-          onClick={handleGoToDashboard}
-        >
-          <div 
-            className="bg-white rounded-3xl max-w-sm w-full border border-primary/20 shadow-[0_24px_54px_rgba(63,127,174,0.2)] p-8 text-center relative overflow-hidden popup-content cursor-default"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Decorative top gradient bar */}
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-primary-dark to-info" />
-            
-            {/* Close button */}
-            <button 
-              onClick={handleGoToDashboard}
-              className="absolute top-4 right-4 p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-primary-xlight/50 transition-colors duration-200 cursor-pointer"
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-3 rounded-button bg-surface-2 text-text-primary border border-border"
+                  onClick={() => (window.location.hash = '#features')}
+                >
+                  {t('buttons.howItWorks')}
+                </button>
+              </div>
 
-            {/* Mascot Image Container with animated hover */}
-            <div className="relative w-40 h-40 mx-auto mb-6 group">
-              <div className="absolute inset-0 bg-primary-light/10 rounded-full blur-2xl group-hover:bg-primary-light/20 transition-all duration-500" />
-              <img 
-                src="/confuse.png" 
-                alt="Confused mascot" 
-                className="relative w-full h-full object-contain transform group-hover:scale-105 group-hover:rotate-2 transition-transform duration-500 ease-out"
-              />
+              {Array.isArray(heroCards) && heroCards.length > 0 && (
+                <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {heroCards.map((card) => (
+                    <div key={card.label} className="flex flex-col">
+                      <span className="text-sm text-text-secondary">{card.label}</span>
+                      <strong className="text-lg text-text-primary">{card.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Content */}
-            <h3 className="text-xl font-bold text-text-primary mb-3">
-              {i18n.language === 'vi' ? 'Bạn đã đăng nhập rồi!' : 'You are already logged in!'}
-            </h3>
-            
-            <p className="text-text-secondary text-sm leading-relaxed mb-6">
-              {i18n.language === 'vi' 
-                ? 'Hệ thống phát hiện bạn đã đăng nhập và có phiên làm việc hoạt động. Tự động chuyển hướng về trang điều khiển sau '
-                : 'The system detected that you are already logged in with an active session. Redirecting to your dashboard in '}
-              <span className="font-bold text-primary-dark text-base px-2 py-0.5 rounded-md bg-primary-xlight inline-block min-w-[28px] animate-pulse">
-                {countdown}
-              </span>
-              {i18n.language === 'vi' ? ' giây.' : ' seconds.'}
-            </p>
-
-            {/* Action Button */}
-            <button
-              onClick={handleGoToDashboard}
-              className="w-full py-3.5 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary shadow-lg hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
-            >
-              <span>{i18n.language === 'vi' ? 'Đi tới Dashboard ngay' : 'Go to Dashboard now'}</span>
-              <ChevronRight size={18} className="transform group-hover:translate-x-1 transition-transform duration-300" />
-            </button>
+            <div className="md:col-span-5 lg:col-span-6 px-4 md:px-0 flex justify-center">
+              <div className="max-w-[520px] w-full">
+                <div className="bg-surface-2 border border-border rounded-2xl p-6 shadow-card">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <span className="h-3 w-3 rounded-full bg-primary inline-block" />
+                      <span className="text-sm text-text-secondary">{t('mascot.status')}</span>
+                    </div>
+                  </div>
+                  <img src="/mascot_AI-SPEIS-removebg.png" alt={t('mascot.alt', 'AI-SPEIS mascot')} className="w-full h-auto object-contain" />
+                  {t('mascot.note') && (
+                    <div className="mt-3 text-sm text-text-secondary flex items-center gap-2">
+                      <Bot size={16} />
+                      <span>{t('mascot.note')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        </section>
+          {showLoggedInPopup && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+              <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full mx-4 text-center">
+                <div className="relative w-40 h-40 mx-auto mb-6 group">
+                  <div className="absolute inset-0 bg-primary-light/10 rounded-full blur-2xl group-hover:bg-primary-light/20 transition-all duration-500" />
+                  <img
+                    src="/confuse.png"
+                    alt="Confused mascot"
+                    className="relative w-full h-full object-contain transform group-hover:scale-105 group-hover:rotate-2 transition-transform duration-500 ease-out"
+                  />
+                </div>
+
+                <h3 className="text-xl font-bold text-text-primary mb-3">
+                  {i18n.language === 'vi' ? 'Bạn đã đăng nhập rồi!' : 'You are already logged in!'}
+                </h3>
+
+                <p className="text-text-secondary text-sm leading-relaxed mb-6">
+                  {i18n.language === 'vi'
+                    ? 'Hệ thống phát hiện bạn đã đăng nhập và có phiên làm việc hoạt động. Tự động chuyển hướng về trang điều khiển sau '
+                    : 'The system detected that you are already logged in with an active session. Redirecting to your dashboard in '}
+                  <span className="font-bold text-primary-dark text-base px-2 py-0.5 rounded-md bg-primary-xlight inline-block min-w-[28px] animate-pulse">
+                    {countdown}
+                  </span>
+                  {i18n.language === 'vi' ? ' giây.' : ' seconds.'}
+                </p>
+
+                <button
+                  onClick={handleGoToDashboard}
+                  className="w-full py-3.5 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary shadow-lg hover:shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
+                >
+                  <span>{i18n.language === 'vi' ? 'Đi tới Dashboard ngay' : 'Go to Dashboard now'}</span>
+                  <ChevronRight size={18} className="transform group-hover:translate-x-1 transition-transform duration-300" />
+                </button>
+              </div>
+            </div>
+          )}
+          </main>
+            </div>
   );
 }
 

@@ -17,8 +17,9 @@ vi.mock('../../services/UserService', () => ({
 }));
 
 vi.mock('../../services/QuestionService', () => ({
-  default: {
-    getQuestions: vi.fn().mockResolvedValue([{ id: 'Q-1', code: 'Q-1', content: 'Explain hooks', role: 'Frontend Developer', techStack: 'React', type: 'Technical', difficulty: 'Medium', source: 'Internal', status: 'Active' }]),
+  questionService: {
+    getAdminQuestions: vi.fn().mockResolvedValue({ items: [{ questionId: '1', questionContent: 'Explain hooks', roleTarget: 'Frontend Developer', major: 'React', difficulty: 'Medium' }], totalItems: 1, totalPages: 1 }),
+    getAdminQuestionFilters: vi.fn().mockResolvedValue({ majors: [], roleTargets: [] }),
   },
 }));
 
