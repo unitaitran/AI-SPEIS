@@ -41,4 +41,5 @@ export const ENDPOINTS = {
   ADMIN_QUESTIONS_FILTERS: `${API_BASE_URL}/api/admin/questions/filters`,
   ADMIN_QUESTIONS_BY_ID: (id) => `${API_BASE_URL}/api/admin/questions/${id}`,
   ADMIN_QUESTIONS_IMPORT: `${API_BASE_URL}/api/admin/questions/import`,
+  AUDIO_SPEECH_TO_TEXT: `${API_BASE_URL}/api/Audio/speech-to-text`,
 };
