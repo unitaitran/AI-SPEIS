@@ -14,6 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { questionService } from '../../../services/QuestionService';
+import notify from '../../../utils/notification';
 import '../../../styles/admin/QuestionManagementPage.css';
 
 const DIFFICULTY_OPTIONS = ['all', 'Easy', 'Medium', 'Hard'];
@@ -149,7 +150,7 @@ function QuestionManagementPage() {
       closeDeleteModal();
       fetchQuestions();
     } catch (err) {
-      alert(err.message || 'Failed to delete question');
+      notify.error(err.message || 'Failed to delete question');
     }
   };
 
@@ -170,7 +171,7 @@ function QuestionManagementPage() {
       closeEditModal();
       fetchQuestions();
     } catch (err) {
-      alert(err.message || 'Failed to update question');
+      notify.error(err.message || 'Failed to update question');
     }
   };
 
@@ -196,7 +197,7 @@ function QuestionManagementPage() {
       closeAddModal();
       fetchQuestions();
     } catch (err) {
-      alert(err.message || 'Failed to add question');
+      notify.error(err.message || 'Failed to add question');
     }
   };
 
@@ -210,7 +211,7 @@ function QuestionManagementPage() {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       if (file.size > 5 * 1024 * 1024) {
-        alert(t('importSizeError', 'Kích thước file vượt quá 5MB. Vui lòng chọn file nhỏ hơn.'));
+        notify.warning(t('importSizeError', 'Kích thước file vượt quá 5MB. Vui lòng chọn file nhỏ hơn.'));
         e.target.value = '';
         return;
       }
@@ -226,7 +227,7 @@ function QuestionManagementPage() {
       closeImportModal();
       fetchQuestions();
     } catch (err) {
-      alert(err.message || 'Failed to import questions');
+      notify.error(err.message || 'Failed to import questions');
     } finally {
       setImporting(false);
     }
