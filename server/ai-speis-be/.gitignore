@@ -48,3 +48,5 @@ Thumbs.db
 # pdf files
 *.pdf
 
+# Google Cloud credentials
+keys/
