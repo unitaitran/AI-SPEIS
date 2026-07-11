@@ -64,8 +64,8 @@
 .home-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  flex-wrap: nowrap;
   justify-content: center;
 }
 
@@ -77,6 +77,7 @@
   font-weight: 600;
   font-size: 0.95rem;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .home-nav__link:hover,
@@ -88,8 +89,8 @@
 .home-navbar__actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
@@ -104,11 +105,12 @@
   border: 1px solid transparent;
   font-weight: 700;
   text-decoration: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+  white-space: nowrap;
 }
 
 .home-button:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px) scale(1.02);
 }
 
 .home-button--primary {
@@ -172,13 +174,14 @@
 .home-section-heading h2,
 .home-cta h2 {
   margin: 16px 0 12px;
-  line-height: 1.05;
+  line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--homepage-text);
+  font-weight: 800;
 }
 
 .home-hero h1 {
-  font-size: clamp(2.4rem, 4vw, 3.5rem);
+  font-size: clamp(2rem, 3.5vw, 3.2rem);
   max-width: 640px;
 }
 
@@ -203,9 +206,14 @@
   margin-top: 28px;
 }
 
+.home-actions .home-button {
+  flex: 1;
+  min-width: 160px;
+}
+
 .home-actions--stacked {
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .home-hero__insights {
@@ -376,7 +384,7 @@
 
 .home-section-heading h2,
 .home-cta h2 {
-  font-size: clamp(1.8rem, 3vw, 2.45rem);
+  font-size: clamp(1.6rem, 2.8vw, 2.2rem);
 }
 
 .home-feature-grid,
@@ -398,6 +406,17 @@
   border-radius: 24px;
   background: var(--homepage-surface-2);
   box-shadow: var(--homepage-shadow-soft);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-card:hover,
+.home-workflow-item:hover,
+.home-faq-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(63, 127, 174, 0.12);
 }
 
 .home-card {
@@ -409,7 +428,8 @@
 .home-pricing-card h3,
 .home-workflow-item h3 {
   margin: 12px 0 8px;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
+  font-weight: 700;
 }
 
 .home-card--testimonial {
@@ -474,6 +494,15 @@
   flex-direction: column;
   gap: 12px;
   padding: 24px;
+}
+
+.home-pricing-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(63, 127, 174, 0.12);
+}
+
+.home-pricing-card p {
+  flex-grow: 1;
 }
 
 .home-pricing-card--featured {

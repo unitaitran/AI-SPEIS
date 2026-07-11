@@ -13,14 +13,26 @@
     "features": "Features",
     "flow": "Flow",
     "personalization": "Personalization",
-    "community": "Community"
+    "community": "Community",
+    "pricing": "Pricing",
+    "faq": "FAQ"
   },
   "buttons": {
     "login": "Log in",
     "startInterview": "Start Interview",
     "howItWorks": "See how it works",
     "viewFeatures": "View features",
-    "language": "Language"
+    "language": "Language",
+    "createAccount": "Create account",
+    "contactSales": "Contact Sales",
+    "register": "Register"
+  },
+  "footer": {
+    "about": "About",
+    "features": "Features",
+    "support": "Support",
+    "contact": "Contact",
+    "social": "Social"
   },
   "hero": {
     "tag": "AI INTERVIEW PRACTICE FOR USERS",
@@ -157,6 +169,47 @@
       "kicker": "Get started",
       "title": "Ready to try your first mock interview session?",
       "text": "Upload your CV, choose your target role, and let AI-SPEIS generate your first practice round."
+    },
+    "pricing": {
+      "kicker": "Pricing",
+      "title": "Plans for learners",
+      "text": "Choose a plan to unlock more practice features.",
+      "freeTitle": "Free",
+      "free": "Basic experience with limited mock interviews per month.",
+      "proTitle": "Pro",
+      "pro": "Unlimited practice, detailed analytics, and advanced AI features.",
+      "enterpriseTitle": "Enterprise",
+      "enterprise": "For organizations, bulk customization, and API integration."
+    },
+    "testimonials": {
+      "kicker": "Testimonials",
+      "title": "What our users say",
+      "items": [
+        {
+          "name": "Alex N.",
+          "role": "IT Student",
+          "text": "Awesome! It helped me gain a lot of confidence for real interviews."
+        },
+        {
+          "name": "Sarah T.",
+          "role": "Frontend Developer",
+          "text": "The AI feedback is exactly what real recruiters are looking for."
+        }
+      ]
+    },
+    "faq": {
+      "kicker": "FAQ",
+      "title": "Frequently Asked Questions",
+      "items": [
+        {
+          "q": "Is AI-SPEIS free to use?",
+          "a": "Yes, we offer a free plan with basic features."
+        },
+        {
+          "q": "Is my data secure?",
+          "a": "Absolutely secure. Your CV and recordings are only used to personalize your practice."
+        }
+      ]
     }
   }
 }

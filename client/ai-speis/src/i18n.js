@@ -2,8 +2,8 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
-import enHomepage from './locales/en/homepage.json';
-import viHomepage from './locales/vi/homepage.json';
+import enHomepage from './locales/en/landing.json';
+import viHomepage from './locales/vi/landing.json';
 
 import enLogin from './locales/en/login.json';
 import viLogin from './locales/vi/login.json';

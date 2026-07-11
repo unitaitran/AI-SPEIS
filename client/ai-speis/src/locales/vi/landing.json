@@ -13,14 +13,26 @@
     "features": "Tính năng",
     "flow": "Quy trình",
     "personalization": "Cá nhân hóa",
-    "community": "Cộng đồng"
+    "community": "Cộng đồng",
+    "pricing": "Bảng giá",
+    "faq": "Hỏi đáp"
   },
   "buttons": {
     "login": "Đăng nhập",
     "startInterview": "Bắt đầu luyện tập",
     "howItWorks": "Xem cách hoạt động",
     "viewFeatures": "Xem tính năng",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "createAccount": "Tạo tài khoản",
+    "contactSales": "Liên hệ Sales",
+    "register": "Đăng ký"
+  },
+  "footer": {
+    "about": "Về chúng tôi",
+    "features": "Tính năng",
+    "support": "Hỗ trợ",
+    "contact": "Liên hệ",
+    "social": "Mạng xã hội"
   },
   "hero": {
     "tag": "LUYỆN PHỎNG VẤN AI CHO SINH VIÊN",
@@ -157,6 +169,47 @@
       "kicker": "Bắt đầu ngay",
       "title": "Sẵn sàng thử một buổi phỏng vấn mô phỏng đầu tiên?",
       "text": "Tải CV, chọn vị trí mong muốn và để AI-SPEIS tạo ra vòng luyện tập đầu tiên cho bạn."
+    },
+    "pricing": {
+      "kicker": "Bảng giá",
+      "title": "Gói dành cho người học",
+      "text": "Chọn một gói để mở khóa thêm các tính năng luyện tập.",
+      "freeTitle": "Miễn phí",
+      "free": "Trải nghiệm cơ bản với số lượt phỏng vấn giới hạn mỗi tháng.",
+      "proTitle": "Pro",
+      "pro": "Luyện tập không giới hạn, phân tích chi tiết và các tính năng AI nâng cao.",
+      "enterpriseTitle": "Doanh nghiệp",
+      "enterprise": "Dành cho tổ chức, tùy chỉnh số lượng lớn và API tích hợp."
+    },
+    "testimonials": {
+      "kicker": "Nhận xét",
+      "title": "Người dùng nói gì về chúng tôi",
+      "items": [
+        {
+          "name": "Nguyễn Văn A",
+          "role": "Sinh viên IT",
+          "text": "Tuyệt vời! Giúp mình tự tin hơn hẳn khi phỏng vấn thực tế."
+        },
+        {
+          "name": "Trần Thị B",
+          "role": "Frontend Developer",
+          "text": "Phản hồi từ AI rất sát với những gì nhà tuyển dụng mong muốn."
+        }
+      ]
+    },
+    "faq": {
+      "kicker": "Câu hỏi thường gặp",
+      "title": "Giải đáp thắc mắc",
+      "items": [
+        {
+          "q": "AI-SPEIS có miễn phí không?",
+          "a": "Có, chúng tôi cung cấp gói miễn phí với các tính năng cơ bản."
+        },
+        {
+          "q": "Dữ liệu của tôi có được bảo mật không?",
+          "a": "Hoàn toàn bảo mật. CV và bản ghi âm của bạn chỉ dùng để cá nhân hóa bài tập."
+        }
+      ]
     }
   }
 }
