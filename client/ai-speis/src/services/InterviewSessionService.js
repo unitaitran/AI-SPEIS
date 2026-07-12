@@ -76,6 +76,41 @@ const interviewSessionService = {
     });
     return handleResponse(response);
   },
+
+  /** POST /api/InterviewSession/{id}/complete */
+  completeSession: async (sessionId) => {
+    const response = await fetch(ENDPOINTS.INTERVIEW_SESSION_COMPLETE(sessionId), {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
+
+  /** POST /api/InterviewSession/campaign/{campaignId}/cancel */
+  cancelCampaign: async (campaignId) => {
+    const response = await fetch(ENDPOINTS.INTERVIEW_CAMPAIGN_CANCEL(campaignId), {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
+
+  /** POST /api/InterviewSession/campaign/{campaignId}/expire */
+  expireCampaign: async (campaignId) => {
+    const response = await fetch(ENDPOINTS.INTERVIEW_CAMPAIGN_EXPIRE(campaignId), {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
+
+  /** GET /api/InterviewSession/quota */
+  getQuota: async () => {
+    const response = await fetch(ENDPOINTS.INTERVIEW_QUOTA, {
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
 };
 
 export default interviewSessionService;

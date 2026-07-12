@@ -561,9 +561,14 @@ function DeviceReadinessCheckPage() {
     interviewSessionService.getCampaign(campaignId)
       .then((campaign) => {
         if (!isMounted) return;
+        if (campaign.status === 'Expired' || campaign.status === 'Cancelled' || campaign.status === 'Completed') {
+          setContextError(`Campaign đang ở trạng thái ${campaign.status} và không thể bắt đầu.`);
+          return;
+        }
         const nextContext = {
           campaign,
           activeSessionId: storedContext.activeSessionId || null,
+          configurationKey: storedContext.configurationKey,
         };
         saveActiveInterviewContext(nextContext);
         setInterviewContext(nextContext);
@@ -611,6 +616,7 @@ function DeviceReadinessCheckPage() {
       const nextContext = {
         campaign,
         activeSessionId: activeSession.interviewSessionId,
+        configurationKey: interviewContext.configurationKey,
       };
       saveActiveInterviewContext(nextContext);
       navigate(USER_ROUTES.INTERVIEW_ROOM);
@@ -627,18 +633,16 @@ function DeviceReadinessCheckPage() {
     setContextError('');
 
     try {
-      const startedSession = await interviewSessionService.startSession(pendingSession.interviewSessionId);
-      const updatedCampaign = {
-        ...campaign,
-        sessions: (campaign.sessions || []).map((session) => (
-          session.interviewSessionId === startedSession.interviewSessionId
-            ? startedSession
-            : session
-        )),
-      };
+      const startedCampaign = await interviewSessionService.startSession(pendingSession.interviewSessionId);
+      const startedSession = (startedCampaign.sessions || [])
+        .find((candidate) => candidate.status === 'Active');
+      if (!startedSession) {
+        throw new Error('Backend chưa trả về phiên phỏng vấn đang hoạt động.');
+      }
       const nextContext = {
-        campaign: updatedCampaign,
+        campaign: startedCampaign,
         activeSessionId: startedSession.interviewSessionId,
+        configurationKey: interviewContext.configurationKey,
       };
 
       saveActiveInterviewContext(nextContext);

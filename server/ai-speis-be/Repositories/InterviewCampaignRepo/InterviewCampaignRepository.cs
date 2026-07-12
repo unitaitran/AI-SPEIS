@@ -25,6 +25,7 @@ namespace ai_speis_be.Repositories.InterviewCampaignRepo
         public async Task<InterviewCampaign?> GetCampaignByIdAsync(int campaignId)
         {
             return await _context.InterviewCampaigns
+                .Include(c => c.User)
                 .Include(c => c.CVExtractedProfile)
                 .Include(c => c.JDExtractedProfile)
                 .Include(c => c.InterviewSessions.Where(s => !s.IsDeleted))
@@ -34,6 +35,7 @@ namespace ai_speis_be.Repositories.InterviewCampaignRepo
         public async Task<IEnumerable<InterviewCampaign>> GetCampaignsByUserIdAsync(int userId)
         {
             return await _context.InterviewCampaigns
+                .Include(c => c.User)
                 .Include(c => c.CVExtractedProfile)
                 .Include(c => c.JDExtractedProfile)
                 .Include(c => c.InterviewSessions.Where(s => !s.IsDeleted))
@@ -71,6 +73,8 @@ namespace ai_speis_be.Repositories.InterviewCampaignRepo
         public async Task<InterviewSession?> GetSessionByIdAsync(int sessionId)
         {
             return await _context.InterviewSessions
+                .Include(s => s.InterviewCampaign)
+                    .ThenInclude(c => c.User)
                 .Include(s => s.InterviewCampaign)
                     .ThenInclude(c => c.CVExtractedProfile)
                 .Include(s => s.InterviewCampaign)

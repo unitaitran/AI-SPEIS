@@ -120,6 +120,20 @@ namespace ai_speis_be.Models
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<InterviewCampaign>()
+                .HasIndex(c => new { c.UserId, c.Status })
+                .HasDatabaseName("IX_InterviewCampaign_UserId_Status");
+
+            modelBuilder.Entity<InterviewCampaign>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_InterviewCampaign_DurationMinutes",
+                    "[DurationMinutes] IN (10, 15, 20)"));
+
+            modelBuilder.Entity<User>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_User_RemainingInterviewQuota",
+                    "[RemainingInterviewQuota] >= 0"));
+
+            modelBuilder.Entity<InterviewCampaign>()
                 .HasOne(c => c.CVExtractedProfile)
                 .WithMany()
                 .HasForeignKey(c => c.CVExtractedProfileId)

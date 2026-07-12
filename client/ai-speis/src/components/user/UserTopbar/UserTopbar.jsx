@@ -6,10 +6,12 @@ import { USER_ROUTES } from '../../../routes/routePaths';
 import { getAvatarUrl } from '../../../routes/auth';
 import cvService from '../../../services/CVService';
 import jdService from '../../../services/JDService';
+import interviewSessionService from '../../../services/InterviewSessionService';
 
 function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   const { t, i18n } = useTranslation('dashboard');
   const [user, setUser] = useState(null);
+  const [remainingInterviewQuota, setRemainingInterviewQuota] = useState(null);
 
   useEffect(() => {
     if (propUser) {
@@ -25,6 +27,36 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
       }
     }
   }, [propUser]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadQuota = async () => {
+      try {
+        const quota = await interviewSessionService.getQuota();
+        if (isMounted) setRemainingInterviewQuota(quota.remainingInterviewQuota);
+      } catch {
+        if (isMounted) {
+          setRemainingInterviewQuota(
+            propUser?.remainingInterviewQuota ?? user?.remainingInterviewQuota ?? null,
+          );
+        }
+      }
+    };
+
+    const handleQuotaChanged = (event) => {
+      const nextQuota = event.detail?.remainingInterviewQuota;
+      if (Number.isInteger(nextQuota)) setRemainingInterviewQuota(nextQuota);
+      else loadQuota();
+    };
+
+    loadQuota();
+    window.addEventListener('interview:quota-changed', handleQuotaChanged);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('interview:quota-changed', handleQuotaChanged);
+    };
+  }, [propUser, user?.remainingInterviewQuota]);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -119,7 +151,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
         {/* Quota Badge */}
         <div className="hidden sm:flex items-center bg-gradient-to-r from-primary-light to-primary-xlight border border-primary-light rounded-full px-3 py-1.5 text-sm font-semibold text-primary-dark shadow-sm">
           <Ticket size={16} className="text-primary-dark mr-2" />
-          <span>5 {t('topbar.quota_remaining', 'lượt phỏng vấn')}</span>
+          <span>{remainingInterviewQuota ?? '—'} {t('topbar.quota_remaining', 'lượt phỏng vấn')}</span>
         </div>
 
         {/* Processing Indicator */}

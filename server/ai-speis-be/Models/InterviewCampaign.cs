@@ -36,6 +36,20 @@ namespace ai_speis_be.Models
         public int DurationMinutes { get; set; } = 10;
 
         [Required]
+        public InterviewCampaignStatus Status { get; set; } = InterviewCampaignStatus.Pending;
+
+        public DateTime? StartedAt { get; set; }
+
+        public DateTime? ExpiresAt { get; set; }
+
+        public DateTime? CompletedAt { get; set; }
+
+        public DateTime? CancelledAt { get; set; }
+
+        [Required]
+        public bool QuotaRefunded { get; set; }
+
+        [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }

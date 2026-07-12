@@ -15,6 +15,12 @@ namespace ai_speis_be.Models.DTOs
         public string Language { get; set; } = string.Empty;
         public string Mode { get; set; } = string.Empty;
         public int DurationMinutes { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public DateTime? StartedAt { get; set; }
+        public DateTime? ExpiresAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+        public DateTime? CancelledAt { get; set; }
+        public int RemainingInterviewQuota { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<InterviewSessionDto> Sessions { get; set; } = new List<InterviewSessionDto>();
@@ -112,5 +118,10 @@ namespace ai_speis_be.Models.DTOs
         public List<string> AvailableRounds { get; set; } = new List<string>();
         public bool HasOptionalCoding { get; set; }
         public string Difficulty { get; set; } = string.Empty;
+    }
+
+    public class InterviewQuotaDto
+    {
+        public int RemainingInterviewQuota { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -17,7 +17,14 @@ import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import jdService from '../../services/JDService';
 import interviewSessionService from '../../services/InterviewSessionService';
-import { getInterviewSetupDraft, saveActiveInterviewContext } from '../../utils/interviewContext';
+import {
+  clearActiveInterviewContext,
+  getActiveInterviewContext,
+  getInterviewSetupDraft,
+  notifyInterviewQuotaChanged,
+  saveActiveInterviewContext,
+  saveInterviewSetupDraft,
+} from '../../utils/interviewContext';
 import '../../styles/user/InterviewSetupPage.css';
 
 const FILE_STATUS_BY_VALUE = {
@@ -58,19 +65,32 @@ const formatInterviewType = (rounds) => {
   return rounds.map(formatRoundName).join(' + ');
 };
 
+const createConfigurationKey = (setup) => JSON.stringify({
+  cvFileId: setup.CVFileId,
+  jdFileId: setup.JDFileId,
+  language: setup.Language,
+  mode: setup.Mode,
+  durationMinutes: setup.DurationMinutes,
+  includeCoding: setup.IncludeCoding,
+  selectedRounds: [...(setup.SelectedRounds || [])].sort(),
+});
+
 function InterviewSetupPage() {
+  const initialDraftRef = useRef(getInterviewSetupDraft() || {});
+  const hasInitializedRoundDraftRef = useRef(false);
   const [activeCv, setActiveCv] = useState(null);
   const [jdOptions, setJdOptions] = useState([]);
-  const [selectedJdId, setSelectedJdId] = useState('');
-  const [language, setLanguage] = useState('en');
-  const [durationMinutes, setDurationMinutes] = useState(10);
-  const [mode] = useState(() => getInterviewSetupDraft()?.mode || '');
-  const [includeCoding, setIncludeCoding] = useState(false);
-  const [practiceRounds, setPracticeRounds] = useState([]);
+  const [selectedJdId, setSelectedJdId] = useState(() => String(initialDraftRef.current.selectedJdId || ''));
+  const [language, setLanguage] = useState(() => initialDraftRef.current.language || 'en');
+  const [durationMinutes, setDurationMinutes] = useState(() => initialDraftRef.current.durationMinutes || 10);
+  const [mode] = useState(() => initialDraftRef.current.mode || '');
+  const [includeCoding, setIncludeCoding] = useState(() => Boolean(initialDraftRef.current.includeCoding));
+  const [practiceRounds, setPracticeRounds] = useState(() => initialDraftRef.current.practiceRounds || []);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [jdAvailabilityMessage, setJdAvailabilityMessage] = useState('');
   const hasValidMode = mode === 'Practice' || mode === 'RealTest';
 
   const loadSetupData = useCallback(async () => {
@@ -90,6 +110,20 @@ function InterviewSetupPage() {
       const readyJds = (jdHistory?.items || []).filter((jd) => (
         JD_READY_STATUSES.has(normalizeStatus(jd.status))
       ));
+
+      const uploadedJds = jdHistory?.items || [];
+      if (readyJds.length === 0 && uploadedJds.length > 0) {
+        const latestStatus = normalizeStatus(uploadedJds[0].status);
+        if (latestStatus === 'Pending') {
+          setJdAvailabilityMessage('JD đã được tải lên nhưng chưa bắt đầu phân tích. Hãy phân tích JD trong màn Quản lý CV/JD.');
+        } else if (latestStatus === 'Processing') {
+          setJdAvailabilityMessage('JD đang được phân tích. Vui lòng quay lại sau khi quá trình xử lý hoàn tất.');
+        } else {
+          setJdAvailabilityMessage('JD hiện chưa có dữ liệu phân tích hợp lệ để thiết lập phỏng vấn.');
+        }
+      } else {
+        setJdAvailabilityMessage('');
+      }
 
       setActiveCv(readyCv || null);
 
@@ -125,6 +159,7 @@ function InterviewSetupPage() {
       setActiveCv(null);
       setJdOptions([]);
       setSelectedJdId('');
+      setJdAvailabilityMessage('');
       setLoadError(error.message || 'Không thể tải dữ liệu thiết lập phỏng vấn.');
     } finally {
       setIsLoading(false);
@@ -153,9 +188,46 @@ function InterviewSetupPage() {
   const selectablePracticeRoundsKey = selectablePracticeRounds.join('|');
 
   useEffect(() => {
+    if (!selectedJdId || !selectedJd) return;
+
+    if (!hasInitializedRoundDraftRef.current) {
+      const restoredRounds = (initialDraftRef.current.practiceRounds || [])
+        .filter((round) => selectablePracticeRounds.includes(round));
+      setPracticeRounds(restoredRounds.length > 0 ? restoredRounds : selectablePracticeRounds);
+      setIncludeCoding(Boolean(initialDraftRef.current.includeCoding && hasOptionalCoding));
+      hasInitializedRoundDraftRef.current = true;
+      return;
+    }
+
     setIncludeCoding(false);
     setPracticeRounds(selectablePracticeRounds);
-  }, [selectedJdId, selectablePracticeRoundsKey]);
+  }, [hasOptionalCoding, selectedJd, selectedJdId, selectablePracticeRounds, selectablePracticeRoundsKey]);
+
+  useEffect(() => {
+    if (isLoading || !hasValidMode) return;
+
+    const currentDraft = getInterviewSetupDraft() || {};
+    saveInterviewSetupDraft({
+      ...currentDraft,
+      mode,
+      cvFileId: activeCv?.cvFileId || null,
+      selectedJdId,
+      language,
+      durationMinutes,
+      includeCoding,
+      practiceRounds,
+    });
+  }, [
+    activeCv?.cvFileId,
+    durationMinutes,
+    hasValidMode,
+    includeCoding,
+    isLoading,
+    language,
+    mode,
+    practiceRounds,
+    selectedJdId,
+  ]);
 
   const realTestRounds = useMemo(() => {
     if (!includeCoding || baseRounds.includes('Code')) return baseRounds;
@@ -185,7 +257,7 @@ function InterviewSetupPage() {
   const availabilityMessage = !activeCv
     ? 'Bạn cần một CV đã phân tích và xác nhận để tạo buổi phỏng vấn.'
     : jdOptions.length === 0
-      ? 'Bạn cần một Job Description đã phân tích để cấu hình buổi phỏng vấn.'
+      ? jdAvailabilityMessage || 'Bạn cần một Job Description đã phân tích hoàn tất để cấu hình buổi phỏng vấn.'
       : '';
 
   const handleSubmit = async (event) => {
@@ -210,7 +282,7 @@ function InterviewSetupPage() {
     setIsSubmitting(true);
 
     try {
-      const campaign = await interviewSessionService.createSession({
+      const setupPayload = {
         CVFileId: activeCv.cvFileId,
         JDFileId: selectedJd.file.jdFileId,
         IncludeCoding: includeCoding,
@@ -218,8 +290,53 @@ function InterviewSetupPage() {
         Language: language,
         Mode: mode,
         DurationMinutes: durationMinutes,
+      };
+      const configurationKey = createConfigurationKey(setupPayload);
+      const storedContext = getActiveInterviewContext();
+      const currentDraft = getInterviewSetupDraft() || {};
+      const existingCampaignId = storedContext?.campaign?.interviewCampaignId
+        || currentDraft.campaignId
+        || currentDraft.previousCampaignId;
+
+      if (existingCampaignId) {
+        const existingCampaign = await interviewSessionService.getCampaign(existingCampaignId);
+        const isLiveCampaign = existingCampaign.status === 'Pending' || existingCampaign.status === 'Active';
+        const existingConfigurationKey = storedContext?.configurationKey || currentDraft.configurationKey;
+
+        if (isLiveCampaign && existingConfigurationKey === configurationKey) {
+          saveActiveInterviewContext({
+            campaign: existingCampaign,
+            activeSessionId: storedContext?.activeSessionId || null,
+            configurationKey,
+          });
+          notifyInterviewQuotaChanged(existingCampaign.remainingInterviewQuota);
+          navigate(USER_ROUTES.DEVICE_CHECK);
+          return;
+        }
+
+        if (isLiveCampaign) {
+          const cancelledCampaign = await interviewSessionService.cancelCampaign(existingCampaignId);
+          notifyInterviewQuotaChanged(cancelledCampaign.remainingInterviewQuota);
+        }
+        clearActiveInterviewContext();
+      }
+
+      const campaign = await interviewSessionService.createSession(setupPayload);
+      saveActiveInterviewContext({ campaign, activeSessionId: null, configurationKey });
+      saveInterviewSetupDraft({
+        ...currentDraft,
+        mode,
+        cvFileId: activeCv.cvFileId,
+        selectedJdId: String(selectedJd.file.jdFileId),
+        language,
+        durationMinutes,
+        includeCoding,
+        practiceRounds,
+        campaignId: campaign.interviewCampaignId,
+        configurationKey,
+        previousCampaignId: null,
       });
-      saveActiveInterviewContext({ campaign, activeSessionId: null });
+      notifyInterviewQuotaChanged(campaign.remainingInterviewQuota);
       navigate(USER_ROUTES.DEVICE_CHECK);
     } catch (error) {
       setSubmitError(error.message || 'Không thể tạo buổi phỏng vấn. Vui lòng thử lại.');
@@ -339,7 +456,7 @@ function InterviewSetupPage() {
                     </div>
                     {jdOptions.length === 0 && (
                       <span id="setup-job-position-error" className="setup-field-error">
-                        Hãy phân tích và xác nhận một Job Description trước.
+                        Hãy hoàn tất phân tích một Job Description trước.
                       </span>
                     )}
                   </div>

@@ -18,6 +18,10 @@ export function saveInterviewSetupDraft(draft) {
   return draft;
 }
 
+export function clearInterviewSetupDraft() {
+  sessionStorage.removeItem(INTERVIEW_SETUP_DRAFT_KEY);
+}
+
 export function getActiveInterviewContext() {
   const storedContext = sessionStorage.getItem(ACTIVE_INTERVIEW_CONTEXT_KEY);
   if (!storedContext) return null;
@@ -43,6 +47,19 @@ export function saveActiveInterviewContext(context) {
 
 export function clearActiveInterviewContext() {
   sessionStorage.removeItem(ACTIVE_INTERVIEW_CONTEXT_KEY);
+}
+
+export function beginNewInterviewCampaign() {
+  const previousCampaignId = getActiveInterviewContext()?.campaign?.interviewCampaignId || null;
+  clearActiveInterviewContext();
+  clearInterviewSetupDraft();
+  return saveInterviewSetupDraft({ previousCampaignId });
+}
+
+export function notifyInterviewQuotaChanged(remainingInterviewQuota) {
+  window.dispatchEvent(new CustomEvent('interview:quota-changed', {
+    detail: { remainingInterviewQuota },
+  }));
 }
 
 const ROUND_ORDER = Object.freeze({

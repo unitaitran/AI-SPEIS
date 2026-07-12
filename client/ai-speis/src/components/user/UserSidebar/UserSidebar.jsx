@@ -4,6 +4,7 @@ import { LayoutDashboard, FileText, Clock, Package, Lock, Database } from 'lucid
 import { navigate, NAVIGATION_EVENT } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import notify from '../../../utils/notification';
+import { beginNewInterviewCampaign } from '../../../utils/interviewContext';
 
 const MENU_GROUPS = [
   {
@@ -153,8 +154,9 @@ function UserSidebar({ isOpen, onNavigate }) {
       <div className="p-4 shrink-0 bg-surface-2 border-t border-border">
         <button
           className="w-full bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-sm font-semibold py-3 px-4 rounded transition-all shadow-sm cursor-pointer"
-          onClick={() => {
-            navigate(USER_ROUTES.INTERVIEW_MODE);
+            onClick={() => {
+              beginNewInterviewCampaign();
+              navigate(USER_ROUTES.INTERVIEW_MODE);
             if (onNavigate) onNavigate();
           }}
         >
