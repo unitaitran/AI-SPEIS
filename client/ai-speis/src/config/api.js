@@ -28,6 +28,7 @@ export const ENDPOINTS = {
   JD_STATUS: (id) => `${API_BASE_URL}/api/JDFile/${id}/status`,
   JD_PARSED_DATA: (id) => `${API_BASE_URL}/api/JDFile/${id}/parsed-data`,
   JD_CONFIRM: (id) => `${API_BASE_URL}/api/JDFile/${id}/confirm`,
+  JD_MATCH_CV: (jdId, cvId) => `${API_BASE_URL}/api/JDFile/${jdId}/match-cv/${cvId}`,
   INTERVIEW_SESSIONS: `${API_BASE_URL}/api/InterviewSession`,
   INTERVIEW_SESSION: (id) => `${API_BASE_URL}/api/InterviewSession/${id}`,
   INTERVIEW_SESSION_START: (id) => `${API_BASE_URL}/api/InterviewSession/${id}/start`,

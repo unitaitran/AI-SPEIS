@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Upload,
   FileText,
@@ -25,6 +24,8 @@ import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import jdService from '../../services/JDService';
 import { API_BASE_URL } from '../../config/api';
+import FastCheckPanel from '../../features/cvJdFastCheck/FastCheckPanel';
+import notify from '../../utils/notification';
 import '../../styles/user/MyCVPage.css';
 
 function CVJDManagementPage() {  
@@ -70,7 +71,7 @@ function CVJDManagementPage() {
           stopJdPolling();
           fetchJDHistory();
           const errorMsg = "Đây không phải là JD/CV hoặc bạn đang upload chưa phải thông tin JD hoàn thiện. Hãy thử lại.";
-          alert(errorMsg);
+          notify.error(errorMsg, { title: 'Phân tích JD thất bại' });
         }
       } catch (err) {
         // keep polling
@@ -167,18 +168,18 @@ function CVJDManagementPage() {
         setJds(prev => prev.map(j => j.jdFileId === jdId ? { ...j, status: 1 } : j));
         startJdPolling(jdId);
       } catch (err) {
-        alert('Không thể bắt đầu phân tích: ' + err.message);
+        notify.error(`Không thể bắt đầu phân tích: ${err.message}`, { title: 'Không thể phân tích JD' });
       }
     } else if (statusStr === 'Processing') {
       startJdPolling(jdId);
-      alert('JD đang được xử lý, vui lòng chờ...');
+      notify.info('JD đang được xử lý, vui lòng chờ...', { title: 'Đang phân tích JD' });
     } else if (statusStr === 'ConfirmationRequired' || statusStr === 'Confirmed') {
       try {
         const parsed = await jdService.getParsedData(jdId);
         setSelectedJDParsedData(parsed.data);
         setShowJDInfoModal(true);
       } catch (err) {
-        alert('Lỗi lấy dữ liệu: ' + err.message);
+        notify.error(`Lỗi lấy dữ liệu: ${err.message}`, { title: 'Không thể tải dữ liệu JD' });
       }
     }
   };
@@ -186,12 +187,12 @@ function CVJDManagementPage() {
   // Handle JD Upload submission
   const submitJDUpload = async (file = null) => {
     if (jds.length >= 5) {
-      alert('Đã đạt giới hạn 5 JD!');
+      notify.warning('Bạn đã đạt giới hạn tối đa 5 JD.', { title: 'Không thể thêm JD' });
       return;
     }
 
     if (file && file.size > 5 * 1024 * 1024) {
-      alert('File tải lên vượt quá dung lượng tối đa 5MB. Vui lòng chọn file khác.');
+      notify.warning('File tải lên vượt quá dung lượng tối đa 5MB. Vui lòng chọn file khác.', { title: 'File không hợp lệ' });
       return;
     }
     
@@ -205,8 +206,9 @@ function CVJDManagementPage() {
       setJdText('');
       setJdTextName('');
       fetchJDHistory();
+      notify.success('Job Description đã được thêm thành công.');
     } catch (err) {
-      alert('Lỗi khi tải lên JD: ' + err.message);
+      notify.error(`Lỗi khi tải lên JD: ${err.message}`, { title: 'Không thể thêm JD' });
     }
   };
 
@@ -216,8 +218,9 @@ function CVJDManagementPage() {
       try {
         await jdService.deleteJD(id);
         fetchJDHistory();
+        notify.success('Job Description đã được xóa thành công.');
       } catch (err) {
-        alert('Lỗi khi xóa JD: ' + err.message);
+        notify.error(`Lỗi khi xóa JD: ${err.message}`, { title: 'Không thể xóa JD' });
       }
     }
   };
@@ -234,6 +237,18 @@ function CVJDManagementPage() {
             </p>
           </div>
         </section>
+
+        <FastCheckPanel
+          currentCv={cvs[0] || null}
+          jds={jds}
+          loadingSources={isLoadingCvs || isLoadingJds}
+          onAddJd={() => setShowJDModal(true)}
+          onCvUploaded={(cv) => setCvs([cv])}
+          onSourcesChanged={() => {
+            fetchCVHistory();
+            fetchJDHistory();
+          }}
+        />
 
         {/* 2 Columns Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -482,10 +497,10 @@ function CVJDManagementPage() {
                 <div className="bg-surface-2 p-4 rounded-lg border border-border/50 shadow-sm">
                    <div className="flex items-center gap-2 mb-2">
                      <CheckCircle2 size={16} className="text-[#4A90E2]" />
-                     <h4 className="text-base font-semibold text-text-primary">Mức độ tương thích CV</h4>
+                     <h4 className="text-base font-semibold text-text-primary">CV-JD Fast Check</h4>
                    </div>
                    <p className="text-sm text-text-secondary leading-relaxed">
-                     Tính năng check tỉ lệ đang được phát triển. Tạm thời bạn có thể tự đối chiếu CV với JD.
+                     JD này đã có dữ liệu trích xuất. Hãy chọn JD trong khu vực Fast Check để backend đối chiếu với CV của bạn.
                    </p>
                 </div>
               </div>

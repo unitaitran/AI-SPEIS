@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
@@ -13,17 +13,29 @@ import {
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { ENDPOINTS } from '../../config/api';
+import notify from '../../utils/notification';
 
 function QuestionsPage() {
   const { t, i18n } = useTranslation('dashboard');
   const isVi = i18n.language.startsWith('vi');
+  const sessionRedirectPendingRef = useRef(false);
 
   // Helper for Session Expiration
   const handleSessionExpired = useCallback(() => {
+    if (sessionRedirectPendingRef.current) return;
+    sessionRedirectPendingRef.current = true;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    alert(isVi ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!' : 'Session has expired. Please login again!');
-    window.location.href = '/#login';
+    notify.error(
+      isVi ? 'Vui lòng đăng nhập lại để tiếp tục.' : 'Please login again to continue.',
+      {
+        title: isVi ? 'Phiên đăng nhập đã hết hạn' : 'Session expired',
+        duration: 1600,
+      },
+    );
+    window.setTimeout(() => {
+      window.location.href = '/#login';
+    }, 1200);
   }, [isVi]);
 
   // API states

@@ -96,6 +96,15 @@ const jdService = {
     });
     return handleResponse(response);
   },
+
+  /** POST /api/JDFile/{jdId}/match-cv/{cvId} */
+  matchCvToJd: async (jdId, cvId) => {
+    const response = await fetch(ENDPOINTS.JD_MATCH_CV(jdId, cvId), {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
 };
 
 export default jdService;

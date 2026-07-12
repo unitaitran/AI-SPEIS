@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { LayoutDashboard, FileText, Clock, Package, Lock, Database } from 'lucide-react';
 import { navigate, NAVIGATION_EVENT } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
+import notify from '../../../utils/notification';
 
 const MENU_GROUPS = [
   {
@@ -48,7 +49,9 @@ function UserSidebar({ isOpen, onNavigate }) {
       path !== USER_ROUTES.CV &&
       path !== USER_ROUTES.QUESTIONS
     ) {
-      alert(t('common_feature_developing', 'Tính năng đang phát triển'));
+      notify.info(t('common_feature_developing', 'Tính năng đang phát triển'), {
+        title: t('common_information', 'Thông tin'),
+      });
       return;
     }
     navigate(path);
