@@ -1,5 +1,14 @@
 namespace ai_speis_be.Models.Enums
 {
+    public enum InterviewCampaignStatus
+    {
+        Pending,
+        Active,
+        Completed,
+        Cancelled,
+        Expired
+    }
+
     public enum InterviewSessionStatus
     {
         Pending,       // Mới setup

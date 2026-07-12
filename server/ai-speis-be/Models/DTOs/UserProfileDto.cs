@@ -17,6 +17,7 @@ namespace ai_speis_be.Models.DTOs
         public DateTime? UpdatedAt { get; init; }
         public bool HasPassword { get; init; }
         public string? ImageUrl { get; init; }
+        public int RemainingInterviewQuota { get; init; }
     }
 
     // ─── Requests ────────────────────────────────────────────────────────────

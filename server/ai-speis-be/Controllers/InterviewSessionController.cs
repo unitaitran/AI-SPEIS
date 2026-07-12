@@ -83,13 +83,24 @@ namespace ai_speis_be.Controllers
                 return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
             }
 
-            var (success, errorMessage, session) = await _service.StartSessionAsync(userId, id);
+            var (success, errorMessage, campaign) = await _service.StartSessionAsync(userId, id);
             if (!success)
             {
                 return BadRequest(new { Message = errorMessage });
             }
 
-            return Ok(session);
+            return Ok(campaign);
+        }
+
+        [HttpPost("{id:int}/complete")]
+        public async Task<IActionResult> CompleteSession(int id)
+        {
+            if (id <= 0) return BadRequest(new { Message = "ID không hợp lệ." });
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var (success, errorMessage, campaign) = await _service.CompleteSessionAsync(userId, id);
+            if (!success) return BadRequest(new { Message = errorMessage });
+            return Ok(campaign);
         }
 
         [HttpGet("campaign/{campaignId:int}")]
@@ -112,6 +123,36 @@ namespace ai_speis_be.Controllers
             }
 
             return Ok(campaign);
+        }
+
+        [HttpPost("campaign/{campaignId:int}/cancel")]
+        public async Task<IActionResult> CancelCampaign(int campaignId)
+        {
+            if (campaignId <= 0) return BadRequest(new { Message = "ID đợt phỏng vấn không hợp lệ." });
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var (success, errorMessage, campaign) = await _service.CancelCampaignAsync(userId, campaignId);
+            if (!success) return BadRequest(new { Message = errorMessage });
+            return Ok(campaign);
+        }
+
+        [HttpPost("campaign/{campaignId:int}/expire")]
+        public async Task<IActionResult> ExpireCampaign(int campaignId)
+        {
+            if (campaignId <= 0) return BadRequest(new { Message = "ID đợt phỏng vấn không hợp lệ." });
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var (success, errorMessage, campaign) = await _service.ExpireCampaignAsync(userId, campaignId);
+            if (!success) return BadRequest(new { Message = errorMessage });
+            return Ok(campaign);
+        }
+
+        [HttpGet("quota")]
+        public async Task<IActionResult> GetQuota()
+        {
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+            var quota = await _service.GetQuotaAsync(userId);
+            return quota == null ? NotFound(new { Message = "Không tìm thấy người dùng." }) : Ok(quota);
         }
 
         [HttpGet]

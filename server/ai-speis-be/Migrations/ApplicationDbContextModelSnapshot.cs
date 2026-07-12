@@ -224,16 +224,26 @@ namespace ai_speis_be.Migrations
                     b.Property<int>("CVExtractedProfileId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<int>("JDExtractedProfileId")
                         .HasColumnType("int");
@@ -244,6 +254,15 @@ namespace ai_speis_be.Migrations
                         .HasColumnType("nvarchar(10)");
 
                     b.Property<int>("Mode")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("QuotaRefunded")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -260,7 +279,13 @@ namespace ai_speis_be.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("InterviewCampaign");
+                    b.HasIndex("UserId", "Status")
+                        .HasDatabaseName("IX_InterviewCampaign_UserId_Status");
+
+                    b.ToTable("InterviewCampaign", t =>
+                        {
+                            t.HasCheckConstraint("CK_InterviewCampaign_DurationMinutes", "[DurationMinutes] IN (10, 15, 20)");
+                        });
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.InterviewSession", b =>
@@ -616,6 +641,9 @@ namespace ai_speis_be.Migrations
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("RemainingInterviewQuota")
+                        .HasColumnType("int");
+
                     b.Property<int>("RoleId")
                         .HasColumnType("int");
 
@@ -634,7 +662,10 @@ namespace ai_speis_be.Migrations
                     b.HasIndex(new[] { "UserId" }, "IX_User_UserId")
                         .IsUnique();
 
-                    b.ToTable("User");
+                    b.ToTable("User", t =>
+                        {
+                            t.HasCheckConstraint("CK_User_RemainingInterviewQuota", "[RemainingInterviewQuota] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.UserProfile", b =>

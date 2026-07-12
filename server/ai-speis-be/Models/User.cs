@@ -55,6 +55,9 @@ namespace ai_speis_be.Models
         public DateTime? PasswordResetTokenExpiresAt { get; set; }
 
         [Required]
+        public int RemainingInterviewQuota { get; set; } = 5;
+
+        [Required]
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }

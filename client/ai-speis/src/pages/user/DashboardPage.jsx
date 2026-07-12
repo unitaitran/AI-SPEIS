@@ -4,10 +4,13 @@ import { ArrowRight, FileText, CalendarDays, TrendingUp, Zap, Target } from 'luc
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
+import interviewSessionService from '../../services/InterviewSessionService';
+import { beginNewInterviewCampaign } from '../../utils/interviewContext';
 
 function DashboardPage() {
   const { t } = useTranslation('dashboard');
   const [user, setUser] = useState(null);
+  const [remainingInterviewQuota, setRemainingInterviewQuota] = useState(null);
 
   useEffect(() => {
     // Try to load user from localStorage
@@ -19,11 +22,34 @@ function DashboardPage() {
     }
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadQuota = async () => {
+      try {
+        const quota = await interviewSessionService.getQuota();
+        if (isMounted) setRemainingInterviewQuota(quota.remainingInterviewQuota);
+      } catch {
+        // The topbar and create-campaign API remain the authoritative fallback.
+      }
+    };
+    const handleQuotaChanged = (event) => {
+      const nextQuota = event.detail?.remainingInterviewQuota;
+      if (Number.isInteger(nextQuota)) setRemainingInterviewQuota(nextQuota);
+      else loadQuota();
+    };
+    loadQuota();
+    window.addEventListener('interview:quota-changed', handleQuotaChanged);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('interview:quota-changed', handleQuotaChanged);
+    };
+  }, []);
+
   const stats = [
     { label: t('stats.interviews', 'BUỔI PHỎNG VẤN ĐÃ LUYỆN'), value: '12', unit: t('stats.unit_session', 'buổi'), icon: CalendarDays, color: 'text-blue-500', bg: 'bg-blue-50' },
     { label: t('stats.avg_score', 'ĐIỂM TRUNG BÌNH'), value: '4.5', unit: '/ 5', icon: Target, color: 'text-primary-dark', bg: 'bg-primary-xlight' },
     { label: t('stats.streak', 'STREAK LUYỆN TẬP'), value: '4', unit: t('stats.unit_day', 'ngày'), icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-    { label: t('stats.quota', 'QUOTA CÒN LẠI'), value: '5', unit: t('stats.unit_times', 'lượt'), icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-50' },
+    { label: t('stats.quota', 'QUOTA CÒN LẠI'), value: remainingInterviewQuota ?? '—', unit: t('stats.unit_times', 'lượt'), icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-50' },
   ];
 
   const suggestions = [
@@ -106,7 +132,10 @@ function DashboardPage() {
             </div>
             <button
               className="relative z-10 bg-white text-primary-dark hover:bg-primary-xlight py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto self-start group cursor-pointer"
-              onClick={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
+                onClick={() => {
+                  beginNewInterviewCampaign();
+                  navigate(USER_ROUTES.INTERVIEW_MODE);
+                }}
             >
               {t('banner.button', 'BẮT ĐẦU PHỎNG VẤN')}
               <ArrowRight size={18} className="ml-4 transform group-hover:translate-x-1 transition-transform" />

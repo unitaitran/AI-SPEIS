@@ -13,6 +13,7 @@ import {
   Wifi,
   XCircle,
 } from 'lucide-react';
+import InterviewProgressStepper from '../../components/user/InterviewProgressStepper/InterviewProgressStepper';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
@@ -238,27 +239,6 @@ function ReadinessCard({ icon: Icon, check }) {
         {check.required ? 'Bắt buộc để bắt đầu phỏng vấn' : 'Không chặn tiếp tục'}
       </span>
     </article>
-  );
-}
-
-function Stepper() {
-  const steps = ['Chế độ', 'Thiết lập', 'Kiểm tra thiết bị', 'Bắt đầu', 'Đánh giá', 'Kết quả'];
-
-  return (
-    <ol className="device-stepper" aria-label="Interview progress">
-      {steps.map((step, index) => {
-        const isActive = index === 2;
-
-        return (
-          <li className="device-stepper-item" key={step}>
-            <span className={`device-step-number${isActive ? ' device-step-number--active' : ''}`}>
-              {index + 1}
-            </span>
-            <span className="device-step-label">{step}</span>
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
@@ -581,9 +561,14 @@ function DeviceReadinessCheckPage() {
     interviewSessionService.getCampaign(campaignId)
       .then((campaign) => {
         if (!isMounted) return;
+        if (campaign.status === 'Expired' || campaign.status === 'Cancelled' || campaign.status === 'Completed') {
+          setContextError(`Campaign đang ở trạng thái ${campaign.status} và không thể bắt đầu.`);
+          return;
+        }
         const nextContext = {
           campaign,
           activeSessionId: storedContext.activeSessionId || null,
+          configurationKey: storedContext.configurationKey,
         };
         saveActiveInterviewContext(nextContext);
         setInterviewContext(nextContext);
@@ -631,6 +616,7 @@ function DeviceReadinessCheckPage() {
       const nextContext = {
         campaign,
         activeSessionId: activeSession.interviewSessionId,
+        configurationKey: interviewContext.configurationKey,
       };
       saveActiveInterviewContext(nextContext);
       navigate(USER_ROUTES.INTERVIEW_ROOM);
@@ -647,18 +633,16 @@ function DeviceReadinessCheckPage() {
     setContextError('');
 
     try {
-      const startedSession = await interviewSessionService.startSession(pendingSession.interviewSessionId);
-      const updatedCampaign = {
-        ...campaign,
-        sessions: (campaign.sessions || []).map((session) => (
-          session.interviewSessionId === startedSession.interviewSessionId
-            ? startedSession
-            : session
-        )),
-      };
+      const startedCampaign = await interviewSessionService.startSession(pendingSession.interviewSessionId);
+      const startedSession = (startedCampaign.sessions || [])
+        .find((candidate) => candidate.status === 'Active');
+      if (!startedSession) {
+        throw new Error('Backend chưa trả về phiên phỏng vấn đang hoạt động.');
+      }
       const nextContext = {
-        campaign: updatedCampaign,
+        campaign: startedCampaign,
         activeSessionId: startedSession.interviewSessionId,
+        configurationKey: interviewContext.configurationKey,
       };
 
       saveActiveInterviewContext(nextContext);
@@ -709,7 +693,7 @@ function DeviceReadinessCheckPage() {
           </button>
         </header>
 
-        <Stepper />
+        <InterviewProgressStepper activeStep={2} />
 
         {contextError ? (
           <div className="device-alert device-alert--error" role="alert">

@@ -9,6 +9,7 @@ import DeviceReadinessCheckPage from '../pages/user/DeviceReadinessCheckPage';
 import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
 import ProfilePage from '../pages/user/ProfilePage';
 import InterviewSetupPage from '../pages/user/InterviewSetupPage';
+import InterviewModePage from '../pages/user/InterviewModePage';
 
 function UserRoutes({ pathname }) {
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
@@ -18,6 +19,7 @@ function UserRoutes({ pathname }) {
     pathname === USER_ROUTES.CV ||
     pathname === USER_ROUTES.CV_DETAIL ||
     pathname === USER_ROUTES.QUESTIONS ||
+    pathname === USER_ROUTES.INTERVIEW_MODE ||
     pathname === USER_ROUTES.INTERVIEW_SETUP ||
     pathname === USER_ROUTES.DEVICE_CHECK ||
     pathname === USER_ROUTES.INTERVIEW_ROOM;
@@ -42,6 +44,10 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.QUESTIONS) {
     return <QuestionsPage />;
+  }
+
+  if (pathname === USER_ROUTES.INTERVIEW_MODE) {
+    return <InterviewModePage />;
   }
 
   if (pathname === USER_ROUTES.INTERVIEW_SETUP) {

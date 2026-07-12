@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
-using ai_speis_be.Models.DTOs;
 using ai_speis_be.Helpers;
 using ai_speis_be.Models;
+using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.InterviewCampaignRepo;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,8 @@ namespace ai_speis_be.Services.InterviewSessionService
 {
     public class InterviewSessionService : IInterviewSessionService
     {
+        private static readonly TimeSpan PendingCampaignLifetime = TimeSpan.FromMinutes(30);
+
         private readonly IInterviewCampaignRepository _repository;
         private readonly ApplicationDbContext _context;
         private readonly ILogger<InterviewSessionService> _logger;
@@ -27,84 +30,59 @@ namespace ai_speis_be.Services.InterviewSessionService
             _logger = logger;
         }
 
-        public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CreateSessionsAsync(int userId, CreateInterviewSessionRequest request)
+        public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CreateSessionsAsync(
+            int userId,
+            CreateInterviewSessionRequest request)
         {
-            // 1. Kiểm tra CV File
-            var cvFile = await _context.CVFiles.FirstOrDefaultAsync(c => c.CVFileId == request.CVFileId && c.UserId == userId);
-            if (cvFile == null)
-            {
-                return (false, "Không tìm thấy file CV.", null);
-            }
-
+            var cvFile = await _context.CVFiles
+                .FirstOrDefaultAsync(file => file.CVFileId == request.CVFileId && file.UserId == userId);
+            if (cvFile == null) return (false, "Không tìm thấy file CV.", null);
             if (cvFile.Status != CVFileStatus.Confirmed)
-            {
                 return (false, "CV phải được xác nhận trước khi tạo phỏng vấn.", null);
-            }
 
-            var cvProfile = await _context.CVExtractedProfiles.FirstOrDefaultAsync(p => p.CVFileId == request.CVFileId);
-            if (cvProfile == null)
-            {
-                return (false, "Không tìm thấy dữ liệu CV đã phân tích.", null);
-            }
-
+            var cvProfile = await _context.CVExtractedProfiles
+                .FirstOrDefaultAsync(profile => profile.CVFileId == request.CVFileId);
+            if (cvProfile == null) return (false, "Không tìm thấy dữ liệu CV đã phân tích.", null);
             if (!cvProfile.IsConfirmed)
-            {
                 return (false, "Dữ liệu CV chưa được người dùng xác nhận.", null);
-            }
 
-            // 2. Kiểm tra JD File
-            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == request.JDFileId && j.UserId == userId);
-            if (jdFile == null)
+            var jdFile = await _context.JDFiles
+                .FirstOrDefaultAsync(file => file.JDFileId == request.JDFileId && file.UserId == userId);
+            if (jdFile == null) return (false, "Không tìm thấy file JD.", null);
+            if (jdFile.Status != JDFileStatus.ConfirmationRequired
+                && jdFile.Status != JDFileStatus.Confirmed)
             {
-                return (false, "Không tìm thấy file JD.", null);
+                return (false, "JD phải được phân tích hoàn tất trước khi tạo phỏng vấn.", null);
             }
 
-            if (jdFile.Status != JDFileStatus.ConfirmationRequired && jdFile.Status != JDFileStatus.Confirmed)
-            {
-                return (false, "File JD chưa sẵn sàng để tạo phỏng vấn.", null);
-            }
+            var jdProfile = await _context.JDExtractedProfiles
+                .FirstOrDefaultAsync(profile => profile.JDFileId == request.JDFileId);
+            if (jdProfile == null) return (false, "Không tìm thấy dữ liệu JD đã phân tích.", null);
 
-            var jdProfile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == request.JDFileId);
-            if (jdProfile == null)
-            {
-                return (false, "Không tìm thấy dữ liệu JD đã phân tích.", null);
-            }
-
-            var hasValidMode = Enum.GetNames(typeof(InterviewMode))
-                .Contains(request.Mode, StringComparer.OrdinalIgnoreCase);
-            if (!hasValidMode || !Enum.TryParse<InterviewMode>(request.Mode, true, out var mode))
+            if (!Enum.TryParse<InterviewMode>(request.Mode, true, out var mode)
+                || !Enum.GetNames(typeof(InterviewMode)).Contains(request.Mode, StringComparer.OrdinalIgnoreCase))
             {
                 return (false, "Chế độ phỏng vấn không hợp lệ.", null);
             }
 
-            // 3. Xác định các vòng phỏng vấn cần tạo dựa trên RoleTarget và mode
             var availableRounds = RoleCategoryHelper.GetAvailableRounds(jdProfile.RoleTarget);
-            var roundTypesToCreate = new List<InterviewRoundType>();
             var selectableRounds = new HashSet<string>(availableRounds.AvailableRounds, StringComparer.OrdinalIgnoreCase);
-
-            if (availableRounds.HasOptionalCoding)
-            {
-                selectableRounds.Add(InterviewRoundType.Code.ToString());
-            }
+            if (availableRounds.HasOptionalCoding) selectableRounds.Add(InterviewRoundType.Code.ToString());
 
             var requestedRounds = mode == InterviewMode.Practice
                 ? request.SelectedRounds ?? new List<string>()
                 : availableRounds.AvailableRounds;
+            var roundTypesToCreate = new List<InterviewRoundType>();
 
             foreach (var roundName in requestedRounds.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 if (!selectableRounds.Contains(roundName))
-                {
                     return (false, $"Vòng phỏng vấn '{roundName}' không khả dụng cho vị trí này.", null);
-                }
 
-                if (Enum.TryParse<InterviewRoundType>(roundName, true, out var roundEnum))
-                {
-                    roundTypesToCreate.Add(roundEnum);
-                }
+                if (Enum.TryParse<InterviewRoundType>(roundName, true, out var roundType))
+                    roundTypesToCreate.Add(roundType);
             }
 
-            // RealTest luôn dùng các vòng mặc định; BA/Tester có thể thêm Coding.
             if (mode == InterviewMode.RealTest
                 && availableRounds.HasOptionalCoding
                 && request.IncludeCoding
@@ -113,18 +91,65 @@ namespace ai_speis_be.Services.InterviewSessionService
                 roundTypesToCreate.Add(InterviewRoundType.Code);
             }
 
-            if (!roundTypesToCreate.Any())
-            {
+            roundTypesToCreate = roundTypesToCreate
+                .Distinct()
+                .OrderBy(GetRoundOrder)
+                .ToList();
+
+            if (roundTypesToCreate.Count == 0)
                 return (false, "Không xác định được vòng phỏng vấn nào khả dụng cho vị trí này.", null);
-            }
 
-            // Xác định độ khó dựa trên ExperienceLevel của JD Profile
             var difficulty = MapExperienceLevelToDifficulty(jdProfile.ExperienceLevel);
+            var now = DateTime.UtcNow;
 
-            // 4. Khởi tạo đợt phỏng vấn và các vòng phỏng vấn sử dụng Transaction để đảm bảo toàn vẹn dữ liệu
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             try
             {
+                var user = await _context.Users.FirstOrDefaultAsync(candidate => candidate.UserId == userId);
+                if (user == null)
+                    return (false, "Không tìm thấy người dùng.", null);
+
+                var liveCampaigns = await _context.InterviewCampaigns
+                    .Include(campaign => campaign.InterviewSessions.Where(session => !session.IsDeleted))
+                    .Where(campaign => campaign.UserId == userId
+                        && !campaign.IsDeleted
+                        && (campaign.Status == InterviewCampaignStatus.Pending
+                            || campaign.Status == InterviewCampaignStatus.Active))
+                    .OrderByDescending(campaign => campaign.CreatedAt)
+                    .ToListAsync();
+
+                var lifecycleChanged = false;
+                foreach (var liveCampaign in liveCampaigns)
+                    lifecycleChanged |= ExpireIfDue(liveCampaign, user, now);
+
+                if (lifecycleChanged) await _context.SaveChangesAsync();
+
+                var existingCampaign = liveCampaigns.FirstOrDefault(IsLiveCampaign);
+                if (existingCampaign != null)
+                {
+                    if (MatchesConfiguration(
+                        existingCampaign,
+                        cvProfile.ExtractedProfileId,
+                        jdProfile.ExtractedProfileId,
+                        request.Language,
+                        mode,
+                        request.DurationMinutes,
+                        roundTypesToCreate))
+                    {
+                        await transaction.CommitAsync();
+                        return (true, null, MapCampaignToResponse(existingCampaign, user.RemainingInterviewQuota));
+                    }
+
+                    await transaction.CommitAsync();
+                    return (false, "Bạn đang có một campaign chưa kết thúc. Hãy tiếp tục hoặc hủy campaign đó trước khi tạo cấu hình mới.", null);
+                }
+
+                if (user.RemainingInterviewQuota <= 0)
+                {
+                    await transaction.CommitAsync();
+                    return (false, "Bạn đã hết lượt phỏng vấn.", null);
+                }
+
                 var campaign = new InterviewCampaign
                 {
                     UserId = userId,
@@ -133,42 +158,41 @@ namespace ai_speis_be.Services.InterviewSessionService
                     Language = request.Language.Trim().ToLowerInvariant(),
                     Mode = mode,
                     DurationMinutes = request.DurationMinutes,
-                    CreatedAt = DateTime.UtcNow
+                    Status = InterviewCampaignStatus.Pending,
+                    ExpiresAt = now.Add(PendingCampaignLifetime),
+                    QuotaRefunded = false,
+                    CreatedAt = now
                 };
 
+                user.RemainingInterviewQuota -= 1;
+                user.UpdatedAt = now;
                 _context.InterviewCampaigns.Add(campaign);
-                await _context.SaveChangesAsync(); // Lưu bảng cha trước để lấy ID
+                await _context.SaveChangesAsync();
 
                 foreach (var roundType in roundTypesToCreate)
                 {
-                    // Số lượng câu hỏi mặc định theo quy định từng vòng: Code = 10, các vòng khác = 5
-                    int defaultQuestionCount = roundType == InterviewRoundType.Code ? 10 : 5;
-
-                    var session = new InterviewSession
+                    _context.InterviewSessions.Add(new InterviewSession
                     {
                         InterviewCampaignId = campaign.InterviewCampaignId,
                         InterviewRoundType = roundType,
                         Difficulty = difficulty,
-                        QuestionCount = defaultQuestionCount,
+                        QuestionCount = roundType == InterviewRoundType.Code ? 10 : 5,
                         Status = InterviewSessionStatus.Pending,
-                        CreatedAt = DateTime.UtcNow
-                    };
-
-                    _context.InterviewSessions.Add(session);
+                        CreatedAt = now
+                    });
                 }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // Load lại đợt phỏng vấn từ DB để đảm bảo không bị trùng lặp dữ liệu trong bộ nhớ (Change Tracker)
-                var campaignDto = await GetCampaignByIdAsync(userId, campaign.InterviewCampaignId);
-                return (true, null, campaignDto);
+                var createdCampaign = await GetCampaignByIdAsync(userId, campaign.InterviewCampaignId);
+                return (true, null, createdCampaign);
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
                 await transaction.RollbackAsync();
                 _logger.LogError(
-                    ex,
+                    exception,
                     "Không thể tạo campaign phỏng vấn cho User {UserId}, CV {CVFileId}, JD {JDFileId}.",
                     userId,
                     request.CVFileId,
@@ -177,79 +201,207 @@ namespace ai_speis_be.Services.InterviewSessionService
             }
         }
 
-        public async Task<(bool Success, string? ErrorMessage, InterviewSessionDto? Session)> StartSessionAsync(int userId, int sessionId)
+        public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> StartSessionAsync(
+            int userId,
+            int sessionId)
         {
-            var session = await _repository.GetSessionByIdAsync(sessionId);
-            if (session == null || session.InterviewCampaign.UserId != userId)
+            var session = await GetOwnedSessionWithCampaignAsync(userId, sessionId);
+            if (session == null) return (false, "Không tìm thấy phiên phỏng vấn.", null);
+
+            var campaign = session.InterviewCampaign;
+            var now = DateTime.UtcNow;
+            if (ExpireIfDue(campaign, campaign.User, now))
             {
-                return (false, "Không tìm thấy phiên phỏng vấn.", null);
+                await _context.SaveChangesAsync();
+                return (false, "Campaign đã hết hạn.", null);
             }
 
-            if (session.Status == InterviewSessionStatus.Active)
+            if (session.Status == InterviewSessionStatus.Active
+                && campaign.Status == InterviewCampaignStatus.Active)
             {
-                return (true, null, MapToResponse(session));
+                if (EnsureActiveCampaignTiming(campaign, now))
+                    await _context.SaveChangesAsync();
+                return (true, null, MapCampaignToResponse(campaign));
             }
 
             if (session.Status != InterviewSessionStatus.Pending)
-            {
                 return (false, $"Phiên phỏng vấn đang ở trạng thái '{session.Status}' và không thể bắt đầu.", null);
+            if (!IsLiveCampaign(campaign))
+                return (false, $"Campaign đang ở trạng thái '{campaign.Status}' và không thể bắt đầu.", null);
+            if (campaign.InterviewSessions.Any(candidate =>
+                candidate.InterviewSessionId != session.InterviewSessionId
+                && candidate.Status == InterviewSessionStatus.Active))
+            {
+                return (false, "Campaign đã có một phiên đang hoạt động.", null);
             }
 
-            var hasAnotherActiveSession = await _context.InterviewSessions.AnyAsync(candidate =>
-                candidate.InterviewCampaignId == session.InterviewCampaignId
-                && candidate.InterviewSessionId != session.InterviewSessionId
-                && candidate.Status == InterviewSessionStatus.Active);
-
-            if (hasAnotherActiveSession)
+            if (campaign.Status == InterviewCampaignStatus.Pending)
             {
-                return (false, "Đợt phỏng vấn đã có một phiên đang hoạt động.", null);
+                campaign.Status = InterviewCampaignStatus.Active;
+                campaign.StartedAt = now;
+                campaign.ExpiresAt = now.AddMinutes(campaign.DurationMinutes);
             }
 
             session.Status = InterviewSessionStatus.Active;
-            session.UpdatedAt = DateTime.UtcNow;
-            var updated = await _repository.UpdateSessionAsync(session);
-            if (!updated)
+            session.UpdatedAt = now;
+            campaign.UpdatedAt = now;
+            await _context.SaveChangesAsync();
+            return (true, null, MapCampaignToResponse(campaign));
+        }
+
+        public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CompleteSessionAsync(
+            int userId,
+            int sessionId)
+        {
+            var session = await GetOwnedSessionWithCampaignAsync(userId, sessionId);
+            if (session == null) return (false, "Không tìm thấy phiên phỏng vấn.", null);
+
+            var campaign = session.InterviewCampaign;
+            var now = DateTime.UtcNow;
+            if (ExpireIfDue(campaign, campaign.User, now))
             {
-                return (false, "Không thể cập nhật trạng thái phiên phỏng vấn.", null);
+                await _context.SaveChangesAsync();
+                return (false, "Campaign đã hết hạn.", null);
             }
 
-            return (true, null, MapToResponse(session));
+            if (session.Status == InterviewSessionStatus.Completed)
+                return (true, null, MapCampaignToResponse(campaign));
+            if (session.Status != InterviewSessionStatus.Active)
+                return (false, "Chỉ có thể hoàn tất phiên đang hoạt động.", null);
+
+            session.Status = InterviewSessionStatus.Completed;
+            session.UpdatedAt = now;
+
+            var nextSession = campaign.InterviewSessions
+                .Where(candidate => !candidate.IsDeleted && candidate.Status == InterviewSessionStatus.Pending)
+                .OrderBy(candidate => GetRoundOrder(candidate.InterviewRoundType))
+                .ThenBy(candidate => candidate.InterviewSessionId)
+                .FirstOrDefault();
+
+            if (nextSession != null)
+            {
+                nextSession.Status = InterviewSessionStatus.Active;
+                nextSession.UpdatedAt = now;
+            }
+            else
+            {
+                campaign.Status = InterviewCampaignStatus.Completed;
+                campaign.CompletedAt = now;
+            }
+
+            campaign.UpdatedAt = now;
+            await _context.SaveChangesAsync();
+            return (true, null, MapCampaignToResponse(campaign));
+        }
+
+        public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CancelCampaignAsync(
+            int userId,
+            int campaignId)
+        {
+            var campaign = await GetOwnedCampaignAsync(userId, campaignId);
+            if (campaign == null) return (false, "Không tìm thấy campaign phỏng vấn.", null);
+            if (campaign.Status == InterviewCampaignStatus.Cancelled)
+                return (true, null, MapCampaignToResponse(campaign));
+            if (campaign.Status == InterviewCampaignStatus.Completed || campaign.Status == InterviewCampaignStatus.Expired)
+                return (false, $"Campaign ở trạng thái '{campaign.Status}' và không thể hủy.", null);
+
+            var now = DateTime.UtcNow;
+            campaign.Status = InterviewCampaignStatus.Cancelled;
+            campaign.CancelledAt = now;
+            campaign.UpdatedAt = now;
+            CancelOpenSessions(campaign, now);
+            RefundUnusedQuota(campaign, campaign.User);
+            await _context.SaveChangesAsync();
+            return (true, null, MapCampaignToResponse(campaign));
+        }
+
+        public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> ExpireCampaignAsync(
+            int userId,
+            int campaignId)
+        {
+            var campaign = await GetOwnedCampaignAsync(userId, campaignId);
+            if (campaign == null) return (false, "Không tìm thấy campaign phỏng vấn.", null);
+            if (campaign.Status == InterviewCampaignStatus.Expired)
+                return (true, null, MapCampaignToResponse(campaign));
+            if (!ExpireIfDue(campaign, campaign.User, DateTime.UtcNow))
+                return (false, "Campaign chưa đến thời điểm hết hạn.", null);
+
+            await _context.SaveChangesAsync();
+            return (true, null, MapCampaignToResponse(campaign));
+        }
+
+        public async Task<InterviewQuotaDto?> GetQuotaAsync(int userId)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(candidate => candidate.UserId == userId);
+            if (user == null) return null;
+
+            var liveCampaigns = await _context.InterviewCampaigns
+                .Include(campaign => campaign.InterviewSessions.Where(session => !session.IsDeleted))
+                .Where(campaign => campaign.UserId == userId
+                    && !campaign.IsDeleted
+                    && (campaign.Status == InterviewCampaignStatus.Pending
+                        || campaign.Status == InterviewCampaignStatus.Active))
+                .ToListAsync();
+
+            var now = DateTime.UtcNow;
+            var lifecycleChanged = false;
+            foreach (var campaign in liveCampaigns)
+                lifecycleChanged |= ExpireIfDue(campaign, user, now);
+            if (lifecycleChanged) await _context.SaveChangesAsync();
+
+            return new InterviewQuotaDto { RemainingInterviewQuota = user.RemainingInterviewQuota };
         }
 
         public async Task<InterviewSessionDto?> GetSessionByIdAsync(int userId, int sessionId)
         {
-            var session = await _repository.GetSessionByIdAsync(sessionId);
-            if (session == null || session.InterviewCampaign.UserId != userId)
-            {
-                return null;
-            }
-
+            var session = await GetOwnedSessionWithCampaignAsync(userId, sessionId);
+            if (session == null) return null;
+            var now = DateTime.UtcNow;
+            var lifecycleChanged = EnsureActiveCampaignTiming(session.InterviewCampaign, now);
+            lifecycleChanged |= ExpireIfDue(session.InterviewCampaign, session.InterviewCampaign.User, now);
+            if (lifecycleChanged) await _context.SaveChangesAsync();
             return MapToResponse(session);
         }
 
         public async Task<InterviewCampaignDto?> GetCampaignByIdAsync(int userId, int campaignId)
         {
-            var campaign = await _repository.GetCampaignByIdAsync(campaignId);
-            if (campaign == null || campaign.UserId != userId)
-            {
-                return null;
-            }
-
+            var campaign = await GetOwnedCampaignAsync(userId, campaignId);
+            if (campaign == null) return null;
+            var now = DateTime.UtcNow;
+            var lifecycleChanged = EnsureActiveCampaignTiming(campaign, now);
+            lifecycleChanged |= ExpireIfDue(campaign, campaign.User, now);
+            if (lifecycleChanged) await _context.SaveChangesAsync();
             return MapCampaignToResponse(campaign);
         }
 
         public async Task<IEnumerable<InterviewCampaignDto>> GetUserCampaignsAsync(int userId)
         {
-            var campaigns = await _repository.GetCampaignsByUserIdAsync(userId);
-            return campaigns.Select(MapCampaignToResponse).ToList();
+            var campaigns = (await _repository.GetCampaignsByUserIdAsync(userId)).ToList();
+            var user = campaigns.FirstOrDefault()?.User
+                ?? await _context.Users.FirstOrDefaultAsync(candidate => candidate.UserId == userId);
+            if (user == null) return Array.Empty<InterviewCampaignDto>();
+
+            var now = DateTime.UtcNow;
+            var lifecycleChanged = false;
+            foreach (var campaign in campaigns)
+                lifecycleChanged |= ExpireIfDue(campaign, user, now);
+            if (lifecycleChanged) await _context.SaveChangesAsync();
+            return campaigns.Select(campaign => MapCampaignToResponse(campaign, user.RemainingInterviewQuota)).ToList();
         }
 
         public async Task<AvailableRoundsDto?> GetAvailableRoundsAsync(int userId, int jdId)
         {
-            var jdFile = await _context.JDFiles.FirstOrDefaultAsync(j => j.JDFileId == jdId && j.UserId == userId);
-            if (jdFile == null) return null;
+            var jdFile = await _context.JDFiles
+                .FirstOrDefaultAsync(file => file.JDFileId == jdId && file.UserId == userId);
+            if (jdFile == null
+                || (jdFile.Status != JDFileStatus.ConfirmationRequired
+                    && jdFile.Status != JDFileStatus.Confirmed))
+            {
+                return null;
+            }
 
-            var jdProfile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
+            var jdProfile = await _context.JDExtractedProfiles
+                .FirstOrDefaultAsync(profile => profile.JDFileId == jdId);
             if (jdProfile == null) return null;
 
             var result = RoleCategoryHelper.GetAvailableRounds(jdProfile.RoleTarget);
@@ -257,7 +409,109 @@ namespace ai_speis_be.Services.InterviewSessionService
             return result;
         }
 
-        private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign)
+        private async Task<InterviewCampaign?> GetOwnedCampaignAsync(int userId, int campaignId)
+        {
+            var campaign = await _repository.GetCampaignByIdAsync(campaignId);
+            return campaign?.UserId == userId ? campaign : null;
+        }
+
+        private async Task<InterviewSession?> GetOwnedSessionWithCampaignAsync(int userId, int sessionId)
+        {
+            var session = await _context.InterviewSessions
+                .Include(candidate => candidate.InterviewCampaign)
+                    .ThenInclude(campaign => campaign.User)
+                .Include(candidate => candidate.InterviewCampaign)
+                    .ThenInclude(campaign => campaign.InterviewSessions.Where(item => !item.IsDeleted))
+                .FirstOrDefaultAsync(candidate => candidate.InterviewSessionId == sessionId
+                    && !candidate.IsDeleted
+                    && !candidate.InterviewCampaign.IsDeleted);
+            return session?.InterviewCampaign.UserId == userId ? session : null;
+        }
+
+        private static bool IsLiveCampaign(InterviewCampaign campaign) =>
+            campaign.Status == InterviewCampaignStatus.Pending || campaign.Status == InterviewCampaignStatus.Active;
+
+        private static bool MatchesConfiguration(
+            InterviewCampaign campaign,
+            int cvProfileId,
+            int jdProfileId,
+            string language,
+            InterviewMode mode,
+            int durationMinutes,
+            IReadOnlyCollection<InterviewRoundType> roundTypes)
+        {
+            var existingRounds = campaign.InterviewSessions
+                .Where(session => !session.IsDeleted)
+                .Select(session => session.InterviewRoundType)
+                .Distinct()
+                .OrderBy(GetRoundOrder)
+                .ToArray();
+            var requestedRounds = roundTypes.Distinct().OrderBy(GetRoundOrder).ToArray();
+
+            return campaign.CVExtractedProfileId == cvProfileId
+                && campaign.JDExtractedProfileId == jdProfileId
+                && string.Equals(campaign.Language, language.Trim(), StringComparison.OrdinalIgnoreCase)
+                && campaign.Mode == mode
+                && campaign.DurationMinutes == durationMinutes
+                && existingRounds.SequenceEqual(requestedRounds);
+        }
+
+        private static bool ExpireIfDue(InterviewCampaign campaign, User user, DateTime now)
+        {
+            if (!IsLiveCampaign(campaign) || !campaign.ExpiresAt.HasValue || campaign.ExpiresAt.Value > now)
+                return false;
+
+            campaign.Status = InterviewCampaignStatus.Expired;
+            campaign.UpdatedAt = now;
+            CancelOpenSessions(campaign, now);
+            RefundUnusedQuota(campaign, user);
+            return true;
+        }
+
+        private static bool EnsureActiveCampaignTiming(InterviewCampaign campaign, DateTime now)
+        {
+            if (campaign.Status != InterviewCampaignStatus.Active || campaign.DurationMinutes <= 0)
+                return false;
+
+            var changed = false;
+            var initializedStart = false;
+            if (!campaign.StartedAt.HasValue)
+            {
+                campaign.StartedAt = now;
+                changed = true;
+                initializedStart = true;
+            }
+
+            var configuredDeadline = campaign.StartedAt.Value.AddMinutes(campaign.DurationMinutes);
+            if (initializedStart || !campaign.ExpiresAt.HasValue || campaign.ExpiresAt.Value > configuredDeadline)
+            {
+                campaign.ExpiresAt = configuredDeadline;
+                changed = true;
+            }
+
+            if (changed) campaign.UpdatedAt = now;
+            return changed;
+        }
+
+        private static void CancelOpenSessions(InterviewCampaign campaign, DateTime now)
+        {
+            foreach (var session in campaign.InterviewSessions.Where(item =>
+                item.Status == InterviewSessionStatus.Pending || item.Status == InterviewSessionStatus.Active))
+            {
+                session.Status = InterviewSessionStatus.Cancelled;
+                session.UpdatedAt = now;
+            }
+        }
+
+        private static void RefundUnusedQuota(InterviewCampaign campaign, User user)
+        {
+            if (campaign.StartedAt.HasValue || campaign.QuotaRefunded) return;
+            user.RemainingInterviewQuota += 1;
+            user.UpdatedAt = DateTime.UtcNow;
+            campaign.QuotaRefunded = true;
+        }
+
+        private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign, int? quota = null)
         {
             return new InterviewCampaignDto
             {
@@ -268,16 +522,24 @@ namespace ai_speis_be.Services.InterviewSessionService
                 Language = campaign.Language,
                 Mode = campaign.Mode.ToString(),
                 DurationMinutes = campaign.DurationMinutes,
-                CreatedAt = campaign.CreatedAt,
-                UpdatedAt = campaign.UpdatedAt,
+                Status = campaign.Status.ToString(),
+                StartedAt = AsUtc(campaign.StartedAt),
+                ExpiresAt = AsUtc(campaign.ExpiresAt),
+                CompletedAt = AsUtc(campaign.CompletedAt),
+                CancelledAt = AsUtc(campaign.CancelledAt),
+                RemainingInterviewQuota = quota ?? campaign.User?.RemainingInterviewQuota ?? 0,
+                CreatedAt = AsUtc(campaign.CreatedAt),
+                UpdatedAt = AsUtc(campaign.UpdatedAt),
                 Sessions = campaign.InterviewSessions
-                    .OrderBy(session => session.InterviewSessionId)
+                    .Where(session => !session.IsDeleted)
+                    .OrderBy(session => GetRoundOrder(session.InterviewRoundType))
+                    .ThenBy(session => session.InterviewSessionId)
                     .Select(MapToResponse)
                     .ToList()
             };
         }
 
-        private InterviewSessionDto MapToResponse(InterviewSession session)
+        private static InterviewSessionDto MapToResponse(InterviewSession session)
         {
             return new InterviewSessionDto
             {
@@ -287,30 +549,34 @@ namespace ai_speis_be.Services.InterviewSessionService
                 Difficulty = session.Difficulty.ToString(),
                 QuestionCount = session.QuestionCount,
                 Status = session.Status.ToString(),
-                CreatedAt = session.CreatedAt,
-                UpdatedAt = session.UpdatedAt
+                CreatedAt = AsUtc(session.CreatedAt),
+                UpdatedAt = AsUtc(session.UpdatedAt)
             };
         }
 
-        private QuestionDifficultyEnum MapExperienceLevelToDifficulty(string? experienceLevel)
+        private static DateTime AsUtc(DateTime value) =>
+            value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+        private static DateTime? AsUtc(DateTime? value) =>
+            value.HasValue ? AsUtc(value.Value) : null;
+
+        private static int GetRoundOrder(InterviewRoundType roundType) => roundType switch
         {
-            if (string.IsNullOrWhiteSpace(experienceLevel))
-            {
-                return QuestionDifficultyEnum.Medium;
-            }
+            InterviewRoundType.Behavior => 0,
+            InterviewRoundType.Technical => 1,
+            InterviewRoundType.Code => 2,
+            _ => int.MaxValue
+        };
 
-            var normalized = experienceLevel.Trim().ToUpper();
-
+        private static QuestionDifficultyEnum MapExperienceLevelToDifficulty(string? experienceLevel)
+        {
+            if (string.IsNullOrWhiteSpace(experienceLevel)) return QuestionDifficultyEnum.Medium;
+            var normalized = experienceLevel.Trim().ToUpperInvariant();
             if (normalized.Contains("INTERN") || normalized.Contains("JUNIOR") || normalized.Contains("FRESHER"))
-            {
                 return QuestionDifficultyEnum.Easy;
-            }
-
-            if (normalized.Contains("SENIOR") || normalized.Contains("LEAD") || normalized.Contains("MANAGER") || normalized.Contains("PRINCIPAL") || normalized.Contains("EXPERT"))
-            {
+            if (normalized.Contains("SENIOR") || normalized.Contains("LEAD") || normalized.Contains("MANAGER")
+                || normalized.Contains("PRINCIPAL") || normalized.Contains("EXPERT"))
                 return QuestionDifficultyEnum.Hard;
-            }
-
             return QuestionDifficultyEnum.Medium;
         }
     }
