@@ -10,23 +10,15 @@ import {
   Loader2,
   Settings2,
 } from 'lucide-react';
+import InterviewProgressStepper from '../../components/user/InterviewProgressStepper/InterviewProgressStepper';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import jdService from '../../services/JDService';
 import interviewSessionService from '../../services/InterviewSessionService';
-import { saveActiveInterviewContext } from '../../utils/interviewContext';
+import { getInterviewSetupDraft, saveActiveInterviewContext } from '../../utils/interviewContext';
 import '../../styles/user/InterviewSetupPage.css';
-
-const INTERVIEW_STEPS = [
-  'Chế độ',
-  'Thiết lập',
-  'Kiểm tra thiết bị',
-  'Bắt đầu',
-  'Đánh giá',
-  'Kết quả',
-];
 
 const FILE_STATUS_BY_VALUE = {
   0: 'Pending',
@@ -66,40 +58,20 @@ const formatInterviewType = (rounds) => {
   return rounds.map(formatRoundName).join(' + ');
 };
 
-function InterviewStepper() {
-  return (
-    <div className="setup-stepper-scroll">
-      <ol className="setup-stepper" aria-label="Tiến trình phỏng vấn">
-        {INTERVIEW_STEPS.map((step, index) => {
-          const isActive = index === 1;
-
-          return (
-            <li className="setup-stepper-item" key={step} aria-current={isActive ? 'step' : undefined}>
-              <span className={`setup-step-number${isActive ? ' setup-step-number--active' : ''}`}>
-                {index + 1}
-              </span>
-              <span className="setup-step-label">{step}</span>
-            </li>
-          );
-        })}
-      </ol>
-    </div>
-  );
-}
-
 function InterviewSetupPage() {
   const [activeCv, setActiveCv] = useState(null);
   const [jdOptions, setJdOptions] = useState([]);
   const [selectedJdId, setSelectedJdId] = useState('');
   const [language, setLanguage] = useState('en');
   const [durationMinutes, setDurationMinutes] = useState(10);
-  const [mode, setMode] = useState('RealTest');
+  const [mode] = useState(() => getInterviewSetupDraft()?.mode || '');
   const [includeCoding, setIncludeCoding] = useState(false);
   const [practiceRounds, setPracticeRounds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const hasValidMode = mode === 'Practice' || mode === 'RealTest';
 
   const loadSetupData = useCallback(async () => {
     setIsLoading(true);
@@ -160,8 +132,13 @@ function InterviewSetupPage() {
   }, []);
 
   useEffect(() => {
+    if (!hasValidMode) {
+      navigate(USER_ROUTES.INTERVIEW_MODE, { replace: true });
+      return;
+    }
+
     loadSetupData();
-  }, [loadSetupData]);
+  }, [hasValidMode, loadSetupData]);
 
   const selectedJd = useMemo(() => (
     jdOptions.find(({ file }) => String(file.jdFileId) === selectedJdId) || null
@@ -260,12 +237,10 @@ function InterviewSetupPage() {
   };
 
   const handleBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    navigate(USER_ROUTES.DASHBOARD);
+    navigate(USER_ROUTES.INTERVIEW_MODE);
   };
+
+  if (!hasValidMode) return null;
 
   return (
     <UserLayout>
@@ -278,7 +253,7 @@ function InterviewSetupPage() {
           </div>
         </header>
 
-        <InterviewStepper />
+        <InterviewProgressStepper activeStep={1} />
 
         {isLoading ? (
           <section className="setup-loading-card" aria-live="polite">
@@ -449,52 +424,18 @@ function InterviewSetupPage() {
                 </fieldset>
               </section>
 
-              <section className="setup-card" aria-labelledby="simulation-mode-title">
-                <div className="setup-section-heading">
-                  <span className="setup-section-icon" aria-hidden="true">
-                    <Settings2 size={22} />
-                  </span>
-                  <div>
-                    <h2 id="simulation-mode-title">Chế độ mô phỏng</h2>
-                    <p>Chọn mức độ hỗ trợ bạn muốn trong suốt buổi phỏng vấn.</p>
+              {mode === 'Practice' && (
+                <section className="setup-card" aria-labelledby="practice-rounds-title">
+                  <div className="setup-section-heading">
+                    <span className="setup-section-icon" aria-hidden="true">
+                      <Settings2 size={22} />
+                    </span>
+                    <div>
+                      <h2 id="practice-rounds-title">Vòng luyện tập</h2>
+                      <p>Chọn riêng từng vòng muốn luyện trong campaign này.</p>
+                    </div>
                   </div>
-                </div>
 
-                <fieldset className="setup-mode-options">
-                  <legend className="setup-sr-only">Chọn chế độ mô phỏng</legend>
-                  <label className={`setup-mode-card${mode === 'Practice' ? ' setup-mode-card--selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="mode"
-                      value="Practice"
-                      checked={mode === 'Practice'}
-                      onChange={(event) => setMode(event.target.value)}
-                    />
-                    <span className="setup-radio-indicator" aria-hidden="true">
-                      {mode === 'Practice' && <Check size={14} />}
-                    </span>
-                    <strong>Luyện tập</strong>
-                    <p>Thoải mái thời gian, có gợi ý từ AI và có thể làm lại câu trả lời.</p>
-                  </label>
-
-                  <label className={`setup-mode-card${mode === 'RealTest' ? ' setup-mode-card--selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="mode"
-                      value="RealTest"
-                      checked={mode === 'RealTest'}
-                      onChange={(event) => setMode(event.target.value)}
-                    />
-                    <span className="setup-mode-badge">Đang chọn</span>
-                    <span className="setup-radio-indicator" aria-hidden="true">
-                      {mode === 'RealTest' && <Check size={14} />}
-                    </span>
-                    <strong>Thực chiến</strong>
-                    <p>Áp lực thời gian thực, không gợi ý và đánh giá nghiêm ngặt như phỏng vấn thật.</p>
-                  </label>
-                </fieldset>
-
-                {mode === 'Practice' && (
                   <fieldset
                     className="setup-round-selector"
                     aria-describedby={practiceRounds.length === 0 ? 'setup-round-help setup-round-error' : 'setup-round-help'}
@@ -528,8 +469,8 @@ function InterviewSetupPage() {
                       </span>
                     )}
                   </fieldset>
-                )}
-              </section>
+                </section>
+              )}
             </form>
 
             <aside className="setup-summary-card" aria-labelledby="setup-summary-title">

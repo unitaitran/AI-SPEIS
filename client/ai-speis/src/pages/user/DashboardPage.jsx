@@ -106,7 +106,7 @@ function DashboardPage() {
             </div>
             <button
               className="relative z-10 bg-white text-primary-dark hover:bg-primary-xlight py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto self-start group cursor-pointer"
-              onClick={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
+              onClick={() => navigate(USER_ROUTES.INTERVIEW_MODE)}
             >
               {t('banner.button', 'BẮT ĐẦU PHỎNG VẤN')}
               <ArrowRight size={18} className="ml-4 transform group-hover:translate-x-1 transition-transform" />

@@ -1,4 +1,5 @@
 import { BarChart3, Bot, ChevronRight, FileText, Trophy, Upload } from 'lucide-react';
+import { USER_ROUTES } from '../../../routes/routePaths';
 
 const heroInsights = [
   { label: 'Personalized', value: 'CV · target role · skill gaps' },
@@ -17,7 +18,7 @@ function Hero({ heroCards = [], t }) {
         <p className="home-hero__text">{t('hero.text')}</p>
 
         <div className="home-actions">
-          <a className="home-button home-button--primary" href="/user/interview/room">
+          <a className="home-button home-button--primary" href={USER_ROUTES.INTERVIEW_MODE}>
             {t('buttons.startInterview')}
             <ChevronRight size={18} />
           </a>

@@ -1,4 +1,22 @@
 const ACTIVE_INTERVIEW_CONTEXT_KEY = 'ai-speis:active-interview-context';
+const INTERVIEW_SETUP_DRAFT_KEY = 'ai-speis:interview-setup-draft';
+
+export function getInterviewSetupDraft() {
+  const storedDraft = sessionStorage.getItem(INTERVIEW_SETUP_DRAFT_KEY);
+  if (!storedDraft) return null;
+
+  try {
+    return JSON.parse(storedDraft);
+  } catch {
+    sessionStorage.removeItem(INTERVIEW_SETUP_DRAFT_KEY);
+    return null;
+  }
+}
+
+export function saveInterviewSetupDraft(draft) {
+  sessionStorage.setItem(INTERVIEW_SETUP_DRAFT_KEY, JSON.stringify(draft));
+  return draft;
+}
 
 export function getActiveInterviewContext() {
   const storedContext = sessionStorage.getItem(ACTIVE_INTERVIEW_CONTEXT_KEY);

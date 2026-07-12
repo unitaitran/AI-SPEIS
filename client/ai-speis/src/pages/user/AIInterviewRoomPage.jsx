@@ -1,30 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, Loader2, Clock, FileText } from 'lucide-react';
+import InterviewProgressStepper from '../../components/user/InterviewProgressStepper/InterviewProgressStepper';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
 import { getActiveInterviewContext, saveActiveInterviewContext } from '../../utils/interviewContext';
-import '../../styles/user/DeviceReadinessCheckPage.css';
-
-function Stepper() {
-  const steps = ['Chế độ', 'Thiết lập', 'Kiểm tra thiết bị', 'Bắt đầu', 'Đánh giá', 'Kết quả'];
-  return (
-    <ol className="device-stepper mb-8" aria-label="Interview progress">
-      {steps.map((step, index) => {
-        const isActive = index === 3;
-        return (
-          <li className="device-stepper-item" key={step}>
-            <span className={`device-step-number${isActive ? ' device-step-number--active' : ''}`}>
-              {index + 1}
-            </span>
-            <span className="device-step-label">{step}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
 
 function AIInterviewRoomPage() {
   const [interviewContext, setInterviewContext] = useState(() => getActiveInterviewContext());
@@ -96,7 +77,7 @@ function AIInterviewRoomPage() {
     return (
       <UserLayout>
         <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10">
-          <Stepper />
+          <InterviewProgressStepper activeStep={3} />
           <div className="min-h-[400px] bg-surface-2 border border-border rounded-2xl flex items-center justify-center">
             <Loader2 size={32} className="animate-spin text-primary-dark" />
           </div>
@@ -109,7 +90,7 @@ function AIInterviewRoomPage() {
     return (
       <UserLayout>
         <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10">
-          <Stepper />
+          <InterviewProgressStepper activeStep={3} />
           <div className="min-h-[400px] bg-surface-2 border border-border rounded-2xl p-10 flex flex-col items-center justify-center text-center">
             <AlertCircle size={48} className="text-error mb-4" />
             <h2 className="text-xl font-semibold text-text-primary mb-2">Không thể mở phòng phỏng vấn</h2>
@@ -130,7 +111,7 @@ function AIInterviewRoomPage() {
   return (
     <UserLayout>
       <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10 flex flex-col min-h-[calc(100vh-100px)]">
-        <Stepper />
+        <InterviewProgressStepper activeStep={3} />
         
         {/* Main Interface */}
         <section className="flex-1 flex flex-col bg-surface-2 border border-border rounded-2xl shadow-sm overflow-hidden relative">

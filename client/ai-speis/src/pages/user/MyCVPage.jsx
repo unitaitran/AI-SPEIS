@@ -1020,7 +1020,7 @@ function MyCVPage() {
                     <button
                       type="button"
                       className="mycv-btn mycv-btn--primary mycv-btn--sm"
-                      onClick={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
+                      onClick={() => navigate(USER_ROUTES.INTERVIEW_MODE)}
                     >
                       {t('mycv.start_practice', 'Bắt đầu phỏng vấn ngay')}
                       <ChevronRight size={14} />

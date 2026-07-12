@@ -13,6 +13,7 @@ import {
   Wifi,
   XCircle,
 } from 'lucide-react';
+import InterviewProgressStepper from '../../components/user/InterviewProgressStepper/InterviewProgressStepper';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
@@ -238,27 +239,6 @@ function ReadinessCard({ icon: Icon, check }) {
         {check.required ? 'Bắt buộc để bắt đầu phỏng vấn' : 'Không chặn tiếp tục'}
       </span>
     </article>
-  );
-}
-
-function Stepper() {
-  const steps = ['Chế độ', 'Thiết lập', 'Kiểm tra thiết bị', 'Bắt đầu', 'Đánh giá', 'Kết quả'];
-
-  return (
-    <ol className="device-stepper" aria-label="Interview progress">
-      {steps.map((step, index) => {
-        const isActive = index === 2;
-
-        return (
-          <li className="device-stepper-item" key={step}>
-            <span className={`device-step-number${isActive ? ' device-step-number--active' : ''}`}>
-              {index + 1}
-            </span>
-            <span className="device-step-label">{step}</span>
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
@@ -709,7 +689,7 @@ function DeviceReadinessCheckPage() {
           </button>
         </header>
 
-        <Stepper />
+        <InterviewProgressStepper activeStep={2} />
 
         {contextError ? (
           <div className="device-alert device-alert--error" role="alert">
