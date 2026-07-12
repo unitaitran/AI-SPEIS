@@ -227,6 +227,9 @@ namespace ai_speis_be.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("int");
+
                     b.Property<int>("JDExtractedProfileId")
                         .HasColumnType("int");
 

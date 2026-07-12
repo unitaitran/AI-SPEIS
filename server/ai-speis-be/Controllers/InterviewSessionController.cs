@@ -70,6 +70,28 @@ namespace ai_speis_be.Controllers
             return Ok(session);
         }
 
+        [HttpPost("{id:int}/start")]
+        public async Task<IActionResult> StartSession(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new { Message = "ID không hợp lệ." });
+            }
+
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+            }
+
+            var (success, errorMessage, session) = await _service.StartSessionAsync(userId, id);
+            if (!success)
+            {
+                return BadRequest(new { Message = errorMessage });
+            }
+
+            return Ok(session);
+        }
+
         [HttpGet("campaign/{campaignId:int}")]
         public async Task<IActionResult> GetCampaignById(int campaignId)
         {

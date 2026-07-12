@@ -151,7 +151,7 @@ function UserSidebar({ isOpen, onNavigate }) {
         <button
           className="w-full bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-sm font-semibold py-3 px-4 rounded transition-all shadow-sm cursor-pointer"
           onClick={() => {
-            navigate(USER_ROUTES.DEVICE_CHECK);
+            navigate(USER_ROUTES.INTERVIEW_SETUP);
             if (onNavigate) onNavigate();
           }}
         >

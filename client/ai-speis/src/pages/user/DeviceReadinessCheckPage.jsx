@@ -17,7 +17,13 @@ import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import audioService from '../../services/AudioService';
+import interviewSessionService from '../../services/InterviewSessionService';
 import { calculateAccuracy } from '../../utils/stringUtils';
+import {
+  getActiveInterviewContext,
+  getNextPendingSession,
+  saveActiveInterviewContext,
+} from '../../utils/interviewContext';
 import '../../styles/user/DeviceReadinessCheckPage.css';
 
 const CHECK_STATUS = Object.freeze({
@@ -265,6 +271,9 @@ function DeviceReadinessCheckPage() {
   const [accuracy, setAccuracy] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
+  const [interviewContext, setInterviewContext] = useState(() => getActiveInterviewContext());
+  const [contextError, setContextError] = useState('');
+  const [isStartingSession, setIsStartingSession] = useState(false);
   const recordingChunksRef = useRef([]);
   const speechRecognitionRef = useRef(null);
   const activeStreamRef = useRef(null);
@@ -559,6 +568,37 @@ function DeviceReadinessCheckPage() {
     };
   }, [updateCheck]);
 
+  useEffect(() => {
+    const storedContext = getActiveInterviewContext();
+    const campaignId = storedContext?.campaign?.interviewCampaignId;
+
+    if (!campaignId) {
+      setContextError('Không tìm thấy campaign phỏng vấn. Vui lòng quay lại bước Thiết lập.');
+      return undefined;
+    }
+
+    let isMounted = true;
+    interviewSessionService.getCampaign(campaignId)
+      .then((campaign) => {
+        if (!isMounted) return;
+        const nextContext = {
+          campaign,
+          activeSessionId: storedContext.activeSessionId || null,
+        };
+        saveActiveInterviewContext(nextContext);
+        setInterviewContext(nextContext);
+        setContextError('');
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setContextError(error.message || 'Không thể tải campaign phỏng vấn.');
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const requiredPassed = useMemo(() => {
     return REQUIRED_CHECK_IDS.every((id) => checks[id]?.status === CHECK_STATUS.PASSED);
   }, [checks]);
@@ -570,7 +610,7 @@ function DeviceReadinessCheckPage() {
   const recordingFailed = checks.recording?.status === CHECK_STATUS.FAILED;
   const panelState = requiredPassed ? CHECK_STATUS.PASSED : hasFailure ? CHECK_STATUS.FAILED : CHECK_STATUS.CHECKING;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!requiredPassed) {
       setMessage({
         type: 'warning',
@@ -579,7 +619,56 @@ function DeviceReadinessCheckPage() {
       return;
     }
 
-    navigate(USER_ROUTES.INTERVIEW_ROOM);
+    const campaign = interviewContext?.campaign;
+    if (!campaign) {
+      setContextError('Không tìm thấy campaign phỏng vấn. Vui lòng quay lại bước Thiết lập.');
+      return;
+    }
+
+    const activeSession = (campaign.sessions || []).find((session) => session.status === 'Active');
+
+    if (activeSession?.status === 'Active') {
+      const nextContext = {
+        campaign,
+        activeSessionId: activeSession.interviewSessionId,
+      };
+      saveActiveInterviewContext(nextContext);
+      navigate(USER_ROUTES.INTERVIEW_ROOM);
+      return;
+    }
+
+    const pendingSession = getNextPendingSession(campaign);
+    if (!pendingSession) {
+      setContextError('Campaign không còn phiên phỏng vấn đang chờ để bắt đầu.');
+      return;
+    }
+
+    setIsStartingSession(true);
+    setContextError('');
+
+    try {
+      const startedSession = await interviewSessionService.startSession(pendingSession.interviewSessionId);
+      const updatedCampaign = {
+        ...campaign,
+        sessions: (campaign.sessions || []).map((session) => (
+          session.interviewSessionId === startedSession.interviewSessionId
+            ? startedSession
+            : session
+        )),
+      };
+      const nextContext = {
+        campaign: updatedCampaign,
+        activeSessionId: startedSession.interviewSessionId,
+      };
+
+      saveActiveInterviewContext(nextContext);
+      setInterviewContext(nextContext);
+      navigate(USER_ROUTES.INTERVIEW_ROOM);
+    } catch (error) {
+      setContextError(error.message || 'Không thể bắt đầu phiên phỏng vấn.');
+    } finally {
+      setIsStartingSession(false);
+    }
   };
 
   const handleCopySample = async () => {
@@ -621,6 +710,22 @@ function DeviceReadinessCheckPage() {
         </header>
 
         <Stepper />
+
+        {contextError ? (
+          <div className="device-alert device-alert--error" role="alert">
+            <XCircle size={18} />
+            <span>{contextError}</span>
+          </div>
+        ) : interviewContext?.campaign ? (
+          <div className="device-alert device-alert--info" role="status">
+            <Info size={18} />
+            <span>
+              Campaign #{interviewContext.campaign.interviewCampaignId}
+              {' · '}{interviewContext.campaign.durationMinutes} phút
+              {' · '}{interviewContext.campaign.sessions?.length || 0} vòng
+            </span>
+          </div>
+        ) : null}
 
         {message && (
           <div className={`device-alert device-alert--${message.type}`} role="status">
@@ -731,7 +836,7 @@ function DeviceReadinessCheckPage() {
             <button
               type="button"
               className="device-secondary-button"
-              onClick={() => navigate(USER_ROUTES.DASHBOARD)}
+              onClick={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
             >
               <ArrowLeft size={18} />
               Quay lại
@@ -740,10 +845,19 @@ function DeviceReadinessCheckPage() {
               type="button"
               className="device-primary-button"
               onClick={handleContinue}
-              disabled={!requiredPassed || isChecking}
+              disabled={!requiredPassed || isChecking || isStartingSession || !interviewContext?.campaign}
             >
-              Tiếp tục
-              <ArrowRight size={20} />
+              {isStartingSession ? (
+                <>
+                  <Loader2 size={20} className="device-spin" />
+                  Đang bắt đầu
+                </>
+              ) : (
+                <>
+                  Tiếp tục
+                  <ArrowRight size={20} />
+                </>
+              )}
             </button>
           </div>
         </footer>
