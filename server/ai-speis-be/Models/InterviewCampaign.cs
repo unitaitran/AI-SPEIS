@@ -33,6 +33,9 @@ namespace ai_speis_be.Models
         public InterviewMode Mode { get; set; } = InterviewMode.Practice;
 
         [Required]
+        public int DurationMinutes { get; set; } = 10;
+
+        [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }
