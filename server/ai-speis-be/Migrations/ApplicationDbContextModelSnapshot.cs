@@ -232,6 +232,8 @@ namespace ai_speis_be.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("int");
 
                     b.Property<int>("JDExtractedProfileId")
                         .HasColumnType("int");

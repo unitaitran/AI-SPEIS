@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { userService } from '../../../services/UserService';
 import { getAvatarUrl } from '../../../routes/auth';
+import notify from '../../../utils/notification';
 import '../../../styles/admin/UserManagementPage.css';
 
 function UserManagementPage() {
@@ -738,18 +739,18 @@ function UserManagementPage() {
       try {
         if (type === 'changeRole' || type === 'upgradeRole') {
           await userService.assignRole(user.userId || user.id, targetRole);
-          alert(t('roleUpdatedSuccess'));
+          notify.success(t('roleUpdatedSuccess'));
         } else if (type === 'lockUser') {
           await userService.lockUser(user.userId || user.id);
-          alert(t('statusUpdatedSuccess'));
+          notify.success(t('statusUpdatedSuccess'));
         } else if (type === 'unlockUser') {
           await userService.unlockUser(user.userId || user.id);
-          alert(t('statusUpdatedSuccess'));
+          notify.success(t('statusUpdatedSuccess'));
         }
         fetchUsers();
         setConfirmAction(null);
       } catch (err) {
-        alert(err?.message || 'Có lỗi xảy ra');
+        notify.error(err?.message || 'Có lỗi xảy ra');
         setConfirmAction(null);
       }
     };

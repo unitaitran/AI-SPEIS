@@ -15,11 +15,16 @@ namespace ai_speis_be.Services.InterviewSessionService
     {
         private readonly IInterviewCampaignRepository _repository;
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<InterviewSessionService> _logger;
 
-        public InterviewSessionService(IInterviewCampaignRepository repository, ApplicationDbContext context)
+        public InterviewSessionService(
+            IInterviewCampaignRepository repository,
+            ApplicationDbContext context,
+            ILogger<InterviewSessionService> logger)
         {
             _repository = repository;
             _context = context;
+            _logger = logger;
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CreateSessionsAsync(int userId, CreateInterviewSessionRequest request)
@@ -31,15 +36,20 @@ namespace ai_speis_be.Services.InterviewSessionService
                 return (false, "Không tìm thấy file CV.", null);
             }
 
-            if (cvFile.Status != CVFileStatus.ConfirmationRequired)
+            if (cvFile.Status != CVFileStatus.Confirmed)
             {
-                return (false, "File CV chưa sẵn sàng để tạo phỏng vấn.", null);
+                return (false, "CV phải được xác nhận trước khi tạo phỏng vấn.", null);
             }
 
             var cvProfile = await _context.CVExtractedProfiles.FirstOrDefaultAsync(p => p.CVFileId == request.CVFileId);
             if (cvProfile == null)
             {
                 return (false, "Không tìm thấy dữ liệu CV đã phân tích.", null);
+            }
+
+            if (!cvProfile.IsConfirmed)
+            {
+                return (false, "Dữ liệu CV chưa được người dùng xác nhận.", null);
             }
 
             // 2. Kiểm tra JD File
@@ -60,21 +70,45 @@ namespace ai_speis_be.Services.InterviewSessionService
                 return (false, "Không tìm thấy dữ liệu JD đã phân tích.", null);
             }
 
-            // 3. Xác định các vòng phỏng vấn cần tạo dựa trên RoleTarget
+            var hasValidMode = Enum.GetNames(typeof(InterviewMode))
+                .Contains(request.Mode, StringComparer.OrdinalIgnoreCase);
+            if (!hasValidMode || !Enum.TryParse<InterviewMode>(request.Mode, true, out var mode))
+            {
+                return (false, "Chế độ phỏng vấn không hợp lệ.", null);
+            }
+
+            // 3. Xác định các vòng phỏng vấn cần tạo dựa trên RoleTarget và mode
             var availableRounds = RoleCategoryHelper.GetAvailableRounds(jdProfile.RoleTarget);
             var roundTypesToCreate = new List<InterviewRoundType>();
+            var selectableRounds = new HashSet<string>(availableRounds.AvailableRounds, StringComparer.OrdinalIgnoreCase);
 
-            // Lấy các vòng mặc định
-            foreach (var roundName in availableRounds.AvailableRounds)
+            if (availableRounds.HasOptionalCoding)
             {
-                if (Enum.TryParse<InterviewRoundType>(roundName, out var roundEnum))
+                selectableRounds.Add(InterviewRoundType.Code.ToString());
+            }
+
+            var requestedRounds = mode == InterviewMode.Practice
+                ? request.SelectedRounds ?? new List<string>()
+                : availableRounds.AvailableRounds;
+
+            foreach (var roundName in requestedRounds.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!selectableRounds.Contains(roundName))
+                {
+                    return (false, $"Vòng phỏng vấn '{roundName}' không khả dụng cho vị trí này.", null);
+                }
+
+                if (Enum.TryParse<InterviewRoundType>(roundName, true, out var roundEnum))
                 {
                     roundTypesToCreate.Add(roundEnum);
                 }
             }
 
-            // Nếu là BA/Tester và chọn phỏng vấn thêm coding
-            if (availableRounds.HasOptionalCoding && request.IncludeCoding)
+            // RealTest luôn dùng các vòng mặc định; BA/Tester có thể thêm Coding.
+            if (mode == InterviewMode.RealTest
+                && availableRounds.HasOptionalCoding
+                && request.IncludeCoding
+                && !roundTypesToCreate.Contains(InterviewRoundType.Code))
             {
                 roundTypesToCreate.Add(InterviewRoundType.Code);
             }
@@ -87,13 +121,6 @@ namespace ai_speis_be.Services.InterviewSessionService
             // Xác định độ khó dựa trên ExperienceLevel của JD Profile
             var difficulty = MapExperienceLevelToDifficulty(jdProfile.ExperienceLevel);
 
-            // Xác định Mode của phỏng vấn (mặc định Practice)
-            var mode = InterviewMode.Practice;
-            if (!string.IsNullOrWhiteSpace(request.Mode) && Enum.TryParse<InterviewMode>(request.Mode, true, out var parsedMode))
-            {
-                mode = parsedMode;
-            }
-
             // 4. Khởi tạo đợt phỏng vấn và các vòng phỏng vấn sử dụng Transaction để đảm bảo toàn vẹn dữ liệu
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -103,8 +130,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                     UserId = userId,
                     CVExtractedProfileId = cvProfile.ExtractedProfileId,
                     JDExtractedProfileId = jdProfile.ExtractedProfileId,
-                    Language = string.IsNullOrWhiteSpace(request.Language) ? "vi" : request.Language,
+                    Language = request.Language.Trim().ToLowerInvariant(),
                     Mode = mode,
+                    DurationMinutes = request.DurationMinutes,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -139,8 +167,53 @@ namespace ai_speis_be.Services.InterviewSessionService
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                return (false, $"Có lỗi xảy ra khi tạo luồng phỏng vấn: {ex.Message}", null);
+                _logger.LogError(
+                    ex,
+                    "Không thể tạo campaign phỏng vấn cho User {UserId}, CV {CVFileId}, JD {JDFileId}.",
+                    userId,
+                    request.CVFileId,
+                    request.JDFileId);
+                return (false, "Không thể lưu cấu hình phỏng vấn. Vui lòng thử lại sau.", null);
             }
+        }
+
+        public async Task<(bool Success, string? ErrorMessage, InterviewSessionDto? Session)> StartSessionAsync(int userId, int sessionId)
+        {
+            var session = await _repository.GetSessionByIdAsync(sessionId);
+            if (session == null || session.InterviewCampaign.UserId != userId)
+            {
+                return (false, "Không tìm thấy phiên phỏng vấn.", null);
+            }
+
+            if (session.Status == InterviewSessionStatus.Active)
+            {
+                return (true, null, MapToResponse(session));
+            }
+
+            if (session.Status != InterviewSessionStatus.Pending)
+            {
+                return (false, $"Phiên phỏng vấn đang ở trạng thái '{session.Status}' và không thể bắt đầu.", null);
+            }
+
+            var hasAnotherActiveSession = await _context.InterviewSessions.AnyAsync(candidate =>
+                candidate.InterviewCampaignId == session.InterviewCampaignId
+                && candidate.InterviewSessionId != session.InterviewSessionId
+                && candidate.Status == InterviewSessionStatus.Active);
+
+            if (hasAnotherActiveSession)
+            {
+                return (false, "Đợt phỏng vấn đã có một phiên đang hoạt động.", null);
+            }
+
+            session.Status = InterviewSessionStatus.Active;
+            session.UpdatedAt = DateTime.UtcNow;
+            var updated = await _repository.UpdateSessionAsync(session);
+            if (!updated)
+            {
+                return (false, "Không thể cập nhật trạng thái phiên phỏng vấn.", null);
+            }
+
+            return (true, null, MapToResponse(session));
         }
 
         public async Task<InterviewSessionDto?> GetSessionByIdAsync(int userId, int sessionId)
@@ -179,7 +252,9 @@ namespace ai_speis_be.Services.InterviewSessionService
             var jdProfile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
             if (jdProfile == null) return null;
 
-            return RoleCategoryHelper.GetAvailableRounds(jdProfile.RoleTarget);
+            var result = RoleCategoryHelper.GetAvailableRounds(jdProfile.RoleTarget);
+            result.Difficulty = MapExperienceLevelToDifficulty(jdProfile.ExperienceLevel).ToString();
+            return result;
         }
 
         private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign)
@@ -192,9 +267,13 @@ namespace ai_speis_be.Services.InterviewSessionService
                 JDExtractedProfileId = campaign.JDExtractedProfileId,
                 Language = campaign.Language,
                 Mode = campaign.Mode.ToString(),
+                DurationMinutes = campaign.DurationMinutes,
                 CreatedAt = campaign.CreatedAt,
                 UpdatedAt = campaign.UpdatedAt,
-                Sessions = campaign.InterviewSessions.Select(MapToResponse).ToList()
+                Sessions = campaign.InterviewSessions
+                    .OrderBy(session => session.InterviewSessionId)
+                    .Select(MapToResponse)
+                    .ToList()
             };
         }
 
