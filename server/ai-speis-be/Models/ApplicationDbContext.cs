@@ -21,12 +21,26 @@ namespace ai_speis_be.Models
         public DbSet<JDExtractedProfile> JDExtractedProfiles { get; set; } = null!;
         public DbSet<InterviewSession> InterviewSessions { get; set; } = null!;
         public DbSet<InterviewCampaign> InterviewCampaigns { get; set; } = null!;
+        public DbSet<CodingQuestion> CodingQuestions { get; set; } = null!;
+        public DbSet<CodingQuestionTemplate> CodingQuestionTemplates { get; set; } = null!;
+        public DbSet<TestCase> TestCases { get; set; } = null!;
+        public DbSet<CodingSubmission> CodingSubmissions { get; set; } = null!;
+        public DbSet<SubmissionTestCaseResult> SubmissionTestCaseResults { get; set; } = null!;
   
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Configure soft delete query filters
+            modelBuilder.Entity<InterviewCampaign>().HasQueryFilter(c => !c.IsDeleted);
+            modelBuilder.Entity<InterviewSession>().HasQueryFilter(s => !s.IsDeleted);
+            modelBuilder.Entity<CodingQuestion>().HasQueryFilter(q => !q.InterviewSession.IsDeleted);
+            modelBuilder.Entity<CodingSubmission>().HasQueryFilter(sub => !sub.InterviewSession.IsDeleted);
+            modelBuilder.Entity<CodingQuestionTemplate>().HasQueryFilter(t => !t.CodingQuestion.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TestCase>().HasQueryFilter(tc => !tc.CodingQuestion.InterviewSession.IsDeleted);
+            modelBuilder.Entity<SubmissionTestCaseResult>().HasQueryFilter(r => !r.CodingSubmission.InterviewSession.IsDeleted);
 
             // Seed default roles
             modelBuilder.Entity<Role>().HasData(
@@ -152,6 +166,52 @@ namespace ai_speis_be.Models
                 .HasForeignKey(s => s.InterviewCampaignId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // CodingQuestion Relationships
+            modelBuilder.Entity<CodingQuestion>()
+                .HasOne(q => q.InterviewSession)
+                .WithMany()
+                .HasForeignKey(q => q.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // CodingQuestionTemplate Relationships
+            modelBuilder.Entity<CodingQuestionTemplate>()
+                .HasOne(t => t.CodingQuestion)
+                .WithMany(q => q.CodingQuestionTemplates)
+                .HasForeignKey(t => t.CodingQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // TestCase Relationships
+            modelBuilder.Entity<TestCase>()
+                .HasOne(tc => tc.CodingQuestion)
+                .WithMany(q => q.TestCases)
+                .HasForeignKey(tc => tc.CodingQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // CodingSubmission Relationships
+            modelBuilder.Entity<CodingSubmission>()
+                .HasOne(s => s.InterviewSession)
+                .WithMany()
+                .HasForeignKey(s => s.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<CodingSubmission>()
+                .HasOne(s => s.CodingQuestion)
+                .WithMany(q => q.CodingSubmissions)
+                .HasForeignKey(s => s.CodingQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // SubmissionTestCaseResult Relationships
+            modelBuilder.Entity<SubmissionTestCaseResult>()
+                .HasOne(r => r.CodingSubmission)
+                .WithMany(s => s.SubmissionTestCaseResults)
+                .HasForeignKey(r => r.CodingSubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SubmissionTestCaseResult>()
+                .HasOne(r => r.TestCase)
+                .WithMany(tc => tc.SubmissionTestCaseResults)
+                .HasForeignKey(r => r.TestCaseId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
