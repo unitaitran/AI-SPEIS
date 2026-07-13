@@ -98,12 +98,6 @@
   margin-top: 1px;
 }
 
-.device-alert--info {
-  background: var(--info-light);
-  border-color: rgba(92, 158, 219, 0.24);
-  color: var(--info);
-}
-
 .device-alert--success {
   background: var(--success-light);
   border-color: rgba(76, 175, 143, 0.24);

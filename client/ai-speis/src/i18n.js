@@ -19,6 +19,8 @@ import enAdminDashboard from './locales/en/admin-dashboard.json';
 import viAdminDashboard from './locales/vi/admin-dashboard.json';
 import enQuestionBank from './locales/en/questionBank.json';
 import viQuestionBank from './locales/vi/questionBank.json';
+import enInterview from './locales/en/interview.json';
+import viInterview from './locales/vi/interview.json';
 
 const resources = {
   en: {
@@ -29,6 +31,7 @@ const resources = {
     'admin-users': enAdminUsers,
     'admin-dashboard': enAdminDashboard,
     questionBank: enQuestionBank,
+    interview: enInterview,
   },
   vi: {
     homepage: viHomepage,
@@ -38,6 +41,7 @@ const resources = {
     'admin-users': viAdminUsers,
     'admin-dashboard': viAdminDashboard,
     questionBank: viQuestionBank,
+    interview: viInterview,
   },
 };
 
@@ -49,7 +53,7 @@ i18n
     fallbackLng: 'vi',
     supportedLngs: ['vi', 'en'],
     defaultNS: 'homepage',
-    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'questionBank'],
+    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'questionBank', 'interview'],
     interpolation: {
       escapeValue: false,
     },

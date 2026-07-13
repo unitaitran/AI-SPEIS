@@ -134,7 +134,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                         request.Language,
                         mode,
                         request.DurationMinutes,
-                        roundTypesToCreate))
+                        roundTypesToCreate,
+                        request.QuestionCounts))
                     {
                         await transaction.CommitAsync();
                         return (true, null, MapCampaignToResponse(existingCampaign, user.RemainingInterviewQuota));
@@ -176,7 +177,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                         InterviewCampaignId = campaign.InterviewCampaignId,
                         InterviewRoundType = roundType,
                         Difficulty = difficulty,
-                        QuestionCount = roundType == InterviewRoundType.Code ? 10 : 5,
+                        QuestionCount = GetQuestionCount(mode, roundType, request.QuestionCounts),
                         Status = InterviewSessionStatus.Pending,
                         CreatedAt = now
                     });
@@ -438,7 +439,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             string language,
             InterviewMode mode,
             int durationMinutes,
-            IReadOnlyCollection<InterviewRoundType> roundTypes)
+            IReadOnlyCollection<InterviewRoundType> roundTypes,
+            IReadOnlyDictionary<string, int>? questionCounts)
         {
             var existingRounds = campaign.InterviewSessions
                 .Where(session => !session.IsDeleted)
@@ -453,7 +455,30 @@ namespace ai_speis_be.Services.InterviewSessionService
                 && string.Equals(campaign.Language, language.Trim(), StringComparison.OrdinalIgnoreCase)
                 && campaign.Mode == mode
                 && campaign.DurationMinutes == durationMinutes
-                && existingRounds.SequenceEqual(requestedRounds);
+                && existingRounds.SequenceEqual(requestedRounds)
+                && campaign.InterviewSessions
+                    .Where(session => !session.IsDeleted)
+                    .All(session => session.QuestionCount == GetQuestionCount(mode, session.InterviewRoundType, questionCounts));
+        }
+
+        private static int GetQuestionCount(
+            InterviewMode mode,
+            InterviewRoundType roundType,
+            IReadOnlyDictionary<string, int>? questionCounts)
+        {
+            const int defaultQuestionCount = 5;
+            const int defaultCodingQuestionCount = 3;
+
+            if (mode == InterviewMode.Practice && questionCounts != null)
+            {
+                var configuredCount = questionCounts.FirstOrDefault(item =>
+                    string.Equals(item.Key, roundType.ToString(), StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrEmpty(configuredCount.Key)) return configuredCount.Value;
+            }
+
+            return roundType == InterviewRoundType.Code
+                ? defaultCodingQuestionCount
+                : defaultQuestionCount;
         }
 
         private static bool ExpireIfDue(InterviewCampaign campaign, User user, DateTime now)

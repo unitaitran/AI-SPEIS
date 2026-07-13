@@ -10,3 +10,5 @@
 
 *.md
 *.json
+!client/ai-speis/src/locales/en/interview.json
+!client/ai-speis/src/locales/vi/interview.json

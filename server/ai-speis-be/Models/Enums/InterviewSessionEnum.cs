@@ -20,7 +20,7 @@ namespace ai_speis_be.Models.Enums
     public enum InterviewRoundType
     {
         Technical,     // Phỏng vấn lý thuyết kỹ thuật (mặc định 5 câu)
-        Code,          // Phỏng vấn thực hành code (mặc định 10 câu)
+        Code,          // Phỏng vấn thực hành code (mặc định 3 câu)
         Behavior       // Phỏng vấn hành vi (mặc định 5 câu)
     }
 
