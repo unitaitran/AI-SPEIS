@@ -16,8 +16,8 @@ services:
     privileged: true
     restart: always
     environment:
-      - REDIS_PASSWORD=aispeis_password_2026
-      - POSTGRES_PASSWORD=aispeis_password_2026
+      REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:?Set JUDGE0_REDIS_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:?Set JUDGE0_POSTGRES_PASSWORD in .env}
     depends_on:
       - db
       - redis
@@ -31,8 +31,8 @@ services:
     privileged: true
     restart: always
     environment:
-      - REDIS_PASSWORD=aispeis_password_2026
-      - POSTGRES_PASSWORD=aispeis_password_2026
+      REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:?Set JUDGE0_REDIS_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:?Set JUDGE0_POSTGRES_PASSWORD in .env}
     depends_on:
       - db
       - redis
@@ -40,11 +40,10 @@ services:
 
   db:
     image: postgres:16.2
-    env_file: judge0.conf
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=judge0
-      - POSTGRES_PASSWORD=aispeis_password_2026
+      POSTGRES_USER: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:?Set JUDGE0_POSTGRES_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data/
     restart: always
@@ -52,8 +51,9 @@ services:
 
   redis:
     image: redis:7.2.4
-    command: ["bash", "-c", 'docker-entrypoint.sh --appendonly no --requirepass "aispeis_password_2026"']
-    env_file: judge0.conf
+    command: ["bash", "-c", 'docker-entrypoint.sh --appendonly no --requirepass "$${REDIS_PASSWORD}"']
+    environment:
+      REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:?Set JUDGE0_REDIS_PASSWORD in .env}
     restart: always
     <<: *default-logging
 
