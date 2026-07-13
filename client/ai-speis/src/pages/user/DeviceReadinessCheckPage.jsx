@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -22,6 +23,7 @@ import interviewSessionService from '../../services/InterviewSessionService';
 import { calculateAccuracy } from '../../utils/stringUtils';
 import {
   getActiveInterviewContext,
+  getInterviewSetupDraft,
   getNextPendingSession,
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
@@ -36,42 +38,30 @@ const CHECK_STATUS = Object.freeze({
 
 const REQUIRED_CHECK_IDS = ['microphone', 'recording'];
 const VOICE_ACTIVITY_THRESHOLD = 0.025;
-const VOICE_ACTIVITY_REQUIRED_FRAMES = 5;
 
-const SAMPLE_TEXT =
-  'Xin chào, tôi đang chuẩn bị phỏng vấn và tôi sẽ vượt qua nó';
-
-const CHECKING_STATE = Object.freeze({
+const createCheckingState = (t) => ({
   microphone: {
     status: CHECK_STATUS.CHECKING,
-    title: 'Microphone',
-    detail: 'Đang kiểm tra quyền truy cập microphone...',
-    meta: 'Yêu cầu bắt buộc',
+    title: t('device.microphone'),
+    detail: t('device.checkingMicrophone'),
+    meta: t('device.required'),
     required: true,
   },
   recording: {
     status: CHECK_STATUS.CHECKING,
-    title: 'Ghi âm thử',
-    detail: 'Đang chuẩn bị phiên ghi âm ngắn bằng MediaRecorder...',
-    meta: 'Không lưu audio',
+    title: t('device.recording'),
+    detail: t('device.preparingRecording'),
+    meta: t('device.noAudioSaved'),
     required: true,
   },
   network: {
     status: CHECK_STATUS.CHECKING,
-    title: 'Kết nối mạng',
-    detail: 'Đang đọc trạng thái kết nối từ trình duyệt...',
-    meta: 'Khuyến nghị',
+    title: t('device.network'),
+    detail: t('device.checkingNetwork'),
+    meta: t('device.recommended'),
     required: false,
   },
 });
-
-function cloneCheckingState() {
-  return {
-    microphone: { ...CHECKING_STATE.microphone },
-    recording: { ...CHECKING_STATE.recording },
-    network: { ...CHECKING_STATE.network },
-  };
-}
 
 function stopMediaStream(stream) {
   if (!stream) return;
@@ -99,12 +89,6 @@ function stopAudioContext(audioContext) {
   });
 }
 
-function createNoVoiceDetectedError() {
-  const error = new Error('Không nhận diện được tín hiệu giọng nói trong phiên ghi âm thử.');
-  error.name = 'NoVoiceDetectedError';
-  return error;
-}
-
 function getMediaSupport() {
   const hasNavigator = typeof navigator !== 'undefined';
   const hasMediaDevices = Boolean(hasNavigator && navigator.mediaDevices);
@@ -118,37 +102,37 @@ function getMediaSupport() {
   };
 }
 
-function getMicrophoneError(error) {
+function getMicrophoneError(error, t) {
   const name = error?.name || '';
 
   if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
     return {
-      title: 'Bạn đã từ chối quyền microphone.',
-      detail: 'Hãy cho phép quyền microphone trong trình duyệt rồi bấm Retry Check để kiểm tra lại.',
+      title: t('device.permissionDeniedTitle'),
+      detail: t('device.permissionDeniedDetail'),
     };
   }
 
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
     return {
-      title: 'Không tìm thấy microphone.',
-      detail: 'Vui lòng kết nối microphone hoặc chọn đúng thiết bị đầu vào trước khi thử lại.',
+      title: t('device.notFoundTitle'),
+      detail: t('device.notFoundDetail'),
     };
   }
 
   if (name === 'NotReadableError' || name === 'TrackStartError') {
     return {
-      title: 'Microphone chưa sẵn sàng.',
-      detail: 'Thiết bị có thể đang được ứng dụng khác sử dụng. Hãy đóng ứng dụng đó rồi thử lại.',
+      title: t('device.notReadyTitle'),
+      detail: t('device.notReadyDetail'),
     };
   }
 
   return {
-    title: 'Không thể truy cập microphone.',
-    detail: error?.message || 'Đã có lỗi khi trình duyệt xin quyền microphone.',
+    title: t('device.accessFailedTitle'),
+    detail: error?.message || t('device.accessFailedDetail'),
   };
 }
 
-function getNetworkCheck() {
+function getNetworkCheck(t) {
   const connection =
     navigator.connection ||
     navigator.mozConnection ||
@@ -157,9 +141,9 @@ function getNetworkCheck() {
   if (navigator.onLine === false) {
     return {
       status: CHECK_STATUS.WARNING,
-      title: 'Kết nối mạng',
-      detail: 'Trình duyệt đang báo offline. Bạn vẫn cần kết nối ổn định trước khi phỏng vấn.',
-      meta: 'Warning',
+      title: t('device.network'),
+      detail: t('device.offline'),
+      meta: t('common.warning'),
       required: false,
     };
   }
@@ -167,7 +151,7 @@ function getNetworkCheck() {
   const parts = [];
 
   if (connection?.rtt) {
-    parts.push(`Ping khoảng ${connection.rtt}ms`);
+    parts.push(t('device.ping', { rtt: connection.rtt }));
   }
 
   if (connection?.downlink) {
@@ -180,31 +164,31 @@ function getNetworkCheck() {
 
   return {
     status: CHECK_STATUS.PASSED,
-    title: 'Kết nối mạng',
-    detail: parts.length > 0 ? parts.join(' | ') : 'Trình duyệt đang online.',
-    meta: 'Good',
+    title: t('device.network'),
+    detail: parts.length > 0 ? parts.join(' | ') : t('device.online'),
+    meta: t('common.passed'),
     required: false,
   };
 }
 
-function getStatusLabel(status, fallback) {
+function getStatusLabel(status, fallback, t) {
   if (fallback) return fallback;
 
   switch (status) {
     case CHECK_STATUS.CHECKING:
-      return 'Checking';
+      return t('common.checking');
     case CHECK_STATUS.PASSED:
-      return 'Passed';
+      return t('common.passed');
     case CHECK_STATUS.FAILED:
-      return 'Failed';
+      return t('common.failed');
     case CHECK_STATUS.WARNING:
-      return 'Warning';
+      return t('common.warning');
     default:
-      return 'Unknown';
+      return t('common.unknown');
   }
 }
 
-function StatusBadge({ status, label }) {
+function StatusBadge({ status, label, t }) {
   const isChecking = status === CHECK_STATUS.CHECKING;
   const Icon = isChecking
     ? Loader2
@@ -217,33 +201,41 @@ function StatusBadge({ status, label }) {
   return (
     <span className={`device-status-badge device-status-badge--${status}`}>
       <Icon size={14} className={isChecking ? 'device-spin' : ''} />
-      {getStatusLabel(status, label)}
+      {getStatusLabel(status, label, t)}
     </span>
   );
 }
 
-function ReadinessCard({ icon: Icon, check }) {
+function ReadinessCard({ icon: Icon, check, t }) {
   return (
     <article className={`device-card device-card--${check.status}`}>
       <div className="device-card-top">
         <div className="device-card-icon" aria-hidden="true">
           <Icon size={24} />
         </div>
-        <StatusBadge status={check.status} label={check.meta} />
+        <StatusBadge status={check.status} label={check.meta} t={t} />
       </div>
       <div>
         <h2>{check.title}</h2>
         <p>{check.detail}</p>
       </div>
       <span className="device-card-footnote">
-        {check.required ? 'Bắt buộc để bắt đầu phỏng vấn' : 'Không chặn tiếp tục'}
+        {check.required ? t('device.requiredFootnote') : t('device.optionalFootnote')}
       </span>
     </article>
   );
 }
 
 function DeviceReadinessCheckPage() {
-  const [checks, setChecks] = useState(() => cloneCheckingState());
+  const [interviewContext, setInterviewContext] = useState(() => getActiveInterviewContext());
+  const configuredLanguage = interviewContext?.campaign?.language || getInterviewSetupDraft()?.language;
+  const interviewLanguage = configuredLanguage === 'en' ? 'en' : 'vi';
+  const { t: translate } = useTranslation('interview');
+  const t = useCallback((key, options = {}) => (
+    translate(key, { ...options, lng: interviewLanguage })
+  ), [interviewLanguage, translate]);
+  const sampleText = t('device.sampleText');
+  const [checks, setChecks] = useState(() => createCheckingState(t));
   const [isChecking, setIsChecking] = useState(false);
   const [message, setMessage] = useState(null);
   const [voiceActive, setVoiceActive] = useState(false);
@@ -251,7 +243,6 @@ function DeviceReadinessCheckPage() {
   const [accuracy, setAccuracy] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
-  const [interviewContext, setInterviewContext] = useState(() => getActiveInterviewContext());
   const [contextError, setContextError] = useState('');
   const [isStartingSession, setIsStartingSession] = useState(false);
   const recordingChunksRef = useRef([]);
@@ -259,6 +250,7 @@ function DeviceReadinessCheckPage() {
   const activeStreamRef = useRef(null);
   const activeRecorderRef = useRef(null);
   const activeAudioContextRef = useRef(null);
+  const voiceActivityFrameRef = useRef(null);
   const runIdRef = useRef(0);
 
   const cleanupActiveMedia = useCallback(() => {
@@ -270,6 +262,10 @@ function DeviceReadinessCheckPage() {
     activeRecorderRef.current = null;
     stopAudioContext(activeAudioContextRef.current);
     activeAudioContextRef.current = null;
+    if (voiceActivityFrameRef.current !== null) {
+      window.cancelAnimationFrame(voiceActivityFrameRef.current);
+      voiceActivityFrameRef.current = null;
+    }
     stopMediaStream(activeStreamRef.current);
     activeStreamRef.current = null;
   }, []);
@@ -286,7 +282,7 @@ function DeviceReadinessCheckPage() {
 
   const startRecording = useCallback(() => {
     if (!activeStreamRef.current) {
-      setMessage({ type: 'warning', text: 'Chưa kết nối được Microphone. Vui lòng cấp quyền trước.' });
+      setMessage({ type: 'warning', text: t('device.microphoneMissing') });
       return;
     }
     
@@ -296,8 +292,8 @@ function DeviceReadinessCheckPage() {
     setTranscript(null);
     setLiveTranscript('');
     setAccuracy(null);
-    setMessage({ type: 'info', text: 'Đang ghi âm... Hãy đọc to đoạn văn mẫu bên phải.' });
-    updateCheck('recording', { status: CHECK_STATUS.CHECKING, detail: 'Đang ghi âm...', meta: 'Recording' });
+    setMessage({ type: 'info', text: t('device.recordingNow') });
+    updateCheck('recording', { status: CHECK_STATUS.CHECKING, detail: t('device.recordingShort'), meta: t('device.recording') });
     
     recordingChunksRef.current = [];
     
@@ -316,7 +312,6 @@ function DeviceReadinessCheckPage() {
         source.connect(analyser);
         const frameData = new Uint8Array(analyser.fftSize);
         
-        let animationFrameId;
         let previousVoiceActive = false;
         const watchVoiceActivity = () => {
           analyser.getByteTimeDomainData(frameData);
@@ -331,7 +326,7 @@ function DeviceReadinessCheckPage() {
             previousVoiceActive = nextVoiceActive;
             setVoiceActive(nextVoiceActive);
           }
-          animationFrameId = window.requestAnimationFrame(watchVoiceActivity);
+          voiceActivityFrameRef.current = window.requestAnimationFrame(watchVoiceActivity);
         };
         watchVoiceActivity();
       }
@@ -345,46 +340,53 @@ function DeviceReadinessCheckPage() {
       recorder.onstop = async () => {
         stopAudioContext(activeAudioContextRef.current);
         activeAudioContextRef.current = null;
+        if (voiceActivityFrameRef.current !== null) {
+          window.cancelAnimationFrame(voiceActivityFrameRef.current);
+          voiceActivityFrameRef.current = null;
+        }
         setVoiceActive(false);
         setIsRecording(false);
         
         if (recordingChunksRef.current.length === 0) {
-           updateCheck('recording', { status: CHECK_STATUS.FAILED, detail: 'Không thu được dữ liệu âm thanh.', meta: 'Failed' });
+           updateCheck('recording', { status: CHECK_STATUS.FAILED, detail: t('device.noAudioData'), meta: t('common.failed') });
            setIsChecking(false);
            return;
         }
 
         const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
-        setMessage({ type: 'info', text: 'Đang gửi đoạn ghi âm để kiểm tra độ chính xác...' });
+        setMessage({ type: 'info', text: t('device.checkingAccuracy') });
         
         try {
-          const { transcript: resultText } = await audioService.checkSpeechToText(blob);
+          const { transcript: resultText } = await audioService.checkSpeechToText(
+            blob,
+            interviewLanguage === 'en' ? 'en-US' : 'vi-VN',
+          );
           setTranscript(resultText);
-          const acc = calculateAccuracy(SAMPLE_TEXT, resultText);
+          const acc = calculateAccuracy(sampleText, resultText);
           setAccuracy(acc);
 
           if (acc >= 70) {
             updateCheck('recording', {
               status: CHECK_STATUS.PASSED,
-              detail: `Đã phân tích giọng nói (Độ chính xác: ${acc}%). Thiết bị hoạt động tốt.`,
-              meta: 'Passed',
+              detail: t('device.accuracyPassed', { accuracy: acc }),
+              meta: t('common.passed'),
             });
-            setMessage({ type: 'success', text: 'Các kiểm tra bắt buộc đã hoàn tất. Bạn có thể tiếp tục vào phòng phỏng vấn.' });
+            setMessage({ type: 'success', text: t('device.allPassed') });
           } else {
             updateCheck('recording', {
               status: CHECK_STATUS.FAILED,
-              detail: `Nội dung bạn đọc chưa đạt độ chính xác (Độ chính xác: ${acc}%). Vui lòng thử lại.`,
-              meta: 'Failed',
+              detail: t('device.accuracyFailed', { accuracy: acc }),
+              meta: t('common.failed'),
             });
-            setMessage({ type: 'error', text: 'Không nghe rõ hoặc đọc sai quá nhiều. Hãy đọc to, rõ đoạn văn mẫu và ghi âm lại.' });
+            setMessage({ type: 'error', text: t('device.readAgain') });
           }
         } catch (error) {
           updateCheck('recording', {
             status: CHECK_STATUS.FAILED,
-            detail: `Lỗi Server: ${error.message}`,
-            meta: 'Failed',
+            detail: t('device.serverError', { message: error.message }),
+            meta: t('common.failed'),
           });
-          setMessage({ type: 'error', text: 'Lỗi kết nối hoặc xử lý STT từ máy chủ. Vui lòng thử lại.' });
+          setMessage({ type: 'error', text: t('device.sttFailed') });
         } finally {
           setIsChecking(false);
         }
@@ -398,7 +400,7 @@ function DeviceReadinessCheckPage() {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'vi-VN';
+        recognition.lang = interviewLanguage === 'en' ? 'en-US' : 'vi-VN';
         
         recognition.onresult = (event) => {
           let fullTranscript = '';
@@ -414,9 +416,9 @@ function DeviceReadinessCheckPage() {
     } catch (err) {
       setIsChecking(false);
       setIsRecording(false);
-      setMessage({ type: 'error', text: 'Không thể khởi chạy MediaRecorder.' });
+      setMessage({ type: 'error', text: t('device.recorderFailed') });
     }
-  }, [updateCheck]);
+  }, [interviewLanguage, sampleText, t, updateCheck]);
 
   const stopRecording = useCallback(() => {
     if (speechRecognitionRef.current) {
@@ -440,17 +442,17 @@ function DeviceReadinessCheckPage() {
     setAccuracy(null);
     setMessage({
       type: 'info',
-      text: 'Đang kiểm tra kết nối thiết bị...',
+      text: t('device.checkingDevices'),
     });
     
     // Set recording check to default state waiting for user interaction
-    const nextChecks = cloneCheckingState();
-    nextChecks.network = getNetworkCheck();
+    const nextChecks = createCheckingState(t);
+    nextChecks.network = getNetworkCheck(t);
     nextChecks.recording = {
       status: CHECK_STATUS.WARNING,
-      title: 'Ghi âm thử',
-      detail: 'Nhấn Bắt đầu ghi âm để thử nghiệm thu âm.',
-      meta: 'Cần kiểm tra',
+      title: t('device.recording'),
+      detail: t('device.startRecordingHint'),
+      meta: t('device.needsCheck'),
       required: true,
     };
     setChecks(nextChecks);
@@ -463,17 +465,17 @@ function DeviceReadinessCheckPage() {
         microphone: {
           ...current.microphone,
           status: CHECK_STATUS.FAILED,
-          detail: 'Trình duyệt không hỗ trợ navigator.mediaDevices hoặc getUserMedia.',
-          meta: 'Failed',
+          detail: t('device.mediaApiUnsupported'),
+          meta: t('common.failed'),
         },
         recording: {
           ...current.recording,
           status: CHECK_STATUS.FAILED,
-          detail: 'Không thể kiểm tra ghi âm vì trình duyệt thiếu API microphone.',
-          meta: 'Failed',
+          detail: t('device.recordingApiMissing'),
+          meta: t('common.failed'),
         },
       }));
-      setMessage({ type: 'error', text: 'Browser không hỗ trợ kiểm tra thiết bị.' });
+      setMessage({ type: 'error', text: t('device.browserUnsupported') });
       return;
     }
 
@@ -488,42 +490,42 @@ function DeviceReadinessCheckPage() {
       activeStreamRef.current = stream;
 
       const audioTrack = stream.getAudioTracks()[0];
-      const microphoneLabel = audioTrack?.label || 'Microphone mặc định';
+      const microphoneLabel = audioTrack?.label || t('device.defaultMicrophone');
       updateCheck('microphone', {
         status: CHECK_STATUS.PASSED,
         detail: microphoneLabel,
-        meta: 'Passed',
+        meta: t('common.passed'),
       });
 
       if (!support.hasMediaRecorder) {
         updateCheck('recording', {
           status: CHECK_STATUS.FAILED,
-          detail: 'Trình duyệt không hỗ trợ MediaRecorder.',
-          meta: 'Failed',
+          detail: t('device.mediaRecorderUnsupported'),
+          meta: t('common.failed'),
         });
-        setMessage({ type: 'error', text: 'Browser không hỗ trợ MediaRecorder.' });
+        setMessage({ type: 'error', text: t('device.mediaRecorderUnsupported') });
         return;
       }
 
-      setMessage({ type: 'info', text: 'Hãy bấm nút Bắt đầu ghi âm ở bên dưới để thử mic.' });
+      setMessage({ type: 'info', text: t('device.clickRecord') });
       
     } catch (error) {
       if (runIdRef.current !== runId) return;
       
-      const microphoneError = getMicrophoneError(error);
+      const microphoneError = getMicrophoneError(error, t);
       updateCheck('microphone', {
         status: CHECK_STATUS.FAILED,
         detail: microphoneError.detail,
-        meta: 'Failed',
+        meta: t('common.failed'),
       });
       updateCheck('recording', {
         status: CHECK_STATUS.FAILED,
-        detail: 'Không thể kiểm tra ghi âm khi microphone chưa sẵn sàng.',
-        meta: 'Blocked',
+        detail: t('device.recordingBlocked'),
+        meta: t('common.failed'),
       });
       setMessage({ type: 'error', text: microphoneError.title });
     }
-  }, [cleanupActiveMedia, updateCheck]);
+  }, [cleanupActiveMedia, t, updateCheck]);
 
   useEffect(() => {
     runReadinessCheck();
@@ -536,7 +538,7 @@ function DeviceReadinessCheckPage() {
 
   useEffect(() => {
     const syncNetwork = () => {
-      updateCheck('network', getNetworkCheck());
+      updateCheck('network', getNetworkCheck(t));
     };
 
     window.addEventListener('online', syncNetwork);
@@ -546,14 +548,14 @@ function DeviceReadinessCheckPage() {
       window.removeEventListener('online', syncNetwork);
       window.removeEventListener('offline', syncNetwork);
     };
-  }, [updateCheck]);
+  }, [t, updateCheck]);
 
   useEffect(() => {
     const storedContext = getActiveInterviewContext();
     const campaignId = storedContext?.campaign?.interviewCampaignId;
 
     if (!campaignId) {
-      setContextError('Không tìm thấy campaign phỏng vấn. Vui lòng quay lại bước Thiết lập.');
+      setContextError(t('device.campaignMissing'));
       return undefined;
     }
 
@@ -562,7 +564,7 @@ function DeviceReadinessCheckPage() {
       .then((campaign) => {
         if (!isMounted) return;
         if (campaign.status === 'Expired' || campaign.status === 'Cancelled' || campaign.status === 'Completed') {
-          setContextError(`Campaign đang ở trạng thái ${campaign.status} và không thể bắt đầu.`);
+          setContextError(t('device.campaignInvalid', { status: campaign.status }));
           return;
         }
         const nextContext = {
@@ -576,13 +578,13 @@ function DeviceReadinessCheckPage() {
       })
       .catch((error) => {
         if (!isMounted) return;
-        setContextError(error.message || 'Không thể tải campaign phỏng vấn.');
+        setContextError(error.message || t('device.campaignLoadFailed'));
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
 
   const requiredPassed = useMemo(() => {
     return REQUIRED_CHECK_IDS.every((id) => checks[id]?.status === CHECK_STATUS.PASSED);
@@ -592,21 +594,20 @@ function DeviceReadinessCheckPage() {
     return Object.values(checks).some((check) => check.status === CHECK_STATUS.FAILED);
   }, [checks]);
 
-  const recordingFailed = checks.recording?.status === CHECK_STATUS.FAILED;
   const panelState = requiredPassed ? CHECK_STATUS.PASSED : hasFailure ? CHECK_STATUS.FAILED : CHECK_STATUS.CHECKING;
 
   const handleContinue = async () => {
     if (!requiredPassed) {
       setMessage({
         type: 'warning',
-        text: 'Bạn cần hoàn tất các kiểm tra bắt buộc trước khi bắt đầu phỏng vấn.',
+        text: t('device.checksRequired'),
       });
       return;
     }
 
     const campaign = interviewContext?.campaign;
     if (!campaign) {
-      setContextError('Không tìm thấy campaign phỏng vấn. Vui lòng quay lại bước Thiết lập.');
+      setContextError(t('device.campaignMissing'));
       return;
     }
 
@@ -625,7 +626,7 @@ function DeviceReadinessCheckPage() {
 
     const pendingSession = getNextPendingSession(campaign);
     if (!pendingSession) {
-      setContextError('Campaign không còn phiên phỏng vấn đang chờ để bắt đầu.');
+      setContextError(t('device.noPendingSession'));
       return;
     }
 
@@ -637,7 +638,7 @@ function DeviceReadinessCheckPage() {
       const startedSession = (startedCampaign.sessions || [])
         .find((candidate) => candidate.status === 'Active');
       if (!startedSession) {
-        throw new Error('Backend chưa trả về phiên phỏng vấn đang hoạt động.');
+        throw new Error(t('device.activeSessionMissing'));
       }
       const nextContext = {
         campaign: startedCampaign,
@@ -649,7 +650,7 @@ function DeviceReadinessCheckPage() {
       setInterviewContext(nextContext);
       navigate(USER_ROUTES.INTERVIEW_ROOM);
     } catch (error) {
-      setContextError(error.message || 'Không thể bắt đầu phiên phỏng vấn.');
+      setContextError(error.message || t('device.startFailed'));
     } finally {
       setIsStartingSession(false);
     }
@@ -659,28 +660,26 @@ function DeviceReadinessCheckPage() {
     if (!navigator.clipboard) return;
 
     try {
-      await navigator.clipboard.writeText(SAMPLE_TEXT);
+      await navigator.clipboard.writeText(sampleText);
       setMessage({
         type: 'success',
-        text: 'Đã sao chép đoạn văn mẫu.',
+        text: t('device.copied'),
       });
     } catch {
       setMessage({
         type: 'warning',
-        text: 'Không thể sao chép tự động trong trình duyệt này.',
+        text: t('device.copyFailed'),
       });
     }
   };
 
   return (
     <UserLayout>
-      <div className="device-page animate-pageEntrance">
+      <div className="device-page animate-pageEntrance" lang={interviewLanguage}>
         <header className="device-header">
           <div>
-            <h1>Kiểm tra phần cứng</h1>
-            <p>
-              Kiểm tra microphone và khả năng ghi âm ngắn trước khi vào phòng phỏng vấn AI.
-            </p>
+            <h1>{t('device.title')}</h1>
+            <p>{t('device.subtitle')}</p>
           </div>
           <button
             type="button"
@@ -689,29 +688,20 @@ function DeviceReadinessCheckPage() {
             disabled={isChecking}
           >
             <RefreshCw size={18} className={isChecking ? 'device-spin' : ''} />
-            Làm mới kết nối
+            {t('device.refresh')}
           </button>
         </header>
 
-        <InterviewProgressStepper activeStep={2} />
+        <InterviewProgressStepper activeStep={2} language={interviewLanguage} />
 
         {contextError ? (
           <div className="device-alert device-alert--error" role="alert">
             <XCircle size={18} />
             <span>{contextError}</span>
           </div>
-        ) : interviewContext?.campaign ? (
-          <div className="device-alert device-alert--info" role="status">
-            <Info size={18} />
-            <span>
-              Campaign #{interviewContext.campaign.interviewCampaignId}
-              {' · '}{interviewContext.campaign.durationMinutes} phút
-              {' · '}{interviewContext.campaign.sessions?.length || 0} vòng
-            </span>
-          </div>
         ) : null}
 
-        {message && (
+        {message && message.type !== 'info' && (
           <div className={`device-alert device-alert--${message.type}`} role="status">
             {message.type === 'error' ? (
               <XCircle size={18} />
@@ -726,10 +716,10 @@ function DeviceReadinessCheckPage() {
           </div>
         )}
 
-        <section className="device-card-grid" aria-label="Device readiness status">
-          <ReadinessCard icon={Mic} check={checks.microphone} />
-          <ReadinessCard icon={Radio} check={checks.recording} />
-          <ReadinessCard icon={Wifi} check={checks.network} />
+        <section className="device-card-grid" aria-label={t('device.statusAria')}>
+          <ReadinessCard icon={Mic} check={checks.microphone} t={t} />
+          <ReadinessCard icon={Radio} check={checks.recording} t={t} />
+          <ReadinessCard icon={Wifi} check={checks.network} t={t} />
         </section>
 
         <section className="device-main-grid">
@@ -738,11 +728,11 @@ function DeviceReadinessCheckPage() {
               {panelState === CHECK_STATUS.FAILED ? <XCircle size={34} /> : <Mic size={34} />}
             </div>
             <div>
-              <h2>{requiredPassed ? 'Thiết bị đã sẵn sàng' : isChecking ? 'Thử ghi âm' : 'Cần kiểm tra lại'}</h2>
+              <h2>{requiredPassed ? t('device.readyTitle') : isChecking ? t('device.recordingTitle') : t('device.retryTitle')}</h2>
               <p>
                 {requiredPassed
-                  ? 'Microphone và MediaRecorder đã vượt qua kiểm tra bắt buộc.'
-                  : 'Đọc đoạn văn mẫu ở bên phải trong môi trường yên tĩnh rồi bấm Retry Check nếu cần.'}
+                  ? t('device.readyDescription')
+                  : t('device.retryDescription')}
               </p>
             </div>
             {checks.microphone.status === CHECK_STATUS.PASSED && (
@@ -755,7 +745,7 @@ function DeviceReadinessCheckPage() {
                     disabled={isChecking && !isRecording}
                   >
                     <Mic size={18} />
-                    Bắt đầu ghi âm
+                    {t('device.startRecording')}
                   </button>
                 ) : (
                   <button
@@ -764,7 +754,7 @@ function DeviceReadinessCheckPage() {
                     onClick={stopRecording}
                   >
                     <Radio size={18} />
-                    Kết thúc ghi âm
+                    {t('device.stopRecording')}
                   </button>
                 )}
               </div>
@@ -778,31 +768,31 @@ function DeviceReadinessCheckPage() {
 
           <aside className="device-script-panel">
             <div className="device-script-header">
-              <span>Đoạn văn mẫu</span>
-              <button type="button" onClick={handleCopySample} aria-label="Sao chép đoạn văn mẫu">
+              <span>{t('device.sampleTitle')}</span>
+              <button type="button" onClick={handleCopySample} aria-label={t('device.copySampleAria')}>
                 <Clipboard size={18} />
               </button>
             </div>
-            <blockquote>{SAMPLE_TEXT}</blockquote>
+            <blockquote>{sampleText}</blockquote>
             <div className="device-transcript-preview">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-sm font-medium">Transcript (Live)</span>
+                <span className="text-sm font-medium">{t('device.liveTranscript')}</span>
                 {accuracy !== null && (
                   <span className={`text-xs px-2 py-0.5 rounded-full ${accuracy >= 70 ? 'bg-success/20 text-success' : 'bg-error/20 text-error'}`}>
-                    Độ chính xác: {accuracy}%
+                    {t('device.accuracy', { accuracy })}
                   </span>
                 )}
               </div>
               <strong className="text-sm">
                 {isRecording
-                  ? (liveTranscript ? liveTranscript : 'Đang lắng nghe...')
+                  ? (liveTranscript ? liveTranscript : t('device.listening'))
                   : isChecking
-                    ? (transcript !== null ? transcript : 'Đang xử lý phân tích âm thanh bằng AI...')
+                    ? (transcript !== null ? transcript : t('device.processing'))
                     : transcript !== null
-                      ? (transcript !== '' ? transcript : 'Không nhận diện được giọng nói (kết quả STT trống).')
+                      ? (transcript !== '' ? transcript : t('device.emptyTranscript'))
                       : requiredPassed
-                        ? 'Sẵn sàng ghi nhận câu trả lời trong phòng phỏng vấn.'
-                        : 'Chưa thể bắt đầu khi kiểm tra bắt buộc chưa đạt.'}
+                        ? t('device.readyForInterview')
+                        : t('device.notReadyForInterview')}
               </strong>
             </div>
           </aside>
@@ -812,8 +802,8 @@ function DeviceReadinessCheckPage() {
           <div className="device-note">
             <Info size={22} />
             <div>
-              <strong>Lưu ý</strong>
-              <p>AI-SPEIS không upload, lưu hoặc persist audio trong bước kiểm tra thiết bị.</p>
+              <strong>{t('device.privacyTitle')}</strong>
+              <p>{t('device.privacyDescription')}</p>
             </div>
           </div>
           <div className="device-actions">
@@ -823,7 +813,7 @@ function DeviceReadinessCheckPage() {
               onClick={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
             >
               <ArrowLeft size={18} />
-              Quay lại
+              {t('common.back')}
             </button>
             <button
               type="button"
@@ -834,11 +824,11 @@ function DeviceReadinessCheckPage() {
               {isStartingSession ? (
                 <>
                   <Loader2 size={20} className="device-spin" />
-                  Đang bắt đầu
+                  {t('device.starting')}
                 </>
               ) : (
                 <>
-                  Tiếp tục
+                  {t('common.continue')}
                   <ArrowRight size={20} />
                 </>
               )}

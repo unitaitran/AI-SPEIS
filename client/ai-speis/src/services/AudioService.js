@@ -7,10 +7,10 @@ const getAuthHeaders = () => {
 };
 
 const audioService = {
-  checkSpeechToText: async (audioBlob) => {
+  checkSpeechToText: async (audioBlob, languageCode = 'vi-VN') => {
     const formData = new FormData();
     formData.append('audioFile', audioBlob, 'record.webm');
-    formData.append('languageCode', 'vi-VN');
+    formData.append('languageCode', languageCode);
 
     const response = await fetch(ENDPOINTS.AUDIO_SPEECH_TO_TEXT, {
       method: 'POST',

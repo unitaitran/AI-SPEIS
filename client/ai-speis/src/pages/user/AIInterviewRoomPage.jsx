@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Clock, FileText } from 'lucide-react';
-import InterviewProgressStepper from '../../components/user/InterviewProgressStepper/InterviewProgressStepper';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
-import { getActiveInterviewContext, saveActiveInterviewContext } from '../../utils/interviewContext';
+import {
+  getActiveInterviewContext,
+  getInterviewSetupDraft,
+  saveActiveInterviewContext,
+} from '../../utils/interviewContext';
 
 const getTimestamp = (value) => {
   if (!value) return null;
@@ -19,6 +23,12 @@ const getTimestamp = (value) => {
 
 function AIInterviewRoomPage() {
   const [interviewContext, setInterviewContext] = useState(() => getActiveInterviewContext());
+  const configuredLanguage = interviewContext?.campaign?.language || getInterviewSetupDraft()?.language;
+  const interviewLanguage = configuredLanguage === 'en' ? 'en' : 'vi';
+  const { t: translate } = useTranslation('interview');
+  const t = useCallback((key, options = {}) => (
+    translate(key, { ...options, lng: interviewLanguage })
+  ), [interviewLanguage, translate]);
   const [session, setSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,9 +36,9 @@ function AIInterviewRoomPage() {
   const [isCompleting, setIsCompleting] = useState(false);
   const [roundMessage, setRoundMessage] = useState('');
   const [actionError, setActionError] = useState('');
+  const campaign = interviewContext?.campaign;
 
   useEffect(() => {
-    const campaign = interviewContext?.campaign;
     const durationMinutes = Number(campaign?.durationMinutes);
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
       setTimer(0);
@@ -60,12 +70,7 @@ function AIInterviewRoomPage() {
     updateTimer();
     const interval = window.setInterval(updateTimer, 1000);
     return () => window.clearInterval(interval);
-  }, [
-    interviewContext?.campaign?.durationMinutes,
-    interviewContext?.campaign?.expiresAt,
-    interviewContext?.campaign?.startedAt,
-    interviewContext?.campaign?.status,
-  ]);
+  }, [campaign]);
 
   useEffect(() => {
     const storedContext = getActiveInterviewContext();
@@ -73,7 +78,7 @@ function AIInterviewRoomPage() {
 
     if (!storedContext?.campaign?.interviewCampaignId
       || (!activeSessionId && storedContext.campaign.status !== 'Completed')) {
-      setError('Không tìm thấy campaign hoặc phiên phỏng vấn đang hoạt động.');
+      setError(t('room.campaignMissing'));
       setIsLoading(false);
       return undefined;
     }
@@ -83,14 +88,14 @@ function AIInterviewRoomPage() {
       .then((campaign) => {
         if (!isMounted) return;
         if (campaign.status === 'Expired') {
-          throw new Error('Campaign đã hết thời gian phỏng vấn.');
+          throw new Error(t('room.campaignExpired'));
         }
         const activeSession = (campaign.sessions || []).find((candidate) => (
           candidate.status === 'Active'
           && (candidate.interviewSessionId === activeSessionId || !activeSessionId)
         )) || (campaign.sessions || []).find((candidate) => candidate.status === 'Active');
         if (!activeSession && campaign.status !== 'Completed') {
-          throw new Error('Không tìm thấy phiên phỏng vấn đang hoạt động.');
+          throw new Error(t('room.sessionMissing'));
         }
         const updatedContext = {
           campaign,
@@ -105,7 +110,7 @@ function AIInterviewRoomPage() {
       })
       .catch((requestError) => {
         if (!isMounted) return;
-        setError(requestError.message || 'Không thể tải phiên phỏng vấn.');
+        setError(requestError.message || t('room.loadFailed'));
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);
@@ -114,7 +119,7 @@ function AIInterviewRoomPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
 
   const handleCompleteSession = async () => {
     if (!session || isCompleting) return;
@@ -136,10 +141,12 @@ function AIInterviewRoomPage() {
       setInterviewContext(updatedContext);
       setSession(nextSession);
       setRoundMessage(nextSession
-        ? `Đã hoàn tất vòng trước. Tiếp tục với vòng ${nextSession.interviewRoundType}.`
-        : 'Bạn đã hoàn tất toàn bộ các vòng trong campaign.');
+        ? t('room.previousRoundCompleted', {
+          round: t(`rounds.${nextSession.interviewRoundType}`, nextSession.interviewRoundType),
+        })
+        : t('room.allRoundsCompleted'));
     } catch (requestError) {
-      setActionError(requestError.message || 'Không thể hoàn tất phiên phỏng vấn.');
+      setActionError(requestError.message || t('room.completeFailed'));
     } finally {
       setIsCompleting(false);
     }
@@ -154,8 +161,7 @@ function AIInterviewRoomPage() {
   if (isLoading) {
     return (
       <UserLayout>
-        <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10">
-          <InterviewProgressStepper activeStep={3} />
+        <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10" lang={interviewLanguage}>
           <div className="min-h-[400px] bg-surface-2 border border-border rounded-2xl flex items-center justify-center">
             <Loader2 size={32} className="animate-spin text-primary-dark" />
           </div>
@@ -167,18 +173,17 @@ function AIInterviewRoomPage() {
   if (error) {
     return (
       <UserLayout>
-        <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10">
-          <InterviewProgressStepper activeStep={3} />
+        <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10" lang={interviewLanguage}>
           <div className="min-h-[400px] bg-surface-2 border border-border rounded-2xl p-10 flex flex-col items-center justify-center text-center">
             <AlertCircle size={48} className="text-error mb-4" />
-            <h2 className="text-xl font-semibold text-text-primary mb-2">Không thể mở phòng phỏng vấn</h2>
+            <h2 className="text-xl font-semibold text-text-primary mb-2">{t('room.openFailed')}</h2>
             <p className="text-text-secondary mb-8 max-w-md">{error}</p>
             <button
               type="button"
               onClick={() => navigate(error ? USER_ROUTES.INTERVIEW_SETUP : USER_ROUTES.DEVICE_CHECK)}
               className="bg-primary-dark hover:bg-primary text-white px-6 py-3 rounded-xl transition-colors flex items-center gap-2 text-sm font-medium"
             >
-              <ArrowLeft size={18} /> Quay lại thiết lập
+              <ArrowLeft size={18} /> {t('room.backToSetup')}
             </button>
           </div>
         </div>
@@ -188,9 +193,7 @@ function AIInterviewRoomPage() {
 
   return (
     <UserLayout>
-      <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10 flex flex-col min-h-[calc(100vh-100px)]">
-        <InterviewProgressStepper activeStep={3} />
-        
+      <div className="animate-pageEntrance max-w-[960px] mx-auto pb-10 flex flex-col min-h-[calc(100vh-100px)]" lang={interviewLanguage}>
         {/* Main Interface */}
         <section className="flex-1 flex flex-col bg-surface-2 border border-border rounded-2xl shadow-sm overflow-hidden relative">
           
@@ -203,7 +206,7 @@ function AIInterviewRoomPage() {
               type="button"
               className="text-xs font-semibold text-text-secondary bg-surface-1 hover:bg-border px-4 py-2 rounded-full transition-colors border border-border hover:border-border-strong"
             >
-              Send feedback
+              {t('room.feedback')}
             </button>
           </header>
 
@@ -223,15 +226,19 @@ function AIInterviewRoomPage() {
           {interviewContext?.campaign?.status === 'Completed' ? (
             <main className="flex-1 flex flex-col items-center justify-center w-full px-6 py-12 text-center">
               <CheckCircle2 size={56} className="text-success mb-5" />
-              <h1 className="text-3xl font-semibold text-text-primary mb-3">Interview completed</h1>
-              <p className="text-text-secondary max-w-lg">Tất cả các vòng trong campaign đã hoàn tất và sẵn sàng cho bước đánh giá.</p>
+              <h1 className="text-3xl font-semibold text-text-primary mb-3">{t('room.completedTitle')}</h1>
+              <p className="text-text-secondary max-w-lg">{t('room.completedDescription')}</p>
             </main>
           ) : (
             <main className="flex-1 flex flex-col items-center justify-center w-full px-6 py-12">
-              <p className="text-text-secondary text-sm mb-2 font-medium">{session?.interviewRoundType} round</p>
-              <p className="text-text-secondary text-sm mb-5 font-medium">The interviewer asks...</p>
+              <p className="text-text-secondary text-sm mb-2 font-medium">
+                {t('room.round', {
+                  round: t(`rounds.${session?.interviewRoundType}`, session?.interviewRoundType),
+                })}
+              </p>
+              <p className="text-text-secondary text-sm mb-5 font-medium">{t('room.interviewerAsks')}</p>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-semibold text-center text-text-primary mb-16 leading-snug tracking-tight max-w-2xl">
-                {session?.currentQuestion || "Can you provide an example of how you manage conflict?"}
+                {session?.currentQuestion || t('room.fallbackQuestion')}
               </h1>
               <div className="relative flex items-center justify-center w-24 h-24 mt-4">
                 <div className="absolute w-16 h-16 bg-primary rounded-full animate-ping opacity-40"></div>
@@ -247,7 +254,7 @@ function AIInterviewRoomPage() {
               <Clock size={16} className="text-primary-dark" />
               <span
                 className="w-10 text-center tracking-wide"
-                title={`Thời lượng đã thiết lập: ${interviewContext?.campaign?.durationMinutes || 0} phút`}
+                title={t('room.durationTitle', { minutes: interviewContext?.campaign?.durationMinutes || 0 })}
               >
                 {formatTime(timer)}
               </span>
@@ -259,7 +266,7 @@ function AIInterviewRoomPage() {
                 type="button"
                 className="text-sm font-medium text-text-secondary hover:text-text-primary bg-transparent hover:bg-border/50 px-5 py-2.5 rounded-full transition-colors"
               >
-                Try a different question
+                {t('room.differentQuestion')}
               </button>
               {interviewContext?.campaign?.status === 'Completed' ? (
                 <button
@@ -267,7 +274,7 @@ function AIInterviewRoomPage() {
                   onClick={() => navigate(USER_ROUTES.DASHBOARD)}
                   className="text-sm font-medium text-white bg-primary-dark hover:bg-primary px-6 py-2.5 rounded-full transition-colors shadow-sm"
                 >
-                  Về trang chủ
+                  {t('room.home')}
                 </button>
               ) : (
                 <button
@@ -277,7 +284,7 @@ function AIInterviewRoomPage() {
                   className="text-sm font-medium text-white bg-primary-dark hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50 px-6 py-2.5 rounded-full transition-colors shadow-sm flex items-center gap-2"
                 >
                   {isCompleting && <Loader2 size={16} className="animate-spin" />}
-                  Hoàn tất vòng
+                  {t('room.completeRound')}
                 </button>
               )}
             </div>
@@ -288,14 +295,14 @@ function AIInterviewRoomPage() {
               className="hidden md:flex items-center gap-2 text-sm font-medium text-text-primary bg-surface-2 hover:bg-border border border-border px-5 py-2.5 rounded-full transition-colors"
             >
               <FileText size={16} className="text-primary-dark" />
-              <span>Transcript</span>
+              <span>{t('room.transcript')}</span>
             </button>
             
             {/* Mobile Right Action */}
             <button 
               type="button"
               className="flex md:hidden items-center justify-center w-10 h-10 text-text-primary bg-surface-2 hover:bg-border border border-border rounded-full transition-colors"
-              aria-label="Transcript"
+              aria-label={t('room.transcript')}
             >
               <FileText size={16} className="text-primary-dark" />
             </button>

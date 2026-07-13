@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   ArrowLeft,
@@ -39,7 +40,16 @@ const FILE_STATUS_BY_VALUE = {
 
 const CV_READY_STATUSES = new Set(['Confirmed']);
 const JD_READY_STATUSES = new Set(['ConfirmationRequired', 'Confirmed']);
-const DURATION_OPTIONS = [10, 15, 20];
+const DEFAULT_QUESTION_COUNTS = Object.freeze({
+  Behavior: 5,
+  Technical: 5,
+  Code: 3,
+});
+const MAX_QUESTION_COUNTS = Object.freeze({
+  Behavior: 7,
+  Technical: 7,
+  Code: 3,
+});
 
 const normalizeStatus = (status) => (
   typeof status === 'number' ? FILE_STATUS_BY_VALUE[status] || 'Unknown' : status
@@ -47,22 +57,11 @@ const normalizeStatus = (status) => (
 
 const unwrapJdData = (response) => response?.data || response;
 
-const formatRoundName = (round) => {
-  switch (round) {
-    case 'Behavior':
-      return 'Behavioral';
-    case 'Technical':
-      return 'Technical';
-    case 'Code':
-      return 'Coding';
-    default:
-      return round;
-  }
-};
+const formatRoundName = (round, t) => t(`rounds.${round}`, round);
 
-const formatInterviewType = (rounds) => {
-  if (!rounds?.length) return 'Chưa xác định';
-  return rounds.map(formatRoundName).join(' + ');
+const formatInterviewType = (rounds, t) => {
+  if (!rounds?.length) return t('common.unknown');
+  return rounds.map((round) => formatRoundName(round, t)).join(' + ');
 };
 
 const createConfigurationKey = (setup) => JSON.stringify({
@@ -70,22 +69,28 @@ const createConfigurationKey = (setup) => JSON.stringify({
   jdFileId: setup.JDFileId,
   language: setup.Language,
   mode: setup.Mode,
-  durationMinutes: setup.DurationMinutes,
   includeCoding: setup.IncludeCoding,
   selectedRounds: [...(setup.SelectedRounds || [])].sort(),
+  questionCounts: Object.fromEntries(
+    Object.entries(setup.QuestionCounts || {}).sort(([left], [right]) => left.localeCompare(right)),
+  ),
 });
 
 function InterviewSetupPage() {
+  const { t } = useTranslation('interview');
   const initialDraftRef = useRef(getInterviewSetupDraft() || {});
   const hasInitializedRoundDraftRef = useRef(false);
   const [activeCv, setActiveCv] = useState(null);
   const [jdOptions, setJdOptions] = useState([]);
   const [selectedJdId, setSelectedJdId] = useState(() => String(initialDraftRef.current.selectedJdId || ''));
   const [language, setLanguage] = useState(() => initialDraftRef.current.language || 'en');
-  const [durationMinutes, setDurationMinutes] = useState(() => initialDraftRef.current.durationMinutes || 10);
   const [mode] = useState(() => initialDraftRef.current.mode || '');
   const [includeCoding, setIncludeCoding] = useState(() => Boolean(initialDraftRef.current.includeCoding));
   const [practiceRounds, setPracticeRounds] = useState(() => initialDraftRef.current.practiceRounds || []);
+  const [practiceQuestionCounts, setPracticeQuestionCounts] = useState(() => ({
+    ...DEFAULT_QUESTION_COUNTS,
+    ...(initialDraftRef.current.practiceQuestionCounts || {}),
+  }));
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -115,11 +120,11 @@ function InterviewSetupPage() {
       if (readyJds.length === 0 && uploadedJds.length > 0) {
         const latestStatus = normalizeStatus(uploadedJds[0].status);
         if (latestStatus === 'Pending') {
-          setJdAvailabilityMessage('JD đã được tải lên nhưng chưa bắt đầu phân tích. Hãy phân tích JD trong màn Quản lý CV/JD.');
+          setJdAvailabilityMessage(t('setup.jdPending'));
         } else if (latestStatus === 'Processing') {
-          setJdAvailabilityMessage('JD đang được phân tích. Vui lòng quay lại sau khi quá trình xử lý hoàn tất.');
+          setJdAvailabilityMessage(t('setup.jdProcessing'));
         } else {
-          setJdAvailabilityMessage('JD hiện chưa có dữ liệu phân tích hợp lệ để thiết lập phỏng vấn.');
+          setJdAvailabilityMessage(t('setup.jdInvalid'));
         }
       } else {
         setJdAvailabilityMessage('');
@@ -147,7 +152,7 @@ function InterviewSetupPage() {
       const availableJds = resolvedJds.filter(Boolean);
 
       if (readyJds.length > 0 && availableJds.length === 0) {
-        throw new Error('Không thể tải dữ liệu phân tích hoặc cấu hình vòng phỏng vấn của Job Description.');
+        throw new Error(t('setup.jdDataLoadFailed'));
       }
 
       setJdOptions(availableJds);
@@ -160,11 +165,11 @@ function InterviewSetupPage() {
       setJdOptions([]);
       setSelectedJdId('');
       setJdAvailabilityMessage('');
-      setLoadError(error.message || 'Không thể tải dữ liệu thiết lập phỏng vấn.');
+      setLoadError(error.message || t('setup.loadFailed'));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!hasValidMode) {
@@ -179,7 +184,10 @@ function InterviewSetupPage() {
     jdOptions.find(({ file }) => String(file.jdFileId) === selectedJdId) || null
   ), [jdOptions, selectedJdId]);
 
-  const baseRounds = selectedJd?.availableTypes?.availableRounds || [];
+  const baseRounds = useMemo(
+    () => selectedJd?.availableTypes?.availableRounds || [],
+    [selectedJd],
+  );
   const hasOptionalCoding = Boolean(selectedJd?.availableTypes?.hasOptionalCoding);
   const selectablePracticeRounds = useMemo(() => {
     if (!hasOptionalCoding || baseRounds.includes('Code')) return baseRounds;
@@ -194,6 +202,15 @@ function InterviewSetupPage() {
       const restoredRounds = (initialDraftRef.current.practiceRounds || [])
         .filter((round) => selectablePracticeRounds.includes(round));
       setPracticeRounds(restoredRounds.length > 0 ? restoredRounds : selectablePracticeRounds);
+      setPracticeQuestionCounts((currentCounts) => Object.fromEntries(
+        selectablePracticeRounds.map((round) => [
+          round,
+          Math.min(
+            MAX_QUESTION_COUNTS[round],
+            Math.max(1, Number(currentCounts[round]) || DEFAULT_QUESTION_COUNTS[round]),
+          ),
+        ]),
+      ));
       setIncludeCoding(Boolean(initialDraftRef.current.includeCoding && hasOptionalCoding));
       hasInitializedRoundDraftRef.current = true;
       return;
@@ -201,6 +218,9 @@ function InterviewSetupPage() {
 
     setIncludeCoding(false);
     setPracticeRounds(selectablePracticeRounds);
+    setPracticeQuestionCounts(Object.fromEntries(
+      selectablePracticeRounds.map((round) => [round, DEFAULT_QUESTION_COUNTS[round]]),
+    ));
   }, [hasOptionalCoding, selectedJd, selectedJdId, selectablePracticeRounds, selectablePracticeRoundsKey]);
 
   useEffect(() => {
@@ -213,18 +233,18 @@ function InterviewSetupPage() {
       cvFileId: activeCv?.cvFileId || null,
       selectedJdId,
       language,
-      durationMinutes,
       includeCoding,
       practiceRounds,
+      practiceQuestionCounts,
     });
   }, [
     activeCv?.cvFileId,
-    durationMinutes,
     hasValidMode,
     includeCoding,
     isLoading,
     language,
     mode,
+    practiceQuestionCounts,
     practiceRounds,
     selectedJdId,
   ]);
@@ -239,25 +259,29 @@ function InterviewSetupPage() {
   const jobTitle = selectedJd?.parsed?.jobTitle
     || selectedJd?.availableTypes?.roleTarget
     || selectedJd?.file?.fileName
-    || 'Chưa xác định';
-  const experienceLevel = selectedJd?.parsed?.experienceLevel || 'Chưa xác định';
-  const difficulty = selectedJd?.availableTypes?.difficulty || 'Chưa xác định';
-  const interviewType = formatInterviewType(configuredRounds);
-  const languageLabel = language === 'en' ? 'Tiếng Anh' : 'Tiếng Việt';
-  const modeLabel = mode === 'RealTest' ? 'Thực chiến' : 'Luyện tập';
+    || t('common.unknown');
+  const experienceLevel = selectedJd?.parsed?.experienceLevel || t('common.unknown');
+  const difficulty = selectedJd?.availableTypes?.difficulty || t('common.unknown');
+  const interviewType = formatInterviewType(configuredRounds, t);
+  const languageLabel = language === 'en' ? t('common.english') : t('common.vietnamese');
+  const modeLabel = mode === 'RealTest' ? t('setup.realTest') : t('setup.practice');
   const hasRequiredSources = Boolean(activeCv && selectedJd);
   const hasValidRoundSelection = mode !== 'Practice' || practiceRounds.length > 0;
+  const hasValidQuestionCounts = mode !== 'Practice' || practiceRounds.every((round) => {
+    const count = Number(practiceQuestionCounts[round]);
+    return Number.isInteger(count) && count >= 1 && count <= MAX_QUESTION_COUNTS[round];
+  });
   const canSubmit = hasRequiredSources
     && language
     && mode
-    && durationMinutes
     && hasValidRoundSelection
+    && hasValidQuestionCounts
     && !isSubmitting;
 
   const availabilityMessage = !activeCv
-    ? 'Bạn cần một CV đã phân tích và xác nhận để tạo buổi phỏng vấn.'
+    ? t('setup.cvRequired')
     : jdOptions.length === 0
-      ? jdAvailabilityMessage || 'Bạn cần một Job Description đã phân tích hoàn tất để cấu hình buổi phỏng vấn.'
+      ? jdAvailabilityMessage || t('setup.jdRequired')
       : '';
 
   const handleSubmit = async (event) => {
@@ -265,17 +289,22 @@ function InterviewSetupPage() {
     setSubmitError('');
 
     if (!activeCv || !selectedJd) {
-      setSubmitError('Vui lòng chuẩn bị CV và Job Description hợp lệ trước khi tiếp tục.');
+      setSubmitError(t('setup.missingSources'));
       return;
     }
 
-    if (!language || !mode || !durationMinutes) {
-      setSubmitError('Vui lòng hoàn tất các trường bắt buộc.');
+    if (!language || !mode) {
+      setSubmitError(t('setup.requiredFields'));
       return;
     }
 
     if (mode === 'Practice' && practiceRounds.length === 0) {
-      setSubmitError('Chế độ Luyện tập yêu cầu chọn ít nhất một vòng phỏng vấn.');
+      setSubmitError(t('setup.practiceRoundRequired'));
+      return;
+    }
+
+    if (!hasValidQuestionCounts) {
+      setSubmitError(t('setup.invalidQuestionCounts'));
       return;
     }
 
@@ -287,9 +316,11 @@ function InterviewSetupPage() {
         JDFileId: selectedJd.file.jdFileId,
         IncludeCoding: includeCoding,
         SelectedRounds: mode === 'Practice' ? practiceRounds : [],
+        QuestionCounts: mode === 'Practice'
+          ? Object.fromEntries(practiceRounds.map((round) => [round, practiceQuestionCounts[round]]))
+          : {},
         Language: language,
         Mode: mode,
-        DurationMinutes: durationMinutes,
       };
       const configurationKey = createConfigurationKey(setupPayload);
       const storedContext = getActiveInterviewContext();
@@ -329,9 +360,9 @@ function InterviewSetupPage() {
         cvFileId: activeCv.cvFileId,
         selectedJdId: String(selectedJd.file.jdFileId),
         language,
-        durationMinutes,
         includeCoding,
         practiceRounds,
+        practiceQuestionCounts,
         campaignId: campaign.interviewCampaignId,
         configurationKey,
         previousCampaignId: null,
@@ -339,7 +370,7 @@ function InterviewSetupPage() {
       notifyInterviewQuotaChanged(campaign.remainingInterviewQuota);
       navigate(USER_ROUTES.DEVICE_CHECK);
     } catch (error) {
-      setSubmitError(error.message || 'Không thể tạo buổi phỏng vấn. Vui lòng thử lại.');
+      setSubmitError(error.message || t('setup.createFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -351,6 +382,14 @@ function InterviewSetupPage() {
         ? currentRounds.filter((currentRound) => currentRound !== round)
         : [...currentRounds, round]
     ));
+  };
+
+  const updatePracticeQuestionCount = (round, value) => {
+    const nextValue = Math.min(
+      MAX_QUESTION_COUNTS[round],
+      Math.max(1, Number(value) || DEFAULT_QUESTION_COUNTS[round]),
+    );
+    setPracticeQuestionCounts((currentCounts) => ({ ...currentCounts, [round]: nextValue }));
   };
 
   const handleBack = () => {
@@ -365,8 +404,8 @@ function InterviewSetupPage() {
         <header className="setup-page-header">
           <div>
             <span className="setup-eyebrow">AI Mock Interview</span>
-            <h1>Thiết lập buổi phỏng vấn</h1>
-            <p>Kiểm tra thông tin và chọn cấu hình phù hợp trước khi bắt đầu.</p>
+            <h1>{t('setup.title')}</h1>
+            <p>{t('setup.subtitle')}</p>
           </div>
         </header>
 
@@ -376,17 +415,17 @@ function InterviewSetupPage() {
           <section className="setup-loading-card" aria-live="polite">
             <Loader2 size={28} className="setup-spin" />
             <div>
-              <h2>Đang tải cấu hình</h2>
-              <p>AI-SPEIS đang đọc CV, Job Description và các vòng phỏng vấn khả dụng.</p>
+              <h2>{t('setup.loadingTitle')}</h2>
+              <p>{t('setup.loadingDescription')}</p>
             </div>
           </section>
         ) : loadError ? (
           <section className="setup-state-card setup-state-card--error" role="alert">
             <AlertCircle size={24} />
             <div>
-              <h2>Không thể tải dữ liệu thiết lập</h2>
+              <h2>{t('setup.loadFailedTitle')}</h2>
               <p>{loadError}</p>
-              <button type="button" onClick={loadSetupData}>Thử lại</button>
+              <button type="button" onClick={loadSetupData}>{t('common.retry')}</button>
             </div>
           </section>
         ) : (
@@ -396,11 +435,11 @@ function InterviewSetupPage() {
                 <div className="setup-inline-alert setup-inline-alert--warning" role="alert">
                   <AlertCircle size={20} />
                   <div>
-                    <strong>Chưa đủ dữ liệu đầu vào</strong>
+                    <strong>{t('setup.missingInputTitle')}</strong>
                     <span>{availabilityMessage}</span>
                   </div>
                   <button type="button" onClick={() => navigate(USER_ROUTES.CV)}>
-                    Quản lý CV/JD
+                    {t('setup.manageCvJd')}
                   </button>
                 </div>
               )}
@@ -411,31 +450,31 @@ function InterviewSetupPage() {
                     <BriefcaseBusiness size={22} />
                   </span>
                   <div>
-                    <h2 id="basic-information-title">Thông tin cơ bản</h2>
-                    <p>Dữ liệu vị trí được lấy từ Job Description đã phân tích.</p>
+                    <h2 id="basic-information-title">{t('setup.basicTitle')}</h2>
+                    <p>{t('setup.basicDescription')}</p>
                   </div>
                 </div>
 
-                <div className="setup-source-strip" aria-label="Hồ sơ sử dụng">
+                <div className="setup-source-strip" aria-label={t('setup.sourceAria')}>
                   <span className="setup-source-item">
                     <FileText size={16} />
                     <span className="setup-source-content">
                       <strong>CV:</strong>
-                      <span className="setup-source-name">{activeCv?.fileName || 'Chưa có CV phù hợp'}</span>
+                      <span className="setup-source-name">{activeCv?.fileName || t('setup.noCv')}</span>
                     </span>
                   </span>
                   <span className="setup-source-item">
                     <BriefcaseBusiness size={16} />
                     <span className="setup-source-content">
                       <strong>JD:</strong>
-                      <span className="setup-source-name">{selectedJd?.file?.fileName || 'Chưa có JD phù hợp'}</span>
+                      <span className="setup-source-name">{selectedJd?.file?.fileName || t('setup.noJd')}</span>
                     </span>
                   </span>
                 </div>
 
                 <div className="setup-fields-grid">
                   <div className="setup-field">
-                    <label htmlFor="setup-job-position">Vị trí ứng tuyển</label>
+                    <label htmlFor="setup-job-position">{t('setup.position')}</label>
                     <div className="setup-control-wrap">
                       <select
                         id="setup-job-position"
@@ -446,7 +485,7 @@ function InterviewSetupPage() {
                         aria-invalid={jdOptions.length === 0}
                         aria-describedby={jdOptions.length === 0 ? 'setup-job-position-error' : undefined}
                       >
-                        {jdOptions.length === 0 && <option value="">Chưa có vị trí phù hợp</option>}
+                        {jdOptions.length === 0 && <option value="">{t('setup.noPosition')}</option>}
                         {jdOptions.map(({ file, parsed, availableTypes }) => (
                           <option key={file.jdFileId} value={file.jdFileId}>
                             {parsed?.jobTitle || availableTypes?.roleTarget || file.fileName}
@@ -456,13 +495,13 @@ function InterviewSetupPage() {
                     </div>
                     {jdOptions.length === 0 && (
                       <span id="setup-job-position-error" className="setup-field-error">
-                        Hãy hoàn tất phân tích một Job Description trước.
+                        {t('setup.completeJdAnalysis')}
                       </span>
                     )}
                   </div>
 
                   <div className="setup-field">
-                    <label htmlFor="setup-experience-level">Cấp độ</label>
+                    <label htmlFor="setup-experience-level">{t('setup.level')}</label>
                     <input
                       id="setup-experience-level"
                       type="text"
@@ -470,16 +509,16 @@ function InterviewSetupPage() {
                       readOnly
                       aria-readonly="true"
                     />
-                    <span className="setup-field-meta">Độ khó hệ thống: <strong>{difficulty}</strong></span>
+                    <span className="setup-field-meta">{t('setup.systemDifficulty')} <strong>{difficulty}</strong></span>
                   </div>
 
                   <div className="setup-field">
-                    <label htmlFor="setup-interview-type">Loại phỏng vấn</label>
+                    <label htmlFor="setup-interview-type">{t('setup.interviewType')}</label>
                     {mode === 'Practice' ? (
                       <input
                         id="setup-interview-type"
                         type="text"
-                        value={formatInterviewType(practiceRounds)}
+                        value={formatInterviewType(practiceRounds, t)}
                         readOnly
                         aria-readonly="true"
                       />
@@ -491,10 +530,10 @@ function InterviewSetupPage() {
                           onChange={(event) => setIncludeCoding(event.target.value === 'with-coding')}
                           disabled={!selectedJd}
                         >
-                          <option value="standard">{formatInterviewType(baseRounds)}</option>
+                          <option value="standard">{formatInterviewType(baseRounds, t)}</option>
                           {hasOptionalCoding && (
                             <option value="with-coding">
-                              {formatInterviewType([...baseRounds, 'Code'])}
+                              {formatInterviewType([...baseRounds, 'Code'], t)}
                             </option>
                           )}
                         </select>
@@ -503,7 +542,7 @@ function InterviewSetupPage() {
                   </div>
 
                   <div className="setup-field">
-                    <label htmlFor="setup-language">Ngôn ngữ</label>
+                    <label htmlFor="setup-language">{t('setup.language')}</label>
                     <div className="setup-control-wrap">
                       <select
                         id="setup-language"
@@ -511,34 +550,13 @@ function InterviewSetupPage() {
                         onChange={(event) => setLanguage(event.target.value)}
                         required
                       >
-                        <option value="en">Tiếng Anh</option>
-                        <option value="vi">Tiếng Việt</option>
+                        <option value="en">{t('common.english')}</option>
+                        <option value="vi">{t('common.vietnamese')}</option>
                       </select>
                     </div>
                   </div>
                 </div>
 
-                <fieldset className="setup-duration-group">
-                  <legend>Thời lượng phỏng vấn</legend>
-                  <div className="setup-duration-options">
-                    {DURATION_OPTIONS.map((duration) => (
-                      <label
-                        key={duration}
-                        className={`setup-duration-option${durationMinutes === duration ? ' setup-duration-option--selected' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name="duration"
-                          value={duration}
-                          checked={durationMinutes === duration}
-                          onChange={() => setDurationMinutes(duration)}
-                        />
-                        <span>{duration} phút</span>
-                      </label>
-                    ))}
-                  </div>
-                  <p>Thời lượng được lưu cùng campaign và truyền sang phòng phỏng vấn.</p>
-                </fieldset>
               </section>
 
               {mode === 'Practice' && (
@@ -548,8 +566,8 @@ function InterviewSetupPage() {
                       <Settings2 size={22} />
                     </span>
                     <div>
-                      <h2 id="practice-rounds-title">Vòng luyện tập</h2>
-                      <p>Chọn riêng từng vòng muốn luyện trong campaign này.</p>
+                      <h2 id="practice-rounds-title">{t('setup.practiceRoundsTitle')}</h2>
+                      <p>{t('setup.practiceRoundsDescription')}</p>
                     </div>
                   </div>
 
@@ -557,32 +575,50 @@ function InterviewSetupPage() {
                     className="setup-round-selector"
                     aria-describedby={practiceRounds.length === 0 ? 'setup-round-help setup-round-error' : 'setup-round-help'}
                   >
-                    <legend>Chọn vòng muốn luyện tập</legend>
-                    <p id="setup-round-help">Bạn có thể luyện một vòng riêng lẻ hoặc kết hợp nhiều vòng.</p>
+                    <legend>{t('setup.selectRounds')}</legend>
+                    <p id="setup-round-help">{t('setup.roundHelp')}</p>
                     <div className="setup-round-options">
                       {selectablePracticeRounds.map((round) => {
                         const isSelected = practiceRounds.includes(round);
+                        const maxQuestionCount = MAX_QUESTION_COUNTS[round];
                         return (
-                          <label
+                          <div
                             key={round}
                             className={`setup-round-option${isSelected ? ' setup-round-option--selected' : ''}`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => togglePracticeRound(round)}
-                            />
-                            <span className="setup-round-check" aria-hidden="true">
-                              {isSelected && <Check size={14} />}
-                            </span>
-                            <span>{formatRoundName(round)}</span>
-                          </label>
+                            <label className="setup-round-choice">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => togglePracticeRound(round)}
+                              />
+                              <span className="setup-round-check" aria-hidden="true">
+                                {isSelected && <Check size={14} />}
+                              </span>
+                              <span>{formatRoundName(round, t)}</span>
+                            </label>
+                            {isSelected && (
+                              <label className="setup-question-count" htmlFor={`setup-question-count-${round}`}>
+                                <span>{t('setup.questionCount')}</span>
+                                <select
+                                  id={`setup-question-count-${round}`}
+                                  value={practiceQuestionCounts[round]}
+                                  onChange={(event) => updatePracticeQuestionCount(round, event.target.value)}
+                                >
+                                  {Array.from({ length: maxQuestionCount }, (_, index) => index + 1).map((count) => (
+                                    <option key={count} value={count}>{count}</option>
+                                  ))}
+                                </select>
+                                <small>{t('setup.maxQuestions', { max: maxQuestionCount })}</small>
+                              </label>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
                     {practiceRounds.length === 0 && (
                       <span id="setup-round-error" className="setup-field-error" role="alert">
-                        Chọn ít nhất một vòng phỏng vấn để tiếp tục.
+                        {t('setup.roundRequired')}
                       </span>
                     )}
                   </fieldset>
@@ -591,35 +627,41 @@ function InterviewSetupPage() {
             </form>
 
             <aside className="setup-summary-card" aria-labelledby="setup-summary-title">
-              <h2 id="setup-summary-title">Tóm tắt cấu hình</h2>
+              <h2 id="setup-summary-title">{t('setup.summaryTitle')}</h2>
 
               <dl className="setup-summary-list">
                 <div>
-                  <dt>Vị trí</dt>
+                  <dt>{t('setup.position')}</dt>
                   <dd>{jobTitle}</dd>
                 </div>
                 <div>
-                  <dt>Cấp độ</dt>
+                  <dt>{t('setup.level')}</dt>
                   <dd>{experienceLevel}</dd>
                 </div>
                 <div>
-                  <dt>Độ khó</dt>
+                  <dt>{t('setup.difficulty')}</dt>
                   <dd>{difficulty}</dd>
                 </div>
                 <div>
-                  <dt>Loại</dt>
+                  <dt>{t('setup.type')}</dt>
                   <dd>{interviewType}</dd>
                 </div>
                 <div>
-                  <dt>Ngôn ngữ</dt>
+                  <dt>{t('setup.language')}</dt>
                   <dd>{languageLabel}</dd>
                 </div>
+                {mode === 'Practice' && (
+                  <div>
+                    <dt>{t('setup.questionCount')}</dt>
+                    <dd className="setup-summary-question-counts">
+                      {practiceRounds.map((round) => (
+                        <span key={round}>{formatRoundName(round, t)}: {practiceQuestionCounts[round]}</span>
+                      ))}
+                    </dd>
+                  </div>
+                )}
                 <div>
-                  <dt>Thời gian</dt>
-                  <dd>{durationMinutes} phút</dd>
-                </div>
-                <div>
-                  <dt>Chế độ</dt>
+                  <dt>{t('setup.mode')}</dt>
                   <dd>{modeLabel}</dd>
                 </div>
               </dl>
@@ -627,8 +669,8 @@ function InterviewSetupPage() {
               <div className="setup-note">
                 <Info size={20} />
                 <div>
-                  <strong>Lưu ý</strong>
-                  <p>Hệ thống sẽ hỏi làm rõ, hỏi tiếp hoặc chuyển câu dựa trên phần đánh giá câu trả lời trước đó.</p>
+                  <strong>{t('setup.noteTitle')}</strong>
+                  <p>{t('setup.noteDescription')}</p>
                 </div>
               </div>
 
@@ -650,18 +692,18 @@ function InterviewSetupPage() {
                   {isSubmitting ? (
                     <>
                       <Loader2 size={20} className="setup-spin" />
-                      Đang tạo buổi phỏng vấn
+                      {t('setup.creating')}
                     </>
                   ) : (
                     <>
-                      Tiếp tục
+                      {t('common.continue')}
                       <ArrowRight size={20} />
                     </>
                   )}
                 </button>
                 <button type="button" className="setup-secondary-button" onClick={handleBack} disabled={isSubmitting}>
                   <ArrowLeft size={18} />
-                  Quay lại
+                  {t('common.back')}
                 </button>
               </div>
             </aside>

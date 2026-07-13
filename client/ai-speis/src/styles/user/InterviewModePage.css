@@ -142,29 +142,6 @@
   line-height: var(--body-lg-lh);
 }
 
-.interview-mode-note {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-md);
-  border: 1px solid var(--border);
-  border-radius: var(--border-radius);
-  background: var(--info-light);
-}
-
-.interview-mode-note svg {
-  flex: 0 0 auto;
-  color: var(--info);
-}
-
-.interview-mode-note p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--body-sm);
-  line-height: var(--body-sm-lh);
-}
-
 .interview-mode-error {
   margin-top: var(--spacing-md);
   padding: 12px var(--spacing-md);

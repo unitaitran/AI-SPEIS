@@ -1,20 +1,23 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import './InterviewProgressStepper.css';
 
-const INTERVIEW_STEPS = [
-  'Chế độ',
-  'Thiết lập',
-  'Kiểm tra thiết bị',
-  'Bắt đầu',
-  'Đánh giá',
-  'Kết quả',
-];
+function InterviewProgressStepper({ activeStep, language }) {
+  const { t } = useTranslation('interview');
+  const translate = (key) => t(key, language ? { lng: language } : undefined);
+  const steps = [
+    translate('progress.mode'),
+    translate('progress.setup'),
+    translate('progress.device'),
+    translate('progress.start'),
+    translate('progress.evaluation'),
+    translate('progress.result'),
+  ];
 
-function InterviewProgressStepper({ activeStep }) {
   return (
     <div className="interview-progress-scroll">
-      <ol className="interview-progress" aria-label="Tiến trình phỏng vấn">
-        {INTERVIEW_STEPS.map((step, index) => {
+      <ol className="interview-progress" aria-label={translate('progress.aria')}>
+        {steps.map((step, index) => {
           const isActive = index === activeStep;
           const isCompleted = index < activeStep;
 

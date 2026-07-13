@@ -51,6 +51,8 @@ namespace ai_speis_be.Models.DTOs
         [Required]
         public List<string> SelectedRounds { get; set; } = new List<string>();
 
+        public Dictionary<string, int> QuestionCounts { get; set; } = new Dictionary<string, int>();
+
         [Required]
         [MaxLength(10)]
         public string Language { get; set; } = "vi";
@@ -108,6 +110,38 @@ namespace ai_speis_be.Models.DTOs
                 yield return new ValidationResult(
                     "Chế độ Practice yêu cầu chọn ít nhất một vòng phỏng vấn.",
                     new[] { nameof(SelectedRounds) });
+            }
+
+            if (hasValidMode && parsedMode == InterviewMode.Practice && !hasInvalidRound)
+            {
+                var questionCounts = QuestionCounts ?? new Dictionary<string, int>();
+                var invalidCountKey = questionCounts.Keys.FirstOrDefault(round =>
+                    !validRoundNames.Contains(round, StringComparer.OrdinalIgnoreCase));
+
+                if (invalidCountKey != null)
+                {
+                    yield return new ValidationResult(
+                        "QuestionCounts chứa vòng phỏng vấn không hợp lệ.",
+                        new[] { nameof(QuestionCounts) });
+                }
+
+                foreach (var roundName in selectedRounds.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    var configuredCount = questionCounts
+                        .FirstOrDefault(item => string.Equals(item.Key, roundName, StringComparison.OrdinalIgnoreCase));
+                    var maxCount = string.Equals(roundName, InterviewRoundType.Code.ToString(), StringComparison.OrdinalIgnoreCase)
+                        ? 3
+                        : 7;
+
+                    if (string.IsNullOrEmpty(configuredCount.Key)
+                        || configuredCount.Value < 1
+                        || configuredCount.Value > maxCount)
+                    {
+                        yield return new ValidationResult(
+                            $"Số câu hỏi của vòng {roundName} phải từ 1 đến {maxCount}.",
+                            new[] { nameof(QuestionCounts) });
+                    }
+                }
             }
         }
     }
