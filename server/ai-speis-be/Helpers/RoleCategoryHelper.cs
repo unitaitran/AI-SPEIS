@@ -18,7 +18,7 @@ namespace ai_speis_be.Helpers
             {
                 rounds.Add("Code");
             }
-            else if (normalized == "BA" || normalized == "TESTER")
+            else if (normalized == "BA" || normalized == "TESTER" || normalized == "OTHER")
             {
                 hasOptionalCoding = true; // Cho phép lựa chọn thêm vòng coding (Code)
             }
