@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="Google.Cloud.Speech.V1" Version="3.9.0" />
+    <PackageReference Include="Google.Cloud.TextToSpeech.V1" Version="3.18.0" />
     <PackageReference Include="itext7" Version="9.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.18" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />

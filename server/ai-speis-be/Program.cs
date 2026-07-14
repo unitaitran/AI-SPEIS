@@ -23,6 +23,7 @@ using ai_speis_be.Repositories.JDRepo;
 using ai_speis_be.Repositories.InterviewCampaignRepo;
 using ai_speis_be.Services.InterviewSessionService;
 using ai_speis_be.Services.SpeechToTextService;
+using ai_speis_be.Services.TextToSpeechService;
 
 LoadEnvFile();
 
@@ -95,6 +96,7 @@ builder.Services.AddScoped<IGeminiAiParsingService, GeminiAiParsingService>();
 builder.Services.AddScoped<IJDService, JDService>();
 builder.Services.AddScoped<IJDRepository, JDRepository>();
 builder.Services.AddScoped<ISpeechToTextService, SpeechToTextService>();
+builder.Services.AddScoped<ITextToSpeechService, TextToSpeechService>();
 
 // Background Worker for CV Parsing
 builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
