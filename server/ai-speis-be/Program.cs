@@ -26,6 +26,15 @@ using ai_speis_be.Services.SpeechToTextService;
 using ai_speis_be.Services.TextToSpeechService;
 using ai_speis_be.Repositories.PaymentRepo;
 using ai_speis_be.Services.PaymentService;
+using ai_speis_be.TechnicalInterviews.AI;
+using ai_speis_be.TechnicalInterviews.Configuration;
+using ai_speis_be.TechnicalInterviews.Orchestration;
+using ai_speis_be.TechnicalInterviews.Rubrics;
+using ai_speis_be.TechnicalInterviews.Scoring;
+using ai_speis_be.TechnicalInterviews.Selection;
+using ai_speis_be.TechnicalInterviews.Validation;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 LoadEnvFile();
 
@@ -40,6 +49,27 @@ builder.Services.AddControllers()
     });
     
 builder.Services.AddHttpClient();
+var technicalInterviewOptions = TechnicalInterviewOptions.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(technicalInterviewOptions);
+builder.Services.AddHttpClient("TechnicalInterviewAI", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(technicalInterviewOptions.TimeoutSeconds);
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("technical-interview", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.FindFirst("UserId")?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -122,6 +152,16 @@ builder.Services.AddScoped<ISavedQuestionService, SavedQuestionService>();
 // Register Interview Session & Campaign
 builder.Services.AddScoped<IInterviewCampaignRepository, InterviewCampaignRepository>();
 builder.Services.AddScoped<IInterviewSessionService, InterviewSessionService>();
+
+// Technical Interview module
+builder.Services.AddSingleton<ITechnicalRubricProvider, TechnicalRubricProvider>();
+builder.Services.AddScoped<ExternalTechnicalInterviewAIProvider>();
+builder.Services.AddScoped<ITechnicalInterviewAIProviderResolver, TechnicalInterviewAIProviderResolver>();
+builder.Services.AddScoped<ITechnicalAIResponseValidator, TechnicalAIResponseValidator>();
+builder.Services.AddScoped<ITechnicalRubricScoringService, TechnicalRubricScoringService>();
+builder.Services.AddScoped<ITechnicalFollowUpDecisionEngine, TechnicalFollowUpDecisionEngine>();
+builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
+builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
@@ -221,6 +261,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

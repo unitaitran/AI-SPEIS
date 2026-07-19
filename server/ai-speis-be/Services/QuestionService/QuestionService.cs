@@ -300,10 +300,10 @@ namespace ai_speis_be.Services.QuestionService
                 });
         }
 
-        public async Task<QuestionResponseDto?> GetQuestionByIdAdminAsync(int questionId)
+        public async Task<AdminQuestionListItemDto?> GetQuestionByIdAdminAsync(int questionId)
         {
             var question =await _repository.GetQuestionByIdAdminAsync(questionId);
-            return question != null ? MapToDto(question) : null; 
+            return question != null ? MapToAdminListItemDto(question) : null;
         }
 
         public async Task<QuestionResponseDto?> GetQuestionByIdAsync(int questionId)
@@ -924,7 +924,6 @@ namespace ai_speis_be.Services.QuestionService
                 QuestionId = question.QuestionId,
                 UserId = question.UserId,
                 QuestionContent = question.QuestionContent,
-                SuggestedAnswer = question.SuggestedAnswer,
                 Difficulty = question.Difficulty,
                 RoleTarget = question.RoleTarget,
                 Major = question.Major,
