@@ -10,19 +10,23 @@ import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
 import ProfilePage from '../pages/user/ProfilePage';
 import InterviewSetupPage from '../pages/user/InterviewSetupPage';
 import InterviewModePage from '../pages/user/InterviewModePage';
+import PackagesPage from '../pages/user/PackagesPage';
+import PaymentResultPage from '../pages/user/PaymentResultPage';
 
 function UserRoutes({ pathname }) {
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
   const isProfileRoute = pathname === USER_ROUTES.PROFILE;
   const isKnownRoute =
     pathname === USER_ROUTES.DASHBOARD ||
+    pathname === USER_ROUTES.PACKAGES ||
     pathname === USER_ROUTES.CV ||
     pathname === USER_ROUTES.CV_DETAIL ||
     pathname === USER_ROUTES.QUESTIONS ||
     pathname === USER_ROUTES.INTERVIEW_MODE ||
     pathname === USER_ROUTES.INTERVIEW_SETUP ||
     pathname === USER_ROUTES.DEVICE_CHECK ||
-    pathname === USER_ROUTES.INTERVIEW_ROOM;
+    pathname === USER_ROUTES.INTERVIEW_ROOM ||
+    pathname === USER_ROUTES.PAYMENT_RESULT;
 
   useEffect(() => {
     if ((isUserRoot || !isKnownRoute) && !isProfileRoute) {
@@ -36,6 +40,14 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.CV) {
     return <CVJDManagementPage />;
+  }
+
+  if (pathname === USER_ROUTES.PACKAGES) {
+    return <PackagesPage />;
+  }
+
+  if (pathname === USER_ROUTES.PAYMENT_RESULT) {
+    return <PaymentResultPage />;
   }
 
   if (pathname === USER_ROUTES.CV_DETAIL) {

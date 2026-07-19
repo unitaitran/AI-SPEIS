@@ -21,6 +21,8 @@ namespace ai_speis_be.Models.DTOs
         public DateTime? CompletedAt { get; set; }
         public DateTime? CancelledAt { get; set; }
         public int RemainingInterviewQuota { get; set; }
+        public int MaxInterviewQuota { get; set; }
+        public string PlanName { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<InterviewSessionDto> Sessions { get; set; } = new List<InterviewSessionDto>();
@@ -157,5 +159,7 @@ namespace ai_speis_be.Models.DTOs
     public class InterviewQuotaDto
     {
         public int RemainingInterviewQuota { get; set; }
+        public int MaxInterviewQuota { get; set; }
+        public string PlanName { get; set; } = string.Empty;
     }
 }

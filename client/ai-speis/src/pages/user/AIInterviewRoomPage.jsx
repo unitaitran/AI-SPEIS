@@ -8,6 +8,7 @@ import interviewSessionService from '../../services/InterviewSessionService';
 import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
+  notifyInterviewQuotaChanged,
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
 
@@ -138,6 +139,7 @@ function AIInterviewRoomPage() {
       };
 
       saveActiveInterviewContext(updatedContext);
+      notifyInterviewQuotaChanged(campaign);
       setInterviewContext(updatedContext);
       setSession(nextSession);
       setRoundMessage(nextSession
