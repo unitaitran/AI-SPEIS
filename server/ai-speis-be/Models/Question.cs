@@ -60,8 +60,8 @@ namespace ai_speis_be.Models
         /// <summary>Comma-separated key points expected in answer</summary>
         public string? ExpectedKeyPoints { get; set; }
 
-        /// <summary>JSON rubric: {"0":"...","1":"...","2":"...","3":"...","4":"...","5":"..."}</summary>
-        public string? ScoringRubricJson { get; set; }
+        /// <summary>Scoring guidance or rubric used to evaluate an answer.</summary>
+        public string? ScoringRubric { get; set; }
 
         /// <summary>Pre-written clarification question to use when answer is too vague</summary>
         public string? ClarificationQuestion { get; set; }

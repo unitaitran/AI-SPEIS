@@ -28,7 +28,7 @@ namespace ai_speis_be.Services.QuestionService
             "companyCategory",
             "companySubcategory",
             "expectedKeyPoints",
-            "scoringRubricJson",
+            "scoringRubric",
             "clarificationQuestion",
             "followUp1",
             "followUp2",
@@ -37,6 +37,20 @@ namespace ai_speis_be.Services.QuestionService
             "embeddingText",
             "qdrantPayloadJson"
         };
+
+        private static readonly IReadOnlyDictionary<string, string[]> ImportColumnAliases =
+            new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["questionContent"] = new[] { "question_text" },
+                ["suggestedAnswer"] = new[] { "expected_answer" },
+                ["roleTarget"] = new[] { "job_role" },
+                ["scoringRubric"] = new[]
+                {
+                    "scoring_rubric",
+                    "scoring_rubirc",
+                    "scoringRubricJson"
+                }
+            };
 
         private static readonly HashSet<string> AllowedExcelContentTypes = new(
             new[]
@@ -255,7 +269,7 @@ namespace ai_speis_be.Services.QuestionService
                     CompanyCategory = values.CompanyCategory,
                     CompanySubcategory = values.CompanySubcategory,
                     ExpectedKeyPoints = values.ExpectedKeyPoints,
-                    ScoringRubricJson = values.ScoringRubricJson,
+                    ScoringRubric = values.ScoringRubric,
                     ClarificationQuestion = values.ClarificationQuestion,
                     FollowUp1 = values.FollowUp1,
                     FollowUp2 = values.FollowUp2,
@@ -529,10 +543,8 @@ namespace ai_speis_be.Services.QuestionService
 
                 foreach (var column in ImportColumns)
                 {
-                    var headerKey = NormalizeHeader(column);
-                    values[column] = headerColumns.TryGetValue(
-                            headerKey,
-                            out var sourceColumn) &&
+                    var sourceColumn = FindImportSourceColumn(headerColumns, column);
+                    values[column] = sourceColumn is not null &&
                         worksheetRow.Cells.TryGetValue(sourceColumn, out var value)
                         ? value.Trim()
                         : string.Empty;
@@ -555,6 +567,31 @@ namespace ai_speis_be.Services.QuestionService
             }
 
             return dataRows;
+        }
+
+        private static string? FindImportSourceColumn(
+            IReadOnlyDictionary<string, string> headerColumns,
+            string column)
+        {
+            if (headerColumns.TryGetValue(NormalizeHeader(column), out var sourceColumn))
+            {
+                return sourceColumn;
+            }
+
+            if (!ImportColumnAliases.TryGetValue(column, out var aliases))
+            {
+                return null;
+            }
+
+            foreach (var alias in aliases)
+            {
+                if (headerColumns.TryGetValue(NormalizeHeader(alias), out sourceColumn))
+                {
+                    return sourceColumn;
+                }
+            }
+
+            return null;
         }
 
         private static WorksheetRow ReadWorksheetRow(
@@ -664,7 +701,7 @@ namespace ai_speis_be.Services.QuestionService
             var companyCategory = GetRowValue(row, "companyCategory");
             var companySubcategory = GetRowValue(row, "companySubcategory");
             var expectedKeyPoints = GetRowValue(row, "expectedKeyPoints");
-            var scoringRubricJson = GetRowValue(row, "scoringRubricJson");
+            var scoringRubric = GetRowValue(row, "scoringRubric");
             var clarificationQuestion = GetRowValue(row, "clarificationQuestion");
             var followUp1 = GetRowValue(row, "followUp1");
             var followUp2 = GetRowValue(row, "followUp2");
@@ -711,7 +748,6 @@ namespace ai_speis_be.Services.QuestionService
                 }
             }
 
-            AddJsonError(errors, "scoringRubricJson", scoringRubricJson);
             AddJsonError(errors, "qdrantPayloadJson", qdrantPayloadJson);
 
             if (!string.IsNullOrWhiteSpace(difficultyValue) &&
@@ -748,7 +784,7 @@ namespace ai_speis_be.Services.QuestionService
                 companyCategory,
                 companySubcategory,
                 expectedKeyPoints,
-                scoringRubricJson,
+                scoringRubric,
                 clarificationQuestion,
                 followUp1,
                 followUp2,
@@ -950,7 +986,7 @@ namespace ai_speis_be.Services.QuestionService
             string? CompanyCategory,
             string? CompanySubcategory,
             string? ExpectedKeyPoints,
-            string? ScoringRubricJson,
+            string? ScoringRubric,
             string? ClarificationQuestion,
             string? FollowUp1,
             string? FollowUp2,

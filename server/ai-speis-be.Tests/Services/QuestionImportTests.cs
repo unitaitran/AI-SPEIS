@@ -17,7 +17,7 @@ public class QuestionImportTests
         "questionContent", "major", "difficulty", "roleTarget",
         "suggestedAnswer", "status", "questionType", "language", "skill",
         "experienceLevel", "levelTags", "companyCategory", "companySubcategory",
-        "expectedKeyPoints", "scoringRubricJson", "clarificationQuestion",
+        "expectedKeyPoints", "scoringRubric", "clarificationQuestion",
         "followUp1", "followUp2", "timeLimitSeconds", "keywordTags",
         "embeddingText", "qdrantPayloadJson"
     };
@@ -66,7 +66,7 @@ public class QuestionImportTests
         Assert.Equal("Product Company", question.CompanyCategory);
         Assert.Equal("SaaS", question.CompanySubcategory);
         Assert.Equal("bối cảnh,hành động,kết quả", question.ExpectedKeyPoints);
-        Assert.Equal(row[14], question.ScoringRubricJson);
+        Assert.Equal(row[14], question.ScoringRubric);
         Assert.Equal(row[15], question.ClarificationQuestion);
         Assert.Equal(row[16], question.FollowUp1);
         Assert.Equal(row[17], question.FollowUp2);
@@ -104,7 +104,6 @@ public class QuestionImportTests
         Assert.Contains(error.Errors, item => item.StartsWith("questionType"));
         Assert.Contains(error.Errors, item => item.StartsWith("language"));
         Assert.Contains(error.Errors, item => item.StartsWith("timeLimitSeconds"));
-        Assert.Contains(error.Errors, item => item.StartsWith("scoringRubricJson"));
         Assert.Contains(error.Errors, item => item.StartsWith("qdrantPayloadJson"));
     }
 
@@ -135,7 +134,7 @@ public class QuestionImportTests
         Assert.Equal(string.Empty, question.RoleTarget);
         Assert.Equal(string.Empty, question.SuggestedAnswer);
         Assert.Equal(string.Empty, question.QuestionType);
-        Assert.Equal(string.Empty, question.ScoringRubricJson);
+        Assert.Equal(string.Empty, question.ScoringRubric);
         Assert.Equal(QuestionDifficultyEnum.Easy, question.Difficulty);
         Assert.Equal(120, question.TimeLimitSeconds);
         Assert.False(question.IsDeleted);
@@ -165,6 +164,46 @@ public class QuestionImportTests
         Assert.Equal(1, result.Summary!.ImportedRows);
         Assert.Empty(result.Summary.Errors);
         Assert.Equal("CV Deep Dive", Assert.Single(savedQuestions!).QuestionType);
+    }
+
+    [Fact]
+    public async Task ImportAdminQuestionsAsync_TechnicalWorkbookHeaders_MapToQuestionFields()
+    {
+        IReadOnlyCollection<Question>? savedQuestions = null;
+        var repository = new Mock<IQuestionRepoitory>();
+        repository
+            .Setup(item => item.CreateQuestionsAsync(
+                It.IsAny<IReadOnlyCollection<Question>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyCollection<Question>, CancellationToken>(
+                (questions, _) => savedQuestions = questions)
+            .ReturnsAsync(1);
+
+        var service = new QuestionService(repository.Object);
+        using var workbook = CreateWorkbook(
+            new[] { "question_text", "expected_answer", "job_role", "scoring_rubric" },
+            new[]
+            {
+                "What is dependency injection?",
+                "Explain inversion of control and injected dependencies.",
+                "Backend Developer",
+                "0: No understanding. 5: Complete and accurate explanation."
+            });
+        var file = CreateFormFile(workbook);
+
+        var result = await service.ImportAdminQuestionsAsync(file, 42);
+
+        Assert.Equal(1, result.Summary!.ImportedRows);
+        Assert.Empty(result.Summary.Errors);
+        var question = Assert.Single(savedQuestions!);
+        Assert.Equal("What is dependency injection?", question.QuestionContent);
+        Assert.Equal(
+            "Explain inversion of control and injected dependencies.",
+            question.SuggestedAnswer);
+        Assert.Equal("Backend Developer", question.RoleTarget);
+        Assert.Equal(
+            "0: No understanding. 5: Complete and accurate explanation.",
+            question.ScoringRubric);
     }
 
     private static MemoryStream CreateWorkbook(
