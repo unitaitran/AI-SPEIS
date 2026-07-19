@@ -227,6 +227,7 @@
     "failedDescription": "The session entered a failed state. The system will not create a replacement automatically.",
     "questionUnavailableTitle": "Question not ready",
     "questionUnavailableDescription": "The backend has not returned the current question. Reload the session state to try again.",
+    "questionApiUnavailable": "The interview session was found, but the backend does not currently expose the technical-question API for this session.",
     "questionTypes": {
       "MAIN": "Main question",
       "CLARIFICATION": "Clarification",

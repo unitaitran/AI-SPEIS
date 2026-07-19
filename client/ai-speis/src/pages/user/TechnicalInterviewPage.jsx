@@ -227,7 +227,11 @@ function TechnicalInterviewPage({ sessionId }) {
     content = (
       <TechnicalInterviewErrorState
         title={t('room.questionUnavailableTitle')}
-        message={t('room.questionUnavailableDescription')}
+        message={room.questionError?.status === 404
+          ? t('room.questionApiUnavailable')
+          : room.questionError
+            ? getErrorMessage(room.questionError)
+            : t('room.questionUnavailableDescription')}
         onRetry={room.reload}
         retryLabel={t('common.retry')}
       />

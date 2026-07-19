@@ -1,6 +1,7 @@
 import { ENDPOINTS } from '../config/api';
 import { TechnicalInterviewError } from '../features/technicalInterview/technicalInterviewErrors';
 import { TechnicalInterviewErrorCode } from '../features/technicalInterview/technicalInterview.types';
+import interviewSessionService from './InterviewSessionService';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
@@ -73,12 +74,9 @@ const technicalInterviewApi = {
     jsonOptions('POST', payload),
   ),
 
-  getSession: (sessionId) => request(ENDPOINTS.TECHNICAL_INTERVIEW_SESSION(sessionId)),
+  getSession: (sessionId) => interviewSessionService.getSession(sessionId),
 
-  startSession: (sessionId) => request(
-    ENDPOINTS.TECHNICAL_INTERVIEW_START(sessionId),
-    jsonOptions('POST'),
-  ),
+  startSession: (sessionId) => interviewSessionService.startSession(sessionId),
 
   getCurrentQuestion: (sessionId) => request(
     ENDPOINTS.TECHNICAL_INTERVIEW_CURRENT_QUESTION(sessionId),
@@ -89,10 +87,7 @@ const technicalInterviewApi = {
     jsonOptions('POST', payload, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
   ),
 
-  completeSession: (sessionId) => request(
-    ENDPOINTS.TECHNICAL_INTERVIEW_COMPLETE(sessionId),
-    jsonOptions('POST'),
-  ),
+  completeSession: (sessionId) => interviewSessionService.completeSession(sessionId),
 
   getResult: (sessionId) => request(ENDPOINTS.TECHNICAL_INTERVIEW_RESULT(sessionId)),
 };

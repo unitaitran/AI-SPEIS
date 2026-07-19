@@ -32,6 +32,26 @@ describe('technicalInterviewApi', () => {
     expect(JSON.parse(options.body)).toEqual({ attemptId: 'attempt-9', transcript: 'My answer' });
   });
 
+  test('loads session lifecycle from the existing InterviewSession contract', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({
+        interviewSessionId: 17,
+        interviewRoundType: 'Technical',
+        status: 'Active',
+      }),
+    });
+
+    await expect(technicalInterviewApi.getSession(17)).resolves.toMatchObject({
+      interviewSessionId: 17,
+      status: 'Active',
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch.mock.calls[0][0]).toContain('/api/InterviewSession/17');
+  });
+
   test('maps backend error codes without exposing the raw response to UI code', async () => {
     global.fetch.mockResolvedValue({
       ok: false,
@@ -46,4 +66,3 @@ describe('technicalInterviewApi', () => {
     )).rejects.toMatchObject({ code: 'ANSWER_ALREADY_SUBMITTED', status: 409 });
   });
 });
-

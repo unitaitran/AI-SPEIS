@@ -227,6 +227,7 @@
     "failedDescription": "Phiên đã chuyển sang trạng thái lỗi. Hệ thống sẽ không tự tạo một phiên mới.",
     "questionUnavailableTitle": "Câu hỏi chưa sẵn sàng",
     "questionUnavailableDescription": "Backend chưa trả về câu hỏi hiện tại. Hãy thử tải lại trạng thái phiên.",
+    "questionApiUnavailable": "Phiên phỏng vấn đã được tìm thấy, nhưng backend hiện chưa cung cấp API câu hỏi kỹ thuật cho phiên này.",
     "questionTypes": {
       "MAIN": "Câu hỏi chính",
       "CLARIFICATION": "Làm rõ",

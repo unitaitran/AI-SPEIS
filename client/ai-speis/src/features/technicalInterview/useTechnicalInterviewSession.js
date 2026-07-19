@@ -2,9 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import technicalInterviewApi from '../../services/technicalInterviewApi';
 import { TechnicalSessionStatus } from './technicalInterview.types';
 
-export const getTechnicalSessionStatus = (session) => (
-  session?.sessionStatus || session?.status || null
-);
+const LEGACY_SESSION_STATUS = Object.freeze({
+  Pending: TechnicalSessionStatus.CREATED,
+  Active: TechnicalSessionStatus.QUESTION_READY,
+  Completed: TechnicalSessionStatus.COMPLETED,
+  Cancelled: TechnicalSessionStatus.FAILED,
+});
+
+export const getTechnicalSessionStatus = (session) => {
+  const status = session?.sessionStatus || session?.status || null;
+  return LEGACY_SESSION_STATUS[status] || status;
+};
 
 const canHaveCurrentQuestion = (status) => (
   status === TechnicalSessionStatus.QUESTION_READY
@@ -17,6 +25,7 @@ export default function useTechnicalInterviewSession(sessionId) {
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [isLoading, setIsLoading] = useState(Boolean(sessionId));
   const [error, setError] = useState(null);
+  const [questionError, setQuestionError] = useState(null);
   const requestIdRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -29,6 +38,7 @@ export default function useTechnicalInterviewSession(sessionId) {
     requestIdRef.current = requestId;
     setIsLoading(true);
     setError(null);
+    setQuestionError(null);
 
     try {
       const sessionResponse = await technicalInterviewApi.getSession(sessionId);
@@ -38,9 +48,15 @@ export default function useTechnicalInterviewSession(sessionId) {
       setSession(nextSession);
 
       if (canHaveCurrentQuestion(status)) {
-        const questionResponse = await technicalInterviewApi.getCurrentQuestion(sessionId);
-        if (requestIdRef.current !== requestId) return null;
-        setCurrentQuestion(questionResponse?.currentQuestion || questionResponse?.question || questionResponse);
+        try {
+          const questionResponse = await technicalInterviewApi.getCurrentQuestion(sessionId);
+          if (requestIdRef.current !== requestId) return null;
+          setCurrentQuestion(questionResponse?.currentQuestion || questionResponse?.question || questionResponse);
+        } catch (requestError) {
+          if (requestIdRef.current !== requestId) return null;
+          setCurrentQuestion(null);
+          setQuestionError(requestError);
+        }
       } else {
         setCurrentQuestion(null);
       }
@@ -64,7 +80,9 @@ export default function useTechnicalInterviewSession(sessionId) {
     if (!sessionId) return null;
     setError(null);
     const response = await technicalInterviewApi.startSession(sessionId);
-    const nextSession = response?.session || response;
+    const nextSession = response?.session
+      || response?.sessions?.find((candidate) => String(candidate.interviewSessionId) === String(sessionId))
+      || response;
     setSession(nextSession);
     if (response?.currentQuestion || response?.question) {
       setCurrentQuestion(response.currentQuestion || response.question);
@@ -92,9 +110,9 @@ export default function useTechnicalInterviewSession(sessionId) {
     currentQuestion,
     isLoading,
     error,
+    questionError,
     reload: load,
     startSession,
     applyAnswerResponse,
   };
 }
-

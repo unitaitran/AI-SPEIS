@@ -52,5 +52,41 @@ describe('useTechnicalInterviewSession', () => {
     expect(technicalInterviewApi.getCurrentQuestion).not.toHaveBeenCalled();
     expect(result.current.currentQuestion).toBeNull();
   });
-});
 
+  test('accepts an Active session from the existing backend contract', async () => {
+    technicalInterviewApi.getSession.mockResolvedValue({
+      interviewSessionId: 17,
+      interviewRoundType: 'Technical',
+      status: 'Active',
+    });
+    technicalInterviewApi.getCurrentQuestion.mockResolvedValue({
+      attemptId: 'attempt-17',
+      questionType: 'MAIN',
+      content: 'Explain the browser event loop.',
+      mainQuestionIndex: 1,
+      totalMainQuestions: 5,
+    });
+
+    const { result } = renderHook(() => useTechnicalInterviewSession(17));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.currentQuestion?.attemptId).toBe('attempt-17');
+  });
+
+  test('keeps a found session when only the current-question endpoint is unavailable', async () => {
+    technicalInterviewApi.getSession.mockResolvedValue({
+      interviewSessionId: 17,
+      interviewRoundType: 'Technical',
+      status: 'Active',
+    });
+    technicalInterviewApi.getCurrentQuestion.mockRejectedValue({ status: 404, code: 'SESSION_NOT_FOUND' });
+
+    const { result } = renderHook(() => useTechnicalInterviewSession(17));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.session?.interviewSessionId).toBe(17);
+    expect(result.current.error).toBeNull();
+    expect(result.current.questionError).toMatchObject({ status: 404 });
+  });
+});
