@@ -4,6 +4,7 @@ using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
 using Microsoft.AspNetCore.Http;
 using System.IO.Compression;
+using System.Text.Json;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -11,14 +12,30 @@ namespace ai_speis_be.Services.QuestionService
 {
     public class QuestionService : IQuestionService
     {
-        private static readonly string[] RequiredImportColumns =
+        private static readonly string[] ImportColumns =
         {
             "questionContent",
             "major",
             "difficulty",
             "roleTarget",
             "suggestedAnswer",
-            "status"
+            "status",
+            "questionType",
+            "language",
+            "skill",
+            "experienceLevel",
+            "levelTags",
+            "companyCategory",
+            "companySubcategory",
+            "expectedKeyPoints",
+            "scoringRubricJson",
+            "clarificationQuestion",
+            "followUp1",
+            "followUp2",
+            "timeLimitSeconds",
+            "keywordTags",
+            "embeddingText",
+            "qdrantPayloadJson"
         };
 
         private static readonly HashSet<string> AllowedExcelContentTypes = new(
@@ -209,11 +226,7 @@ namespace ai_speis_be.Services.QuestionService
             {
                 var errors = ValidateQuestionImportRow(
                     row,
-                    out var questionContent,
-                    out var major,
-                    out var difficulty,
-                    out var roleTarget,
-                    out var suggestedAnswer);
+                    out var values);
 
                 if (errors.Count > 0)
                 {
@@ -229,11 +242,27 @@ namespace ai_speis_be.Services.QuestionService
                 validQuestions.Add(new Question
                 {
                     UserId = actingUserId,
-                    QuestionContent = questionContent,
-                    SuggestedAnswer = suggestedAnswer,
-                    Difficulty = difficulty,
-                    RoleTarget = roleTarget,
-                    Major = major,
+                    QuestionContent = values.QuestionContent,
+                    SuggestedAnswer = values.SuggestedAnswer,
+                    Difficulty = values.Difficulty,
+                    RoleTarget = values.RoleTarget,
+                    Major = values.Major,
+                    QuestionType = values.QuestionType,
+                    Language = values.Language,
+                    Skill = values.Skill,
+                    ExperienceLevel = values.ExperienceLevel,
+                    LevelTags = values.LevelTags,
+                    CompanyCategory = values.CompanyCategory,
+                    CompanySubcategory = values.CompanySubcategory,
+                    ExpectedKeyPoints = values.ExpectedKeyPoints,
+                    ScoringRubricJson = values.ScoringRubricJson,
+                    ClarificationQuestion = values.ClarificationQuestion,
+                    FollowUp1 = values.FollowUp1,
+                    FollowUp2 = values.FollowUp2,
+                    TimeLimitSeconds = values.TimeLimitSeconds,
+                    KeywordTags = values.KeywordTags,
+                    EmbeddingText = values.EmbeddingText,
+                    QdrantPayloadJson = values.QdrantPayloadJson,
                     IsDeleted = false,
                     CreatedAt = now,
                     UpdatedAt = null,
@@ -492,31 +521,19 @@ namespace ai_speis_be.Services.QuestionService
                 if (headerColumns is null)
                 {
                     headerColumns = BuildHeaderColumnMap(worksheetRow);
-                    var missingColumns = RequiredImportColumns
-                        .Where(column => !headerColumns.ContainsKey(
-                            NormalizeHeader(column)))
-                        .ToList();
-
-                    if (missingColumns.Count > 0)
-                    {
-                        throw new InvalidDataException(
-                            $"Workbook tải lên thiếu các cột bắt buộc: {string.Join(", ", missingColumns)}.");
-                    }
-
                     continue;
                 }
 
                 var values = new Dictionary<string, string>(
                     StringComparer.OrdinalIgnoreCase);
 
-                foreach (var column in RequiredImportColumns)
+                foreach (var column in ImportColumns)
                 {
                     var headerKey = NormalizeHeader(column);
-                    var sourceColumn = headerColumns[headerKey];
-
-                    values[column] = worksheetRow.Cells.TryGetValue(
-                        sourceColumn,
-                        out var value)
+                    values[column] = headerColumns.TryGetValue(
+                            headerKey,
+                            out var sourceColumn) &&
+                        worksheetRow.Cells.TryGetValue(sourceColumn, out var value)
                         ? value.Trim()
                         : string.Empty;
                 }
@@ -626,34 +643,76 @@ namespace ai_speis_be.Services.QuestionService
 
         private static List<string> ValidateQuestionImportRow(
             ParsedQuestionImportRow row,
-            out string questionContent,
-            out string major,
-            out QuestionDifficultyEnum difficulty,
-            out string roleTarget,
-            out string suggestedAnswer)
+            out ParsedQuestionImportValues values)
         {
-            questionContent = GetRowValue(row, "questionContent");
-            major = GetRowValue(row, "major");
+            var questionContent = GetRowValue(row, "questionContent");
+            var major = GetRowValue(row, "major");
             var difficultyValue = GetRowValue(row, "difficulty");
-            roleTarget = GetRowValue(row, "roleTarget");
-            suggestedAnswer = GetRowValue(row, "suggestedAnswer");
+            var roleTarget = GetRowValue(row, "roleTarget");
+            var suggestedAnswer = GetRowValue(row, "suggestedAnswer");
             var statusValue = GetRowValue(row, "status");
+            if (string.IsNullOrWhiteSpace(statusValue))
+            {
+                statusValue = AdminQuestionStatus.Active.ToString();
+            }
 
-            difficulty = default;
+            var questionType = GetRowValue(row, "questionType");
+            var language = GetRowValue(row, "language");
+            var skill = GetRowValue(row, "skill");
+            var experienceLevel = GetRowValue(row, "experienceLevel");
+            var levelTags = GetRowValue(row, "levelTags");
+            var companyCategory = GetRowValue(row, "companyCategory");
+            var companySubcategory = GetRowValue(row, "companySubcategory");
+            var expectedKeyPoints = GetRowValue(row, "expectedKeyPoints");
+            var scoringRubricJson = GetRowValue(row, "scoringRubricJson");
+            var clarificationQuestion = GetRowValue(row, "clarificationQuestion");
+            var followUp1 = GetRowValue(row, "followUp1");
+            var followUp2 = GetRowValue(row, "followUp2");
+            var timeLimitSecondsValue = GetRowValue(row, "timeLimitSeconds");
+            var keywordTags = GetRowValue(row, "keywordTags");
+            var embeddingText = GetRowValue(row, "embeddingText");
+            var qdrantPayloadJson = GetRowValue(row, "qdrantPayloadJson");
+
+            var difficulty = default(QuestionDifficultyEnum);
+            int? timeLimitSeconds = null;
             var errors = new List<string>();
-
-            AddRequiredError(errors, "questionContent", questionContent);
-            AddRequiredError(errors, "major", major);
-            AddRequiredError(errors, "difficulty", difficultyValue);
-            AddRequiredError(errors, "roleTarget", roleTarget);
-            AddRequiredError(errors, "suggestedAnswer", suggestedAnswer);
-            AddRequiredError(errors, "status", statusValue);
 
             AddMaxLengthError(errors, "questionContent", questionContent, 4000);
             AddMaxLengthError(errors, "major", major, 100);
             AddMaxLengthError(errors, "roleTarget", roleTarget, 100);
             AddMaxLengthError(errors, "suggestedAnswer", suggestedAnswer, 4000);
             AddMaxLengthError(errors, "status", statusValue, 20);
+
+            if (!string.IsNullOrEmpty(questionType) &&
+                !string.Equals(questionType, "Technical", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(questionType, "Behavioral", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(questionType, "CV Deep Dive", StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("questionType phải là Technical, Behavioral hoặc CV Deep Dive.");
+            }
+
+            if (!string.IsNullOrEmpty(language) &&
+                !string.Equals(language, "vi", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(language, "en", StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("language phải là vi hoặc en.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(timeLimitSecondsValue))
+            {
+                if (!int.TryParse(timeLimitSecondsValue, out var parsedTimeLimit) ||
+                    parsedTimeLimit <= 0)
+                {
+                    errors.Add("timeLimitSeconds phải là số nguyên lớn hơn 0.");
+                }
+                else
+                {
+                    timeLimitSeconds = parsedTimeLimit;
+                }
+            }
+
+            AddJsonError(errors, "scoringRubricJson", scoringRubricJson);
+            AddJsonError(errors, "qdrantPayloadJson", qdrantPayloadJson);
 
             if (!string.IsNullOrWhiteSpace(difficultyValue) &&
                 !TryParseNamedEnum(difficultyValue, out difficulty))
@@ -675,7 +734,67 @@ namespace ai_speis_be.Services.QuestionService
                 }
             }
 
+            values = new ParsedQuestionImportValues(
+                questionContent,
+                major,
+                difficulty,
+                roleTarget,
+                suggestedAnswer,
+                NormalizeQuestionType(questionType),
+                language,
+                skill,
+                experienceLevel,
+                levelTags,
+                companyCategory,
+                companySubcategory,
+                expectedKeyPoints,
+                scoringRubricJson,
+                clarificationQuestion,
+                followUp1,
+                followUp2,
+                timeLimitSeconds ?? 120,
+                keywordTags,
+                embeddingText,
+                qdrantPayloadJson);
+
             return errors;
+        }
+
+        private static string NormalizeQuestionType(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return string.Empty;
+            }
+
+            if (string.Equals(value, "Behavioral", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Behavioral";
+            }
+
+            return string.Equals(value, "CV Deep Dive", StringComparison.OrdinalIgnoreCase)
+                ? "CV Deep Dive"
+                : "Technical";
+        }
+
+        private static void AddJsonError(
+            List<string> errors,
+            string field,
+            string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
+            try
+            {
+                using var _ = JsonDocument.Parse(value);
+            }
+            catch (JsonException)
+            {
+                errors.Add($"{field} phải là JSON hợp lệ.");
+            }
         }
 
         private static string GetRowValue(
@@ -685,17 +804,6 @@ namespace ai_speis_be.Services.QuestionService
             return row.Values.TryGetValue(column, out var value)
                 ? value
                 : string.Empty;
-        }
-
-        private static void AddRequiredError(
-            List<string> errors,
-            string field,
-            string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                errors.Add($"{field} là bắt buộc.");
-            }
         }
 
         private static void AddMaxLengthError(
@@ -827,5 +935,28 @@ namespace ai_speis_be.Services.QuestionService
         private sealed record ParsedQuestionImportRow(
             int RowNumber,
             IReadOnlyDictionary<string, string> Values);
+
+        private sealed record ParsedQuestionImportValues(
+            string QuestionContent,
+            string Major,
+            QuestionDifficultyEnum Difficulty,
+            string RoleTarget,
+            string SuggestedAnswer,
+            string QuestionType,
+            string? Language,
+            string? Skill,
+            string? ExperienceLevel,
+            string? LevelTags,
+            string? CompanyCategory,
+            string? CompanySubcategory,
+            string? ExpectedKeyPoints,
+            string? ScoringRubricJson,
+            string? ClarificationQuestion,
+            string? FollowUp1,
+            string? FollowUp2,
+            int? TimeLimitSeconds,
+            string? KeywordTags,
+            string? EmbeddingText,
+            string? QdrantPayloadJson);
     }
 }
