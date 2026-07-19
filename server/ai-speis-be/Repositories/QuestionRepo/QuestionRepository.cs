@@ -142,6 +142,78 @@ namespace ai_speis_be.Repositories.QuestionRepo
             };
         }
 
+        public async Task<IReadOnlyList<Question>> GetTechnicalCandidatesAsync(
+            TechnicalQuestionCandidateQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            var questions = _context.Questions
+                .AsNoTracking()
+                .Where(question => !question.IsDeleted && question.QuestionType == "Technical");
+
+            if (!string.IsNullOrWhiteSpace(query.Language))
+            {
+                questions = questions.Where(question => question.Language == query.Language);
+            }
+
+            if (query.RoleTargets.Count > 0)
+            {
+                questions = questions.Where(question => query.RoleTargets.Contains(question.RoleTarget));
+            }
+
+            if (query.ExperienceLevels.Count > 0)
+            {
+                questions = questions.Where(question =>
+                    question.ExperienceLevel != null
+                    && query.ExperienceLevels.Contains(question.ExperienceLevel));
+            }
+
+            if (query.Skills.Count > 0)
+            {
+                questions = questions.Where(question =>
+                    question.Skill != null && query.Skills.Contains(question.Skill));
+            }
+
+            if (query.Difficulty.HasValue)
+            {
+                questions = questions.Where(question => question.Difficulty == query.Difficulty.Value);
+            }
+
+            if (query.ExcludedQuestionIds.Count > 0)
+            {
+                questions = questions.Where(question => !query.ExcludedQuestionIds.Contains(question.QuestionId));
+            }
+
+            return await questions
+                .OrderBy(question => question.QuestionId)
+                .Take(Math.Clamp(query.MaximumResults, 1, 500))
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<IReadOnlyList<string>> GetTechnicalSkillsAsync(
+            string language,
+            IReadOnlyCollection<string> roleTargets,
+            CancellationToken cancellationToken = default)
+        {
+            var questions = _context.Questions
+                .AsNoTracking()
+                .Where(question =>
+                    !question.IsDeleted
+                    && question.QuestionType == "Technical"
+                    && question.Language == language
+                    && question.Skill != null);
+
+            if (roleTargets.Count > 0)
+            {
+                questions = questions.Where(question => roleTargets.Contains(question.RoleTarget));
+            }
+
+            return await questions
+                .Select(question => question.Skill!)
+                .Distinct()
+                .OrderBy(skill => skill)
+                .ToListAsync(cancellationToken);
+        }
+
         private static IQueryable<Question> ApplyUserFilters(
             IQueryable<Question> questions,
             UserQuestionQueryDto query)

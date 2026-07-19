@@ -27,6 +27,9 @@ namespace ai_speis_be.Models
         public DbSet<CodingSubmission> CodingSubmissions { get; set; } = null!;
         public DbSet<SubmissionTestCaseResult> SubmissionTestCaseResults { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
+        public DbSet<TechnicalQuestionAttempt> TechnicalQuestionAttempts { get; set; } = null!;
+        public DbSet<TechnicalAnswerEvaluation> TechnicalAnswerEvaluations { get; set; } = null!;
+        public DbSet<AIInteractionLog> AIInteractionLogs { get; set; } = null!;
   
 
 
@@ -42,6 +45,9 @@ namespace ai_speis_be.Models
             modelBuilder.Entity<CodingQuestionTemplate>().HasQueryFilter(t => !t.CodingQuestion.InterviewSession.IsDeleted);
             modelBuilder.Entity<TestCase>().HasQueryFilter(tc => !tc.CodingQuestion.InterviewSession.IsDeleted);
             modelBuilder.Entity<SubmissionTestCaseResult>().HasQueryFilter(r => !r.CodingSubmission.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TechnicalQuestionAttempt>().HasQueryFilter(a => !a.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TechnicalAnswerEvaluation>().HasQueryFilter(e => !e.Attempt.InterviewSession.IsDeleted);
+            modelBuilder.Entity<AIInteractionLog>().HasQueryFilter(a => !a.InterviewSession.IsDeleted);
 
             // Seed default roles
             modelBuilder.Entity<Role>().HasData(
@@ -166,6 +172,61 @@ namespace ai_speis_be.Models
                 .WithMany(c => c.InterviewSessions)
                 .HasForeignKey(s => s.InterviewCampaignId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<InterviewSession>()
+                .Property(s => s.TechnicalConcurrencyVersion)
+                .IsConcurrencyToken();
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasOne(a => a.InterviewSession)
+                .WithMany(s => s.TechnicalQuestionAttempts)
+                .HasForeignKey(a => a.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasOne(a => a.Question)
+                .WithMany()
+                .HasForeignKey(a => a.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasOne(a => a.ParentAttempt)
+                .WithMany(a => a.ChildAttempts)
+                .HasForeignKey(a => a.ParentAttemptId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasIndex(a => new { a.InterviewSessionId, a.SubmissionIdempotencyKey })
+                .IsUnique()
+                .HasFilter("[SubmissionIdempotencyKey] IS NOT NULL");
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasIndex(a => new { a.InterviewSessionId, a.Status })
+                .IsUnique()
+                .HasFilter("[Status] = 0");
+
+            modelBuilder.Entity<TechnicalAnswerEvaluation>()
+                .HasOne(e => e.Attempt)
+                .WithMany(a => a.Evaluations)
+                .HasForeignKey(e => e.AttemptId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TechnicalAnswerEvaluation>()
+                .HasIndex(e => e.RootMainAttemptId)
+                .IsUnique()
+                .HasFilter("[IsFinalForMainQuestion] = 1");
+
+            modelBuilder.Entity<AIInteractionLog>()
+                .HasOne(log => log.InterviewSession)
+                .WithMany(session => session.AIInteractionLogs)
+                .HasForeignKey(log => log.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AIInteractionLog>()
+                .HasOne(log => log.Attempt)
+                .WithMany()
+                .HasForeignKey(log => log.AttemptId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             // CodingQuestion Relationships
             modelBuilder.Entity<CodingQuestion>()

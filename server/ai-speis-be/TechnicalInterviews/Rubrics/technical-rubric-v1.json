@@ -1,0 +1,60 @@
+{
+  "version": "technical-rubric-v1",
+  "scoringPolicyVersion": "technical-scoring-v1",
+  "minimumScore": 0,
+  "maximumScore": 5,
+  "roundingPrecision": 2,
+  "evidenceRequiredWhenScoreAbove": 0,
+  "dimensions": [
+    {
+      "code": "TECHNICAL_ACCURACY",
+      "name": "Độ chính xác kỹ thuật",
+      "description": "Mức độ chính xác của kiến thức và thuật ngữ kỹ thuật.",
+      "weight": 0.30
+    },
+    {
+      "code": "TECHNICAL_DEPTH",
+      "name": "Độ sâu kỹ thuật",
+      "description": "Khả năng hiểu nguyên lý hoạt động và phân tích chuyên sâu.",
+      "weight": 0.25
+    },
+    {
+      "code": "EXPLANATION_REASONING",
+      "name": "Giải thích và lập luận",
+      "description": "Khả năng giải thích logic, có dẫn chứng và ví dụ.",
+      "weight": 0.20
+    },
+    {
+      "code": "PRACTICAL_APPLICATION",
+      "name": "Khả năng áp dụng thực tế",
+      "description": "Liên hệ với dự án, công nghệ và tình huống thực tế.",
+      "weight": 0.15
+    },
+    {
+      "code": "COMMUNICATION",
+      "name": "Khả năng giao tiếp",
+      "description": "Trình bày rõ ràng, mạch lạc và chuyên nghiệp.",
+      "weight": 0.10
+    }
+  ],
+  "levels": [
+    { "code": "SCORE_0", "score": 0, "description": "No understanding." },
+    { "code": "SCORE_1", "score": 1, "description": "Very limited understanding." },
+    { "code": "SCORE_2", "score": 2, "description": "Basic understanding with significant gaps." },
+    { "code": "SCORE_3", "score": 3, "description": "Correct explanation with minor omissions." },
+    { "code": "SCORE_4", "score": 4, "description": "Good explanation with practical examples." },
+    { "code": "SCORE_5", "score": 5, "description": "Excellent explanation with deep understanding and trade-off discussion." }
+  ],
+  "performanceBands": [
+    { "code": "EXCELLENT", "name": "Xuất sắc", "minimum": 4.50, "maximum": 5.00 },
+    { "code": "GOOD", "name": "Tốt", "minimum": 3.50, "maximum": 4.49 },
+    { "code": "FAIR", "name": "Khá", "minimum": 2.50, "maximum": 3.49 },
+    { "code": "WEAK", "name": "Yếu", "minimum": 1.50, "maximum": 2.49 },
+    { "code": "POOR", "name": "Kém", "minimum": 0.00, "maximum": 1.49 }
+  ],
+  "limits": {
+    "maxClarificationsPerMainQuestion": 1,
+    "maxFollowUpsPerMainQuestion": 2,
+    "maxTotalSubQuestionsPerMainQuestion": 2
+  }
+}

@@ -38,7 +38,55 @@ namespace ai_speis_be.Models
 
         public DateTime? DeletedAt { get; set; }
 
+        // Technical Interview runtime metadata. Nullable fields preserve existing sessions.
+        public TechnicalInterviewState? TechnicalState { get; set; }
+
+        [MaxLength(50)]
+        public string? TechnicalAiProvider { get; set; }
+
+        [MaxLength(120)]
+        public string? TechnicalAiModel { get; set; }
+
+        [MaxLength(50)]
+        public string? TechnicalRubricVersion { get; set; }
+
+        [MaxLength(50)]
+        public string? TechnicalScoringPolicyVersion { get; set; }
+
+        [MaxLength(200)]
+        public string? TechnicalJobRole { get; set; }
+
+        [MaxLength(100)]
+        public string? TechnicalExperienceLevel { get; set; }
+
+        [MaxLength(10)]
+        public string? TechnicalLanguage { get; set; }
+
+        [Column(TypeName = "nvarchar(max)")]
+        public string? TechnicalSelectedSkillsJson { get; set; }
+
+        public int TechnicalCompletedMainQuestionCount { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? TechnicalFinalScore { get; set; }
+
+        [MaxLength(50)]
+        public string? TechnicalPerformanceBand { get; set; }
+
+        [Column(TypeName = "nvarchar(max)")]
+        public string? TechnicalSummaryJson { get; set; }
+
+        public DateTime? TechnicalStartedAt { get; set; }
+
+        public DateTime? TechnicalCompletedAt { get; set; }
+
+        public int TechnicalConcurrencyVersion { get; set; }
+
         // Navigation properties
         public virtual InterviewCampaign InterviewCampaign { get; set; } = null!;
+
+        public virtual ICollection<TechnicalQuestionAttempt> TechnicalQuestionAttempts { get; set; } = new List<TechnicalQuestionAttempt>();
+
+        public virtual ICollection<AIInteractionLog> AIInteractionLogs { get; set; } = new List<AIInteractionLog>();
     }
 }
