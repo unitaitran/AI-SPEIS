@@ -11,6 +11,6 @@ namespace ai_speis_be.Models.DTOs.Payment
         public DateTime CreatedAt { get; set; }
         public DateTime? PaidAt { get; set; }
         public DateTime ExpiresAt { get; set; }
-        public string QrUrl { get; set; } = string.Empty;
+        public string PayUrl { get; set; } = string.Empty;
     }
 }

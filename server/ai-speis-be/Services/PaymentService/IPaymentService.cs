@@ -17,5 +17,9 @@ namespace ai_speis_be.Services.PaymentService
         Task<(bool Success, string? ErrorMessage)> HandleWebhookAsync(
             PaymentWebhookRequestDto webhook,
             CancellationToken cancellationToken = default);
+
+        Task<(bool Success, string? ErrorMessage)> QueryTransactionStatusAsync(
+            string orderCode,
+            CancellationToken cancellationToken = default);
     }
 }

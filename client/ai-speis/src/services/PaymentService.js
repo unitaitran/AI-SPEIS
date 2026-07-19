@@ -54,6 +54,21 @@ const paymentService = {
 
     return parseJsonResponse(response);
   },
+
+  verifyPaymentResult: async (orderId) => {
+    if (!orderId) {
+      throw new Error('Missing order ID');
+    }
+
+    const response = await fetch(ENDPOINTS.PAYMENT_VERIFY(orderId), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    return parseJsonResponse(response);
+  }
 };
 
 export default paymentService;

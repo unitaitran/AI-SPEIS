@@ -1,10 +1,14 @@
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs.Payment;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.PaymentRepo;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace ai_speis_be.Services.PaymentService
 {
@@ -12,20 +16,28 @@ namespace ai_speis_be.Services.PaymentService
     {
         private static readonly TimeSpan ExpiryDuration = TimeSpan.FromMinutes(10);
         private const int PremiumQuotaThreshold = 15;
-        private static readonly Regex OrderCodeRegex = new(@"ASP\d{18}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private readonly IPaymentRepository _paymentRepository;
         private readonly ApplicationDbContext _context;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
 
         private static readonly IReadOnlyDictionary<int, decimal> PackageAmountMap = new Dictionary<int, decimal>
         {
-            [1] = 29000m,
+            [1] = 59000m,   // 1 month
+            [2] = 599000m,  // 1 year
         };
 
-        public PaymentService(IPaymentRepository paymentRepository, ApplicationDbContext context)
+        public PaymentService(
+            IPaymentRepository paymentRepository, 
+            ApplicationDbContext context,
+            IHttpClientFactory httpClientFactory,
+            IConfiguration configuration)
         {
             _paymentRepository = paymentRepository;
             _context = context;
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
         }
 
         public async Task<(bool Success, string? ErrorMessage, PaymentResponseDto? Payment)> CreatePaymentAsync(
@@ -35,13 +47,13 @@ namespace ai_speis_be.Services.PaymentService
         {
             if (!PackageAmountMap.TryGetValue(packageId, out var amount))
             {
-                return (false, "Goi dich vu khong hop le.", null);
+                return (false, "Gói dịch vụ không hợp lệ.", null);
             }
 
             var userExists = await _context.Users.AnyAsync(user => user.UserId == userId, cancellationToken);
             if (!userExists)
             {
-                return (false, "Nguoi dung khong ton tai.", null);
+                return (false, "Người dùng không tồn tại.", null);
             }
 
             var orderCode = await GenerateUniqueOrderCodeAsync(cancellationToken);
@@ -59,7 +71,17 @@ namespace ai_speis_be.Services.PaymentService
             };
 
             await _paymentRepository.CreateAsync(payment, cancellationToken);
-            return (true, null, MapToPaymentResponse(payment));
+
+            var payUrl = await CreateMoMoPaymentRequestAsync(payment, cancellationToken);
+            if (string.IsNullOrEmpty(payUrl))
+            {
+                return (false, "Lỗi khi kết nối với MoMo.", null);
+            }
+
+            var response = MapToPaymentResponse(payment);
+            response.PayUrl = payUrl;
+
+            return (true, null, response);
         }
 
         public async Task<(bool Success, string? ErrorMessage, PaymentCheckResponseDto? Payment)> CheckPaymentAsync(
@@ -70,7 +92,7 @@ namespace ai_speis_be.Services.PaymentService
             var payment = await _paymentRepository.GetByOrderCodeAsync(orderCode, cancellationToken);
             if (payment is null || payment.UserId != userId)
             {
-                return (false, "Khong tim thay giao dich.", null);
+                return (false, "Không tìm thấy giao dịch.", null);
             }
 
             if (TryExpirePayment(payment))
@@ -85,22 +107,34 @@ namespace ai_speis_be.Services.PaymentService
             PaymentWebhookRequestDto webhook,
             CancellationToken cancellationToken = default)
         {
-            var orderCode = ResolveOrderCode(webhook);
+            var orderCode = webhook.OrderId;
             if (string.IsNullOrWhiteSpace(orderCode))
             {
-                return (false, "Khong the xac dinh orderCode.");
+                return (false, "Không thể xác định orderCode.");
             }
 
             var payment = await _paymentRepository.GetByOrderCodeAsync(orderCode, cancellationToken);
             if (payment is null)
             {
-                return (false, "Khong tim thay giao dich.");
+                return (false, "Không tìm thấy giao dịch.");
+            }
+
+            // Verify signature
+            var accessKey = _configuration["MoMo:AccessKey"] ?? "";
+            var secretKey = _configuration["MoMo:SecretKey"] ?? "";
+            
+            var rawHash = $"accessKey={accessKey}&amount={webhook.Amount}&extraData={webhook.ExtraData}&message={webhook.Message}&orderId={webhook.OrderId}&orderInfo={webhook.OrderInfo}&orderType={webhook.OrderType}&partnerCode={webhook.PartnerCode}&payType={webhook.PayType}&requestId={webhook.RequestId}&responseTime={webhook.ResponseTime}&resultCode={webhook.ResultCode}&transId={webhook.TransId}";
+            var signature = ComputeHmacSha256(rawHash, secretKey);
+
+            if (signature != webhook.Signature)
+            {
+                return (false, "Chữ ký không hợp lệ.");
             }
 
             if (TryExpirePayment(payment))
             {
                 await _paymentRepository.UpdateAsync(payment, cancellationToken);
-                return (false, "Giao dich da het han.");
+                return (false, "Giao dịch đã hết hạn.");
             }
 
             if (payment.Status == PaymentStatus.Paid)
@@ -108,17 +142,78 @@ namespace ai_speis_be.Services.PaymentService
                 return (true, null);
             }
 
-            var description = webhook.Description ?? string.Empty;
-            if (webhook.Amount != payment.Amount)
+            if (webhook.ResultCode != 0)
             {
-                return (false, "So tien khong khop.");
+                // Payment failed on MoMo side
+                return (false, $"Thanh toán thất bại: {webhook.Message}");
             }
 
-            if (!description.Contains(payment.OrderCode, StringComparison.OrdinalIgnoreCase))
+            await CompletePaymentAsync(payment, cancellationToken);
+            return (true, null);
+        }
+
+        public async Task<(bool Success, string? ErrorMessage)> QueryTransactionStatusAsync(
+            string orderCode,
+            CancellationToken cancellationToken = default)
+        {
+            var payment = await _paymentRepository.GetByOrderCodeAsync(orderCode, cancellationToken);
+            if (payment is null)
             {
-                return (false, "Noi dung thanh toan khong hop le.");
+                return (false, "Không tìm thấy giao dịch.");
             }
 
+            if (payment.Status == PaymentStatus.Paid)
+            {
+                return (true, null);
+            }
+
+            if (TryExpirePayment(payment))
+            {
+                await _paymentRepository.UpdateAsync(payment, cancellationToken);
+                return (false, "Giao dịch đã hết hạn.");
+            }
+
+            var partnerCode = _configuration["MoMo:PartnerCode"] ?? "";
+            var accessKey = _configuration["MoMo:AccessKey"] ?? "";
+            var secretKey = _configuration["MoMo:SecretKey"] ?? "";
+            var apiEndpoint = _configuration["MoMo:ApiEndpoint"] ?? "";
+            var requestId = Guid.NewGuid().ToString();
+
+            var rawHash = $"accessKey={accessKey}&orderId={orderCode}&partnerCode={partnerCode}&requestId={requestId}";
+            var signature = ComputeHmacSha256(rawHash, secretKey);
+
+            var requestData = new
+            {
+                partnerCode,
+                requestId,
+                orderId = orderCode,
+                signature,
+                lang = "vi"
+            };
+
+            var client = _httpClientFactory.CreateClient();
+            var content = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
+            
+            var response = await client.PostAsync($"{apiEndpoint}/v2/gateway/api/query", content, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return (false, "Không thể truy vấn trạng thái từ MoMo.");
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            var momoResponse = JsonSerializer.Deserialize<MoMoQueryResponse>(responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (momoResponse?.ResultCode == 0)
+            {
+                await CompletePaymentAsync(payment, cancellationToken);
+                return (true, null);
+            }
+
+            return (false, momoResponse?.Message ?? "Thanh toán chưa thành công hoặc thất bại.");
+        }
+
+        private async Task CompletePaymentAsync(Payment payment, CancellationToken cancellationToken)
+        {
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
             try
             {
@@ -135,13 +230,73 @@ namespace ai_speis_be.Services.PaymentService
                 }
 
                 await transaction.CommitAsync(cancellationToken);
-                return (true, null);
             }
             catch
             {
                 await transaction.RollbackAsync(cancellationToken);
                 throw;
             }
+        }
+
+        private async Task<string?> CreateMoMoPaymentRequestAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            var partnerCode = _configuration["MoMo:PartnerCode"] ?? "";
+            var accessKey = _configuration["MoMo:AccessKey"] ?? "";
+            var secretKey = _configuration["MoMo:SecretKey"] ?? "";
+            var apiEndpoint = _configuration["MoMo:ApiEndpoint"] ?? "";
+            var redirectUrl = _configuration["MoMo:RedirectUrl"] ?? "";
+            var ipnUrl = _configuration["MoMo:IpnUrl"] ?? "";
+
+            var orderInfo = $"Thanh toan goi Premium AI-SPEIS: {payment.OrderCode}";
+            var amount = Convert.ToInt64(decimal.Round(payment.Amount, 0, MidpointRounding.AwayFromZero)).ToString();
+            var requestId = Guid.NewGuid().ToString();
+            var extraData = "";
+            var requestType = "captureWallet";
+
+            var rawHash = $"accessKey={accessKey}&amount={amount}&extraData={extraData}&ipnUrl={ipnUrl}&orderId={payment.OrderCode}&orderInfo={orderInfo}&partnerCode={partnerCode}&redirectUrl={redirectUrl}&requestId={requestId}&requestType={requestType}";
+            var signature = ComputeHmacSha256(rawHash, secretKey);
+
+            var requestData = new
+            {
+                partnerCode,
+                partnerName = "AI-SPEIS",
+                storeId = "MomoTestStore",
+                requestId,
+                amount,
+                orderId = payment.OrderCode,
+                orderInfo,
+                redirectUrl,
+                ipnUrl,
+                lang = "vi",
+                extraData,
+                requestType,
+                signature
+            };
+
+            var client = _httpClientFactory.CreateClient();
+            var content = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync($"{apiEndpoint}/v2/gateway/api/create", content, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            var momoResponse = JsonSerializer.Deserialize<MoMoCreateResponse>(responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            return momoResponse?.PayUrl;
+        }
+
+        private static string ComputeHmacSha256(string message, string secretKey)
+        {
+            var keyBytes = Encoding.UTF8.GetBytes(secretKey);
+            var messageBytes = Encoding.UTF8.GetBytes(message);
+
+            using var hmac = new HMACSHA256(keyBytes);
+            var hashBytes = hmac.ComputeHash(messageBytes);
+
+            return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
         }
 
         private static bool TryExpirePayment(Payment payment)
@@ -176,22 +331,6 @@ namespace ai_speis_be.Services.PaymentService
             return $"ASP{DateTime.UtcNow:yyyyMMddHHmmssfff}{RandomNumberGenerator.GetInt32(10000, 99999)}";
         }
 
-        private static string? ResolveOrderCode(PaymentWebhookRequestDto webhook)
-        {
-            if (!string.IsNullOrWhiteSpace(webhook.OrderCode))
-            {
-                return webhook.OrderCode.Trim();
-            }
-
-            if (string.IsNullOrWhiteSpace(webhook.Description))
-            {
-                return null;
-            }
-
-            var match = OrderCodeRegex.Match(webhook.Description);
-            return match.Success ? match.Value : null;
-        }
-
         private static PaymentResponseDto MapToPaymentResponse(Payment payment)
         {
             var createdAtUtc = AsUtc(payment.CreatedAt);
@@ -209,7 +348,7 @@ namespace ai_speis_be.Services.PaymentService
                 CreatedAt = createdAtUtc,
                 PaidAt = paidAtUtc,
                 ExpiresAt = expiresAtUtc,
-                QrUrl = BuildVietQrUrl(payment.Amount, payment.OrderCode),
+                PayUrl = ""
             };
         }
 
@@ -236,12 +375,19 @@ namespace ai_speis_be.Services.PaymentService
 
         private static DateTime? AsUtc(DateTime? value) =>
             value.HasValue ? AsUtc(value.Value) : null;
+    }
 
-        private static string BuildVietQrUrl(decimal amount, string orderCode)
-        {
-            var encodedDescription = Uri.EscapeDataString(orderCode);
-            var amountText = Convert.ToInt64(decimal.Round(amount, 0, MidpointRounding.AwayFromZero)).ToString();
-            return $"https://vietqr.app/img?acc=4270767262&bank=BIDV&amount={amountText}&des={encodedDescription}&template=compact";
-        }
+    public class MoMoCreateResponse
+    {
+        public string? PayUrl { get; set; }
+        public string? Message { get; set; }
+        public int ResultCode { get; set; }
+    }
+
+    public class MoMoQueryResponse
+    {
+        public string? OrderId { get; set; }
+        public int ResultCode { get; set; }
+        public string? Message { get; set; }
     }
 }

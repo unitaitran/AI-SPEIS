@@ -11,6 +11,7 @@ import ProfilePage from '../pages/user/ProfilePage';
 import InterviewSetupPage from '../pages/user/InterviewSetupPage';
 import InterviewModePage from '../pages/user/InterviewModePage';
 import PackagesPage from '../pages/user/PackagesPage';
+import PaymentResultPage from '../pages/user/PaymentResultPage';
 
 function UserRoutes({ pathname }) {
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
@@ -24,7 +25,8 @@ function UserRoutes({ pathname }) {
     pathname === USER_ROUTES.INTERVIEW_MODE ||
     pathname === USER_ROUTES.INTERVIEW_SETUP ||
     pathname === USER_ROUTES.DEVICE_CHECK ||
-    pathname === USER_ROUTES.INTERVIEW_ROOM;
+    pathname === USER_ROUTES.INTERVIEW_ROOM ||
+    pathname === USER_ROUTES.PAYMENT_RESULT;
 
   useEffect(() => {
     if ((isUserRoot || !isKnownRoute) && !isProfileRoute) {
@@ -42,6 +44,10 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.PACKAGES) {
     return <PackagesPage />;
+  }
+
+  if (pathname === USER_ROUTES.PAYMENT_RESULT) {
+    return <PaymentResultPage />;
   }
 
   if (pathname === USER_ROUTES.CV_DETAIL) {

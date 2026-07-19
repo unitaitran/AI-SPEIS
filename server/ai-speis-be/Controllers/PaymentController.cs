@@ -61,10 +61,29 @@ namespace ai_speis_be.Controllers
             var (success, errorMessage) = await _paymentService.HandleWebhookAsync(request, cancellationToken);
             if (!success)
             {
+                // MoMo expects 204 No Content even on failure, to acknowledge receipt
+                return NoContent();
+            }
+
+            return NoContent();
+        }
+
+        [HttpGet("callback")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Callback([FromQuery] string orderId, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(orderId))
+            {
+                return BadRequest(new { Message = "Thiếu mã giao dịch." });
+            }
+
+            var (success, errorMessage) = await _paymentService.QueryTransactionStatusAsync(orderId, cancellationToken);
+            if (!success)
+            {
                 return BadRequest(new { Message = errorMessage });
             }
 
-            return Ok(new { Success = true });
+            return Ok(new { Success = true, Message = "Thanh toán thành công." });
         }
 
         private bool TryGetUserId(out int userId)

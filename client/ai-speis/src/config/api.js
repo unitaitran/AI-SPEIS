@@ -55,4 +55,5 @@ export const ENDPOINTS = {
   PAYMENT_CREATE: `${API_BASE_URL}/api/payment/create`,
   PAYMENT_CHECK: (orderCode) => `${API_BASE_URL}/api/payment/check/${orderCode}`,
   PAYMENT_WEBHOOK: `${API_BASE_URL}/api/payment/webhook`,
+  PAYMENT_VERIFY: (orderId) => `${API_BASE_URL}/api/payment/callback?orderId=${orderId}`,
 };

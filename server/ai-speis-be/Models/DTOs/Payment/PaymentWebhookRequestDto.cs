@@ -4,13 +4,18 @@ namespace ai_speis_be.Models.DTOs.Payment
 {
     public class PaymentWebhookRequestDto
     {
-        [Range(0.01, 999999999)]
+        public string? PartnerCode { get; set; }
+        public string? OrderId { get; set; }
+        public string? RequestId { get; set; }
         public decimal Amount { get; set; }
-
-        [MaxLength(500)]
-        public string? Description { get; set; }
-
-        [MaxLength(64)]
-        public string? OrderCode { get; set; }
+        public string? OrderInfo { get; set; }
+        public string? OrderType { get; set; }
+        public long TransId { get; set; }
+        public int ResultCode { get; set; }
+        public string? Message { get; set; }
+        public string? PayType { get; set; }
+        public long ResponseTime { get; set; }
+        public string? ExtraData { get; set; }
+        public string? Signature { get; set; }
     }
 }

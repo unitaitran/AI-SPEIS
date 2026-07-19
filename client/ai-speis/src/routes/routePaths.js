@@ -15,6 +15,7 @@ export const USER_ROUTES = {
   INTERVIEW_SETUP: '/user/interview/setup',
   DEVICE_CHECK: '/user/interview/device-check',
   INTERVIEW_ROOM: '/user/interview/room',
+  PAYMENT_RESULT: '/user/packages/payment-result',
 };
 
 export const AUTHENTICATED_ADMIN_ROUTES = {
