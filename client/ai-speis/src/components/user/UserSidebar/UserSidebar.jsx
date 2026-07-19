@@ -24,7 +24,7 @@ const MENU_GROUPS = [
   {
     label: 'QUẢN LÍ',
     items: [
-      { id: 'packages', label: 'Quản lí gói', icon: Package, path: '#packages' },
+      { id: 'packages', label: 'Quản lí gói', icon: Package, path: USER_ROUTES.PACKAGES },
     ]
   }
 ];
@@ -48,7 +48,8 @@ function UserSidebar({ isOpen, onNavigate }) {
     if (
       path !== USER_ROUTES.DASHBOARD &&
       path !== USER_ROUTES.CV &&
-      path !== USER_ROUTES.QUESTIONS
+      path !== USER_ROUTES.QUESTIONS &&
+      path !== USER_ROUTES.PACKAGES
     ) {
       notify.info(t('common_feature_developing', 'Tính năng đang phát triển'), {
         title: t('common_information', 'Thông tin'),
@@ -143,7 +144,13 @@ function UserSidebar({ isOpen, onNavigate }) {
             </div>
             <h4 className="text-sm font-semibold text-text-primary mb-1">{t('sidebar.upgrade_pro', 'Nâng cấp Pro')}</h4>
             <p className="text-xs text-text-secondary mb-3">{t('sidebar.unlock_desc', 'Mở khóa không giới hạn lượt phỏng vấn AI.')}</p>
-            <button className="w-full bg-text-primary hover:bg-black text-white text-xs font-semibold py-2 px-4 rounded transition-colors cursor-pointer">
+            <button
+              className="w-full bg-text-primary hover:bg-black text-white text-xs font-semibold py-2 px-4 rounded transition-colors cursor-pointer"
+              onClick={() => {
+                navigate(USER_ROUTES.PACKAGES);
+                if (onNavigate) onNavigate();
+              }}
+            >
               {t('sidebar.upgrade_now', 'NÂNG CẤP NGAY')}
             </button>
           </div>

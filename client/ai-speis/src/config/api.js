@@ -52,4 +52,7 @@ export const ENDPOINTS = {
   ADMIN_QUESTIONS_BY_ID: (id) => `${API_BASE_URL}/api/admin/questions/${id}`,
   ADMIN_QUESTIONS_IMPORT: `${API_BASE_URL}/api/admin/questions/import`,
   AUDIO_SPEECH_TO_TEXT: `${API_BASE_URL}/api/Audio/speech-to-text`,
+  PAYMENT_CREATE: `${API_BASE_URL}/api/payment/create`,
+  PAYMENT_CHECK: (orderCode) => `${API_BASE_URL}/api/payment/check/${orderCode}`,
+  PAYMENT_WEBHOOK: `${API_BASE_URL}/api/payment/webhook`,
 };

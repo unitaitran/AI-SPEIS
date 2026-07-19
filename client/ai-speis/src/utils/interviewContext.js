@@ -56,9 +56,21 @@ export function beginNewInterviewCampaign() {
   return saveInterviewSetupDraft({ previousCampaignId });
 }
 
-export function notifyInterviewQuotaChanged(remainingInterviewQuota) {
+export function notifyInterviewQuotaChanged(quotaOrRemaining, maxInterviewQuota, planName) {
+  const detail = typeof quotaOrRemaining === 'object' && quotaOrRemaining !== null
+    ? {
+      remainingInterviewQuota: quotaOrRemaining.remainingInterviewQuota,
+      maxInterviewQuota: quotaOrRemaining.maxInterviewQuota,
+      planName: quotaOrRemaining.planName,
+    }
+    : {
+      remainingInterviewQuota: quotaOrRemaining,
+      maxInterviewQuota,
+      planName,
+    };
+
   window.dispatchEvent(new CustomEvent('interview:quota-changed', {
-    detail: { remainingInterviewQuota },
+    detail,
   }));
 }
 

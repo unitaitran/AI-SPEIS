@@ -10,12 +10,14 @@ import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
 import ProfilePage from '../pages/user/ProfilePage';
 import InterviewSetupPage from '../pages/user/InterviewSetupPage';
 import InterviewModePage from '../pages/user/InterviewModePage';
+import PackagesPage from '../pages/user/PackagesPage';
 
 function UserRoutes({ pathname }) {
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
   const isProfileRoute = pathname === USER_ROUTES.PROFILE;
   const isKnownRoute =
     pathname === USER_ROUTES.DASHBOARD ||
+    pathname === USER_ROUTES.PACKAGES ||
     pathname === USER_ROUTES.CV ||
     pathname === USER_ROUTES.CV_DETAIL ||
     pathname === USER_ROUTES.QUESTIONS ||
@@ -36,6 +38,10 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.CV) {
     return <CVJDManagementPage />;
+  }
+
+  if (pathname === USER_ROUTES.PACKAGES) {
+    return <PackagesPage />;
   }
 
   if (pathname === USER_ROUTES.CV_DETAIL) {

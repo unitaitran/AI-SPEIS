@@ -26,6 +26,7 @@ namespace ai_speis_be.Models
         public DbSet<TestCase> TestCases { get; set; } = null!;
         public DbSet<CodingSubmission> CodingSubmissions { get; set; } = null!;
         public DbSet<SubmissionTestCaseResult> SubmissionTestCaseResults { get; set; } = null!;
+        public DbSet<Payment> Payments { get; set; } = null!;
   
 
 
@@ -212,6 +213,12 @@ namespace ai_speis_be.Models
                 .WithMany(tc => tc.SubmissionTestCaseResults)
                 .HasForeignKey(r => r.TestCaseId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Payment>()
+                .HasOne(payment => payment.User)
+                .WithMany()
+                .HasForeignKey(payment => payment.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

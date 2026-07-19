@@ -340,14 +340,14 @@ function InterviewSetupPage() {
             activeSessionId: storedContext?.activeSessionId || null,
             configurationKey,
           });
-          notifyInterviewQuotaChanged(existingCampaign.remainingInterviewQuota);
+          notifyInterviewQuotaChanged(existingCampaign);
           navigate(USER_ROUTES.DEVICE_CHECK);
           return;
         }
 
         if (isLiveCampaign) {
           const cancelledCampaign = await interviewSessionService.cancelCampaign(existingCampaignId);
-          notifyInterviewQuotaChanged(cancelledCampaign.remainingInterviewQuota);
+          notifyInterviewQuotaChanged(cancelledCampaign);
         }
         clearActiveInterviewContext();
       }
@@ -367,7 +367,7 @@ function InterviewSetupPage() {
         configurationKey,
         previousCampaignId: null,
       });
-      notifyInterviewQuotaChanged(campaign.remainingInterviewQuota);
+      notifyInterviewQuotaChanged(campaign);
       navigate(USER_ROUTES.DEVICE_CHECK);
     } catch (error) {
       setSubmitError(error.message || t('setup.createFailed'));

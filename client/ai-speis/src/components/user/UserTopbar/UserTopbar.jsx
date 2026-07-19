@@ -12,6 +12,8 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   const { t, i18n } = useTranslation('dashboard');
   const [user, setUser] = useState(null);
   const [remainingInterviewQuota, setRemainingInterviewQuota] = useState(null);
+  const [maxInterviewQuota, setMaxInterviewQuota] = useState(null);
+  const [planName, setPlanName] = useState('Basic');
 
   useEffect(() => {
     if (propUser) {
@@ -34,20 +36,32 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
     const loadQuota = async () => {
       try {
         const quota = await interviewSessionService.getQuota();
-        if (isMounted) setRemainingInterviewQuota(quota.remainingInterviewQuota);
+        if (isMounted) {
+          setRemainingInterviewQuota(quota.remainingInterviewQuota);
+          setMaxInterviewQuota(quota.maxInterviewQuota ?? null);
+          setPlanName(quota.planName || 'Basic');
+        }
       } catch {
         if (isMounted) {
           setRemainingInterviewQuota(
             propUser?.remainingInterviewQuota ?? user?.remainingInterviewQuota ?? null,
           );
+          setMaxInterviewQuota(null);
+          setPlanName('Basic');
         }
       }
     };
 
     const handleQuotaChanged = (event) => {
       const nextQuota = event.detail?.remainingInterviewQuota;
-      if (Number.isInteger(nextQuota)) setRemainingInterviewQuota(nextQuota);
-      else loadQuota();
+      const nextMaxQuota = event.detail?.maxInterviewQuota;
+      const nextPlanName = event.detail?.planName;
+
+      if (Number.isInteger(nextQuota)) {
+        setRemainingInterviewQuota(nextQuota);
+        if (Number.isInteger(nextMaxQuota)) setMaxInterviewQuota(nextMaxQuota);
+        if (typeof nextPlanName === 'string' && nextPlanName.trim()) setPlanName(nextPlanName);
+      } else loadQuota();
     };
 
     loadQuota();
@@ -130,6 +144,8 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
     i18n.changeLanguage(nextLang);
   };
 
+  const isLastAttempt = remainingInterviewQuota === 1;
+
   return (
     <header className="h-[85px] bg-surface-2 border-b border-border flex items-center justify-between px-6 shrink-0 z-10 sticky top-0">
       <div className="flex items-center lg:hidden">
@@ -151,8 +167,20 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
         {/* Quota Badge */}
         <div className="hidden sm:flex items-center bg-gradient-to-r from-primary-light to-primary-xlight border border-primary-light rounded-full px-3 py-1.5 text-sm font-semibold text-primary-dark shadow-sm">
           <Ticket size={16} className="text-primary-dark mr-2" />
-          <span>{remainingInterviewQuota ?? '—'} {t('topbar.quota_remaining', 'lượt phỏng vấn')}</span>
+          <span>
+            {remainingInterviewQuota ?? '—'} / {maxInterviewQuota ?? '—'} {t('topbar.quota_remaining', 'Interviews Left')}
+          </span>
         </div>
+
+        <div className={`hidden sm:inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold shadow-sm ${planName === 'Premium' ? 'border-success bg-success-light text-success' : 'border-border bg-surface-1 text-text-secondary'}`}>
+          {planName}
+        </div>
+
+        {isLastAttempt && (
+          <div className="hidden md:flex items-center rounded-full border border-warning bg-warning-light px-3 py-1 text-xs font-semibold text-warning">
+            1 attempt remaining
+          </div>
+        )}
 
         {/* Processing Indicator */}
         {isProcessingBg && (
