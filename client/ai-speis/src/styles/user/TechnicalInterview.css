@@ -1,0 +1,754 @@
+.technical-page {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding-bottom: var(--spacing-xl);
+}
+
+.technical-page--result {
+  max-width: var(--max-content-width);
+}
+
+.technical-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--box-shadow-sm);
+}
+
+.technical-room-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.technical-room-header__eyebrow,
+.technical-section__eyebrow {
+  margin: 0 0 var(--spacing-xs);
+  color: var(--primary-dark);
+  font-size: var(--label-size);
+  font-weight: var(--fw-semibold);
+  line-height: var(--label-lh);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.technical-room-header h1,
+.technical-result-heading h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--heading-1);
+  font-weight: var(--fw-bold);
+  line-height: var(--heading-1-lh);
+}
+
+.technical-room-header__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm) var(--spacing-lg);
+  margin: var(--spacing-sm) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.technical-room-header__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.technical-room-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.technical-status-badge,
+.technical-tag,
+.technical-question-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-pill);
+  font-size: var(--badge-size);
+  font-weight: var(--fw-semibold);
+  line-height: var(--badge-lh);
+}
+
+.technical-status-badge {
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+  border: 1px solid var(--primary-light);
+}
+
+.technical-secondary-button,
+.technical-recorder-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-md);
+  color: var(--text-primary);
+  background: var(--surface-2);
+  font: inherit;
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.technical-secondary-button:hover,
+.technical-recorder-button:hover {
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+  border-color: var(--primary-light);
+}
+
+.technical-secondary-button:focus-visible,
+.technical-recorder-button:focus-visible,
+.technical-transcript textarea:focus-visible,
+.technical-question-result summary:focus-visible {
+  outline: none;
+  box-shadow: var(--box-shadow-glow);
+}
+
+.technical-secondary-button:disabled,
+.technical-recorder-button:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  background: var(--surface-1);
+}
+
+.technical-progress {
+  padding: var(--spacing-md) var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.technical-progress__copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.technical-progress__copy strong {
+  color: var(--text-primary);
+  font-size: var(--body-md);
+}
+
+.technical-progress__track,
+.technical-score-bar {
+  height: var(--spacing-sm);
+  overflow: hidden;
+  border-radius: var(--border-radius-pill);
+  background: var(--surface-3);
+}
+
+.technical-progress__fill,
+.technical-score-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-dark);
+  transition: width var(--transition-normal);
+}
+
+.technical-room-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
+  gap: var(--spacing-md);
+  align-items: start;
+}
+
+.technical-question-panel,
+.technical-answer-panel,
+.technical-evaluation,
+.technical-ready,
+.technical-error-state,
+.technical-result-section {
+  padding: var(--spacing-lg);
+}
+
+.technical-question-panel__header,
+.technical-answer-panel__header,
+.technical-section__header,
+.technical-dimension-card__header,
+.technical-skill-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.technical-question-panel__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.technical-question-type--main {
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+}
+
+.technical-question-type--clarification {
+  color: var(--text-primary);
+  background: var(--warning-light);
+}
+
+.technical-question-type--follow-up {
+  color: var(--text-primary);
+  background: var(--success-light);
+}
+
+.technical-tag {
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+
+.technical-question-panel h2,
+.technical-answer-panel h2,
+.technical-result-section h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--heading-3);
+  line-height: var(--heading-3-lh);
+}
+
+.technical-question-panel__content {
+  margin: var(--spacing-lg) 0 var(--spacing-md);
+  color: var(--text-primary);
+  font-size: var(--body-lg);
+  line-height: var(--body-lg-lh);
+  white-space: pre-wrap;
+}
+
+.technical-question-panel__context {
+  margin: 0;
+  padding: var(--spacing-md);
+  color: var(--text-secondary);
+  background: var(--info-light);
+  border-left: var(--spacing-xs) solid var(--info);
+  border-radius: var(--border-radius);
+  font-size: var(--body-sm);
+}
+
+.technical-recorder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-md);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-md);
+}
+
+.technical-recorder__state {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.technical-recorder__state strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--body-md);
+}
+
+.technical-recorder__pulse {
+  width: var(--spacing-sm);
+  height: var(--spacing-sm);
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--error);
+  box-shadow: var(--box-shadow-glow);
+}
+
+.technical-recorder-button--recording {
+  color: var(--error);
+  border-color: var(--error);
+  background: var(--error-light);
+}
+
+.technical-inline-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  margin: var(--spacing-md) 0 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--error);
+  background: var(--error-light);
+  border-radius: var(--border-radius);
+  font-size: var(--body-sm);
+}
+
+.technical-transcript {
+  margin-top: var(--spacing-md);
+}
+
+.technical-transcript label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+  font-size: var(--label-size);
+  font-weight: var(--fw-semibold);
+}
+
+.technical-transcript textarea {
+  width: 100%;
+  min-height: 176px;
+  resize: vertical;
+  padding: var(--spacing-md);
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--border-radius-md);
+  font: inherit;
+  font-size: var(--body-md);
+  line-height: var(--body-md-lh);
+}
+
+.technical-transcript textarea:disabled {
+  color: var(--text-secondary);
+  background: var(--surface-1);
+}
+
+.technical-transcript__helper {
+  margin: var(--spacing-xs) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.technical-answer-panel__submit {
+  margin-top: var(--spacing-md);
+}
+
+.technical-answer-panel__submit > button {
+  width: 100%;
+}
+
+.technical-evaluation,
+.technical-ready,
+.technical-error-state {
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.technical-evaluation__icon,
+.technical-ready__icon,
+.technical-error-state__icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--spacing-md);
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+  border-radius: 50%;
+}
+
+.technical-error-state__icon {
+  color: var(--error);
+  background: var(--error-light);
+}
+
+.technical-evaluation h2,
+.technical-ready h2,
+.technical-error-state h2 {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--heading-2);
+}
+
+.technical-evaluation p,
+.technical-ready p,
+.technical-error-state p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.technical-error-state__actions,
+.technical-ready__actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
+.technical-loading {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+.technical-skeleton {
+  min-height: 120px;
+  border-radius: var(--border-radius-lg);
+  background: linear-gradient(90deg, var(--surface-3), var(--surface-1), var(--surface-3));
+  background-size: 200% 100%;
+  animation: skeletonWave 1.8s ease-in-out infinite;
+}
+
+.technical-skeleton--large {
+  min-height: 360px;
+}
+
+.technical-result-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.technical-result-heading p {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--text-secondary);
+}
+
+.technical-result-stack {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+.technical-result-summary {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.7fr);
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+}
+
+.technical-score-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  color: var(--text-primary);
+  background: var(--primary-xlight);
+  border: 1px solid var(--primary-light);
+  border-radius: var(--border-radius-md);
+}
+
+.technical-score-card__label {
+  color: var(--text-secondary);
+  font-size: var(--label-size);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+}
+
+.technical-score-card__value {
+  margin: var(--spacing-xs) 0 var(--spacing-md);
+  color: var(--primary-dark);
+  font-size: calc(var(--heading-1) + var(--spacing-sm));
+  font-weight: var(--fw-bold);
+  line-height: 1.1;
+}
+
+.technical-score-card__value small {
+  font-size: var(--heading-3);
+  font-weight: var(--fw-semibold);
+}
+
+.technical-score-card__text-alternative {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.technical-summary-details {
+  display: grid;
+  align-content: start;
+  gap: var(--spacing-md);
+}
+
+.technical-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.technical-result-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-pill);
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  font-size: var(--body-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.technical-result-badge--passed {
+  color: var(--text-primary);
+  background: var(--success-light);
+  border-color: var(--success);
+}
+
+.technical-result-badge--failed {
+  color: var(--text-primary);
+  background: var(--error-light);
+  border-color: var(--error);
+}
+
+.technical-summary-feedback {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--body-lg);
+  line-height: var(--body-lg-lh);
+}
+
+.technical-rubric-grid,
+.technical-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.technical-dimension-card,
+.technical-skill-card {
+  padding: var(--spacing-md);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-md);
+  background: var(--surface-1);
+}
+
+.technical-dimension-card h3,
+.technical-skill-card h3,
+.technical-question-result h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--heading-4);
+  line-height: var(--heading-4-lh);
+}
+
+.technical-dimension-card__description,
+.technical-dimension-card__level,
+.technical-skill-card__level {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.technical-score-inline {
+  flex-shrink: 0;
+  color: var(--primary-dark);
+  font-size: var(--body-lg);
+  font-weight: var(--fw-bold);
+}
+
+.technical-score-inline small {
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.technical-dimension-card__metrics {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.technical-dimension-card .technical-score-bar,
+.technical-skill-card .technical-score-bar {
+  margin-top: var(--spacing-md);
+}
+
+.technical-feedback-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.technical-feedback-list h4,
+.technical-question-answer h4 {
+  margin: 0 0 var(--spacing-xs);
+  color: var(--text-secondary);
+  font-size: var(--label-size);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+}
+
+.technical-feedback-list ul,
+.technical-recommendations {
+  margin: 0;
+  padding-left: var(--spacing-lg);
+  color: var(--text-primary);
+}
+
+.technical-feedback-list li + li,
+.technical-recommendations li + li {
+  margin-top: var(--spacing-xs);
+}
+
+.technical-question-list {
+  display: grid;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.technical-question-result {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-md);
+  background: var(--surface-2);
+}
+
+.technical-question-result summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  list-style: none;
+}
+
+.technical-question-result summary::-webkit-details-marker {
+  display: none;
+}
+
+.technical-question-result__body {
+  display: grid;
+  gap: var(--spacing-md);
+  padding: 0 var(--spacing-md) var(--spacing-md);
+  border-top: 1px solid var(--border);
+}
+
+.technical-question-answer {
+  padding-top: var(--spacing-md);
+}
+
+.technical-question-answer p {
+  margin: 0;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+.technical-subquestions {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding-left: var(--spacing-md);
+  border-left: var(--spacing-xs) solid var(--primary-light);
+}
+
+.technical-subquestion {
+  padding: var(--spacing-md);
+  background: var(--primary-xlight);
+  border-radius: var(--border-radius);
+}
+
+.technical-subquestion p {
+  margin: var(--spacing-xs) 0 0;
+}
+
+.technical-question-rubric h4 {
+  margin: 0 0 var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--label-size);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+}
+
+.technical-question-rubric ul {
+  display: grid;
+  gap: var(--spacing-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.technical-question-rubric li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--surface-1);
+  border-radius: var(--border-radius);
+}
+
+.technical-empty-copy {
+  margin: var(--spacing-md) 0 0;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 767px) {
+  .technical-room-header,
+  .technical-result-heading,
+  .technical-question-panel__header,
+  .technical-answer-panel__header,
+  .technical-section__header {
+    flex-direction: column;
+  }
+
+  .technical-room-header__actions,
+  .technical-secondary-button,
+  .technical-ready__actions,
+  .technical-error-state__actions {
+    width: 100%;
+  }
+
+  .technical-room-header__actions,
+  .technical-ready__actions,
+  .technical-error-state__actions {
+    flex-direction: column;
+  }
+
+  .technical-room-grid,
+  .technical-result-summary,
+  .technical-rubric-grid,
+  .technical-skill-grid,
+  .technical-feedback-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .technical-recorder {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .technical-recorder-button {
+    width: 100%;
+  }
+
+  .technical-question-panel,
+  .technical-answer-panel,
+  .technical-evaluation,
+  .technical-ready,
+  .technical-error-state,
+  .technical-result-section,
+  .technical-room-header,
+  .technical-result-summary {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .technical-progress__fill,
+  .technical-score-bar__fill,
+  .technical-skeleton {
+    animation: none;
+    transition: none;
+  }
+}
