@@ -2,8 +2,10 @@ namespace ai_speis_be.TechnicalInterviews.AI
 {
     public static class TechnicalPromptVersions
     {
-        public const string Selection = "technical-selection-v1";
-        public const string Evaluation = "technical-evaluation-v1";
+        public const string Selection = "technical-selection-v2";
+        public const string Evaluation = "technical-evaluation-v3";
+        public const string Feedback = "technical-feedback-v2";
+        public const string QuestionBundle = "technical-question-bundle-v2";
         public const string Summary = "technical-summary-v1";
     }
 
@@ -23,6 +25,11 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public IReadOnlyList<string> SelectedSkills { get; init; } = Array.Empty<string>();
         public IReadOnlyList<string> AskedSkills { get; init; } = Array.Empty<string>();
         public IReadOnlyList<TechnicalAIQuestionCandidate> Candidates { get; init; } = Array.Empty<TechnicalAIQuestionCandidate>();
+        public string? PlannedSourceType { get; init; }
+        public string? TargetSkill { get; init; }
+        public string? TargetSubskill { get; init; }
+        public string? PlannedDifficulty { get; init; }
+        public string? EvaluationObjective { get; init; }
     }
 
     public sealed class TechnicalAISelectionResponse
@@ -35,24 +42,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         string Question,
         string Answer);
 
-    public sealed class TechnicalAIEvaluationRequest
-    {
-        public string RubricVersion { get; init; } = string.Empty;
-        public object Rubric { get; init; } = new();
-        public string JobRole { get; init; } = string.Empty;
-        public string ExperienceLevel { get; init; } = string.Empty;
-        public string Language { get; init; } = string.Empty;
-        public string MainQuestion { get; init; } = string.Empty;
-        public string ExpectedAnswer { get; init; } = string.Empty;
-        public string ExpectedKeyPoints { get; init; } = string.Empty;
-        public string QuestionSpecificRubric { get; init; } = string.Empty;
-        public IReadOnlyList<TechnicalAnswerContext> AnswerContext { get; init; } = Array.Empty<TechnicalAnswerContext>();
-        public string CvContext { get; init; } = string.Empty;
-        public string JdContext { get; init; } = string.Empty;
-        public int ClarificationsUsed { get; init; }
-        public int FollowUpsUsed { get; init; }
-    }
-
     public sealed class TechnicalAIDimensionEvaluation
     {
         public string RubricCode { get; set; } = string.Empty;
@@ -64,14 +53,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public string ReasonSummary { get; set; } = string.Empty;
     }
 
-    public sealed class TechnicalAINextQuestion
-    {
-        public string Content { get; set; } = string.Empty;
-        public string Purpose { get; set; } = string.Empty;
-        public List<string> TargetRubricCodes { get; set; } = new();
-        public List<string> TargetMissingEvidence { get; set; } = new();
-    }
-
     public sealed class TechnicalAIEvaluationResponse
     {
         public List<TechnicalAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
@@ -80,8 +61,35 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public List<string> IncorrectClaims { get; set; } = new();
         public List<string> ImprovementSuggestions { get; set; } = new();
         public string Decision { get; set; } = string.Empty;
-        public TechnicalAINextQuestion? NextQuestion { get; set; }
         public decimal Confidence { get; set; }
+    }
+
+    public sealed class TechnicalAIFeedbackDraftResponse
+    {
+        public List<string> Strengths { get; set; } = new();
+        public List<string> MissingPoints { get; set; } = new();
+        public List<string> IncorrectClaims { get; set; } = new();
+        public List<string> ImprovementSuggestions { get; set; } = new();
+        public string Summary { get; set; } = string.Empty;
+    }
+
+    public sealed class TechnicalAISubQuestionCandidate
+    {
+        public string Content { get; set; } = string.Empty;
+        public string Purpose { get; set; } = string.Empty;
+        public List<string> TargetRubricCodes { get; set; } = new();
+    }
+
+    public sealed class TechnicalAINextMainQuestionCandidate
+    {
+        public int SelectedQuestionId { get; set; }
+    }
+
+    public sealed class TechnicalAIQuestionBundleResponse
+    {
+        public TechnicalAISubQuestionCandidate? ClarificationCandidate { get; set; }
+        public TechnicalAISubQuestionCandidate? FollowUpCandidate { get; set; }
+        public TechnicalAINextMainQuestionCandidate? NextMainQuestionCandidate { get; set; }
     }
 
     public sealed class TechnicalAIFinalSummaryRequest
@@ -110,5 +118,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public int? InputTokens { get; init; }
         public int? OutputTokens { get; init; }
         public string? ErrorCode { get; init; }
+        public int RetryCount { get; init; }
+        public DateTime StartedAt { get; init; } = DateTime.UtcNow;
+        public DateTime CompletedAt { get; init; } = DateTime.UtcNow;
     }
 }

@@ -32,6 +32,8 @@ namespace ai_speis_be.Models
 
         public long LatencyMs { get; set; }
 
+        public int RetryCount { get; set; }
+
         public int? InputTokenCount { get; set; }
 
         public int? OutputTokenCount { get; set; }
@@ -51,6 +53,10 @@ namespace ai_speis_be.Models
 
         [ForeignKey(nameof(Attempt))]
         public Guid? AttemptId { get; set; }
+
+        public DateTime StartedAt { get; set; } = DateTime.UtcNow;
+
+        public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

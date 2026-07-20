@@ -214,6 +214,25 @@ namespace ai_speis_be.Repositories.QuestionRepo
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<IReadOnlyList<Question>> GetActiveTechnicalQuestionsByIdsAsync(
+            IReadOnlyCollection<int> questionIds,
+            CancellationToken cancellationToken = default)
+        {
+            if (questionIds.Count == 0)
+            {
+                return Array.Empty<Question>();
+            }
+
+            return await _context.Questions
+                .AsNoTracking()
+                .Where(question =>
+                    questionIds.Contains(question.QuestionId)
+                    && !question.IsDeleted
+                    && question.QuestionType == "Technical")
+                .OrderBy(question => question.QuestionId)
+                .ToListAsync(cancellationToken);
+        }
+
         private static IQueryable<Question> ApplyUserFilters(
             IQueryable<Question> questions,
             UserQuestionQueryDto query)

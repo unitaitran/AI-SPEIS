@@ -1,3 +1,5 @@
+using ai_speis_be.Models.Enums;
+
 namespace ai_speis_be.TechnicalInterviews.Rubrics
 {
     public sealed class TechnicalRubricDefinition
@@ -23,10 +25,20 @@ namespace ai_speis_be.TechnicalInterviews.Rubrics
         public TechnicalPerformanceBand GetPerformanceBand(decimal score)
         {
             var band = PerformanceBands.FirstOrDefault(item =>
-                score >= item.Minimum && score <= item.Maximum);
+                score >= item.Minimum
+                && (item.MaximumExclusive ? score < item.Maximum : score <= item.Maximum));
 
             return band ?? throw new InvalidOperationException(
                 $"Rubric {Version} does not contain a performance band for score {score}.");
+        }
+
+        public TechnicalPerformanceBandCode GetPerformanceBandCode(decimal score)
+        {
+            var code = GetPerformanceBand(score).Code;
+            return Enum.TryParse<TechnicalPerformanceBandCode>(code, ignoreCase: true, out var parsed)
+                ? parsed
+                : throw new InvalidOperationException(
+                    $"Rubric {Version} contains unsupported performance band code '{code}'.");
         }
     }
 
@@ -51,6 +63,7 @@ namespace ai_speis_be.TechnicalInterviews.Rubrics
         public string Name { get; set; } = string.Empty;
         public decimal Minimum { get; set; }
         public decimal Maximum { get; set; }
+        public bool MaximumExclusive { get; set; }
     }
 
     public sealed class TechnicalQuestionLimits

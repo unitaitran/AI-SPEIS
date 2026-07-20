@@ -38,12 +38,78 @@ namespace ai_speis_be.Models.Enums
     {
         QuestionSelection,
         AnswerEvaluation,
-        FinalSummary
+        FinalSummary,
+        FeedbackGeneration,
+        QuestionBundleGeneration
     }
 
     public enum AIInteractionStatus
     {
         Succeeded,
-        Failed
+        Failed,
+        Timeout,
+        InvalidOutput,
+        FallbackUsed
+    }
+
+    public enum TechnicalAITaskStatus
+    {
+        NotStarted,
+        Processing,
+        Fulfilled,
+        Rejected,
+        Timeout,
+        InvalidOutput,
+        FallbackUsed
+    }
+
+    public enum TechnicalMatchBand
+    {
+        Low,
+        Medium,
+        High
+    }
+
+    public enum TechnicalPerformanceBandCode
+    {
+        EXCELLENT,
+        VERY_GOOD,
+        GOOD,
+        MINIMUM_REQUIREMENT_MET,
+        WEAK,
+        VERY_WEAK
+    }
+
+    public enum TechnicalQuestionSourceType
+    {
+        CV,
+        JD
+    }
+
+    public enum TechnicalEvaluationObjective
+    {
+        CvSkillVerification,
+        CvProjectApplication,
+        JdCoreKnowledge,
+        JdDepthAndTradeOff,
+        JdOptimization,
+        JdRealWorldApplication
+    }
+
+    public enum TechnicalAdaptiveStage
+    {
+        MainQuestion,
+        AwaitingClarification,
+        AwaitingFollowUp,
+        AwaitingReliabilityFollowUp,
+        Finalized
+    }
+
+    public enum TechnicalQuestionGenerationReason
+    {
+        QuestionPlan,
+        AdaptiveScoreRule,
+        ReliabilityMinimum,
+        DeterministicFallback
     }
 }

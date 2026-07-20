@@ -17,15 +17,18 @@ namespace ai_speis_be.TechnicalInterviews.AI
         };
 
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly ITechnicalAIConcurrencyGate _concurrencyGate;
         private readonly TechnicalInterviewOptions _options;
         private readonly ILogger<ExternalTechnicalInterviewAIProvider> _logger;
 
         public ExternalTechnicalInterviewAIProvider(
             IHttpClientFactory httpClientFactory,
+            ITechnicalAIConcurrencyGate concurrencyGate,
             TechnicalInterviewOptions options,
             ILogger<ExternalTechnicalInterviewAIProvider> logger)
         {
             _httpClientFactory = httpClientFactory;
+            _concurrencyGate = concurrencyGate;
             _options = options;
             _logger = logger;
         }
@@ -37,15 +40,51 @@ namespace ai_speis_be.TechnicalInterviews.AI
             CancellationToken cancellationToken)
         {
             var prompt = TechnicalPromptFactory.Selection(request);
-            return CallAsync<TechnicalAISelectionResponse>(prompt.System, prompt.User, cancellationToken);
+            return CallAsync<TechnicalAISelectionResponse>(
+                prompt.System,
+                prompt.User,
+                _options.TimeoutSeconds * 1_000,
+                _options.MaxRetries,
+                cancellationToken);
         }
 
         public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAIEvaluationRequest request,
+            TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken)
         {
-            var prompt = TechnicalPromptFactory.Evaluation(request);
-            return CallAsync<TechnicalAIEvaluationResponse>(prompt.System, prompt.User, cancellationToken);
+            var prompt = TechnicalPromptFactory.Evaluation(context);
+            return CallAsync<TechnicalAIEvaluationResponse>(
+                prompt.System,
+                prompt.User,
+                _options.EvaluationTimeoutMs,
+                _options.EvaluationMaxRetries,
+                cancellationToken);
+        }
+
+        public Task<AIProviderResult<TechnicalAIFeedbackDraftResponse>> GenerateFeedbackDraftAsync(
+            TechnicalAnswerProcessingContext context,
+            CancellationToken cancellationToken)
+        {
+            var prompt = TechnicalPromptFactory.Feedback(context);
+            return CallAsync<TechnicalAIFeedbackDraftResponse>(
+                prompt.System,
+                prompt.User,
+                _options.FeedbackTimeoutMs,
+                _options.FeedbackMaxRetries,
+                cancellationToken);
+        }
+
+        public Task<AIProviderResult<TechnicalAIQuestionBundleResponse>> GenerateQuestionBundleAsync(
+            TechnicalAnswerProcessingContext context,
+            CancellationToken cancellationToken)
+        {
+            var prompt = TechnicalPromptFactory.QuestionBundle(context);
+            return CallAsync<TechnicalAIQuestionBundleResponse>(
+                prompt.System,
+                prompt.User,
+                _options.QuestionTimeoutMs,
+                _options.QuestionMaxRetries,
+                cancellationToken);
         }
 
         public Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
@@ -53,19 +92,31 @@ namespace ai_speis_be.TechnicalInterviews.AI
             CancellationToken cancellationToken)
         {
             var prompt = TechnicalPromptFactory.Summary(request);
-            return CallAsync<TechnicalAIFinalSummaryResponse>(prompt.System, prompt.User, cancellationToken);
+            return CallAsync<TechnicalAIFinalSummaryResponse>(
+                prompt.System,
+                prompt.User,
+                _options.TimeoutSeconds * 1_000,
+                _options.MaxRetries,
+                cancellationToken);
         }
 
         private async Task<AIProviderResult<T>> CallAsync<T>(
             string systemPrompt,
             string userPrompt,
+            int timeoutMs,
+            int maxRetries,
             CancellationToken cancellationToken)
         {
+            var startedAt = DateTime.UtcNow;
             var stopwatch = Stopwatch.StartNew();
             if (string.IsNullOrWhiteSpace(_options.ApiKey))
             {
-                return Failure<T>(stopwatch, "CONFIGURATION_MISSING");
+                return Failure<T>(stopwatch, startedAt, "CONFIGURATION_MISSING", 0);
             }
+
+            using var operationCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            operationCts.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
+            var operationToken = operationCts.Token;
 
             var payload = new
             {
@@ -79,10 +130,11 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 }
             };
 
-            for (var attempt = 0; attempt <= _options.MaxRetries; attempt++)
+            for (var attempt = 0; attempt <= maxRetries; attempt++)
             {
                 try
                 {
+                    await using var lease = await _concurrencyGate.EnterAsync(operationToken);
                     using var request = new HttpRequestMessage(
                         HttpMethod.Post,
                         new Uri(new Uri(_options.BaseUrl), "chat/completions"));
@@ -93,10 +145,13 @@ namespace ai_speis_be.TechnicalInterviews.AI
                         "application/json");
 
                     var client = _httpClientFactory.CreateClient("TechnicalInterviewAI");
-                    using var response = await client.SendAsync(request, cancellationToken);
-                    if (ShouldRetry(response.StatusCode) && attempt < _options.MaxRetries)
+                    using var response = await client.SendAsync(request, operationToken);
+                    if (ShouldRetry(response.StatusCode) && attempt < maxRetries)
                     {
-                        await Task.Delay(TimeSpan.FromMilliseconds(250 * (attempt + 1)), cancellationToken);
+                        // Release the global quota slot while backing off so another
+                        // session can make progress instead of waiting behind a retry.
+                        await lease.DisposeAsync();
+                        await BackoffAsync(attempt, operationToken);
                         continue;
                     }
 
@@ -105,21 +160,25 @@ namespace ai_speis_be.TechnicalInterviews.AI
                         _logger.LogWarning(
                             "Technical Interview AI returned HTTP {StatusCode}.",
                             (int)response.StatusCode);
-                        return Failure<T>(stopwatch, $"HTTP_{(int)response.StatusCode}");
+                        return Failure<T>(
+                            stopwatch,
+                            startedAt,
+                            MapHttpError(response.StatusCode),
+                            attempt);
                     }
 
-                    var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+                    var responseJson = await response.Content.ReadAsStringAsync(operationToken);
                     var envelope = JsonSerializer.Deserialize<ChatCompletionEnvelope>(responseJson, JsonOptions);
                     var content = envelope?.Choices.FirstOrDefault()?.Message.Content;
                     if (string.IsNullOrWhiteSpace(content))
                     {
-                        return Failure<T>(stopwatch, "EMPTY_RESPONSE");
+                        return Failure<T>(stopwatch, startedAt, "EMPTY_RESPONSE", attempt);
                     }
 
                     var parsed = JsonSerializer.Deserialize<T>(StripMarkdownFence(content), JsonOptions);
                     if (parsed is null)
                     {
-                        return Failure<T>(stopwatch, "MALFORMED_JSON");
+                        return Failure<T>(stopwatch, startedAt, "MALFORMED_JSON", attempt);
                     }
 
                     stopwatch.Stop();
@@ -130,33 +189,40 @@ namespace ai_speis_be.TechnicalInterviews.AI
                         Model = envelope?.Model ?? _options.Model,
                         LatencyMs = stopwatch.ElapsedMilliseconds,
                         InputTokens = envelope?.Usage?.PromptTokens,
-                        OutputTokens = envelope?.Usage?.CompletionTokens
+                        OutputTokens = envelope?.Usage?.CompletionTokens,
+                        RetryCount = attempt,
+                        StartedAt = startedAt,
+                        CompletedAt = DateTime.UtcNow
                     };
                 }
                 catch (JsonException)
                 {
-                    return Failure<T>(stopwatch, "MALFORMED_JSON");
+                    return Failure<T>(stopwatch, startedAt, "MALFORMED_JSON", attempt);
                 }
                 catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
-                    return Failure<T>(stopwatch, "TIMEOUT");
+                    return Failure<T>(stopwatch, startedAt, "TIMEOUT", attempt);
                 }
-                catch (HttpRequestException exception) when (attempt < _options.MaxRetries)
+                catch (HttpRequestException exception) when (attempt < maxRetries)
                 {
                     _logger.LogWarning(exception, "Transient Technical Interview AI request failure.");
-                    await Task.Delay(TimeSpan.FromMilliseconds(250 * (attempt + 1)), cancellationToken);
+                    await BackoffAsync(attempt, operationToken);
                 }
                 catch (HttpRequestException exception)
                 {
                     _logger.LogWarning(exception, "Technical Interview AI request failed.");
-                    return Failure<T>(stopwatch, "NETWORK_ERROR");
+                    return Failure<T>(stopwatch, startedAt, "NETWORK_ERROR", attempt);
                 }
             }
 
-            return Failure<T>(stopwatch, "RETRY_EXHAUSTED");
+            return Failure<T>(stopwatch, startedAt, "RETRY_EXHAUSTED", maxRetries);
         }
 
-        private AIProviderResult<T> Failure<T>(Stopwatch stopwatch, string errorCode)
+        private AIProviderResult<T> Failure<T>(
+            Stopwatch stopwatch,
+            DateTime startedAt,
+            string errorCode,
+            int retryCount)
         {
             stopwatch.Stop();
             return new AIProviderResult<T>
@@ -164,7 +230,27 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 Success = false,
                 Model = _options.Model,
                 LatencyMs = stopwatch.ElapsedMilliseconds,
-                ErrorCode = errorCode
+                ErrorCode = errorCode,
+                RetryCount = retryCount,
+                StartedAt = startedAt,
+                CompletedAt = DateTime.UtcNow
+            };
+        }
+
+        private static Task BackoffAsync(int attempt, CancellationToken cancellationToken)
+        {
+            var delayMs = Math.Min(2_000, 250 * (1 << Math.Min(attempt, 3)));
+            return Task.Delay(TimeSpan.FromMilliseconds(delayMs), cancellationToken);
+        }
+
+        private static string MapHttpError(HttpStatusCode statusCode)
+        {
+            return statusCode switch
+            {
+                HttpStatusCode.TooManyRequests => "GEMINI_QUOTA_EXCEEDED",
+                HttpStatusCode.Forbidden => "GEMINI_PERMISSION_DENIED",
+                HttpStatusCode.ServiceUnavailable => "GEMINI_UNAVAILABLE",
+                _ => $"HTTP_{(int)statusCode}"
             };
         }
 

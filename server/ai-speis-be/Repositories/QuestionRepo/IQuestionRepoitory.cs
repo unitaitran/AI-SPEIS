@@ -30,6 +30,9 @@ namespace ai_speis_be.Repositories.QuestionRepo
         Task<IReadOnlyList<Question>> GetTechnicalCandidatesAsync(
             TechnicalQuestionCandidateQuery query,
             CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<Question>> GetActiveTechnicalQuestionsByIdsAsync(
+            IReadOnlyCollection<int> questionIds,
+            CancellationToken cancellationToken = default);
         Task<IReadOnlyList<string>> GetTechnicalSkillsAsync(
             string language,
             IReadOnlyCollection<string> roleTargets,

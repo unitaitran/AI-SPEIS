@@ -40,6 +40,18 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public DateTime? CompletedAt { get; set; }
         public decimal? FinalScore { get; set; }
         public string? PerformanceBand { get; set; }
+        public int? MatchScore { get; set; }
+        public string? MatchBand { get; set; }
+        public string? QuestionPlanVersion { get; set; }
+        public string? AdaptiveRuleVersion { get; set; }
+        public int? MainQuestionIndex { get; set; }
+        public int TotalMainQuestions { get; set; }
+        public string? QuestionType { get; set; }
+        public int? SubQuestionIndex { get; set; }
+        public int RequiredFollowUpCount { get; set; }
+        public int CompletedFollowUpCount { get; set; }
+        public string ProcessingStatus { get; set; } = string.Empty;
+        public string SessionStatus { get; set; } = string.Empty;
     }
 
     public sealed class TechnicalCurrentQuestionDto
@@ -53,14 +65,54 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public int MainQuestionIndex { get; set; }
         public int TotalMainQuestions { get; set; }
         public string SessionStatus { get; set; } = string.Empty;
+        public int? SubQuestionIndex { get; set; }
+        public int RequiredFollowUpCount { get; set; }
+        public int CompletedFollowUpCount { get; set; }
+        public int RequiredSubQuestionCount { get; set; }
+        public string ProcessingStatus { get; set; } = string.Empty;
     }
 
     public sealed class TechnicalSubmitAnswerResponseDto
     {
         public Guid AttemptId { get; set; }
+        public TechnicalProcessingStatusDto Processing { get; set; } = new();
         public TechnicalEvaluationDecisionDto Evaluation { get; set; } = new();
+        public TechnicalFeedbackAcknowledgementDto Feedback { get; set; } = new();
         public TechnicalCurrentQuestionDto? NextQuestion { get; set; }
         public string SessionStatus { get; set; } = string.Empty;
+        public TechnicalFallbackStatusDto Fallbacks { get; set; } = new();
+        public string ResolvedAction { get; set; } = string.Empty;
+        public TechnicalInterviewProgressDto Progress { get; set; } = new();
+    }
+
+    public sealed class TechnicalInterviewProgressDto
+    {
+        public int MainQuestionIndex { get; set; }
+        public int TotalMainQuestions { get; set; }
+        public int? SubQuestionIndex { get; set; }
+        public int RequiredSubQuestionCount { get; set; }
+        public int RequiredFollowUpCount { get; set; }
+        public int CompletedFollowUpCount { get; set; }
+    }
+
+    public sealed class TechnicalProcessingStatusDto
+    {
+        public string Evaluation { get; set; } = string.Empty;
+        public string Feedback { get; set; } = string.Empty;
+        public string QuestionGeneration { get; set; } = string.Empty;
+    }
+
+    public sealed class TechnicalFeedbackAcknowledgementDto
+    {
+        public string Status { get; set; } = string.Empty;
+        public bool AvailableInResult { get; set; } = true;
+    }
+
+    public sealed class TechnicalFallbackStatusDto
+    {
+        public bool EvaluationFallbackUsed { get; set; }
+        public bool FeedbackFallbackUsed { get; set; }
+        public bool QuestionFallbackUsed { get; set; }
     }
 
     public sealed class TechnicalEvaluationDecisionDto
@@ -74,10 +126,16 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public string RubricVersion { get; set; } = string.Empty;
         public string ScoringPolicyVersion { get; set; } = string.Empty;
         public decimal OverallScore { get; set; }
+        public decimal TechnicalScore { get; set; }
+        public decimal MaxScore { get; set; } = 10m;
         public string PerformanceBand { get; set; } = string.Empty;
         public List<TechnicalMainQuestionResultDto> MainQuestions { get; set; } = new();
+        public List<TechnicalMainQuestionResultDto> MainQuestionResults { get; set; } = new();
         public List<TechnicalSkillResultDto> SkillScores { get; set; } = new();
         public TechnicalFinalSummaryDto Summary { get; set; } = new();
+        public List<string> Strengths { get; set; } = new();
+        public List<string> Weaknesses { get; set; } = new();
+        public List<string> Recommendations { get; set; } = new();
     }
 
     public sealed class TechnicalMainQuestionResultDto
@@ -85,14 +143,38 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public Guid AttemptId { get; set; }
         public int? QuestionId { get; set; }
         public int MainQuestionIndex { get; set; }
+        public string QuestionType { get; set; } = "MAIN";
         public string Question { get; set; } = string.Empty;
+        public string? AnswerTranscript { get; set; }
         public string Skill { get; set; } = string.Empty;
         public decimal Score { get; set; }
+        public decimal InitialMainScore { get; set; }
+        public decimal FinalMainScore { get; set; }
+        public decimal CumulativeFollowUpBonus { get; set; }
+        public string? SourceType { get; set; }
+        public string? TargetSkill { get; set; }
+        public string? EvaluationObjective { get; set; }
+        public bool PlanDeviation { get; set; }
+        public string? PlanDeviationReason { get; set; }
         public List<TechnicalDimensionResultDto> Dimensions { get; set; } = new();
         public List<string> Strengths { get; set; } = new();
         public List<string> MissingPoints { get; set; } = new();
         public List<string> IncorrectClaims { get; set; } = new();
         public List<string> ImprovementSuggestions { get; set; } = new();
+        public string FeedbackSummary { get; set; } = string.Empty;
+        public List<TechnicalSubQuestionResultDto> AdaptiveHistory { get; set; } = new();
+    }
+
+    public sealed class TechnicalSubQuestionResultDto
+    {
+        public Guid AttemptId { get; set; }
+        public string QuestionType { get; set; } = string.Empty;
+        public int SequenceWithinMain { get; set; }
+        public string Question { get; set; } = string.Empty;
+        public string? AnswerTranscript { get; set; }
+        public decimal? RawScore { get; set; }
+        public decimal? FollowUpBonus { get; set; }
+        public string? GenerationReason { get; set; }
     }
 
     public sealed class TechnicalDimensionResultDto
@@ -106,6 +188,7 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public List<string> Evidence { get; set; } = new();
         public List<string> MissingEvidence { get; set; } = new();
         public string ReasonSummary { get; set; } = string.Empty;
+        public List<string> IncorrectClaims { get; set; } = new();
     }
 
     public sealed class TechnicalSkillResultDto

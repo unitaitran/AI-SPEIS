@@ -524,7 +524,9 @@ namespace ai_speis_be.Services.InterviewSessionService
 
             return roundType == InterviewRoundType.Code
                 ? defaultCodingQuestionCount
-                : defaultQuestionCount;
+                : roundType == InterviewRoundType.Technical
+                    ? 3
+                    : defaultQuestionCount;
         }
 
         private static bool ExpireIfDue(InterviewCampaign campaign, User user, DateTime now)
