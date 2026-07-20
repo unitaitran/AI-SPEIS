@@ -141,7 +141,7 @@ namespace ai_speis_be.Services.UserService
         public async Task<User> CreateGoogleUserAsync(string email, string fullName)
         {
             var user = new User{
-                RoleId = 5, // Default to regular user role
+                RoleId = 2, // Default to regular user role
                 FullName = fullName,
                 Email = email,
                 Status = true,

@@ -27,7 +27,12 @@ namespace ai_speis_be.Models
         public DbSet<CodingSubmission> CodingSubmissions { get; set; } = null!;
         public DbSet<SubmissionTestCaseResult> SubmissionTestCaseResults { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
-  
+        
+        // Behavioural Round Models
+        public DbSet<BehaviourQuestionSet> BehaviourQuestionSets { get; set; } = null!;
+        public DbSet<BehaviourSessionQuestion> BehaviourSessionQuestions { get; set; } = null!;
+        public DbSet<BehaviourAnswer> BehaviourAnswers { get; set; } = null!;
+        public DbSet<BehaviourRoundResult> BehaviourRoundResults { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -218,6 +223,50 @@ namespace ai_speis_be.Models
                 .HasOne(payment => payment.User)
                 .WithMany()
                 .HasForeignKey(payment => payment.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ==========================================
+            // Behavioural Round Configurations
+            // ==========================================
+            
+            // Enum Conversions for BehaviourQuestionSet
+            modelBuilder.Entity<BehaviourQuestionSet>()
+                .Property(s => s.SelectionSource)
+                .HasConversion<string>();
+            modelBuilder.Entity<BehaviourQuestionSet>()
+                .Property(s => s.Status)
+                .HasConversion<string>();
+
+            // Enum Conversions for BehaviourSessionQuestion
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .Property(q => q.QuestionType)
+                .HasConversion<string>();
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .Property(q => q.Status)
+                .HasConversion<string>();
+
+            // Enum Conversions for BehaviourAnswer
+            modelBuilder.Entity<BehaviourAnswer>()
+                .Property(a => a.AiAnswerQuality)
+                .HasConversion<string>();
+            modelBuilder.Entity<BehaviourAnswer>()
+                .Property(a => a.AiRecommendedAction)
+                .HasConversion<string>();
+            modelBuilder.Entity<BehaviourAnswer>()
+                .Property(a => a.ResolvedAction)
+                .HasConversion<string>();
+
+            // Relationships
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .HasOne(q => q.ParentQuestion)
+                .WithMany()
+                .HasForeignKey(q => q.ParentQuestionId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .HasOne(q => q.BehaviourAnswerAnswer)
+                .WithOne(a => a.BehaviourSessionQuestion)
+                .HasForeignKey<BehaviourAnswer>(a => a.BehaviourSessionQuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

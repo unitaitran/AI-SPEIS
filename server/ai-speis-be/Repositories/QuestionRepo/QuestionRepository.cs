@@ -116,6 +116,88 @@ namespace ai_speis_be.Repositories.QuestionRepo
             };
         }
 
+        public async Task<IReadOnlyList<Question>> GetBehaviouralCandidatesAsync(
+            BehaviouralQuestionCandidateQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            var dbQuery = _context.Questions.AsNoTracking().Where(q => !q.IsDeleted);
+
+            // Filter by QuestionType = "Behavioral"
+            dbQuery = dbQuery.Where(q => q.QuestionType == "Behavioral");
+
+            if (!string.IsNullOrWhiteSpace(query.Language))
+            {
+                dbQuery = dbQuery.Where(q => q.Language == query.Language);
+            }
+
+            if (query.ExperienceLevels.Count > 0)
+            {
+                var levels = query.ExperienceLevels.ToList();
+                // Khớp ExperienceLevel chính xác hoặc nằm trong LevelTags ("Intern,Fresher")
+                dbQuery = dbQuery.Where(q =>
+                    (q.ExperienceLevel != null && levels.Contains(q.ExperienceLevel))
+                    || (q.LevelTags != null && levels.Any(level => q.LevelTags.Contains(level))));
+            }
+
+            if (query.ExcludedQuestionIds.Count > 0)
+            {
+                dbQuery = dbQuery.Where(q => !query.ExcludedQuestionIds.Contains(q.QuestionId));
+            }
+
+            if (query.Difficulty.HasValue)
+            {
+                dbQuery = dbQuery.Where(q => q.Difficulty == query.Difficulty.Value);
+            }
+
+            if (query.RoleTargets.Count > 0)
+            {
+                var param = Expression.Parameter(typeof(Question), "q");
+                Expression? body = null;
+                var roleTargetProp = Expression.Property(param, nameof(Question.RoleTarget));
+                var notNull = Expression.NotEqual(roleTargetProp, Expression.Constant(null, typeof(string)));
+                var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
+
+                foreach (var role in query.RoleTargets)
+                {
+                    var containsCall = Expression.Call(roleTargetProp, containsMethod, Expression.Constant(role, typeof(string)));
+                    var condition = Expression.AndAlso(notNull, containsCall);
+                    body = body == null ? condition : Expression.OrElse(body, condition);
+                }
+
+                if (body != null)
+                {
+                    var lambda = Expression.Lambda<Func<Question, bool>>(body, param);
+                    dbQuery = dbQuery.Where(lambda);
+                }
+            }
+
+            if (query.Skills.Count > 0)
+            {
+                var param = Expression.Parameter(typeof(Question), "q");
+                Expression? body = null;
+                var skillProp = Expression.Property(param, nameof(Question.Skill));
+                var notNull = Expression.NotEqual(skillProp, Expression.Constant(null, typeof(string)));
+                var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
+
+                foreach (var skill in query.Skills)
+                {
+                    var containsCall = Expression.Call(skillProp, containsMethod, Expression.Constant(skill, typeof(string)));
+                    var condition = Expression.AndAlso(notNull, containsCall);
+                    body = body == null ? condition : Expression.OrElse(body, condition);
+                }
+
+                if (body != null)
+                {
+                    var lambda = Expression.Lambda<Func<Question, bool>>(body, param);
+                    dbQuery = dbQuery.Where(lambda);
+                }
+            }
+
+            return await dbQuery
+                .Take(query.MaximumResults)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<PagedResultDto<Question>> GetQuestionsAsync(
             UserQuestionQueryDto query,
             CancellationToken cancellationToken = default)

@@ -28,6 +28,19 @@ namespace ai_speis_be.Repositories.QuestionRepo
             CancellationToken cancellationToken = default);
         Task<QuestionFiltersDto> GetQuestionFiltersAsync(CancellationToken cancellationToken = default);
 
+        Task<IReadOnlyList<Question>> GetBehaviouralCandidatesAsync(
+            BehaviouralQuestionCandidateQuery query,
+            CancellationToken cancellationToken = default);
+    }
 
+    public sealed class BehaviouralQuestionCandidateQuery
+    {
+        public string Language { get; set; } = string.Empty;
+        public IReadOnlyCollection<string> RoleTargets { get; set; } = Array.Empty<string>();
+        public IReadOnlyCollection<string> ExperienceLevels { get; set; } = Array.Empty<string>();
+        public IReadOnlyCollection<string> Skills { get; set; } = Array.Empty<string>();
+        public Models.Enums.QuestionDifficultyEnum? Difficulty { get; set; }
+        public IReadOnlySet<int> ExcludedQuestionIds { get; set; } = new HashSet<int>();
+        public int MaximumResults { get; set; } = 50;
     }
 }

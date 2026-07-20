@@ -514,6 +514,8 @@ namespace ai_speis_be.Services.InterviewSessionService
         {
             const int defaultQuestionCount = 5;
             const int defaultCodingQuestionCount = 3;
+            // Adaptive Question Generation Rubric: Behavioral Interview luôn gồm 03 Main Questions
+            const int defaultBehaviouralQuestionCount = 3;
 
             if (mode == InterviewMode.Practice && questionCounts != null)
             {
@@ -522,9 +524,12 @@ namespace ai_speis_be.Services.InterviewSessionService
                 if (!string.IsNullOrEmpty(configuredCount.Key)) return configuredCount.Value;
             }
 
-            return roundType == InterviewRoundType.Code
-                ? defaultCodingQuestionCount
-                : defaultQuestionCount;
+            return roundType switch
+            {
+                InterviewRoundType.Code => defaultCodingQuestionCount,
+                InterviewRoundType.Behavior => defaultBehaviouralQuestionCount,
+                _ => defaultQuestionCount
+            };
         }
 
         private static bool ExpireIfDue(InterviewCampaign campaign, User user, DateTime now)

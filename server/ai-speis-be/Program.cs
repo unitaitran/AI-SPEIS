@@ -26,6 +26,13 @@ using ai_speis_be.Services.SpeechToTextService;
 using ai_speis_be.Services.TextToSpeechService;
 using ai_speis_be.Repositories.PaymentRepo;
 using ai_speis_be.Services.PaymentService;
+using ai_speis_be.BehaviouralInterviews.AI;
+using ai_speis_be.BehaviouralInterviews.Configuration;
+using ai_speis_be.BehaviouralInterviews.Orchestration;
+using ai_speis_be.BehaviouralInterviews.Rubrics;
+using ai_speis_be.BehaviouralInterviews.Scoring;
+using ai_speis_be.BehaviouralInterviews.Selection;
+using ai_speis_be.BehaviouralInterviews.Validation;
 
 LoadEnvFile();
 
@@ -122,6 +129,27 @@ builder.Services.AddScoped<ISavedQuestionService, SavedQuestionService>();
 // Register Interview Session & Campaign
 builder.Services.AddScoped<IInterviewCampaignRepository, InterviewCampaignRepository>();
 builder.Services.AddScoped<IInterviewSessionService, InterviewSessionService>();
+
+// Register Behavioural Interview Components
+var behaviouralOptions = new BehaviouralInterviewOptions();
+builder.Configuration.GetSection(BehaviouralInterviewOptions.SectionName).Bind(behaviouralOptions);
+if (string.IsNullOrWhiteSpace(behaviouralOptions.ApiKey))
+{
+    behaviouralOptions.ApiKey = builder.Configuration["GeminiAI:ApiKey"] ?? string.Empty;
+}
+builder.Services.AddSingleton(behaviouralOptions);
+builder.Services.AddHttpClient("BehaviouralInterviewAI", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddScoped<IBehaviouralInterviewAIProvider, ExternalBehaviouralInterviewAIProvider>();
+builder.Services.AddSingleton<IBehaviouralRubricProvider, BehaviouralRubricProvider>();
+builder.Services.AddSingleton<IBehaviouralRubricScoringService, BehaviouralRubricScoringService>();
+builder.Services.AddSingleton<IBehaviouralAIResponseValidator, BehaviouralAIResponseValidator>();
+builder.Services.AddScoped<IBehaviouralInterviewAIProviderResolver, BehaviouralInterviewAIProviderResolver>();
+builder.Services.AddScoped<IBehaviouralQuestionSelectionService, BehaviouralQuestionSelectionService>();
+builder.Services.AddSingleton<IBehaviouralFollowUpDecisionEngine, BehaviouralFollowUpDecisionEngine>();
+builder.Services.AddScoped<IBehaviouralInterviewOrchestrator, BehaviouralInterviewOrchestrator>();
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest

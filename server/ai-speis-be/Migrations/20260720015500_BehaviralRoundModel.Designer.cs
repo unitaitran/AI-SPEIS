@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ai_speis_be.Models;
 
@@ -11,9 +12,11 @@ using ai_speis_be.Models;
 namespace ai_speis_be.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720015500_BehaviralRoundModel")]
+    partial class BehaviralRoundModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,218 +24,6 @@ namespace ai_speis_be.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourAnswer", b =>
-                {
-                    b.Property<int>("BehaviourAnswerId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BehaviourAnswerId"));
-
-                    b.Property<decimal?>("AiActionScore")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("AiAnswerQuality")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal?>("AiCommunicationScore")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("AiCompetencyScore")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("AiCriteriaDetailJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AiMissingPoints")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("AiOverallRubricScore")
-                        .HasColumnType("int");
-
-                    b.Property<string>("AiRecommendedAction")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal?>("AiResultScore")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("AiSituationScore")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("AiStrengths")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("BehaviourSessionQuestionId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("ComputedScore")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ResolvedAction")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal?>("SttConfidence")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("Transcript")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("BehaviourAnswerId");
-
-                    b.HasIndex("BehaviourSessionQuestionId")
-                        .IsUnique();
-
-                    b.ToTable("BehaviourAnswer");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourQuestionSet", b =>
-                {
-                    b.Property<int>("BehaviourQuestionSetId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BehaviourQuestionSetId"));
-
-                    b.Property<string>("AiExecutionRunId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ConstraintsJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CoveredSkillsJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("InterviewSessionId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("QuestionCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SelectionSource")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("BehaviourQuestionSetId");
-
-                    b.HasIndex("InterviewSessionId");
-
-                    b.ToTable("BehaviourQuestionSet");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourRoundResult", b =>
-                {
-                    b.Property<int>("BehaviourRoundResultId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BehaviourRoundResultId"));
-
-                    b.Property<string>("AiExecutiveSummary")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AiGaps")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AiLevelAssessment")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AiRecommendations")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AiStrengths")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CriteriaAveragesJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("InterviewSessionId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("OverallScore")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("SkillScoresJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("BehaviourRoundResultId");
-
-                    b.HasIndex("InterviewSessionId");
-
-                    b.ToTable("BehaviourRoundResult");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourSessionQuestion", b =>
-                {
-                    b.Property<int>("BehaviourSessionQuestionId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BehaviourSessionQuestionId"));
-
-                    b.Property<DateTime?>("AnsweredAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("AskedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("BehaviourQuestionSetId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("EvaluationGoal")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("ParentQuestionId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("QuestionId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("QuestionOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("QuestionSnapshotJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("QuestionType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SelectionReason")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("BehaviourSessionQuestionId");
-
-                    b.HasIndex("BehaviourQuestionSetId");
-
-                    b.HasIndex("ParentQuestionId");
-
-                    b.HasIndex("QuestionId");
-
-                    b.ToTable("BehaviourSessionQuestion");
-                });
 
             modelBuilder.Entity("ai_speis_be.Models.CVExtractedProfile", b =>
                 {
@@ -552,9 +343,6 @@ namespace ai_speis_be.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<int?>("CvJdMatchScore")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -1204,65 +992,6 @@ namespace ai_speis_be.Migrations
                     b.ToTable("UserProfile");
                 });
 
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourAnswer", b =>
-                {
-                    b.HasOne("ai_speis_be.Models.BehaviourSessionQuestion", "BehaviourSessionQuestion")
-                        .WithOne("BehaviourAnswerAnswer")
-                        .HasForeignKey("ai_speis_be.Models.BehaviourAnswer", "BehaviourSessionQuestionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("BehaviourSessionQuestion");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourQuestionSet", b =>
-                {
-                    b.HasOne("ai_speis_be.Models.InterviewSession", "InterviewSession")
-                        .WithMany()
-                        .HasForeignKey("InterviewSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("InterviewSession");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourRoundResult", b =>
-                {
-                    b.HasOne("ai_speis_be.Models.InterviewSession", "InterviewSession")
-                        .WithMany()
-                        .HasForeignKey("InterviewSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("InterviewSession");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourSessionQuestion", b =>
-                {
-                    b.HasOne("ai_speis_be.Models.BehaviourQuestionSet", "BehaviourQuestionSet")
-                        .WithMany("BehaviourSessionQuestion")
-                        .HasForeignKey("BehaviourQuestionSetId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ai_speis_be.Models.BehaviourSessionQuestion", "ParentQuestion")
-                        .WithMany()
-                        .HasForeignKey("ParentQuestionId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("ai_speis_be.Models.Question", "Question")
-                        .WithMany()
-                        .HasForeignKey("QuestionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("BehaviourQuestionSet");
-
-                    b.Navigation("ParentQuestion");
-
-                    b.Navigation("Question");
-                });
-
             modelBuilder.Entity("ai_speis_be.Models.CVExtractedProfile", b =>
                 {
                     b.HasOne("ai_speis_be.Models.CVFile", "CVFile")
@@ -1512,16 +1241,6 @@ namespace ai_speis_be.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourQuestionSet", b =>
-                {
-                    b.Navigation("BehaviourSessionQuestion");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.BehaviourSessionQuestion", b =>
-                {
-                    b.Navigation("BehaviourAnswerAnswer");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.CVExtractedProfile", b =>
