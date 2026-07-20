@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.DTOs;
 
 namespace ai_speis_be.Tests.TechnicalInterviews;
@@ -22,5 +24,46 @@ public sealed class TechnicalParallelPublicContractSecurityTests
         Assert.DoesNotContain("RawPrompt", publicPropertyNames);
         Assert.DoesNotContain("Summary", typeof(TechnicalFeedbackAcknowledgementDto)
             .GetProperties().Select(property => property.Name));
+    }
+
+    [Fact]
+    public void SubmitAndResultContractsExposeAdaptiveProgressWithoutLiveScores()
+    {
+        var submitProperties = typeof(TechnicalSubmitAnswerResponseDto)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var progressProperties = typeof(TechnicalInterviewProgressDto)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var resultProperties = typeof(TechnicalInterviewResultDto)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        Assert.Contains("ResolvedAction", submitProperties);
+        Assert.Contains("Progress", submitProperties);
+        Assert.DoesNotContain("Score", submitProperties);
+        Assert.Contains("MainQuestionIndex", progressProperties);
+        Assert.Contains("TotalMainQuestions", progressProperties);
+        Assert.Contains("RequiredFollowUpCount", progressProperties);
+        Assert.Contains("CompletedFollowUpCount", progressProperties);
+        Assert.Contains("TechnicalScore", resultProperties);
+        Assert.Contains("MainQuestionResults", resultProperties);
+        Assert.DoesNotContain(
+            typeof(TechnicalAIQuestionBundleResponse).GetProperties(),
+            property => string.Equals(property.Name, "FollowUp2Candidate", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ProcessingContext_CarriesPriorMissingEvidenceForSequentialFuGeneration()
+    {
+        var context = TechnicalParallelTestData.CreateContext() with
+        {
+            RemainingMissingEvidence = ImmutableArray.Create("Explain the scoped lifetime trade-off")
+        };
+
+        Assert.Equal("Explain the scoped lifetime trade-off", context.RemainingMissingEvidence.Single());
     }
 }

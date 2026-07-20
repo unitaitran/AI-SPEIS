@@ -93,15 +93,25 @@ namespace ai_speis_be.TechnicalInterviews.Selection
         {
             var normalizedLeft = Normalize(left);
             var normalizedRight = Normalize(right);
-            return normalizedLeft.Length > 0
-                && normalizedRight.Length > 0
+            if (normalizedLeft.Length == 0 || normalizedRight.Length == 0)
+                return false;
+            if (string.Equals(normalizedLeft, normalizedRight, StringComparison.Ordinal))
+                return true;
+
+            // One-character technology names such as C/C# must not fuzzy-match
+            // unrelated skills merely because their normalized text contains "c".
+            return Math.Min(normalizedLeft.Length, normalizedRight.Length) >= 3
                 && (normalizedLeft.Contains(normalizedRight, StringComparison.Ordinal)
                     || normalizedRight.Contains(normalizedLeft, StringComparison.Ordinal));
         }
 
         private static string Normalize(string? value)
         {
-            return new string((value ?? string.Empty)
+            var expanded = (value ?? string.Empty)
+                .Replace("C#", "csharp", StringComparison.OrdinalIgnoreCase)
+                .Replace("C++", "cplusplus", StringComparison.OrdinalIgnoreCase)
+                .Replace(".NET", "dotnet", StringComparison.OrdinalIgnoreCase);
+            return new string(expanded
                 .Where(char.IsLetterOrDigit)
                 .Select(char.ToLowerInvariant)
                 .ToArray());

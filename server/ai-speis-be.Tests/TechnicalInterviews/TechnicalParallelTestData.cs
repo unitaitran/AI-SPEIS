@@ -11,7 +11,13 @@ internal static class TechnicalParallelTestData
         int clarificationCount = 0,
         int followUpCount = 0,
         int completedMainQuestions = 0,
-        int targetMainQuestions = 5)
+        int targetMainQuestions = 3,
+        TechnicalAttemptType attemptType = TechnicalAttemptType.Main,
+        decimal initialMainScore = 9m,
+        int requiredFollowUpCount = 0,
+        bool reliabilityRequired = false,
+        TechnicalQuestionGenerationReason? generationReason = null,
+        decimal cumulativeFollowUpBonus = 0m)
     {
         var rubric = TechnicalTestRubric.Create();
         return new TechnicalAnswerProcessingContext
@@ -20,7 +26,10 @@ internal static class TechnicalParallelTestData
             AttemptId = Guid.NewGuid(),
             RootMainAttemptId = Guid.NewGuid(),
             QuestionId = 1,
-            QuestionType = "MAIN",
+            QuestionType = attemptType == TechnicalAttemptType.FollowUp
+                ? "FOLLOW_UP"
+                : attemptType.ToString().ToUpperInvariant(),
+            AttemptType = attemptType,
             QuestionContent = "Explain dependency injection.",
             MainQuestionContent = "Explain dependency injection.",
             ExpectedAnswer = "Dependency injection separates object construction from object use.",
@@ -42,6 +51,7 @@ internal static class TechnicalParallelTestData
                     item.Description)).ToImmutableArray()),
             CandidateAnswer = "dependency injection improves testability by separating construction from use",
             PreviousAnswers = ImmutableArray<TechnicalAnswerContext>.Empty,
+            RemainingMissingEvidence = ImmutableArray<string>.Empty,
             JobRole = "Backend Developer",
             ExperienceLevel = "Junior",
             Language = "vi",
@@ -61,13 +71,33 @@ internal static class TechnicalParallelTestData
             PromptVersions = new TechnicalPromptVersionSnapshot(
                 TechnicalPromptVersions.Evaluation,
                 TechnicalPromptVersions.Feedback,
-                TechnicalPromptVersions.QuestionBundle)
+                TechnicalPromptVersions.QuestionBundle),
+            UseAdaptiveRubricFramework = true,
+            MatchScore = 75,
+            MatchBand = TechnicalMatchBand.High,
+            InitialMainScore = attemptType == TechnicalAttemptType.Main ? null : initialMainScore,
+            CurrentMainBaseScore = initialMainScore,
+            RequiredClarificationCount = clarificationCount,
+            CompletedClarificationCount = clarificationCount,
+            RequiredFollowUpCount = requiredFollowUpCount,
+            CompletedFollowUpCount = followUpCount,
+            CumulativeFollowUpBonus = cumulativeFollowUpBonus,
+            TotalMainCount = completedMainQuestions + 1,
+            TotalFollowUpCount = followUpCount,
+            TotalClarificationCount = clarificationCount,
+            IsReliabilityFollowUpRequired = reliabilityRequired,
+            CurrentGenerationReason = generationReason,
+            ScoringPolicyVersion = rubric.ScoringPolicyVersion,
+            AdaptiveRuleVersion = "technical-adaptive-v1",
+            BonusCalculationVersion = "technical-follow-up-bonus-v1"
         };
     }
 
-    public static TechnicalAIEvaluationResponse CreateEvaluation(string decision = "NEXT_QUESTION")
+    public static TechnicalAIEvaluationResponse CreateEvaluation(
+        string decision = "NEXT_QUESTION",
+        decimal score = 9m)
     {
-        var evaluation = TechnicalTestRubric.CreateEvaluation(4m, 4m, 3m, 3m, 4m);
+        var evaluation = TechnicalTestRubric.CreateEvaluation(score, score, score, score, score);
         evaluation.Decision = decision;
         evaluation.Strengths = new List<string> { "Clear dependency injection explanation" };
         evaluation.MissingPoints = new List<string> { "Needs a concrete lifetime example" };
@@ -93,13 +123,13 @@ internal static class TechnicalParallelTestData
         {
             ClarificationCandidate = new TechnicalAISubQuestionCandidate
             {
-                Content = "Bạn có thể làm rõ ý vừa nêu không?",
+                Content = "Could you clarify how you reached that conclusion?",
                 Purpose = "Clarify the reasoning",
-                TargetRubricCodes = new List<string> { "EXPLANATION_REASONING" }
+                TargetRubricCodes = new List<string> { "REASONING" }
             },
             FollowUpCandidate = new TechnicalAISubQuestionCandidate
             {
-                Content = "Bạn có thể bổ sung một ví dụ thực tế không?",
+                Content = "Could you add a concrete practical example?",
                 Purpose = "Collect missing practical evidence",
                 TargetRubricCodes = new List<string> { "TECHNICAL_DEPTH" }
             },

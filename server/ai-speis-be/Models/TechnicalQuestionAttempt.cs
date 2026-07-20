@@ -33,6 +33,53 @@ namespace ai_speis_be.Models
 
         public int MainQuestionIndex { get; set; }
 
+        public int SequenceWithinMain { get; set; }
+
+        public TechnicalQuestionSourceType? SourceType { get; set; }
+
+        [MaxLength(200)]
+        public string? TargetSkillSnapshot { get; set; }
+
+        [MaxLength(200)]
+        public string? TargetSubskillSnapshot { get; set; }
+
+        public TechnicalEvaluationObjective? EvaluationObjective { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? InitialMainScore { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? FinalMainScore { get; set; }
+
+        public int RequiredClarificationCount { get; set; }
+
+        public int CompletedClarificationCount { get; set; }
+
+        public int RequiredFollowUpCount { get; set; }
+
+        public int CompletedFollowUpCount { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal CumulativeFollowUpBonus { get; set; }
+
+        public TechnicalAdaptiveStage? AdaptiveStage { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? RawScore { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? AppliedBonus { get; set; }
+
+        public TechnicalQuestionGenerationReason? GenerationReason { get; set; }
+
+        [MaxLength(80)]
+        public string? BonusCalculationVersion { get; set; }
+
+        public bool PlanDeviation { get; set; }
+
+        [MaxLength(500)]
+        public string? PlanDeviationReason { get; set; }
+
         [Column(TypeName = "nvarchar(max)")]
         public string? AnswerTranscript { get; set; }
 

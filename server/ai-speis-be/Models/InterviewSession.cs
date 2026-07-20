@@ -53,6 +53,26 @@ namespace ai_speis_be.Models
         [MaxLength(50)]
         public string? TechnicalScoringPolicyVersion { get; set; }
 
+        public int? TechnicalMatchScoreSnapshot { get; set; }
+
+        public TechnicalMatchBand? TechnicalMatchBand { get; set; }
+
+        public int? TechnicalPlannedCvQuestionCount { get; set; }
+
+        public int? TechnicalPlannedJdQuestionCount { get; set; }
+
+        [Column(TypeName = "nvarchar(max)")]
+        public string? TechnicalQuestionPlanJson { get; set; }
+
+        [MaxLength(80)]
+        public string? TechnicalQuestionPlanVersion { get; set; }
+
+        [MaxLength(80)]
+        public string? TechnicalAdaptiveRuleVersion { get; set; }
+
+        [MaxLength(80)]
+        public string? TechnicalBonusCalculationVersion { get; set; }
+
         [MaxLength(200)]
         public string? TechnicalJobRole { get; set; }
 

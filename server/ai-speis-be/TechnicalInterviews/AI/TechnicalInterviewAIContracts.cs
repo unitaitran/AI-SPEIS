@@ -2,10 +2,10 @@ namespace ai_speis_be.TechnicalInterviews.AI
 {
     public static class TechnicalPromptVersions
     {
-        public const string Selection = "technical-selection-v1";
-        public const string Evaluation = "technical-evaluation-v2";
-        public const string Feedback = "technical-feedback-v1";
-        public const string QuestionBundle = "technical-question-bundle-v1";
+        public const string Selection = "technical-selection-v2";
+        public const string Evaluation = "technical-evaluation-v3";
+        public const string Feedback = "technical-feedback-v2";
+        public const string QuestionBundle = "technical-question-bundle-v2";
         public const string Summary = "technical-summary-v1";
     }
 
@@ -25,6 +25,11 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public IReadOnlyList<string> SelectedSkills { get; init; } = Array.Empty<string>();
         public IReadOnlyList<string> AskedSkills { get; init; } = Array.Empty<string>();
         public IReadOnlyList<TechnicalAIQuestionCandidate> Candidates { get; init; } = Array.Empty<TechnicalAIQuestionCandidate>();
+        public string? PlannedSourceType { get; init; }
+        public string? TargetSkill { get; init; }
+        public string? TargetSubskill { get; init; }
+        public string? PlannedDifficulty { get; init; }
+        public string? EvaluationObjective { get; init; }
     }
 
     public sealed class TechnicalAISelectionResponse

@@ -10,25 +10,48 @@ public sealed class TechnicalRubricScoringServiceTests
     public void ScoreQuestion_AppliesDocumentWeightsAndBackendRounding()
     {
         var rubric = TechnicalTestRubric.Create();
-        var evaluation = TechnicalTestRubric.CreateEvaluation(5m, 4m, 3m, 2m, 1m);
+        var evaluation = TechnicalTestRubric.CreateEvaluation(10m, 8m, 6m, 4m, 2m);
         var service = new TechnicalRubricScoringService();
 
         var result = service.ScoreQuestion(evaluation, rubric);
 
-        Assert.Equal(3.50m, result.FinalOverallScore);
+        Assert.Equal(7.00m, result.FinalOverallScore);
         Assert.Equal(5, result.Dimensions.Count);
-        Assert.Equal(1.50m, result.Dimensions[0].WeightedScore);
-        Assert.Equal("SCORE_5", result.Dimensions[0].Level);
+        Assert.Equal(3.00m, result.Dimensions[0].WeightedScore);
+        Assert.Equal("SCORE_10", result.Dimensions[0].Level);
     }
 
     [Fact]
-    public void ScoreSession_AveragesOnlyFinalMainQuestionScores()
+    public void ScoreSession_AveragesExactlyThreeFinalMainQuestionScores()
     {
         var service = new TechnicalRubricScoringService();
 
-        var result = service.ScoreSession(new[] { 4.11m, 3.22m, 2.33m }, TechnicalTestRubric.Create());
+        var result = service.ScoreSession(
+            new[] { 8.11m, 7.22m, 6.33m },
+            TechnicalTestRubric.Create());
 
-        Assert.Equal(3.22m, result);
+        Assert.Equal(7.22m, result);
+    }
+
+    [Fact]
+    public void ScoreSession_RejectsAnIncompleteOfficialTechnicalScore()
+    {
+        var service = new TechnicalRubricScoringService();
+
+        Assert.Throws<InvalidOperationException>(() => service.ScoreSession(
+            new[] { 8m, 7m },
+            TechnicalTestRubric.Create()));
+    }
+
+    [Fact]
+    public void ApplyClarificationRecovery_UsesSeventyFivePercentAndClamps()
+    {
+        var service = new TechnicalRubricScoringService();
+
+        var result = service.ApplyClarificationRecovery(10m, 0.75m, TechnicalTestRubric.Create());
+
+        Assert.Equal(7.50m, result);
+        Assert.Equal(10m, service.Normalize(15m, TechnicalTestRubric.Create()));
     }
 }
 
@@ -36,10 +59,10 @@ internal static class TechnicalTestRubric
 {
     internal static readonly string[] Codes =
     {
-        "TECHNICAL_ACCURACY",
+        "ACCURACY",
         "TECHNICAL_DEPTH",
-        "EXPLANATION_REASONING",
-        "PRACTICAL_APPLICATION",
+        "REASONING",
+        "APPLICATION",
         "COMMUNICATION"
     };
 
@@ -48,10 +71,10 @@ internal static class TechnicalTestRubric
         var weights = new[] { 0.30m, 0.25m, 0.20m, 0.15m, 0.10m };
         return new TechnicalRubricDefinition
         {
-            Version = "technical-rubric-v1",
-            ScoringPolicyVersion = "technical-scoring-v1",
+            Version = "technical-rubric-v2",
+            ScoringPolicyVersion = "technical-scoring-v2",
             MinimumScore = 0,
-            MaximumScore = 5,
+            MaximumScore = 10,
             RoundingPrecision = 2,
             EvidenceRequiredWhenScoreAbove = 0,
             Dimensions = Codes.Select((code, index) => new TechnicalRubricDimension
@@ -60,18 +83,19 @@ internal static class TechnicalTestRubric
                 Name = code,
                 Weight = weights[index]
             }).ToList(),
-            Levels = Enumerable.Range(0, 6).Select(score => new TechnicalRubricLevel
+            Levels = Enumerable.Range(0, 11).Select(score => new TechnicalRubricLevel
             {
                 Code = $"SCORE_{score}",
                 Score = score
             }).ToList(),
             PerformanceBands = new List<TechnicalPerformanceBand>
             {
-                new() { Code = "EXCELLENT", Name = "Xuất sắc", Minimum = 4.50m, Maximum = 5.00m },
-                new() { Code = "GOOD", Name = "Tốt", Minimum = 3.50m, Maximum = 4.49m },
-                new() { Code = "FAIR", Name = "Khá", Minimum = 2.50m, Maximum = 3.49m },
-                new() { Code = "WEAK", Name = "Yếu", Minimum = 1.50m, Maximum = 2.49m },
-                new() { Code = "POOR", Name = "Kém", Minimum = 0m, Maximum = 1.49m }
+                new() { Code = "EXCELLENT", Name = "Excellent", Minimum = 9m, Maximum = 10m },
+                new() { Code = "VERY_GOOD", Name = "Very Good", Minimum = 8m, Maximum = 9m, MaximumExclusive = true },
+                new() { Code = "GOOD", Name = "Good", Minimum = 6.5m, Maximum = 8m, MaximumExclusive = true },
+                new() { Code = "MINIMUM_REQUIREMENT_MET", Name = "Minimum Requirement Met", Minimum = 5m, Maximum = 6.5m, MaximumExclusive = true },
+                new() { Code = "WEAK", Name = "Weak", Minimum = 3m, Maximum = 5m, MaximumExclusive = true },
+                new() { Code = "VERY_WEAK", Name = "Very Weak", Minimum = 0m, Maximum = 3m, MaximumExclusive = true }
             }
         };
     }

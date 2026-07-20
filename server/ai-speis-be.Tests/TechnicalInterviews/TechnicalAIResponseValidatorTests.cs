@@ -20,6 +20,22 @@ public sealed class TechnicalAIResponseValidatorTests
     }
 
     [Fact]
+    public void ValidateEvaluation_TreatsInvalidAiActionAsAuditDataInsteadOfCriticalFailure()
+    {
+        var validator = new TechnicalAIResponseValidator();
+        var response = TechnicalTestRubric.CreateEvaluation(8m, 8m, 8m, 8m, 8m);
+        response.Decision = "MODEL_INVENTED_ACTION";
+
+        var result = validator.ValidateEvaluation(
+            response,
+            TechnicalTestRubric.Create(),
+            new[] { new TechnicalAnswerContext("MAIN", "What is DI?", "Dependency injection separates construction from use.") });
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.AiSuggestedDecision);
+    }
+
+    [Fact]
     public void ValidateEvaluation_RejectsEvidenceNotPresentInCandidateAnswer()
     {
         var validator = new TechnicalAIResponseValidator();

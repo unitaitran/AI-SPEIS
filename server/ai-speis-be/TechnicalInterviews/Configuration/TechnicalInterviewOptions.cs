@@ -10,8 +10,18 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         public int MaxRetries { get; init; } = 2;
         public int CandidatePoolSize { get; init; } = 20;
         public int MaxTranscriptCharacters { get; init; } = 12_000;
-        public string RubricVersion { get; init; } = "technical-rubric-v1";
-        public string ScoringPolicyVersion { get; init; } = "technical-scoring-v1";
+        public string RubricVersion { get; init; } = "technical-rubric-v2";
+        public string PracticeRubricVersion { get; init; } = "technical-rubric-v1";
+        public string ScoringPolicyVersion { get; init; } = "technical-scoring-v2";
+        public string QuestionPlanVersion { get; init; } = "technical-question-plan-v1";
+        public string AdaptiveRuleVersion { get; init; } = "technical-adaptive-v1";
+        public string BonusCalculationVersion { get; init; } = "technical-follow-up-bonus-v1";
+        public int StandardMainQuestionCount { get; init; } = 3;
+        public decimal ClarificationRecoveryFactor { get; init; } = 0.75m;
+        public bool ClarificationEndsMainQuestion { get; init; } = true;
+        public bool ReliabilityFollowUpEnabled { get; init; } = true;
+        public int ReliabilityMinimumQuestionCount { get; init; } = 5;
+        public int ReliabilityFollowUpLimit { get; init; } = 1;
         public bool ParallelProcessingEnabled { get; init; } = true;
         public int MaxParallelTasksPerSession { get; init; } = 3;
         public int GlobalConcurrencyLimit { get; init; } = 10;
@@ -37,8 +47,18 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                 MaxRetries = GetInt(configuration, "TECHNICAL_INTERVIEW_AI_MAX_RETRIES", 2, 0, 5),
                 CandidatePoolSize = GetInt(configuration, "TECHNICAL_INTERVIEW_CANDIDATE_POOL_SIZE", 20, 1, 100),
                 MaxTranscriptCharacters = GetInt(configuration, "TECHNICAL_INTERVIEW_MAX_TRANSCRIPT_CHARACTERS", 12_000, 100, 50_000),
-                RubricVersion = Get(configuration, "TECHNICAL_INTERVIEW_RUBRIC_VERSION", "technical-rubric-v1"),
-                ScoringPolicyVersion = Get(configuration, "TECHNICAL_INTERVIEW_SCORING_POLICY_VERSION", "technical-scoring-v1"),
+                RubricVersion = Get(configuration, "TECHNICAL_INTERVIEW_RUBRIC_VERSION", "technical-rubric-v2"),
+                PracticeRubricVersion = Get(configuration, "TECHNICAL_INTERVIEW_PRACTICE_RUBRIC_VERSION", "technical-rubric-v1"),
+                ScoringPolicyVersion = Get(configuration, "TECHNICAL_INTERVIEW_SCORING_POLICY_VERSION", "technical-scoring-v2"),
+                QuestionPlanVersion = Get(configuration, "TECHNICAL_INTERVIEW_QUESTION_PLAN_VERSION", "technical-question-plan-v1"),
+                AdaptiveRuleVersion = Get(configuration, "TECHNICAL_INTERVIEW_ADAPTIVE_RULE_VERSION", "technical-adaptive-v1"),
+                BonusCalculationVersion = Get(configuration, "TECHNICAL_INTERVIEW_BONUS_CALCULATION_VERSION", "technical-follow-up-bonus-v1"),
+                StandardMainQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_STANDARD_MAIN_QUESTION_COUNT", 3, 3, 3),
+                ClarificationRecoveryFactor = GetDecimal(configuration, "TECHNICAL_INTERVIEW_CLARIFICATION_RECOVERY_FACTOR", 0.75m, 0m, 1m),
+                ClarificationEndsMainQuestion = GetBool(configuration, "TECHNICAL_INTERVIEW_CLARIFICATION_ENDS_MAIN", true),
+                ReliabilityFollowUpEnabled = GetBool(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_ENABLED", true),
+                ReliabilityMinimumQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_MINIMUM_COUNT", 5, 3, 20),
+                ReliabilityFollowUpLimit = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_LIMIT", 1, 0, 3),
                 ParallelProcessingEnabled = GetBool(configuration, "TECHNICAL_AI_PARALLEL_PROCESSING_ENABLED", true),
                 MaxParallelTasksPerSession = GetInt(configuration, "TECHNICAL_AI_MAX_PARALLEL_TASKS_PER_SESSION", 3, 1, 3),
                 GlobalConcurrencyLimit = GetInt(configuration, "TECHNICAL_AI_GLOBAL_CONCURRENCY_LIMIT", 10, 1, 100),
@@ -72,6 +92,22 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         private static bool GetBool(IConfiguration configuration, string key, bool fallback)
         {
             return bool.TryParse(configuration[key], out var parsed) ? parsed : fallback;
+        }
+
+        private static decimal GetDecimal(
+            IConfiguration configuration,
+            string key,
+            decimal fallback,
+            decimal minimum,
+            decimal maximum)
+        {
+            return decimal.TryParse(
+                configuration[key],
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var parsed)
+                ? Math.Clamp(parsed, minimum, maximum)
+                : fallback;
         }
 
         private static string EnsureTrailingSlash(string value)

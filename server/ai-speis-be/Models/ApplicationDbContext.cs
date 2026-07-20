@@ -205,6 +205,10 @@ namespace ai_speis_be.Models
                 .IsUnique()
                 .HasFilter("[Status] = 0");
 
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasIndex(a => new { a.RootMainAttemptId, a.QuestionType, a.SequenceWithinMain })
+                .IsUnique();
+
             modelBuilder.Entity<TechnicalAnswerEvaluation>()
                 .HasOne(e => e.Attempt)
                 .WithMany(a => a.Evaluations)

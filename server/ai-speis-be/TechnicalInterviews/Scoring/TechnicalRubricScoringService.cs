@@ -23,7 +23,17 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
             TechnicalAIEvaluationResponse evaluation,
             TechnicalRubricDefinition rubric);
 
-        decimal ScoreSession(IEnumerable<decimal> finalMainQuestionScores, TechnicalRubricDefinition rubric);
+        decimal ScoreSession(
+            IEnumerable<decimal> finalMainQuestionScores,
+            TechnicalRubricDefinition rubric,
+            int requiredMainQuestionCount = 3);
+
+        decimal ApplyClarificationRecovery(
+            decimal clarificationQuestionScore,
+            decimal recoveryFactor,
+            TechnicalRubricDefinition rubric);
+
+        decimal Normalize(decimal value, TechnicalRubricDefinition rubric);
     }
 
     public sealed class TechnicalRubricScoringService : ITechnicalRubricScoringService
@@ -39,7 +49,7 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
             var dimensionScores = rubric.Dimensions.Select(dimension =>
             {
                 var suggested = dimensionsByCode[dimension.Code].SuggestedScore;
-                var final = Round(suggested, rubric.RoundingPrecision);
+                var final = Normalize(suggested, rubric);
                 var weighted = Round(final * dimension.Weight, rubric.RoundingPrecision + 2);
                 return new TechnicalDimensionScore(
                     dimension.Code,
@@ -51,28 +61,44 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
                     rubric.GetLevelCode(final));
             }).ToList();
 
-            var aiSuggested = Round(
+            var aiSuggested = Normalize(
                 rubric.Dimensions.Sum(dimension =>
                     dimensionsByCode[dimension.Code].SuggestedScore * dimension.Weight),
-                rubric.RoundingPrecision);
-            var finalOverall = Round(
+                rubric);
+            var finalOverall = Normalize(
                 dimensionScores.Sum(dimension => dimension.WeightedScore),
-                rubric.RoundingPrecision);
+                rubric);
 
             return new TechnicalQuestionScore(aiSuggested, finalOverall, dimensionScores);
         }
 
         public decimal ScoreSession(
             IEnumerable<decimal> finalMainQuestionScores,
-            TechnicalRubricDefinition rubric)
+            TechnicalRubricDefinition rubric,
+            int requiredMainQuestionCount = 3)
         {
             var scores = finalMainQuestionScores.ToList();
-            if (scores.Count == 0)
+            if (scores.Count != requiredMainQuestionCount)
             {
-                return 0m;
+                throw new InvalidOperationException(
+                    $"An official Technical Score requires exactly {requiredMainQuestionCount} finalized Main Questions.");
             }
 
-            return Round(scores.Average(), rubric.RoundingPrecision);
+            return Normalize(scores.Average(), rubric);
+        }
+
+        public decimal ApplyClarificationRecovery(
+            decimal clarificationQuestionScore,
+            decimal recoveryFactor,
+            TechnicalRubricDefinition rubric)
+        {
+            return Normalize(clarificationQuestionScore * Math.Clamp(recoveryFactor, 0m, 1m), rubric);
+        }
+
+        public decimal Normalize(decimal value, TechnicalRubricDefinition rubric)
+        {
+            var clamped = Math.Clamp(value, rubric.MinimumScore, rubric.MaximumScore);
+            return Round(clamped, rubric.RoundingPrecision);
         }
 
         private static decimal Round(decimal value, int precision)

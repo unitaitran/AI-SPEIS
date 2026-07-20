@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.TechnicalInterviews.AI;
+using ai_speis_be.TechnicalInterviews.Configuration;
 using ai_speis_be.TechnicalInterviews.Rubrics;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using ai_speis_be.TechnicalInterviews.Validation;
@@ -19,7 +20,10 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         TechnicalAttemptType? AttemptType,
         string? Content,
         IReadOnlyList<string> TargetRubricCodes,
-        int? SelectedMainQuestionId);
+        int? SelectedMainQuestionId,
+        TechnicalQuestionGenerationReason? GenerationReason = null,
+        bool PlanDeviation = false,
+        string? PlanDeviationReason = null);
 
     public sealed record TechnicalDecisionArbiterResult(
         bool IsSuccess,
@@ -35,7 +39,16 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         bool EvaluationFallbackUsed,
         bool FeedbackFallbackUsed,
         bool QuestionFallbackUsed,
-        long CriticalPathLatencyMs);
+        long CriticalPathLatencyMs,
+        TechnicalInterviewDecision? AiSuggestedAction,
+        string? OverrideReason,
+        decimal RawScore,
+        decimal AppliedBonus,
+        decimal CumulativeFollowUpBonus,
+        decimal? FinalMainQuestionScore,
+        int RequiredClarificationCount,
+        int RequiredFollowUpCount,
+        TechnicalAdaptiveStage AdaptiveStage);
 
     public interface ITechnicalInterviewDecisionArbiter
     {
@@ -51,15 +64,24 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         private readonly ITechnicalAIResponseValidator _validator;
         private readonly ITechnicalRubricScoringService _scoringService;
         private readonly ITechnicalFollowUpDecisionEngine _decisionEngine;
+        private readonly ITechnicalAdaptiveRuleEngine _adaptiveRuleEngine;
+        private readonly ITechnicalFollowUpBonusCalculator _bonusCalculator;
+        private readonly TechnicalInterviewOptions _options;
 
         public TechnicalInterviewDecisionArbiter(
             ITechnicalAIResponseValidator validator,
             ITechnicalRubricScoringService scoringService,
-            ITechnicalFollowUpDecisionEngine decisionEngine)
+            ITechnicalFollowUpDecisionEngine decisionEngine,
+            ITechnicalAdaptiveRuleEngine adaptiveRuleEngine,
+            ITechnicalFollowUpBonusCalculator bonusCalculator,
+            TechnicalInterviewOptions options)
         {
             _validator = validator;
             _scoringService = scoringService;
             _decisionEngine = decisionEngine;
+            _adaptiveRuleEngine = adaptiveRuleEngine;
+            _bonusCalculator = bonusCalculator;
+            _options = options;
         }
 
         public TechnicalDecisionArbiterResult Resolve(
@@ -90,14 +112,94 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             }
 
             var score = _scoringService.ScoreQuestion(evaluation, rubric);
-            var decision = _decisionEngine.Resolve(
-                validation.Decision,
-                context.ClarificationCount,
-                context.FollowUpCount,
-                context.CompletedMainQuestionCount,
-                context.TargetMainQuestionCount,
-                hasValidNextQuestion: true,
-                rubric.Limits);
+            var aiSuggestedAction = validation.AiSuggestedDecision;
+            var appliedBonus = 0m;
+            var cumulativeBonus = context.CumulativeFollowUpBonus;
+            if (context.UseAdaptiveRubricFramework
+                && context.AttemptType == TechnicalAttemptType.FollowUp)
+            {
+                var bonus = _bonusCalculator.Calculate(score, evaluation, rubric);
+                appliedBonus = bonus.Bonus;
+                cumulativeBonus = Math.Min(2m, cumulativeBonus + appliedBonus);
+            }
+
+            TechnicalInterviewDecision resolvedDecision;
+            bool finalizeMainQuestion;
+            TechnicalAttemptType? nextAttemptType;
+            TechnicalQuestionGenerationReason? nextGenerationReason;
+            int requiredClarificationCount;
+            int requiredFollowUpCount;
+            TechnicalAdaptiveStage adaptiveStage;
+            decimal? finalMainQuestionScore = null;
+
+            if (context.UseAdaptiveRubricFramework)
+            {
+                var initialMainScore = context.AttemptType == TechnicalAttemptType.Main
+                    ? score.FinalOverallScore
+                    : context.InitialMainScore
+                        ?? throw new InvalidOperationException("Adaptive sub-question context is missing the initial Main score.");
+                var adaptive = _adaptiveRuleEngine.Resolve(new TechnicalAdaptiveRuleInput(
+                    context.AttemptType,
+                    initialMainScore,
+                    context.RequiredClarificationCount,
+                    context.CompletedClarificationCount,
+                    context.RequiredFollowUpCount,
+                    context.CompletedFollowUpCount,
+                    context.CompletedMainQuestionCount,
+                    context.TargetMainQuestionCount,
+                    context.IsReliabilityFollowUpRequired,
+                    context.CurrentGenerationReason == TechnicalQuestionGenerationReason.ReliabilityMinimum));
+                resolvedDecision = adaptive.Decision;
+                finalizeMainQuestion = adaptive.FinalizeMainQuestion;
+                nextAttemptType = adaptive.NextAttemptType;
+                nextGenerationReason = adaptive.NextGenerationReason;
+                requiredClarificationCount = adaptive.RequiredClarificationCount;
+                requiredFollowUpCount = adaptive.RequiredFollowUpCount;
+                adaptiveStage = adaptive.Stage;
+
+                if (finalizeMainQuestion)
+                {
+                    var baseScore = context.AttemptType switch
+                    {
+                        TechnicalAttemptType.Main => score.FinalOverallScore,
+                        TechnicalAttemptType.Clarification => _scoringService.ApplyClarificationRecovery(
+                            score.FinalOverallScore,
+                            _options.ClarificationRecoveryFactor,
+                            rubric),
+                        _ => context.CurrentMainBaseScore
+                    };
+                    finalMainQuestionScore = _scoringService.Normalize(baseScore + cumulativeBonus, rubric);
+                }
+            }
+            else
+            {
+                var legacy = _decisionEngine.Resolve(
+                    aiSuggestedAction ?? TechnicalInterviewDecision.NextQuestion,
+                    context.ClarificationCount,
+                    context.FollowUpCount,
+                    context.CompletedMainQuestionCount,
+                    context.TargetMainQuestionCount,
+                    hasValidNextQuestion: true,
+                    rubric.Limits);
+                resolvedDecision = legacy.Decision;
+                finalizeMainQuestion = legacy.FinalizeMainQuestion;
+                nextAttemptType = legacy.NextAttemptType;
+                nextGenerationReason = TechnicalQuestionGenerationReason.AdaptiveScoreRule;
+                requiredClarificationCount = context.RequiredClarificationCount;
+                requiredFollowUpCount = context.RequiredFollowUpCount;
+                adaptiveStage = legacy.FinalizeMainQuestion
+                    ? TechnicalAdaptiveStage.Finalized
+                    : legacy.NextAttemptType == TechnicalAttemptType.Clarification
+                        ? TechnicalAdaptiveStage.AwaitingClarification
+                        : TechnicalAdaptiveStage.AwaitingFollowUp;
+                finalMainQuestionScore = legacy.FinalizeMainQuestion ? score.FinalOverallScore : null;
+            }
+
+            var overrideReason = aiSuggestedAction.HasValue
+                ? aiSuggestedAction.Value == resolvedDecision
+                    ? null
+                    : "BACKEND_ADAPTIVE_RULE_OVERRIDE"
+                : "AI_SUGGESTED_ACTION_INVALID_OR_MISSING";
 
             var feedback = MergeFeedback(context, evaluation, results.Feedback);
             var feedbackStatus = feedback.FallbackUsed
@@ -107,21 +209,22 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var questionFallbackUsed = false;
             TechnicalArbiterNextQuestion? nextQuestion = null;
 
-            if (!decision.FinalizeMainQuestion)
+            if (!finalizeMainQuestion)
             {
-                var bundleCandidate = decision.NextAttemptType == TechnicalAttemptType.Clarification
+                var bundleCandidate = nextAttemptType == TechnicalAttemptType.Clarification
                     ? results.QuestionBundle.ProviderResult?.Data?.ClarificationCandidate
                     : results.QuestionBundle.ProviderResult?.Data?.FollowUpCandidate;
                 var candidateValid = results.QuestionBundle.IsFulfilled
-                    && IsValidSubQuestion(bundleCandidate, decision.NextAttemptType!.Value, evaluation, rubric, context);
+                    && IsValidSubQuestion(bundleCandidate, nextAttemptType!.Value, evaluation, rubric, context);
 
                 if (candidateValid)
                 {
                     nextQuestion = new TechnicalArbiterNextQuestion(
-                        decision.NextAttemptType,
+                        nextAttemptType,
                         bundleCandidate!.Content.Trim(),
                         CleanCodes(bundleCandidate.TargetRubricCodes),
-                        null);
+                        null,
+                        nextGenerationReason);
                 }
                 else
                 {
@@ -129,13 +232,14 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     questionStatus = TechnicalAITaskStatus.FallbackUsed;
                     var targetCodes = ResolveFallbackTargetCodes(evaluation, rubric);
                     nextQuestion = new TechnicalArbiterNextQuestion(
-                        decision.NextAttemptType,
-                        BuildSubQuestionFallback(context.Language, decision.NextAttemptType!.Value),
+                        nextAttemptType,
+                        BuildSubQuestionFallback(context.Language, nextAttemptType!.Value),
                         targetCodes,
-                        null);
+                        null,
+                        nextGenerationReason);
                 }
             }
-            else if (decision.Decision == TechnicalInterviewDecision.NextQuestion)
+            else if (resolvedDecision == TechnicalInterviewDecision.NextQuestion)
             {
                 var selectedId = results.QuestionBundle.IsFulfilled
                     ? results.QuestionBundle.ProviderResult?.Data?.NextMainQuestionCandidate?.SelectedQuestionId
@@ -164,27 +268,30 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         TechnicalAITaskStatus.Fulfilled,
                         feedback,
                         score,
-                        decision.Decision);
+                        resolvedDecision);
                 }
 
                 nextQuestion = new TechnicalArbiterNextQuestion(
                     TechnicalAttemptType.Main,
                     null,
                     Array.Empty<string>(),
-                    selectedId.Value);
+                    selectedId.Value,
+                    TechnicalQuestionGenerationReason.QuestionPlan,
+                    context.NextPlanDeviation,
+                    context.NextPlanDeviationReason);
             }
 
             var criticalPath = Math.Max(
                 results.Evaluation.LatencyMs,
-                decision.Decision == TechnicalInterviewDecision.EndInterview
+                resolvedDecision == TechnicalInterviewDecision.EndInterview
                     ? 0
                     : results.QuestionBundle.LatencyMs);
 
             return new TechnicalDecisionArbiterResult(
                 true,
                 null,
-                decision.Decision,
-                decision.FinalizeMainQuestion,
+                resolvedDecision,
+                finalizeMainQuestion,
                 score,
                 feedback,
                 nextQuestion,
@@ -194,7 +301,16 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 false,
                 feedback.FallbackUsed,
                 questionFallbackUsed,
-                criticalPath);
+                criticalPath,
+                aiSuggestedAction,
+                overrideReason,
+                score.FinalOverallScore,
+                appliedBonus,
+                cumulativeBonus,
+                finalMainQuestionScore,
+                requiredClarificationCount,
+                requiredFollowUpCount,
+                adaptiveStage);
         }
 
         private static TechnicalMergedFeedback MergeFeedback(
@@ -451,7 +567,16 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 false,
                 feedback?.FallbackUsed == true,
                 false,
-                results.Evaluation.LatencyMs);
+                results.Evaluation.LatencyMs,
+                null,
+                null,
+                score?.FinalOverallScore ?? 0m,
+                0m,
+                0m,
+                null,
+                0,
+                0,
+                TechnicalAdaptiveStage.MainQuestion);
         }
     }
 }

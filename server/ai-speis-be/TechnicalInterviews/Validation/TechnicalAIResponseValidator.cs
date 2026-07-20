@@ -7,7 +7,7 @@ namespace ai_speis_be.TechnicalInterviews.Validation
 {
     public sealed record TechnicalEvaluationValidationResult(
         bool IsValid,
-        TechnicalInterviewDecision Decision,
+        TechnicalInterviewDecision? AiSuggestedDecision,
         string? ErrorCode);
 
     public interface ITechnicalAIResponseValidator
@@ -32,10 +32,9 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             TechnicalRubricDefinition rubric,
             IReadOnlyList<TechnicalAnswerContext> answerContext)
         {
-            if (!TryParseDecision(evaluation.Decision, out var decision))
-            {
-                return Invalid("INVALID_DECISION");
-            }
+            var aiSuggestedDecision = TryParseDecision(evaluation.Decision, out var parsedDecision)
+                ? parsedDecision
+                : (TechnicalInterviewDecision?)null;
 
             if (evaluation.Confidence is < 0m or > 1m)
             {
@@ -94,7 +93,7 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 }
             }
 
-            return new TechnicalEvaluationValidationResult(true, decision, null);
+            return new TechnicalEvaluationValidationResult(true, aiSuggestedDecision, null);
         }
 
         private static bool TryParseDecision(string value, out TechnicalInterviewDecision decision)
@@ -108,7 +107,7 @@ namespace ai_speis_be.TechnicalInterviews.Validation
         {
             return new TechnicalEvaluationValidationResult(
                 false,
-                TechnicalInterviewDecision.NextQuestion,
+                null,
                 errorCode);
         }
 
