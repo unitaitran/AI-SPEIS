@@ -1,17 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import InterviewInitializationLoading from '../../components/technicalInterview/InterviewInitializationLoading';
 import TechnicalAnswerPanel from '../../components/technicalInterview/TechnicalAnswerPanel';
 import TechnicalEvaluationState from '../../components/technicalInterview/TechnicalEvaluationState';
 import TechnicalInterviewErrorState from '../../components/technicalInterview/TechnicalInterviewErrorState';
 import TechnicalInterviewHeader from '../../components/technicalInterview/TechnicalInterviewHeader';
 import TechnicalInterviewProgress from '../../components/technicalInterview/TechnicalInterviewProgress';
 import TechnicalQuestionPanel from '../../components/technicalInterview/TechnicalQuestionPanel';
-import { clearTechnicalInterviewDraft, readTechnicalInterviewDraft, saveTechnicalInterviewDraft } from '../../features/technicalInterview/technicalInterviewDraft';
+import {
+  clearStaleTechnicalInterviewDrafts,
+  clearTechnicalInterviewDraft,
+  readTechnicalInterviewDraft,
+  readTechnicalInterviewSessionDraft,
+  saveTechnicalInterviewDraft,
+} from '../../features/technicalInterview/technicalInterviewDraft';
 import { getTechnicalInterviewErrorKey } from '../../features/technicalInterview/technicalInterviewErrors';
 import { TechnicalSessionStatus } from '../../features/technicalInterview/technicalInterview.types';
+import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio';
 import useSubmitTechnicalAnswer from '../../features/technicalInterview/useSubmitTechnicalAnswer';
-import useTechnicalInterviewSession, { getTechnicalSessionStatus } from '../../features/technicalInterview/useTechnicalInterviewSession';
+import useTechnicalInterviewSession, {
+  getTechnicalSessionStatus,
+  TechnicalInterviewFlowStatus,
+} from '../../features/technicalInterview/useTechnicalInterviewSession';
 import useTechnicalRecorder from '../../features/technicalInterview/useTechnicalRecorder';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
@@ -30,8 +40,18 @@ function TechnicalInterviewPage({ sessionId }) {
     translate(key, { ...options, lng: interviewLanguage })
   ), [interviewLanguage, translate]);
   const room = useTechnicalInterviewSession(resolvedSessionId);
+  const {
+    error: roomLoadError,
+    isLoading: isRoomLoading,
+    startSession: startRoomSession,
+  } = room;
   const submitMutation = useSubmitTechnicalAnswer(resolvedSessionId);
   const recorder = useTechnicalRecorder(interviewLanguage);
+  const questionAudio = useQuestionAudio({
+    question: room.currentQuestion,
+    sessionId: resolvedSessionId,
+    language: interviewLanguage,
+  });
   const setRecorderTranscript = recorder.setTranscript;
   const [localError, setLocalError] = useState(null);
   const [activeDraftAttempt, setActiveDraftAttempt] = useState(null);
@@ -40,12 +60,22 @@ function TechnicalInterviewPage({ sessionId }) {
   const status = getTechnicalSessionStatus(room.session);
   const attemptId = room.currentQuestion?.attemptId || null;
   const transcriptEditable = room.session?.transcriptEditable !== false;
+  const processingDraft = status === TechnicalSessionStatus.EVALUATING
+    ? readTechnicalInterviewSessionDraft(resolvedSessionId)
+    : null;
 
   useEffect(() => {
     if (status === TechnicalSessionStatus.COMPLETED && resolvedSessionId) {
       navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
     }
   }, [resolvedSessionId, status]);
+
+  useEffect(() => {
+    if (isRoomLoading || roomLoadError || status !== TechnicalSessionStatus.CREATED) return;
+    startRoomSession()
+      .then(() => setLocalError(null))
+      .catch(setLocalError);
+  }, [isRoomLoading, roomLoadError, startRoomSession, status]);
 
   useEffect(() => {
     if (!resolvedSessionId || !attemptId) {
@@ -62,12 +92,15 @@ function TechnicalInterviewPage({ sessionId }) {
     saveTechnicalInterviewDraft(resolvedSessionId, attemptId, recorder.transcript);
   }, [activeDraftAttempt, attemptId, recorder.transcript, resolvedSessionId]);
 
+  useEffect(() => {
+    if (!resolvedSessionId || !attemptId || room.isProcessing) return;
+    clearStaleTechnicalInterviewDrafts(resolvedSessionId, attemptId);
+  }, [attemptId, resolvedSessionId, room.isProcessing]);
+
   const getErrorMessage = useCallback((error) => (
     error?.messageKey
       ? t(error.messageKey)
-      : t(getTechnicalInterviewErrorKey(error), {
-        defaultValue: error?.message || t('errors.UNKNOWN_ERROR'),
-      })
+      : t(getTechnicalInterviewErrorKey(error), { defaultValue: t('errors.UNKNOWN_ERROR') })
   ), [t]);
 
   const handleStart = async () => {
@@ -91,6 +124,8 @@ function TechnicalInterviewPage({ sessionId }) {
     }
 
     setLocalError(null);
+    recorder.stopForSubmission();
+    room.markProcessing(attemptId);
     try {
       const response = await submitMutation.submitAnswer({
         attemptId,
@@ -109,6 +144,22 @@ function TechnicalInterviewPage({ sessionId }) {
       }
       if (!response.nextQuestion && !response.currentQuestion && !response.question) await room.reload();
     } catch (error) {
+      const recovery = await room.reconcileAfterSubmission(attemptId);
+      if (recovery.state === 'ACCEPTED_COMPLETED') {
+        clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
+        recorder.reset();
+        navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+        return;
+      }
+      if (recovery.state === 'ACCEPTED_NEXT_QUESTION') {
+        clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
+        recorder.reset();
+        return;
+      }
+      if (recovery.state === 'PROCESSING') {
+        setLocalError(null);
+        return;
+      }
       setLocalError(error);
     }
   };
@@ -152,66 +203,55 @@ function TechnicalInterviewPage({ sessionId }) {
     );
   } else if (room.isLoading) {
     content = (
-      <div className="technical-loading" aria-label={t('common.loading')}>
-        <div className="technical-skeleton" />
-        <div className="technical-skeleton technical-skeleton--large" />
-      </div>
+      <InterviewInitializationLoading phase={TechnicalInterviewFlowStatus.INITIALIZING_SESSION} t={t} />
     );
   } else if (room.error) {
+    const canRetryQuestionGeneration = room.error?.code === 'QUESTION_GENERATION_TIMEOUT'
+      || status === TechnicalSessionStatus.SELECTING_QUESTION
+      || status === TechnicalSessionStatus.FAILED;
     content = (
       <TechnicalInterviewErrorState
         title={t('room.openFailed')}
         message={getErrorMessage(room.error)}
-        onRetry={room.reload}
+        onRetry={canRetryQuestionGeneration ? handleStart : room.reload}
         onBack={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
         retryLabel={t('common.retry')}
         backLabel={t('room.backToSetup')}
       />
     );
-  } else if (status === TechnicalSessionStatus.CREATED) {
+  } else if (status === TechnicalSessionStatus.CREATED
+    || status === TechnicalSessionStatus.SELECTING_QUESTION) {
     content = (
-      <section className="technical-ready technical-card">
-        <div className="technical-ready__icon"><Play size={30} aria-hidden="true" /></div>
-        <h2>{t('room.readyTitle')}</h2>
-        <p>{t('room.readyDescription')}</p>
-        {localError && <p className="technical-inline-error" role="alert">{getErrorMessage(localError)}</p>}
-        <div className="technical-ready__actions">
-          <button type="button" className="technical-secondary-button" onClick={handleStart}>
-            <Play size={18} aria-hidden="true" />{t('room.startInterview')}
-          </button>
-        </div>
-      </section>
-    );
-  } else if (status === TechnicalSessionStatus.SELECTING_QUESTION) {
-    content = (
-      <section className="technical-evaluation technical-card" aria-live="polite">
-        <div className="technical-evaluation__icon">
-          <Loader2 size={30} className="animate-spin" aria-hidden="true" />
-        </div>
-        <h2>{t('room.selectingQuestionTitle')}</h2>
-        <p>{t('room.selectingQuestionDescription')}</p>
-      </section>
+      <InterviewInitializationLoading phase={TechnicalInterviewFlowStatus.GENERATING_QUESTION} t={t} />
     );
   } else if (status === TechnicalSessionStatus.FAILED) {
     content = (
       <TechnicalInterviewErrorState
         title={t('room.failedTitle')}
         message={t('room.failedDescription')}
+        onRetry={handleStart}
+        retryLabel={t('common.retry')}
         onBack={() => navigate(USER_ROUTES.DASHBOARD)}
         backLabel={t('room.backToDashboard')}
       />
     );
+  } else if (status === TechnicalSessionStatus.EVALUATING && !room.currentQuestion) {
+    content = (
+      <TechnicalEvaluationState
+        transcript={processingDraft?.transcript}
+        t={t}
+      />
+    );
   } else if (room.currentQuestion) {
-    const evaluating = status === TechnicalSessionStatus.EVALUATING;
+    const evaluating = status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting;
     content = (
       <>
         <TechnicalInterviewProgress
-          current={room.currentQuestion.mainQuestionIndex}
-          total={room.currentQuestion.totalMainQuestions}
+          question={room.currentQuestion}
           t={t}
         />
         <div className="technical-room-grid">
-          <TechnicalQuestionPanel question={room.currentQuestion} t={t} />
+          <TechnicalQuestionPanel question={room.currentQuestion} audio={questionAudio} t={t} />
           <TechnicalAnswerPanel
             recorder={recorder}
             transcriptEditable={transcriptEditable}
@@ -222,7 +262,11 @@ function TechnicalInterviewPage({ sessionId }) {
             t={t}
           />
         </div>
-        {evaluating && <div style={{ marginTop: 'var(--spacing-md)' }}><TechnicalEvaluationState t={t} /></div>}
+        {evaluating && (
+          <div className="technical-processing-inline">
+            <TechnicalEvaluationState compact t={t} />
+          </div>
+        )}
       </>
     );
   } else {

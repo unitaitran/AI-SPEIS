@@ -420,6 +420,35 @@ namespace ai_speis_be.Services.InterviewSessionService
             return MapCampaignToResponse(campaign, quota);
         }
 
+        public async Task<InterviewCampaignDto?> GetActiveCampaignAsync(int userId)
+        {
+            var campaigns = await _context.InterviewCampaigns
+                .Include(campaign => campaign.User)
+                .Include(campaign => campaign.InterviewSessions.Where(session => !session.IsDeleted))
+                .Where(campaign => campaign.UserId == userId
+                    && !campaign.IsDeleted
+                    && (campaign.Status == InterviewCampaignStatus.Pending
+                        || campaign.Status == InterviewCampaignStatus.Active))
+                .OrderByDescending(campaign => campaign.UpdatedAt ?? campaign.CreatedAt)
+                .ToListAsync();
+
+            var now = DateTime.UtcNow;
+            var lifecycleChanged = false;
+            foreach (var campaign in campaigns)
+            {
+                lifecycleChanged |= EnsureActiveCampaignTiming(campaign, now);
+                lifecycleChanged |= ExpireIfDue(campaign, campaign.User, now);
+            }
+
+            if (lifecycleChanged) await _context.SaveChangesAsync();
+
+            var activeCampaign = campaigns.FirstOrDefault(IsLiveCampaign);
+            if (activeCampaign == null) return null;
+
+            var quota = await GetQuotaMetadataAsync(activeCampaign.User, now);
+            return MapCampaignToResponse(activeCampaign, quota);
+        }
+
         public async Task<IEnumerable<InterviewCampaignDto>> GetUserCampaignsAsync(int userId)
         {
             var campaigns = (await _repository.GetCampaignsByUserIdAsync(userId)).ToList();
@@ -624,7 +653,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                 QuestionCount = session.QuestionCount,
                 Status = session.Status.ToString(),
                 CreatedAt = AsUtc(session.CreatedAt),
-                UpdatedAt = AsUtc(session.UpdatedAt)
+                UpdatedAt = AsUtc(session.UpdatedAt),
+                CompletedQuestionCount = session.TechnicalCompletedMainQuestionCount
             };
         }
 

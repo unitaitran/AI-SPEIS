@@ -6,6 +6,31 @@ const getAuthHeaders = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
+export class AudioServiceError extends Error {
+  constructor(message, { code, status, details } = {}) {
+    super(message);
+    this.name = 'AudioServiceError';
+    this.code = code || 'AUDIO_REQUEST_FAILED';
+    this.status = status;
+    this.details = details;
+  }
+}
+
+const readAudioError = async (response) => {
+  const contentType = response.headers.get('Content-Type') || '';
+  const body = contentType.includes('json')
+    ? await response.json().catch(() => ({}))
+    : null;
+  throw new AudioServiceError(
+    body?.message || body?.Message || `Request failed with status ${response.status}`,
+    {
+      code: body?.code || body?.Code,
+      status: response.status,
+      details: body,
+    },
+  );
+};
+
 const audioService = {
   checkSpeechToText: async (audioBlob, languageCode = 'vi-VN') => {
     const formData = new FormData();
@@ -27,7 +52,41 @@ const audioService = {
       throw new Error(errorMessage);
     }
     return response.json();
-  }
+  },
+
+  synthesizeSpeech: async ({
+    text,
+    languageCode = 'vi-VN',
+    voiceName,
+    speakingRate = 1,
+    pitch = 0,
+    sessionId,
+    questionId,
+    attemptId,
+  }, { signal } = {}) => {
+    const response = await fetch(ENDPOINTS.AUDIO_TEXT_TO_SPEECH, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg, application/json',
+      },
+      signal,
+      body: JSON.stringify({
+        text,
+        languageCode,
+        voiceName,
+        speakingRate,
+        pitch,
+        sessionId: Number.isInteger(Number(sessionId)) ? Number(sessionId) : undefined,
+        questionId: Number.isInteger(Number(questionId)) ? Number(questionId) : undefined,
+        attemptId: attemptId || undefined,
+      }),
+    });
+
+    if (!response.ok) await readAudioError(response);
+    return response.blob();
+  },
 };
 
 export default audioService;

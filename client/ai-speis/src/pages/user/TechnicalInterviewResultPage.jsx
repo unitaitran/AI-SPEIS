@@ -49,7 +49,7 @@ function TechnicalInterviewResultPage({ sessionId }) {
       <TechnicalInterviewErrorState
         title={t('result.loadFailedTitle')}
         message={t(getTechnicalInterviewErrorKey(error), {
-          defaultValue: error?.message || t('errors.UNKNOWN_ERROR'),
+          defaultValue: t('errors.UNKNOWN_ERROR'),
         })}
         onRetry={reload}
         onBack={() => navigate(USER_ROUTES.DASHBOARD)}

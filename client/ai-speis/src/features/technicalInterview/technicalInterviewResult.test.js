@@ -1,4 +1,5 @@
 import {
+  formatTechnicalWeight,
   getScorePercentage,
   groupTechnicalQuestionResults,
   normalizeTechnicalInterviewResult,
@@ -45,17 +46,32 @@ describe('technical interview result helpers', () => {
   test('maps the backend result DTO to the result components without recalculating scores', () => {
     const result = normalizeTechnicalInterviewResult({
       sessionId: 17,
-      overallScore: 4.25,
+      overallScore: 6.33,
+      technicalScore: 6.33,
+      maxScore: 10,
       performanceBand: 'Strong',
-      mainQuestions: [{
-        attemptId: 'attempt-1',
-        mainQuestionIndex: 1,
-        question: 'Explain dependency inversion.',
-        skill: 'Architecture',
-        score: 4.25,
-        dimensions: [{ rubricCode: 'accuracy', name: 'Accuracy', score: 4.5 }],
-        improvementSuggestions: ['Add a trade-off.'],
-      }],
+      mainQuestionResults: [
+        {
+          attemptId: 'attempt-1',
+          mainQuestionIndex: 1,
+          question: 'Explain dependency inversion.',
+          skill: 'Architecture',
+          initialMainScore: 4,
+          finalMainScore: 5,
+          cumulativeFollowUpBonus: 1,
+          dimensions: [{ rubricCode: 'accuracy', name: 'Accuracy', score: 4.5, weight: 0.3 }],
+          adaptiveHistory: [{
+            attemptId: 'follow-up-1',
+            questionType: 'FOLLOW_UP',
+            question: 'Give an example.',
+            rawScore: 7,
+            followUpBonus: 1,
+          }],
+          improvementSuggestions: ['Add a trade-off.'],
+        },
+        { attemptId: 'attempt-2', mainQuestionIndex: 2, question: 'Question 2', finalMainScore: 8 },
+        { attemptId: 'attempt-3', mainQuestionIndex: 3, question: 'Question 3', finalMainScore: 6 },
+      ],
       skillScores: [{ skill: 'Architecture', mainQuestionCount: 1, score: 4.25 }],
       summary: {
         summary: 'Strong technical foundation.',
@@ -65,15 +81,51 @@ describe('technical interview result helpers', () => {
       },
     });
 
-    expect(result.overallScore).toBe(4.25);
+    expect(result.technicalScore).toBe(6.33);
     expect(result.summaryFeedback).toBe('Strong technical foundation.');
     expect(result.skillResults).toHaveLength(1);
     expect(result.recommendations).toEqual(['Practice system design']);
     expect(result.questionResults[0]).toMatchObject({
       questionType: 'MAIN',
       content: 'Explain dependency inversion.',
-      score: 4.25,
+      initialMainScore: 4,
+      finalMainScore: 5,
+      cumulativeFollowUpBonus: 1,
+    });
+    expect(result.questionResults).toHaveLength(3);
+    expect(result.questionResults[0].subQuestionResults[0]).toMatchObject({
+      attemptId: 'follow-up-1',
+      questionId: null,
+      followUpBonus: 1,
     });
     expect(result.questionResults[0].rubricBreakdown[0].rubricCode).toBe('accuracy');
+    expect(result.questionResults[0].rubricBreakdown[0].maxScore).toBe(10);
+  });
+
+  test('does not substitute overallScore when the backend omits technicalScore', () => {
+    const result = normalizeTechnicalInterviewResult({
+      overallScore: 8.5,
+      maxScore: 10,
+      mainQuestionResults: [],
+    });
+
+    expect(result.technicalScore).toBeUndefined();
+  });
+
+  test('formats API dimension weights for display without calculating a score', () => {
+    expect(formatTechnicalWeight(0.3)).toBe('30%');
+    expect(formatTechnicalWeight(25)).toBe('25%');
+    expect(formatTechnicalWeight(undefined)).toBeNull();
+  });
+
+  test('never promotes an orphan sub-question into a main result', () => {
+    const grouped = groupTechnicalQuestionResults([{
+      attemptId: 'orphan-follow-up',
+      questionType: 'FOLLOW_UP',
+      mainQuestionIndex: 1,
+      content: 'Orphaned follow-up',
+    }]);
+
+    expect(grouped).toEqual([]);
   });
 });

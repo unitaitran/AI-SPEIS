@@ -1,27 +1,79 @@
 import { TechnicalQuestionType } from './technicalInterview.types';
 
 const getQuestionType = (question) => question?.questionType || question?.type;
+const firstNonEmptyArray = (...values) => (
+  values.find((value) => Array.isArray(value) && value.length > 0) || []
+);
+
+const normalizeDimension = (dimension, maxScore) => ({
+  ...dimension,
+  maxScore: dimension.maxScore ?? maxScore,
+  evidence: dimension.evidence || dimension.strengths || [],
+  missingEvidence: dimension.missingEvidence || [],
+  incorrectClaims: dimension.incorrectClaims || [],
+});
+
+const normalizeSubQuestion = (question, maxScore) => ({
+  ...question,
+  questionId: question.questionId ?? null,
+  questionType: getQuestionType(question),
+  content: question.content || question.question,
+  maxScore: question.maxScore ?? maxScore,
+});
+
+const normalizeMainQuestion = (question, maxScore) => ({
+  ...question,
+  questionType: TechnicalQuestionType.MAIN,
+  content: question.content || question.question,
+  initialMainScore: question.initialMainScore ?? question.score,
+  finalMainScore: question.finalMainScore ?? question.score,
+  rubricBreakdown: (question.rubricBreakdown || question.dimensions || [])
+    .map((dimension) => normalizeDimension(dimension, maxScore)),
+  subQuestionResults: (question.subQuestionResults
+    || question.subQuestions
+    || question.adaptiveHistory
+    || question.attempts
+    || []).map((subQuestion) => normalizeSubQuestion(subQuestion, maxScore)),
+  suggestions: question.suggestions || question.improvementSuggestions || [],
+  maxScore: question.maxScore ?? maxScore,
+});
 
 export const normalizeTechnicalInterviewResult = (result) => {
   if (!result) return result;
 
   const summary = result.summary || {};
+  const maxScore = result.maxScore ?? 10;
+  const backendMainQuestions = result.mainQuestionResults?.length
+    ? result.mainQuestionResults
+    : result.mainQuestions || result.questionResults || [];
   return {
     ...result,
+    technicalScore: result.technicalScore,
+    maxScore,
     summaryFeedback: result.summaryFeedback || summary.summary || '',
-    summaryStrengths: result.summaryStrengths || summary.strengths || [],
-    areasForImprovement: result.areasForImprovement || summary.areasForImprovement || [],
-    recommendations: result.recommendations || summary.recommendedNextSteps || [],
-    skillResults: result.skillResults || result.skillScores || [],
-    dimensionResults: result.dimensionResults || [],
-    questionResults: result.questionResults || (result.mainQuestions || []).map((question) => ({
-      ...question,
-      questionType: question.questionType || TechnicalQuestionType.MAIN,
-      content: question.content || question.question,
-      rubricBreakdown: question.rubricBreakdown || question.dimensions || [],
-      suggestions: question.suggestions || question.improvementSuggestions || [],
-    })),
+    summaryStrengths: firstNonEmptyArray(
+      result.summaryStrengths,
+      summary.strengths,
+      result.strengths,
+    ),
+    areasForImprovement: firstNonEmptyArray(
+      result.areasForImprovement,
+      summary.areasForImprovement,
+      result.weaknesses,
+    ),
+    recommendations: firstNonEmptyArray(result.recommendations, summary.recommendedNextSteps),
+    skillResults: firstNonEmptyArray(result.skillResults, result.skillScores),
+    dimensionResults: (result.dimensionResults || [])
+      .map((dimension) => normalizeDimension(dimension, maxScore)),
+    questionResults: backendMainQuestions.map((question) => normalizeMainQuestion(question, maxScore)),
   };
+};
+
+export const formatTechnicalWeight = (weight) => {
+  const numericWeight = Number(weight);
+  if (!Number.isFinite(numericWeight)) return null;
+  const percentage = numericWeight <= 1 ? numericWeight * 100 : numericWeight;
+  return `${Number(percentage.toFixed(2))}%`;
 };
 
 export const getScorePercentage = (score, maxScore) => {
@@ -46,7 +98,11 @@ export const groupTechnicalQuestionResults = (questionResults = []) => {
       ...question,
       _displayOrder: order,
       subQuestionResults: [
-        ...(question.subQuestionResults || question.subQuestions || question.attempts || []),
+        ...(question.subQuestionResults
+          || question.subQuestions
+          || question.adaptiveHistory
+          || question.attempts
+          || []),
       ],
     };
     mains.push(normalized);
@@ -65,12 +121,7 @@ export const groupTechnicalQuestionResults = (questionResults = []) => {
       return;
     }
 
-    mains.push({
-      ...question,
-      _displayOrder: order,
-      isOrphanSubQuestion: true,
-      subQuestionResults: [],
-    });
+    // Public results must never promote a sub-question to a main-question card.
   });
 
   return mains.sort((left, right) => {

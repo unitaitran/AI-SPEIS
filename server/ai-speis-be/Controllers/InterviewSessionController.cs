@@ -42,7 +42,25 @@ namespace ai_speis_be.Controllers
             var (success, errorMessage, campaign) = await _service.CreateSessionsAsync(userId, request);
             if (!success)
             {
-                return BadRequest(new { Message = errorMessage });
+                var activeCampaign = await _service.GetActiveCampaignAsync(userId);
+                if (activeCampaign != null)
+                {
+                    var conflict = BuildActiveConflict(activeCampaign);
+                    return Conflict(new
+                    {
+                        Code = conflict.Status == "Active"
+                            ? "ACTIVE_INTERVIEW_SESSION_EXISTS"
+                            : "ACTIVE_CAMPAIGN_EXISTS",
+                        Message = "An active interview campaign or session already exists.",
+                        Data = conflict
+                    });
+                }
+
+                return BadRequest(new
+                {
+                    Code = "INTERVIEW_CAMPAIGN_CREATION_FAILED",
+                    Message = errorMessage
+                });
             }
 
             return Ok(campaign);
@@ -125,6 +143,22 @@ namespace ai_speis_be.Controllers
             return Ok(campaign);
         }
 
+        [HttpGet("active")]
+        public async Task<IActionResult> GetActiveCampaign()
+        {
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new
+                {
+                    Code = "INVALID_USER_IDENTITY",
+                    Message = "The authenticated token does not contain a valid UserId."
+                });
+            }
+
+            var campaign = await _service.GetActiveCampaignAsync(userId);
+            return campaign == null ? NoContent() : Ok(campaign);
+        }
+
         [HttpPost("campaign/{campaignId:int}/cancel")]
         public async Task<IActionResult> CancelCampaign(int campaignId)
         {
@@ -132,7 +166,14 @@ namespace ai_speis_be.Controllers
             if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
 
             var (success, errorMessage, campaign) = await _service.CancelCampaignAsync(userId, campaignId);
-            if (!success) return BadRequest(new { Message = errorMessage });
+            if (!success)
+            {
+                return Conflict(new
+                {
+                    Code = "CAMPAIGN_ALREADY_CLOSED",
+                    Message = errorMessage
+                });
+            }
             return Ok(campaign);
         }
 
@@ -187,6 +228,33 @@ namespace ai_speis_be.Controllers
             }
 
             return Ok(result);
+        }
+
+        private static ActiveInterviewConflictDto BuildActiveConflict(InterviewCampaignDto campaign)
+        {
+            var session = campaign.Sessions
+                .Where(candidate => candidate.Status == "Active")
+                .OrderByDescending(candidate => candidate.UpdatedAt ?? candidate.CreatedAt)
+                .FirstOrDefault()
+                ?? campaign.Sessions
+                    .Where(candidate => candidate.Status == "Pending")
+                    .OrderBy(candidate => candidate.CreatedAt)
+                    .FirstOrDefault();
+
+            return new ActiveInterviewConflictDto
+            {
+                CampaignId = campaign.InterviewCampaignId,
+                SessionId = session?.InterviewSessionId,
+                InterviewType = session?.InterviewRoundType ?? string.Empty,
+                Status = session?.Status ?? campaign.Status,
+                StartedAt = campaign.StartedAt,
+                UpdatedAt = session?.UpdatedAt ?? campaign.UpdatedAt,
+                CompletedQuestionCount = session?.CompletedQuestionCount ?? 0,
+                CanResume = session != null,
+                CanEnd = session?.Status == "Active",
+                CanCloseCampaign = campaign.Status == "Pending" || campaign.Status == "Active",
+                Campaign = campaign
+            };
         }
     }
 }

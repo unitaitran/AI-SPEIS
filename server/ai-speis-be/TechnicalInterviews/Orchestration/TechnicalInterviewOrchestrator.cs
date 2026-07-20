@@ -79,6 +79,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 return NotFound<TechnicalInterviewSessionDto>();
             if (session.InterviewRoundType != InterviewRoundType.Technical)
                 return BadRequest<TechnicalInterviewSessionDto>("NOT_TECHNICAL_SESSION", "The session is not a Technical round.");
+            if (IsLifecycleClosed(session) && session.TechnicalState != TechnicalInterviewState.Completed)
+                return Conflict<TechnicalInterviewSessionDto>("SESSION_ALREADY_ENDED", "The interview session is no longer active.");
             if (session.TechnicalState.HasValue)
                 return TechnicalOperationResult<TechnicalInterviewSessionDto>.Ok(MapSession(session));
 
@@ -177,6 +179,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 return BadRequest<TechnicalCurrentQuestionDto>("TECHNICAL_SESSION_NOT_INITIALIZED", "Initialize the Technical session first.");
             if (session.TechnicalState == TechnicalInterviewState.Completed)
                 return Conflict<TechnicalCurrentQuestionDto>("SESSION_COMPLETED", "The Technical session is already completed.");
+            if (IsLifecycleClosed(session))
+                return Conflict<TechnicalCurrentQuestionDto>("SESSION_ALREADY_ENDED", "The interview session was ended outside the Technical Interview flow.");
 
             var existingCurrent = GetReadyAttempt(session);
             if (existingCurrent is not null)
@@ -203,9 +207,11 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             CancellationToken cancellationToken)
         {
             var session = await GetOwnedSessionAsync(userId, sessionId, cancellationToken);
-            return session is null
-                ? NotFound<TechnicalInterviewSessionDto>()
-                : TechnicalOperationResult<TechnicalInterviewSessionDto>.Ok(MapSession(session));
+            if (session is null)
+                return NotFound<TechnicalInterviewSessionDto>();
+            if (IsLifecycleClosed(session) && session.TechnicalState != TechnicalInterviewState.Completed)
+                return Conflict<TechnicalInterviewSessionDto>("SESSION_ALREADY_ENDED", "The interview session was ended in another flow or browser tab.");
+            return TechnicalOperationResult<TechnicalInterviewSessionDto>.Ok(MapSession(session));
         }
 
         public async Task<TechnicalOperationResult<TechnicalCurrentQuestionDto>> GetCurrentQuestionAsync(
@@ -216,6 +222,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var session = await GetOwnedSessionAsync(userId, sessionId, cancellationToken);
             if (session is null)
                 return NotFound<TechnicalCurrentQuestionDto>();
+            if (IsLifecycleClosed(session) && session.TechnicalState != TechnicalInterviewState.Completed)
+                return Conflict<TechnicalCurrentQuestionDto>("SESSION_ALREADY_ENDED", "The interview session was ended in another flow or browser tab.");
 
             var attempt = GetReadyAttempt(session);
             return attempt is null
@@ -240,6 +248,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var session = await GetOwnedSessionAsync(userId, sessionId, cancellationToken);
             if (session is null)
                 return NotFound<TechnicalSubmitAnswerResponseDto>();
+            if (IsLifecycleClosed(session))
+                return Conflict<TechnicalSubmitAnswerResponseDto>("SESSION_ALREADY_ENDED", "The interview session is no longer active.");
 
             var attempt = session.TechnicalQuestionAttempts.FirstOrDefault(item => item.AttemptId == request.AttemptId);
             if (attempt is null)
@@ -320,6 +330,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var parallelResults = await _parallelProcessor.ProcessAsync(
                 processingContext,
                 cancellationToken);
+
+            if (await IsLifecycleClosedInDatabaseAsync(session.InterviewSessionId, cancellationToken))
+            {
+                return Conflict<TechnicalSubmitAnswerResponseDto>(
+                    "SESSION_ALREADY_ENDED",
+                    "The interview session ended while the answer was being processed.");
+            }
 
             var activeQuestions = await _questionRepository.GetActiveTechnicalQuestionsByIdsAsync(
                 processingContext.CandidateQuestionPool.Select(item => item.QuestionId).ToArray(),
@@ -518,6 +535,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 return NotFound<TechnicalInterviewResultDto>();
             if (session.TechnicalState == TechnicalInterviewState.Completed)
                 return TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session));
+            if (IsLifecycleClosed(session))
+                return Conflict<TechnicalInterviewResultDto>("SESSION_ALREADY_ENDED", "The interview session is no longer active.");
             if (session.TechnicalCompletedMainQuestionCount < GetTargetMainQuestionCount(session))
                 return Conflict<TechnicalInterviewResultDto>("MAIN_QUESTION_TARGET_NOT_REACHED", "The required main questions are not completed.");
             if (session.TechnicalQuestionAttempts.Any(item => item.Status == TechnicalAttemptStatus.Ready))
@@ -534,6 +553,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var session = await GetOwnedSessionAsync(userId, sessionId, cancellationToken);
             if (session is null)
                 return NotFound<TechnicalInterviewResultDto>();
+            if (IsLifecycleClosed(session) && session.TechnicalState != TechnicalInterviewState.Completed)
+                return Conflict<TechnicalInterviewResultDto>("SESSION_ALREADY_ENDED", "The interview session ended before a Technical result was available.");
             if (session.TechnicalState != TechnicalInterviewState.Completed)
                 return Conflict<TechnicalInterviewResultDto>("SESSION_NOT_COMPLETED", "Technical result is available only after completion.");
 
@@ -546,11 +567,27 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         {
             session.TechnicalState = TechnicalInterviewState.SelectingQuestion;
             session.TechnicalConcurrencyVersion++;
-            await _context.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict<TechnicalCurrentQuestionDto>(
+                    "SESSION_CONCURRENCY_CONFLICT",
+                    "Another request is already selecting a question for this session.");
+            }
 
             var selection = await _selectionService.SelectAsync(
                 BuildSelectionContext(session),
                 cancellationToken);
+
+            if (await IsLifecycleClosedInDatabaseAsync(session.InterviewSessionId, cancellationToken))
+            {
+                return Conflict<TechnicalCurrentQuestionDto>(
+                    "SESSION_ALREADY_ENDED",
+                    "The interview session ended while the question was being selected.");
+            }
 
             if (selection.AIResult is not null)
             {
@@ -586,7 +623,16 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             session.TechnicalState = TechnicalInterviewState.QuestionReady;
             session.TechnicalConcurrencyVersion++;
             session.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict<TechnicalCurrentQuestionDto>(
+                    "SESSION_CONCURRENCY_CONFLICT",
+                    "The session changed while the selected question was being persisted.");
+            }
 
             return TechnicalOperationResult<TechnicalCurrentQuestionDto>.Created(
                 MapCurrentQuestion(session, attempt));
@@ -1336,6 +1382,23 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 ProcessingStatus = sessionStatus,
                 SessionStatus = sessionStatus
             };
+        }
+
+        private static bool IsLifecycleClosed(InterviewSession session) =>
+            session.Status == InterviewSessionStatus.Completed
+            || session.Status == InterviewSessionStatus.Cancelled;
+
+        private async Task<bool> IsLifecycleClosedInDatabaseAsync(
+            int sessionId,
+            CancellationToken cancellationToken)
+        {
+            var status = await _context.InterviewSessions
+                .AsNoTracking()
+                .Where(session => session.InterviewSessionId == sessionId)
+                .Select(session => (InterviewSessionStatus?)session.Status)
+                .SingleOrDefaultAsync(cancellationToken);
+            return status == InterviewSessionStatus.Completed
+                || status == InterviewSessionStatus.Cancelled;
         }
 
         private static TechnicalCurrentQuestionDto MapCurrentQuestion(

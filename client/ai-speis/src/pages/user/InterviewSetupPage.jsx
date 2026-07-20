@@ -12,12 +12,15 @@ import {
   Settings2,
 } from 'lucide-react';
 import InterviewProgressStepper from '../../components/user/InterviewProgressStepper/InterviewProgressStepper';
+import ActiveSessionDialog from '../../components/technicalInterview/ActiveSessionDialog';
+import EndSessionConfirmDialog from '../../components/technicalInterview/EndSessionConfirmDialog';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { USER_ROUTES } from '../../routes/routePaths';
+import { getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import jdService from '../../services/JDService';
 import interviewSessionService from '../../services/InterviewSessionService';
+import notify from '../../utils/notification';
 import {
   clearActiveInterviewContext,
   getActiveInterviewContext,
@@ -76,6 +79,33 @@ const createConfigurationKey = (setup) => JSON.stringify({
   ),
 });
 
+const isLiveCampaign = (campaign) => campaign?.status === 'Pending' || campaign?.status === 'Active';
+
+const getConflictSession = (campaign, preferredSessionId) => (
+  campaign?.sessions?.find((session) => String(session.interviewSessionId) === String(preferredSessionId))
+  || campaign?.sessions?.find((session) => session.status === 'Active')
+  || campaign?.sessions?.find((session) => session.status === 'Pending')
+  || null
+);
+
+const createSessionConflict = (campaign, conflictData = {}) => {
+  const session = getConflictSession(campaign, conflictData.sessionId);
+  return {
+    ...conflictData,
+    campaign,
+    campaignId: campaign?.interviewCampaignId,
+    sessionId: session?.interviewSessionId || conflictData.sessionId || null,
+    interviewType: session?.interviewRoundType || conflictData.interviewType || '',
+    status: session?.status || campaign?.status || conflictData.status || '',
+    completedQuestionCount: session?.completedQuestionCount
+      ?? conflictData.completedQuestionCount
+      ?? 0,
+    canResume: Boolean(session),
+    canEnd: session?.status === 'Active',
+    canCloseCampaign: isLiveCampaign(campaign),
+  };
+};
+
 function InterviewSetupPage() {
   const { t } = useTranslation('interview');
   const initialDraftRef = useRef(getInterviewSetupDraft() || {});
@@ -95,7 +125,12 @@ function InterviewSetupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [sessionConflict, setSessionConflict] = useState(null);
+  const [pendingInterviewSetup, setPendingInterviewSetup] = useState(null);
+  const [confirmationAction, setConfirmationAction] = useState(null);
+  const [conflictAction, setConflictAction] = useState(null);
   const [jdAvailabilityMessage, setJdAvailabilityMessage] = useState('');
+  const submitLockRef = useRef(false);
   const hasValidMode = mode === 'Practice' || mode === 'RealTest';
 
   const loadSetupData = useCallback(async () => {
@@ -284,8 +319,43 @@ function InterviewSetupPage() {
       ? jdAvailabilityMessage || t('setup.jdRequired')
       : '';
 
+  const persistCreatedCampaign = (campaign, pendingSetup) => {
+    saveActiveInterviewContext({
+      campaign,
+      activeSessionId: null,
+      configurationKey: pendingSetup.configurationKey,
+    });
+    saveInterviewSetupDraft({
+      ...pendingSetup.draft,
+      campaignId: campaign.interviewCampaignId,
+      configurationKey: pendingSetup.configurationKey,
+      previousCampaignId: null,
+    });
+    notifyInterviewQuotaChanged(campaign);
+    navigate(USER_ROUTES.DEVICE_CHECK);
+  };
+
+  const createCampaignFromPendingSetup = async (pendingSetup) => {
+    try {
+      const campaign = await interviewSessionService.createSession(pendingSetup.setupPayload);
+      persistCreatedCampaign(campaign, pendingSetup);
+      return true;
+    } catch (error) {
+      if (error?.code === 'ACTIVE_INTERVIEW_SESSION_EXISTS'
+        || error?.code === 'ACTIVE_CAMPAIGN_EXISTS') {
+        const campaign = error.data?.campaign || await interviewSessionService.getActiveCampaign();
+        if (campaign) {
+          setSessionConflict(createSessionConflict(campaign, error.data));
+          return false;
+        }
+      }
+      throw error;
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submitLockRef.current) return;
     setSubmitError('');
 
     if (!activeCv || !selectedJd) {
@@ -308,59 +378,23 @@ function InterviewSetupPage() {
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
-      const setupPayload = {
-        CVFileId: activeCv.cvFileId,
-        JDFileId: selectedJd.file.jdFileId,
-        IncludeCoding: includeCoding,
-        SelectedRounds: mode === 'Practice' ? practiceRounds : [],
-        QuestionCounts: mode === 'Practice'
-          ? Object.fromEntries(practiceRounds.map((round) => [round, practiceQuestionCounts[round]]))
-          : {},
-        Language: language,
-        Mode: mode,
-      };
-      const configurationKey = createConfigurationKey(setupPayload);
-      const storedContext = getActiveInterviewContext();
-      const currentDraft = getInterviewSetupDraft() || {};
-      const existingCampaignId = storedContext?.campaign?.interviewCampaignId
-        || currentDraft.campaignId
-        || currentDraft.previousCampaignId;
-
-      if (existingCampaignId) {
-        const existingCampaign = await interviewSessionService.getCampaign(existingCampaignId);
-        const isLiveCampaign = existingCampaign.status === 'Pending' || existingCampaign.status === 'Active';
-        const existingConfigurationKey = storedContext?.configurationKey || currentDraft.configurationKey;
-
-        if (isLiveCampaign && existingConfigurationKey === configurationKey) {
-          saveInterviewSetupDraft({
-            ...currentDraft,
-            jobRole: jobTitle,
-            experienceLevel,
-            difficulty,
-          });
-          saveActiveInterviewContext({
-            campaign: existingCampaign,
-            activeSessionId: storedContext?.activeSessionId || null,
-            configurationKey,
-          });
-          notifyInterviewQuotaChanged(existingCampaign);
-          navigate(USER_ROUTES.DEVICE_CHECK);
-          return;
-        }
-
-        if (isLiveCampaign) {
-          const cancelledCampaign = await interviewSessionService.cancelCampaign(existingCampaignId);
-          notifyInterviewQuotaChanged(cancelledCampaign);
-        }
-        clearActiveInterviewContext();
-      }
-
-      const campaign = await interviewSessionService.createSession(setupPayload);
-      saveActiveInterviewContext({ campaign, activeSessionId: null, configurationKey });
-      saveInterviewSetupDraft({
+    const setupPayload = {
+      CVFileId: activeCv.cvFileId,
+      JDFileId: selectedJd.file.jdFileId,
+      IncludeCoding: includeCoding,
+      SelectedRounds: mode === 'Practice' ? practiceRounds : [],
+      QuestionCounts: mode === 'Practice'
+        ? Object.fromEntries(practiceRounds.map((round) => [round, practiceQuestionCounts[round]]))
+        : {},
+      Language: language,
+      Mode: mode,
+    };
+    const configurationKey = createConfigurationKey(setupPayload);
+    const currentDraft = getInterviewSetupDraft() || {};
+    const pendingSetup = {
+      setupPayload,
+      configurationKey,
+      draft: {
         ...currentDraft,
         mode,
         cvFileId: activeCv.cvFileId,
@@ -369,19 +403,128 @@ function InterviewSetupPage() {
         includeCoding,
         practiceRounds,
         practiceQuestionCounts,
-        campaignId: campaign.interviewCampaignId,
-        configurationKey,
-        previousCampaignId: null,
         jobRole: jobTitle,
         experienceLevel,
         difficulty,
-      });
-      notifyInterviewQuotaChanged(campaign);
-      navigate(USER_ROUTES.DEVICE_CHECK);
+      },
+    };
+    setPendingInterviewSetup(pendingSetup);
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      const activeCampaign = await interviewSessionService.getActiveCampaign();
+      if (activeCampaign) {
+        setSessionConflict(createSessionConflict(activeCampaign));
+        return;
+      }
+
+      clearActiveInterviewContext();
+      await createCampaignFromPendingSetup(pendingSetup);
     } catch (error) {
       setSubmitError(error.message || t('setup.createFailed'));
     } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResumeActiveSession = async () => {
+    if (conflictAction) return;
+    setConflictAction('resume');
+    setSubmitError('');
+    try {
+      const latestCampaign = await interviewSessionService.getActiveCampaign();
+      if (!latestCampaign) {
+        setSessionConflict(null);
+        if (pendingInterviewSetup) await createCampaignFromPendingSetup(pendingInterviewSetup);
+        return;
+      }
+
+      const latestSession = getConflictSession(latestCampaign, sessionConflict?.sessionId);
+      const storedContext = getActiveInterviewContext();
+      saveActiveInterviewContext({
+        campaign: latestCampaign,
+        activeSessionId: latestSession?.status === 'Active' ? latestSession.interviewSessionId : null,
+        configurationKey: String(storedContext?.campaign?.interviewCampaignId)
+          === String(latestCampaign.interviewCampaignId)
+          ? storedContext?.configurationKey || null
+          : null,
+      });
+      notifyInterviewQuotaChanged(latestCampaign);
+      navigate(latestSession?.status === 'Active'
+        ? getInterviewRoomPath(latestSession.interviewSessionId)
+        : USER_ROUTES.DEVICE_CHECK);
+    } catch (error) {
+      setSubmitError(error.message || t('activeSession.refreshFailed'));
+    } finally {
+      setConflictAction(null);
+    }
+  };
+
+  const handleConfirmConflictAction = async () => {
+    if (!confirmationAction || conflictAction) return;
+    const requestedAction = confirmationAction;
+    setConflictAction(requestedAction);
+    setSubmitError('');
+
+    try {
+      const latestCampaign = await interviewSessionService.getActiveCampaign();
+      if (!latestCampaign) {
+        setSessionConflict(null);
+        setConfirmationAction(null);
+        clearActiveInterviewContext();
+        if (pendingInterviewSetup) await createCampaignFromPendingSetup(pendingInterviewSetup);
+        return;
+      }
+
+      if (String(latestCampaign.interviewCampaignId) !== String(sessionConflict?.campaignId)) {
+        setSessionConflict(createSessionConflict(latestCampaign));
+        setConfirmationAction(null);
+        notify.warning(t('activeSession.changedElsewhere'));
+        return;
+      }
+
+      if (requestedAction === 'session') {
+        const latestSession = getConflictSession(latestCampaign, sessionConflict?.sessionId);
+        if (!latestSession || latestSession.status !== 'Active') {
+          setSessionConflict(createSessionConflict(latestCampaign));
+          setConfirmationAction(null);
+          notify.info(t('activeSession.sessionAlreadyChanged'));
+          return;
+        }
+        await interviewSessionService.completeSession(latestSession.interviewSessionId);
+      } else {
+        await interviewSessionService.cancelCampaign(latestCampaign.interviewCampaignId);
+      }
+
+      const remainingCampaign = await interviewSessionService.getActiveCampaign();
+      setConfirmationAction(null);
+      if (remainingCampaign) {
+        setSessionConflict(createSessionConflict(remainingCampaign));
+        notify.info(requestedAction === 'session'
+          ? t('activeSession.nextRoundActive')
+          : t('activeSession.changedElsewhere'));
+        return;
+      }
+
+      setSessionConflict(null);
+      clearActiveInterviewContext();
+      if (pendingInterviewSetup) await createCampaignFromPendingSetup(pendingInterviewSetup);
+    } catch (error) {
+      if (error?.code === 'CAMPAIGN_ALREADY_CLOSED') {
+        const remainingCampaign = await interviewSessionService.getActiveCampaign().catch(() => null);
+        if (!remainingCampaign && pendingInterviewSetup) {
+          setSessionConflict(null);
+          setConfirmationAction(null);
+          clearActiveInterviewContext();
+          await createCampaignFromPendingSetup(pendingInterviewSetup);
+          return;
+        }
+      }
+      setSubmitError(error.message || t('activeSession.actionFailed'));
+    } finally {
+      setConflictAction(null);
     }
   };
 
@@ -719,6 +862,24 @@ function InterviewSetupPage() {
           </div>
         )}
       </div>
+      <ActiveSessionDialog
+        conflict={sessionConflict}
+        language={language}
+        busyAction={conflictAction || confirmationAction}
+        suspended={Boolean(confirmationAction)}
+        onResume={handleResumeActiveSession}
+        onEndSession={() => setConfirmationAction('session')}
+        onCloseCampaign={() => setConfirmationAction('campaign')}
+        onBack={() => setSessionConflict(null)}
+        t={t}
+      />
+      <EndSessionConfirmDialog
+        action={confirmationAction}
+        isSubmitting={Boolean(conflictAction)}
+        onConfirm={handleConfirmConflictAction}
+        onCancel={() => setConfirmationAction(null)}
+        t={t}
+      />
     </UserLayout>
   );
 }
