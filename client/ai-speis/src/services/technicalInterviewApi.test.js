@@ -71,11 +71,13 @@ describe('technicalInterviewApi', () => {
       json: async () => ({ sessionStatus: 'QUESTION_READY' }),
     });
 
-    await technicalInterviewApi.startSession(17);
+    const controller = new AbortController();
+    await technicalInterviewApi.startSession(17, { signal: controller.signal });
     await technicalInterviewApi.completeSession(17);
 
     expect(global.fetch.mock.calls[0][0]).toContain('/api/technical-interviews/17/start');
     expect(global.fetch.mock.calls[0][1].method).toBe('POST');
+    expect(global.fetch.mock.calls[0][1].signal).toBe(controller.signal);
     expect(global.fetch.mock.calls[1][0]).toContain('/api/technical-interviews/17/complete');
     expect(global.fetch.mock.calls[1][1].method).toBe('POST');
   });

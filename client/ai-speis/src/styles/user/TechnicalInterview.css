@@ -339,6 +339,88 @@
   overflow-wrap: anywhere;
 }
 
+.technical-audio {
+  margin: 0 0 var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-md);
+}
+
+.technical-audio__row,
+.technical-audio__actions,
+.technical-audio__status,
+.technical-audio__error,
+.technical-audio__error button,
+.technical-audio__button,
+.technical-audio__toggle {
+  display: flex;
+  align-items: center;
+}
+
+.technical-audio__row {
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.technical-audio__status {
+  gap: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.technical-audio__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--spacing-xs);
+}
+
+.technical-audio__button,
+.technical-audio__toggle,
+.technical-audio__error button {
+  min-height: 36px;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: 0 var(--spacing-sm);
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  font: inherit;
+  font-size: var(--body-sm);
+  cursor: pointer;
+}
+
+.technical-audio__button:focus-visible,
+.technical-audio__toggle:focus-visible,
+.technical-audio__error button:focus-visible {
+  outline: none;
+  box-shadow: var(--box-shadow-glow);
+}
+
+.technical-audio__button:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  background: var(--surface-1);
+}
+
+.technical-audio__toggle--active {
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+  border-color: var(--primary-light);
+}
+
+.technical-audio__error {
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+  font-size: var(--body-sm);
+}
+
 .technical-transcript textarea:read-only {
   color: var(--text-secondary);
   background: var(--surface-1);
@@ -602,6 +684,65 @@
   color: var(--text-secondary);
   font-size: var(--body-sm);
 }
+
+.technical-initialization {
+  min-height: 420px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-xl);
+}
+
+.technical-initialization__icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+  border-radius: 50%;
+}
+
+.technical-initialization h2 {
+  margin: 0 0 var(--spacing-sm);
+  color: var(--text-primary);
+  font-size: var(--heading-2);
+}
+
+.technical-initialization p,
+.technical-initialization span {
+  color: var(--text-secondary);
+}
+
+.technical-initialization p {
+  margin: 0 0 var(--spacing-xs);
+}
+
+.technical-initialization span {
+  font-size: var(--body-sm);
+}
+
+.technical-initialization__skeleton {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-lg);
+}
+
+.technical-initialization__skeleton i {
+  height: 14px;
+  border-radius: var(--border-radius-pill);
+  background: linear-gradient(90deg, var(--surface-3), var(--surface-2), var(--surface-3));
+  background-size: 200% 100%;
+  animation: skeletonWave 1.8s ease-in-out infinite;
+}
+
+.technical-initialization__skeleton i:nth-child(2) { width: 88%; }
+.technical-initialization__skeleton i:nth-child(3) { width: 64%; }
 
 .technical-dimension-card__reason {
   padding: var(--spacing-sm) var(--spacing-md);
@@ -868,6 +1009,29 @@
     flex-direction: column;
   }
 
+  .technical-initialization {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--spacing-md);
+  }
+
+  .technical-initialization__skeleton {
+    grid-column: auto;
+  }
+
+  .technical-audio__row,
+  .technical-audio__error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .technical-audio__actions {
+    justify-content: stretch;
+  }
+
+  .technical-audio__actions > * {
+    flex: 1 1 auto;
+  }
+
   .technical-recorder-button {
     width: 100%;
   }
@@ -890,5 +1054,10 @@
   .technical-skeleton {
     animation: none;
     transition: none;
+  }
+
+
+  .technical-initialization__skeleton i {
+    animation: none;
   }
 }

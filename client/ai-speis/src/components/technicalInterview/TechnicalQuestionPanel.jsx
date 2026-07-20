@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import TechnicalQuestionTypeBadge from './TechnicalQuestionTypeBadge';
 import { TechnicalQuestionType } from '../../features/technicalInterview/technicalInterview.types';
+import QuestionAudioControls from './QuestionAudioControls';
 
-function TechnicalQuestionPanel({ question, t }) {
+function TechnicalQuestionPanel({ question, audio, t }) {
   const headingRef = useRef(null);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ function TechnicalQuestionPanel({ question, t }) {
         </div>
       </div>
       <p className="technical-question-panel__content">{question.content}</p>
+      {audio && <QuestionAudioControls audio={audio} t={t} />}
       {isSubQuestion && (
         <p className="technical-question-panel__context">
           {question.questionType === TechnicalQuestionType.CLARIFICATION

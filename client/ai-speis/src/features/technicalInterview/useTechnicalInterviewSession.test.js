@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import technicalInterviewApi from '../../services/technicalInterviewApi';
-import useTechnicalInterviewSession from './useTechnicalInterviewSession';
+import useTechnicalInterviewSession, { TechnicalInterviewFlowStatus } from './useTechnicalInterviewSession';
 
 jest.mock('../../services/technicalInterviewApi', () => ({
   __esModule: true,
@@ -129,6 +129,39 @@ describe('useTechnicalInterviewSession', () => {
     expect(result.current.currentQuestion?.attemptId).toBe('attempt-follow-up');
   });
 
+  test('reports question generation separately and prevents duplicate start requests', async () => {
+    let resolveStart;
+    technicalInterviewApi.getSession.mockResolvedValue({ sessionId: 17, status: 'CREATED' });
+    technicalInterviewApi.startSession.mockImplementation(() => new Promise((resolve) => {
+      resolveStart = resolve;
+    }));
+
+    const { result } = renderHook(() => useTechnicalInterviewSession(17));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let firstRequest;
+    await act(async () => {
+      firstRequest = result.current.startSession();
+      await result.current.startSession();
+    });
+    expect(technicalInterviewApi.startSession).toHaveBeenCalledTimes(1);
+    expect(technicalInterviewApi.startSession).toHaveBeenCalledWith(17, {
+      signal: expect.any(AbortSignal),
+    });
+    expect(result.current.flowStatus).toBe(TechnicalInterviewFlowStatus.GENERATING_QUESTION);
+
+    await act(async () => {
+      resolveStart({
+        attemptId: 'attempt-main',
+        questionType: 'MAIN',
+        content: 'Explain immutability.',
+        sessionStatus: 'QUESTION_READY',
+      });
+      await firstRequest;
+    });
+    expect(result.current.flowStatus).toBe(TechnicalInterviewFlowStatus.QUESTION_READY);
+  });
+
   test('resumes an evaluating session without requesting a ready question and keeps polling state', async () => {
     technicalInterviewApi.getSession.mockResolvedValue({
       sessionId: 17,
@@ -167,7 +200,7 @@ describe('useTechnicalInterviewSession', () => {
 
     expect(recovery).toEqual({ state: 'PROCESSING' });
     expect(technicalInterviewApi.getCurrentQuestion).toHaveBeenCalledTimes(1);
-    expect(result.current.currentQuestion?.attemptId).toBe('attempt-main');
+    expect(result.current.currentQuestion).toBeNull();
   });
 
   test('detects that a timed-out answer was accepted when the next attempt is already ready', async () => {

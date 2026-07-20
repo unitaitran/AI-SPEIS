@@ -3,6 +3,17 @@ import technicalInterviewApi from '../../services/technicalInterviewApi';
 import { TechnicalSessionStatus } from './technicalInterview.types';
 
 const PROCESSING_POLL_INTERVAL_MS = 1500;
+const QUESTION_GENERATION_UI_TIMEOUT_MS = 45000;
+
+export const TechnicalInterviewFlowStatus = Object.freeze({
+  IDLE: 'idle',
+  INITIALIZING_SESSION: 'initializingSession',
+  GENERATING_QUESTION: 'generatingQuestion',
+  QUESTION_READY: 'questionReady',
+  GENERATING_NEXT_QUESTION: 'generatingNextQuestion',
+  ENDING_SESSION: 'endingSession',
+  ERROR: 'error',
+});
 
 const LEGACY_SESSION_STATUS = Object.freeze({
   Pending: TechnicalSessionStatus.CREATED,
@@ -66,7 +77,12 @@ export default function useTechnicalInterviewSession(sessionId) {
   const [isLoading, setIsLoading] = useState(Boolean(sessionId));
   const [error, setError] = useState(null);
   const [questionError, setQuestionError] = useState(null);
+  const [flowStatus, setFlowStatus] = useState(
+    sessionId ? TechnicalInterviewFlowStatus.INITIALIZING_SESSION : TechnicalInterviewFlowStatus.IDLE,
+  );
   const requestIdRef = useRef(0);
+  const startingRef = useRef(false);
+  const startAbortRef = useRef(null);
   const sessionRef = useRef(null);
   const currentQuestionRef = useRef(null);
 
@@ -89,6 +105,7 @@ export default function useTechnicalInterviewSession(sessionId) {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     if (showLoading) setIsLoading(true);
+    if (showLoading) setFlowStatus(TechnicalInterviewFlowStatus.INITIALIZING_SESSION);
     setQuestionError(null);
     if (showLoading) setError(null);
 
@@ -112,6 +129,8 @@ export default function useTechnicalInterviewSession(sessionId) {
             questionResponse?.currentQuestion || questionResponse?.question || questionResponse,
           );
           commitQuestion(nextQuestion);
+          setError(null);
+          setFlowStatus(TechnicalInterviewFlowStatus.QUESTION_READY);
         } catch (requestError) {
           if (requestIdRef.current !== requestId) return null;
           nextQuestion = null;
@@ -124,6 +143,16 @@ export default function useTechnicalInterviewSession(sessionId) {
         commitQuestion(null);
       }
 
+      if (status === TechnicalSessionStatus.SELECTING_QUESTION) {
+        setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_QUESTION);
+      } else if (status === TechnicalSessionStatus.EVALUATING) {
+        setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_NEXT_QUESTION);
+      } else if (status === TechnicalSessionStatus.FAILED) {
+        setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
+      } else if (status === TechnicalSessionStatus.CREATED) {
+        setFlowStatus(TechnicalInterviewFlowStatus.INITIALIZING_SESSION);
+      }
+
       return {
         session: nextSession,
         currentQuestion: nextQuestion,
@@ -131,7 +160,10 @@ export default function useTechnicalInterviewSession(sessionId) {
         questionError: nextQuestionError,
       };
     } catch (requestError) {
-      if (requestIdRef.current === requestId && showLoading) setError(requestError);
+      if (requestIdRef.current === requestId && showLoading) {
+        setError(requestError);
+        setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
+      }
       return { error: requestError };
     } finally {
       if (requestIdRef.current === requestId && showLoading) setIsLoading(false);
@@ -144,6 +176,7 @@ export default function useTechnicalInterviewSession(sessionId) {
     load();
     return () => {
       requestIdRef.current += 1;
+      startAbortRef.current?.abort();
     };
   }, [load]);
 
@@ -163,35 +196,73 @@ export default function useTechnicalInterviewSession(sessionId) {
     };
   }, [status, synchronize]);
 
+  useEffect(() => {
+    if (status !== TechnicalSessionStatus.SELECTING_QUESTION) return undefined;
+    const timer = window.setTimeout(() => {
+      setError({
+        code: 'QUESTION_GENERATION_TIMEOUT',
+        message: 'Question generation timed out.',
+      });
+      setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
+    }, QUESTION_GENERATION_UI_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
   const startSession = useCallback(async () => {
-    if (!sessionId) return null;
+    if (!sessionId || startingRef.current) return null;
+    startingRef.current = true;
     setError(null);
-    const response = await technicalInterviewApi.startSession(sessionId);
-    const question = normalizeTechnicalQuestion(
-      response?.currentQuestion || response?.question || response,
-      response?.progress,
-    );
-    const nextSession = response?.session || {
-      ...sessionRef.current,
-      sessionId,
-      status: question?.sessionStatus || TechnicalSessionStatus.QUESTION_READY,
-      sessionStatus: question?.sessionStatus || TechnicalSessionStatus.QUESTION_READY,
-    };
-    commitSession(nextSession);
-    if (question?.attemptId) commitQuestion(question);
-    else await synchronize();
-    return nextSession;
+    setQuestionError(null);
+    setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_QUESTION);
+    commitQuestion(null);
+    const controller = new AbortController();
+    startAbortRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), QUESTION_GENERATION_UI_TIMEOUT_MS);
+    try {
+      const response = await technicalInterviewApi.startSession(sessionId, { signal: controller.signal });
+      const question = normalizeTechnicalQuestion(
+        response?.currentQuestion || response?.question || response,
+        response?.progress,
+      );
+      const nextSession = response?.session || {
+        ...sessionRef.current,
+        sessionId,
+        status: question?.sessionStatus || TechnicalSessionStatus.QUESTION_READY,
+        sessionStatus: question?.sessionStatus || TechnicalSessionStatus.QUESTION_READY,
+      };
+      commitSession(nextSession);
+      if (question?.attemptId) {
+        commitQuestion(question);
+        setFlowStatus(TechnicalInterviewFlowStatus.QUESTION_READY);
+      } else {
+        await synchronize();
+      }
+      return nextSession;
+    } catch (requestError) {
+      const resolvedError = controller.signal.aborted
+        ? { code: 'QUESTION_GENERATION_TIMEOUT', message: 'Question generation timed out.' }
+        : requestError;
+      setError(resolvedError);
+      setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
+      throw resolvedError;
+    } finally {
+      window.clearTimeout(timeout);
+      if (startAbortRef.current === controller) startAbortRef.current = null;
+      startingRef.current = false;
+    }
   }, [commitQuestion, commitSession, sessionId, synchronize]);
 
   const markProcessing = useCallback((attemptId) => {
     setProcessingStatus({ attemptId, evaluation: 'PROCESSING' });
+    setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_NEXT_QUESTION);
+    commitQuestion(null);
     commitSession({
       ...sessionRef.current,
       sessionId,
       status: TechnicalSessionStatus.EVALUATING,
       sessionStatus: TechnicalSessionStatus.EVALUATING,
     });
-  }, [commitSession, sessionId]);
+  }, [commitQuestion, commitSession, sessionId]);
 
   const applyAnswerResponse = useCallback((response) => {
     if (!response) return;
@@ -210,8 +281,15 @@ export default function useTechnicalInterviewSession(sessionId) {
       response.nextQuestion || response.currentQuestion || response.question,
       response.progress,
     );
-    if (nextQuestion) commitQuestion(nextQuestion);
-    else if (responseStatus === TechnicalSessionStatus.COMPLETED) commitQuestion(null);
+    if (nextQuestion) {
+      commitQuestion(nextQuestion);
+      setFlowStatus(TechnicalInterviewFlowStatus.QUESTION_READY);
+    } else if (responseStatus === TechnicalSessionStatus.COMPLETED) {
+      commitQuestion(null);
+      setFlowStatus(TechnicalInterviewFlowStatus.IDLE);
+    } else if (responseStatus === TechnicalSessionStatus.EVALUATING) {
+      setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_NEXT_QUESTION);
+    }
   }, [commitQuestion, commitSession]);
 
   const reconcileAfterSubmission = useCallback(async (submittedAttemptId) => {
@@ -240,6 +318,7 @@ export default function useTechnicalInterviewSession(sessionId) {
     isLoading,
     error,
     questionError,
+    flowStatus,
     reload: load,
     synchronize,
     startSession,

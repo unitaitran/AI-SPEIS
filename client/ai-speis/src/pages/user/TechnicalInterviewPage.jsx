@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import InterviewInitializationLoading from '../../components/technicalInterview/InterviewInitializationLoading';
 import TechnicalAnswerPanel from '../../components/technicalInterview/TechnicalAnswerPanel';
 import TechnicalEvaluationState from '../../components/technicalInterview/TechnicalEvaluationState';
 import TechnicalInterviewErrorState from '../../components/technicalInterview/TechnicalInterviewErrorState';
@@ -16,8 +16,12 @@ import {
 } from '../../features/technicalInterview/technicalInterviewDraft';
 import { getTechnicalInterviewErrorKey } from '../../features/technicalInterview/technicalInterviewErrors';
 import { TechnicalSessionStatus } from '../../features/technicalInterview/technicalInterview.types';
+import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio';
 import useSubmitTechnicalAnswer from '../../features/technicalInterview/useSubmitTechnicalAnswer';
-import useTechnicalInterviewSession, { getTechnicalSessionStatus } from '../../features/technicalInterview/useTechnicalInterviewSession';
+import useTechnicalInterviewSession, {
+  getTechnicalSessionStatus,
+  TechnicalInterviewFlowStatus,
+} from '../../features/technicalInterview/useTechnicalInterviewSession';
 import useTechnicalRecorder from '../../features/technicalInterview/useTechnicalRecorder';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
@@ -36,8 +40,18 @@ function TechnicalInterviewPage({ sessionId }) {
     translate(key, { ...options, lng: interviewLanguage })
   ), [interviewLanguage, translate]);
   const room = useTechnicalInterviewSession(resolvedSessionId);
+  const {
+    error: roomLoadError,
+    isLoading: isRoomLoading,
+    startSession: startRoomSession,
+  } = room;
   const submitMutation = useSubmitTechnicalAnswer(resolvedSessionId);
   const recorder = useTechnicalRecorder(interviewLanguage);
+  const questionAudio = useQuestionAudio({
+    question: room.currentQuestion,
+    sessionId: resolvedSessionId,
+    language: interviewLanguage,
+  });
   const setRecorderTranscript = recorder.setTranscript;
   const [localError, setLocalError] = useState(null);
   const [activeDraftAttempt, setActiveDraftAttempt] = useState(null);
@@ -55,6 +69,13 @@ function TechnicalInterviewPage({ sessionId }) {
       navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
     }
   }, [resolvedSessionId, status]);
+
+  useEffect(() => {
+    if (isRoomLoading || roomLoadError || status !== TechnicalSessionStatus.CREATED) return;
+    startRoomSession()
+      .then(() => setLocalError(null))
+      .catch(setLocalError);
+  }, [isRoomLoading, roomLoadError, startRoomSession, status]);
 
   useEffect(() => {
     if (!resolvedSessionId || !attemptId) {
@@ -182,51 +203,34 @@ function TechnicalInterviewPage({ sessionId }) {
     );
   } else if (room.isLoading) {
     content = (
-      <div className="technical-loading" aria-label={t('common.loading')}>
-        <div className="technical-skeleton" />
-        <div className="technical-skeleton technical-skeleton--large" />
-      </div>
+      <InterviewInitializationLoading phase={TechnicalInterviewFlowStatus.INITIALIZING_SESSION} t={t} />
     );
   } else if (room.error) {
+    const canRetryQuestionGeneration = room.error?.code === 'QUESTION_GENERATION_TIMEOUT'
+      || status === TechnicalSessionStatus.SELECTING_QUESTION
+      || status === TechnicalSessionStatus.FAILED;
     content = (
       <TechnicalInterviewErrorState
         title={t('room.openFailed')}
         message={getErrorMessage(room.error)}
-        onRetry={room.reload}
+        onRetry={canRetryQuestionGeneration ? handleStart : room.reload}
         onBack={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
         retryLabel={t('common.retry')}
         backLabel={t('room.backToSetup')}
       />
     );
-  } else if (status === TechnicalSessionStatus.CREATED) {
+  } else if (status === TechnicalSessionStatus.CREATED
+    || status === TechnicalSessionStatus.SELECTING_QUESTION) {
     content = (
-      <section className="technical-ready technical-card">
-        <div className="technical-ready__icon"><Play size={30} aria-hidden="true" /></div>
-        <h2>{t('room.readyTitle')}</h2>
-        <p>{t('room.readyDescription')}</p>
-        {localError && <p className="technical-inline-error" role="alert">{getErrorMessage(localError)}</p>}
-        <div className="technical-ready__actions">
-          <button type="button" className="technical-secondary-button" onClick={handleStart}>
-            <Play size={18} aria-hidden="true" />{t('room.startInterview')}
-          </button>
-        </div>
-      </section>
-    );
-  } else if (status === TechnicalSessionStatus.SELECTING_QUESTION) {
-    content = (
-      <section className="technical-evaluation technical-card" aria-live="polite">
-        <div className="technical-evaluation__icon">
-          <Loader2 size={30} className="animate-spin" aria-hidden="true" />
-        </div>
-        <h2>{t('room.selectingQuestionTitle')}</h2>
-        <p>{t('room.selectingQuestionDescription')}</p>
-      </section>
+      <InterviewInitializationLoading phase={TechnicalInterviewFlowStatus.GENERATING_QUESTION} t={t} />
     );
   } else if (status === TechnicalSessionStatus.FAILED) {
     content = (
       <TechnicalInterviewErrorState
         title={t('room.failedTitle')}
         message={t('room.failedDescription')}
+        onRetry={handleStart}
+        retryLabel={t('common.retry')}
         onBack={() => navigate(USER_ROUTES.DASHBOARD)}
         backLabel={t('room.backToDashboard')}
       />
@@ -247,7 +251,7 @@ function TechnicalInterviewPage({ sessionId }) {
           t={t}
         />
         <div className="technical-room-grid">
-          <TechnicalQuestionPanel question={room.currentQuestion} t={t} />
+          <TechnicalQuestionPanel question={room.currentQuestion} audio={questionAudio} t={t} />
           <TechnicalAnswerPanel
             recorder={recorder}
             transcriptEditable={transcriptEditable}

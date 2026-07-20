@@ -85,9 +85,9 @@ const technicalInterviewApi = {
 
   getSession: (sessionId) => request(ENDPOINTS.TECHNICAL_INTERVIEW_SESSION(sessionId)),
 
-  startSession: (sessionId) => request(
+  startSession: (sessionId, { signal } = {}) => request(
     ENDPOINTS.TECHNICAL_INTERVIEW_START(sessionId),
-    { method: 'POST' },
+    { method: 'POST', signal },
   ),
 
   getCurrentQuestion: (sessionId) => request(
