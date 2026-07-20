@@ -10,5 +10,6 @@
 
 *.md
 *.json
+!server/ai-speis-be/TechnicalInterviews/Rubrics/technical-rubric-v1.json
 !client/ai-speis/src/locales/en/interview.json
 !client/ai-speis/src/locales/vi/interview.json

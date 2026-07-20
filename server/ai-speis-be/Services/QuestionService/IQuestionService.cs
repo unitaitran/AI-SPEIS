@@ -31,7 +31,7 @@ namespace ai_speis_be.Services.QuestionService
             UserQuestionQueryDto query,
             CancellationToken cancellationToken = default);
         Task<QuestionResponseDto?> GetQuestionByIdAsync(int questionId);
-        Task<QuestionResponseDto?> GetQuestionByIdAdminAsync(int questionId);
+        Task<AdminQuestionListItemDto?> GetQuestionByIdAdminAsync(int questionId);
 
     }
 }
