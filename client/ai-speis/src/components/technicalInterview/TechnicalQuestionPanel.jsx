@@ -1,18 +1,31 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import TechnicalQuestionTypeBadge from './TechnicalQuestionTypeBadge';
 import { TechnicalQuestionType } from '../../features/technicalInterview/technicalInterview.types';
 
 function TechnicalQuestionPanel({ question, t }) {
+  const headingRef = useRef(null);
+
+  useEffect(() => {
+    if (!question?.attemptId) return;
+    headingRef.current?.focus({ preventScroll: true });
+  }, [question?.attemptId]);
+
   if (!question) return null;
   const isSubQuestion = question.questionType === TechnicalQuestionType.CLARIFICATION
     || question.questionType === TechnicalQuestionType.FOLLOW_UP;
 
   return (
-    <section className="technical-question-panel technical-card" aria-labelledby="technical-question-title">
+    <section
+      className="technical-question-panel technical-card"
+      aria-labelledby="technical-question-title"
+      aria-live="polite"
+    >
       <div className="technical-question-panel__header">
         <div>
           <p className="technical-section__eyebrow">{t('room.interviewerAsks')}</p>
-          <h2 id="technical-question-title">{t('room.questionTitle')}</h2>
+          <h2 id="technical-question-title" ref={headingRef} tabIndex={-1}>
+            {t('room.questionTitle')}
+          </h2>
         </div>
         <div className="technical-question-panel__badges">
           <TechnicalQuestionTypeBadge type={question.questionType} t={t} />
@@ -23,7 +36,9 @@ function TechnicalQuestionPanel({ question, t }) {
       <p className="technical-question-panel__content">{question.content}</p>
       {isSubQuestion && (
         <p className="technical-question-panel__context">
-          {question.mainQuestionContent || t('room.subQuestionContext')}
+          {question.questionType === TechnicalQuestionType.CLARIFICATION
+            ? t('room.clarificationContext', { current: question.mainQuestionIndex })
+            : t('room.followUpContext', { current: question.mainQuestionIndex })}
         </p>
       )}
     </section>

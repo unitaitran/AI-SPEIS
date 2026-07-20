@@ -7,7 +7,13 @@ import TechnicalInterviewErrorState from '../../components/technicalInterview/Te
 import TechnicalInterviewHeader from '../../components/technicalInterview/TechnicalInterviewHeader';
 import TechnicalInterviewProgress from '../../components/technicalInterview/TechnicalInterviewProgress';
 import TechnicalQuestionPanel from '../../components/technicalInterview/TechnicalQuestionPanel';
-import { clearTechnicalInterviewDraft, readTechnicalInterviewDraft, saveTechnicalInterviewDraft } from '../../features/technicalInterview/technicalInterviewDraft';
+import {
+  clearStaleTechnicalInterviewDrafts,
+  clearTechnicalInterviewDraft,
+  readTechnicalInterviewDraft,
+  readTechnicalInterviewSessionDraft,
+  saveTechnicalInterviewDraft,
+} from '../../features/technicalInterview/technicalInterviewDraft';
 import { getTechnicalInterviewErrorKey } from '../../features/technicalInterview/technicalInterviewErrors';
 import { TechnicalSessionStatus } from '../../features/technicalInterview/technicalInterview.types';
 import useSubmitTechnicalAnswer from '../../features/technicalInterview/useSubmitTechnicalAnswer';
@@ -40,6 +46,9 @@ function TechnicalInterviewPage({ sessionId }) {
   const status = getTechnicalSessionStatus(room.session);
   const attemptId = room.currentQuestion?.attemptId || null;
   const transcriptEditable = room.session?.transcriptEditable !== false;
+  const processingDraft = status === TechnicalSessionStatus.EVALUATING
+    ? readTechnicalInterviewSessionDraft(resolvedSessionId)
+    : null;
 
   useEffect(() => {
     if (status === TechnicalSessionStatus.COMPLETED && resolvedSessionId) {
@@ -62,12 +71,15 @@ function TechnicalInterviewPage({ sessionId }) {
     saveTechnicalInterviewDraft(resolvedSessionId, attemptId, recorder.transcript);
   }, [activeDraftAttempt, attemptId, recorder.transcript, resolvedSessionId]);
 
+  useEffect(() => {
+    if (!resolvedSessionId || !attemptId || room.isProcessing) return;
+    clearStaleTechnicalInterviewDrafts(resolvedSessionId, attemptId);
+  }, [attemptId, resolvedSessionId, room.isProcessing]);
+
   const getErrorMessage = useCallback((error) => (
     error?.messageKey
       ? t(error.messageKey)
-      : t(getTechnicalInterviewErrorKey(error), {
-        defaultValue: error?.message || t('errors.UNKNOWN_ERROR'),
-      })
+      : t(getTechnicalInterviewErrorKey(error), { defaultValue: t('errors.UNKNOWN_ERROR') })
   ), [t]);
 
   const handleStart = async () => {
@@ -91,6 +103,8 @@ function TechnicalInterviewPage({ sessionId }) {
     }
 
     setLocalError(null);
+    recorder.stopForSubmission();
+    room.markProcessing(attemptId);
     try {
       const response = await submitMutation.submitAnswer({
         attemptId,
@@ -109,6 +123,22 @@ function TechnicalInterviewPage({ sessionId }) {
       }
       if (!response.nextQuestion && !response.currentQuestion && !response.question) await room.reload();
     } catch (error) {
+      const recovery = await room.reconcileAfterSubmission(attemptId);
+      if (recovery.state === 'ACCEPTED_COMPLETED') {
+        clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
+        recorder.reset();
+        navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+        return;
+      }
+      if (recovery.state === 'ACCEPTED_NEXT_QUESTION') {
+        clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
+        recorder.reset();
+        return;
+      }
+      if (recovery.state === 'PROCESSING') {
+        setLocalError(null);
+        return;
+      }
       setLocalError(error);
     }
   };
@@ -201,13 +231,19 @@ function TechnicalInterviewPage({ sessionId }) {
         backLabel={t('room.backToDashboard')}
       />
     );
+  } else if (status === TechnicalSessionStatus.EVALUATING && !room.currentQuestion) {
+    content = (
+      <TechnicalEvaluationState
+        transcript={processingDraft?.transcript}
+        t={t}
+      />
+    );
   } else if (room.currentQuestion) {
-    const evaluating = status === TechnicalSessionStatus.EVALUATING;
+    const evaluating = status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting;
     content = (
       <>
         <TechnicalInterviewProgress
-          current={room.currentQuestion.mainQuestionIndex}
-          total={room.currentQuestion.totalMainQuestions}
+          question={room.currentQuestion}
           t={t}
         />
         <div className="technical-room-grid">
@@ -222,7 +258,11 @@ function TechnicalInterviewPage({ sessionId }) {
             t={t}
           />
         </div>
-        {evaluating && <div style={{ marginTop: 'var(--spacing-md)' }}><TechnicalEvaluationState t={t} /></div>}
+        {evaluating && (
+          <div className="technical-processing-inline">
+            <TechnicalEvaluationState compact t={t} />
+          </div>
+        )}
       </>
     );
   } else {

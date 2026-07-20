@@ -118,13 +118,13 @@ export default function useTechnicalRecorder(language = 'vi') {
             blob,
             language === 'en' ? 'en-US' : 'vi-VN',
           );
-          if (!mountedRef.current) return;
+          if (!mountedRef.current || requestIdRef.current !== requestId) return;
           setTranscript(response?.transcript || '');
           setAudioId(response?.audioId || null);
           setSttStatus(SttStatus.COMPLETED);
           setRecordingStatus(RecordingStatus.READY);
         } catch (error) {
-          if (!mountedRef.current) return;
+          if (!mountedRef.current || requestIdRef.current !== requestId) return;
           setSttError(error);
           setSttStatus(SttStatus.FAILED);
           setRecordingStatus(RecordingStatus.ERROR);
@@ -166,6 +166,14 @@ export default function useTechnicalRecorder(language = 'vi') {
     setElapsedSeconds(0);
   }, [cleanupMedia]);
 
+  const stopForSubmission = useCallback(() => {
+    cleanupMedia();
+    setRecordingStatus(transcript.trim() ? RecordingStatus.READY : RecordingStatus.IDLE);
+    setSttStatus((current) => (
+      current === SttStatus.PROCESSING ? SttStatus.IDLE : current
+    ));
+  }, [cleanupMedia, transcript]);
+
   return {
     recordingStatus,
     audioBlob,
@@ -179,6 +187,7 @@ export default function useTechnicalRecorder(language = 'vi') {
     startRecording,
     stopRecording,
     setTranscript,
+    stopForSubmission,
     reset,
     cleanup: cleanupMedia,
   };

@@ -1,20 +1,21 @@
 import React from 'react';
 import { Award, CheckCircle2, XCircle } from 'lucide-react';
 import { getScorePercentage } from '../../features/technicalInterview/technicalInterviewResult';
+import TechnicalResultFeedbackList from './TechnicalResultFeedbackList';
 
 function TechnicalResultSummary({ result, t }) {
-  const percentage = getScorePercentage(result?.overallScore, result?.maxScore);
-  const hasScore = result?.overallScore != null;
+  const percentage = getScorePercentage(result?.technicalScore, result?.maxScore);
+  const hasScore = result?.technicalScore != null;
   const hasPassStatus = typeof result?.passed === 'boolean';
 
   return (
     <section className="technical-result-summary technical-card" aria-labelledby="technical-result-summary-title">
       <div className="technical-score-card">
         <span className="technical-score-card__label" id="technical-result-summary-title">
-          {t('result.overallScore')}
+          {t('result.technicalScore')}
         </span>
         <div className="technical-score-card__value">
-          {hasScore ? result.overallScore : t('result.notAvailable')}
+          {hasScore ? result.technicalScore : t('result.notAvailable')}
           {result?.maxScore != null && <small> / {result.maxScore}</small>}
         </div>
         {percentage != null && (
@@ -23,17 +24,17 @@ function TechnicalResultSummary({ result, t }) {
               className="technical-score-bar"
               role="progressbar"
               aria-label={t('result.scoreAlternative', {
-                score: result.overallScore,
+                score: result.technicalScore,
                 maxScore: result.maxScore,
               })}
               aria-valuemin={0}
               aria-valuemax={result.maxScore}
-              aria-valuenow={result.overallScore}
+              aria-valuenow={result.technicalScore}
             >
               <div className="technical-score-bar__fill" style={{ width: `${percentage}%` }} />
             </div>
             <p className="technical-score-card__text-alternative">
-              {t('result.scoreAlternative', { score: result.overallScore, maxScore: result.maxScore })}
+              {t('result.scoreAlternative', { score: result.technicalScore, maxScore: result.maxScore })}
             </p>
           </>
         )}
@@ -62,6 +63,10 @@ function TechnicalResultSummary({ result, t }) {
         ) : (
           <p className="technical-empty-copy">{t('result.noSummary')}</p>
         )}
+        <div className="technical-feedback-columns">
+          <TechnicalResultFeedbackList title={t('result.strengths')} items={result.summaryStrengths || result.strengths} />
+          <TechnicalResultFeedbackList title={t('result.areasForImprovement')} items={result.areasForImprovement} />
+        </div>
       </div>
     </section>
   );

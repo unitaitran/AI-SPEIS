@@ -1,5 +1,8 @@
 import React from 'react';
-import { getScorePercentage } from '../../features/technicalInterview/technicalInterviewResult';
+import {
+  formatTechnicalWeight,
+  getScorePercentage,
+} from '../../features/technicalInterview/technicalInterviewResult';
 import TechnicalResultFeedbackList from './TechnicalResultFeedbackList';
 
 function TechnicalRubricDimensionCard({ dimension, t }) {
@@ -13,7 +16,9 @@ function TechnicalRubricDimensionCard({ dimension, t }) {
         </div>
         <div className="technical-dimension-card__metrics">
           {dimension.weight != null && (
-            <span className="technical-tag">{t('result.weight', { weight: dimension.weight })}</span>
+            <span className="technical-tag">
+              {t('result.weight', { weight: formatTechnicalWeight(dimension.weight) })}
+            </span>
           )}
           <span className="technical-score-inline">
             {dimension.score ?? t('result.notAvailable')}
@@ -44,10 +49,13 @@ function TechnicalRubricDimensionCard({ dimension, t }) {
           {dimension.levelDescription}
         </p>
       )}
+      {dimension.reasonSummary && (
+        <p className="technical-dimension-card__reason">{dimension.reasonSummary}</p>
+      )}
       <div className="technical-feedback-columns">
-        <TechnicalResultFeedbackList title={t('result.strengths')} items={dimension.strengths} />
+        <TechnicalResultFeedbackList title={t('result.evidence')} items={dimension.evidence || dimension.strengths} />
         <TechnicalResultFeedbackList title={t('result.missingEvidence')} items={dimension.missingEvidence} />
-        <TechnicalResultFeedbackList title={t('result.suggestions')} items={dimension.improvementSuggestions} />
+        <TechnicalResultFeedbackList title={t('result.incorrectClaims')} items={dimension.incorrectClaims} />
       </div>
     </article>
   );

@@ -20,8 +20,12 @@ export const TechnicalInterviewErrorCode = Object.freeze({
   INVALID_SESSION_STATE: 'INVALID_SESSION_STATE',
   QUESTION_NOT_READY: 'QUESTION_NOT_READY',
   ANSWER_ALREADY_SUBMITTED: 'ANSWER_ALREADY_SUBMITTED',
+  ANSWER_PROCESSING: 'ANSWER_PROCESSING',
   AI_PROVIDER_TIMEOUT: 'AI_PROVIDER_TIMEOUT',
   AI_PROVIDER_UNAVAILABLE: 'AI_PROVIDER_UNAVAILABLE',
+  EVALUATION_FAILED: 'EVALUATION_FAILED',
+  QUESTION_GENERATION_FAILED: 'QUESTION_GENERATION_FAILED',
+  SESSION_VERSION_CONFLICT: 'SESSION_VERSION_CONFLICT',
   RUBRIC_CONFIGURATION_ERROR: 'RUBRIC_CONFIGURATION_ERROR',
   EVALUATION_VALIDATION_FAILED: 'EVALUATION_VALIDATION_FAILED',
   TRANSCRIPT_REQUIRED: 'TRANSCRIPT_REQUIRED',
@@ -74,7 +78,20 @@ export const SttStatus = Object.freeze({
  * @property {string} sessionStatus
  * @property {string=} jobRole
  * @property {string=} experienceLevel
+ * @property {string=} language
+ * @property {number=} targetMainQuestionCount
+ * @property {number=} completedMainQuestionCount
+ * @property {string=} status
  * @property {boolean=} canCompleteEarly
+ */
+
+/**
+ * @typedef {Object} TechnicalInterviewProgress
+ * @property {number} mainQuestionIndex
+ * @property {number} totalMainQuestions
+ * @property {number|null=} subQuestionIndex
+ * @property {number=} requiredSubQuestionCount
+ * @property {number=} completedSubQuestionCount
  */
 
 /**
@@ -88,6 +105,10 @@ export const SttStatus = Object.freeze({
  * @property {number} mainQuestionIndex
  * @property {number} totalMainQuestions
  * @property {string} sessionStatus
+ * @property {number|null=} subQuestionIndex
+ * @property {number=} requiredSubQuestionCount
+ * @property {number=} completedSubQuestionCount
+ * @property {TechnicalInterviewProgress=} progress
  */
 
 /**
@@ -98,21 +119,72 @@ export const SttStatus = Object.freeze({
  */
 
 /**
+ * @typedef {Object} TechnicalAnswerResponse
+ * @property {string} attemptId
+ * @property {string} sessionStatus
+ * @property {string=} resolvedAction
+ * @property {TechnicalInterviewProgress=} progress
+ * @property {TechnicalQuestion|null=} nextQuestion
+ * @property {{evaluation?: string, feedback?: string, questionGeneration?: string}=} processing
+ */
+
+/**
  * @typedef {Object} TechnicalInterviewResult
+ * @property {number=} technicalScore
  * @property {number=} overallScore
  * @property {number=} maxScore
  * @property {string=} performanceBand
- * @property {boolean=} passed
  * @property {string=} rubricVersion
  * @property {string=} summaryFeedback
  * @property {Array<TechnicalDimensionResult>=} dimensionResults
  * @property {Array<TechnicalSkillResult>=} skillResults
- * @property {Array<TechnicalQuestionResult>=} questionResults
+ * @property {Array<TechnicalMainQuestionResult>=} questionResults
  * @property {Array<string>=} recommendations
  */
 
-/** @typedef {Object} TechnicalRubricResult */
-/** @typedef {Object} TechnicalDimensionResult */
+/**
+ * @typedef {Object} TechnicalDimensionResult
+ * @property {string} rubricCode
+ * @property {string} name
+ * @property {number} score
+ * @property {number=} maxScore
+ * @property {number=} weight
+ * @property {string=} level
+ * @property {Array<string>=} evidence
+ * @property {Array<string>=} missingEvidence
+ */
+
+/**
+ * @typedef {Object} TechnicalSubQuestionResult
+ * @property {string} attemptId
+ * @property {'CLARIFICATION'|'FOLLOW_UP'} questionType
+ * @property {number=} sequenceWithinMain
+ * @property {string} question
+ * @property {string=} answerTranscript
+ * @property {number|null=} rawScore
+ * @property {number|null=} followUpBonus
+ */
+
+/**
+ * @typedef {Object} TechnicalMainQuestionResult
+ * @property {string} attemptId
+ * @property {number} mainQuestionIndex
+ * @property {string} question
+ * @property {number} initialMainScore
+ * @property {number} finalMainScore
+ * @property {number=} cumulativeFollowUpBonus
+ * @property {Array<TechnicalDimensionResult>=} dimensions
+ * @property {Array<TechnicalSubQuestionResult>=} adaptiveHistory
+ * @property {Array<string>=} strengths
+ * @property {Array<string>=} missingPoints
+ * @property {Array<string>=} improvementSuggestions
+ */
+
 /** @typedef {Object} TechnicalSkillResult */
-/** @typedef {Object} TechnicalQuestionResult */
-/** @typedef {Object} TechnicalAnswerResponse */
+
+/**
+ * @typedef {Object} TechnicalInterviewError
+ * @property {string} code
+ * @property {number=} status
+ * @property {unknown=} details
+ */

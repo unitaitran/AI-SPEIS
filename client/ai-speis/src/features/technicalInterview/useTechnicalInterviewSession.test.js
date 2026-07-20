@@ -29,7 +29,10 @@ describe('useTechnicalInterviewSession', () => {
       questionType: 'FOLLOW_UP',
       content: 'What changes at scale?',
       mainQuestionIndex: 2,
-      totalMainQuestions: 5,
+      totalMainQuestions: 3,
+      subQuestionIndex: 1,
+      requiredSubQuestionCount: 2,
+      completedFollowUpCount: 0,
       sessionStatus: 'QUESTION_READY',
     });
 
@@ -43,6 +46,7 @@ describe('useTechnicalInterviewSession', () => {
       attemptId: 'attempt-2',
       questionId: null,
       mainQuestionIndex: 2,
+      completedSubQuestionCount: 0,
     });
   });
 
@@ -68,7 +72,7 @@ describe('useTechnicalInterviewSession', () => {
       questionType: 'MAIN',
       content: 'Explain the browser event loop.',
       mainQuestionIndex: 1,
-      totalMainQuestions: 5,
+      totalMainQuestions: 3,
     });
 
     const { result } = renderHook(() => useTechnicalInterviewSession(17));
@@ -123,5 +127,83 @@ describe('useTechnicalInterviewSession', () => {
       });
     });
     expect(result.current.currentQuestion?.attemptId).toBe('attempt-follow-up');
+  });
+
+  test('resumes an evaluating session without requesting a ready question and keeps polling state', async () => {
+    technicalInterviewApi.getSession.mockResolvedValue({
+      sessionId: 17,
+      status: 'EVALUATING',
+      processingStatus: 'EVALUATING',
+    });
+
+    const { result } = renderHook(() => useTechnicalInterviewSession(17));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.isProcessing).toBe(true);
+    expect(result.current.currentQuestion).toBeNull();
+    expect(technicalInterviewApi.getCurrentQuestion).not.toHaveBeenCalled();
+  });
+
+  test('reconciles a timed-out submit as accepted when backend is processing it', async () => {
+    technicalInterviewApi.getSession
+      .mockResolvedValueOnce({ sessionId: 17, status: 'QUESTION_READY' })
+      .mockResolvedValueOnce({ sessionId: 17, status: 'EVALUATING' });
+    technicalInterviewApi.getCurrentQuestion.mockResolvedValueOnce({
+      attemptId: 'attempt-main',
+      questionType: 'MAIN',
+      content: 'Explain closures.',
+      mainQuestionIndex: 1,
+      totalMainQuestions: 3,
+    });
+
+    const { result } = renderHook(() => useTechnicalInterviewSession(17));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let recovery;
+    await act(async () => {
+      result.current.markProcessing('attempt-main');
+      recovery = await result.current.reconcileAfterSubmission('attempt-main');
+    });
+
+    expect(recovery).toEqual({ state: 'PROCESSING' });
+    expect(technicalInterviewApi.getCurrentQuestion).toHaveBeenCalledTimes(1);
+    expect(result.current.currentQuestion?.attemptId).toBe('attempt-main');
+  });
+
+  test('detects that a timed-out answer was accepted when the next attempt is already ready', async () => {
+    technicalInterviewApi.getSession
+      .mockResolvedValueOnce({ sessionId: 17, status: 'QUESTION_READY' })
+      .mockResolvedValueOnce({ sessionId: 17, status: 'QUESTION_READY' });
+    technicalInterviewApi.getCurrentQuestion
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-main',
+        questionType: 'MAIN',
+        content: 'Explain closures.',
+        mainQuestionIndex: 1,
+        totalMainQuestions: 3,
+      })
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-follow-up',
+        questionId: null,
+        questionType: 'FOLLOW_UP',
+        content: 'How do closures affect memory?',
+        mainQuestionIndex: 1,
+        totalMainQuestions: 3,
+        subQuestionIndex: 1,
+        requiredSubQuestionCount: 1,
+      });
+
+    const { result } = renderHook(() => useTechnicalInterviewSession(17));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let recovery;
+    await act(async () => {
+      recovery = await result.current.reconcileAfterSubmission('attempt-main');
+    });
+
+    expect(recovery).toMatchObject({
+      state: 'ACCEPTED_NEXT_QUESTION',
+      currentQuestion: { attemptId: 'attempt-follow-up', questionId: null },
+    });
   });
 });

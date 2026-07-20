@@ -1,4 +1,5 @@
 import technicalInterviewApi from './technicalInterviewApi';
+import { getTechnicalInterviewErrorCode } from '../features/technicalInterview/technicalInterviewErrors';
 
 describe('technicalInterviewApi', () => {
   beforeEach(() => {
@@ -111,13 +112,19 @@ describe('technicalInterviewApi', () => {
     });
   });
 
+  test('maps backend concurrency and generation errors to the public recovery codes', () => {
+    expect(getTechnicalInterviewErrorCode({ code: 'CONCURRENT_SUBMISSION' })).toBe('ANSWER_PROCESSING');
+    expect(getTechnicalInterviewErrorCode({ code: 'SESSION_CONCURRENCY_CONFLICT' })).toBe('SESSION_VERSION_CONFLICT');
+    expect(getTechnicalInterviewErrorCode({ code: 'NO_ACTIVE_NEXT_QUESTION' })).toBe('QUESTION_GENERATION_FAILED');
+  });
+
   test('runs one complete Technical Interview API flow with backend-shaped responses', async () => {
     const firstQuestion = {
       attemptId: '11111111-1111-1111-1111-111111111111',
       questionType: 'MAIN',
       content: 'Explain dependency inversion.',
       mainQuestionIndex: 1,
-      totalMainQuestions: 1,
+      totalMainQuestions: 3,
       sessionStatus: 'QUESTION_READY',
     };
     const followUp = {
@@ -125,7 +132,10 @@ describe('technicalInterviewApi', () => {
       questionType: 'FOLLOW_UP',
       content: 'Give a concrete example.',
       mainQuestionIndex: 1,
-      totalMainQuestions: 1,
+      totalMainQuestions: 3,
+      subQuestionIndex: 1,
+      requiredSubQuestionCount: 1,
+      completedSubQuestionCount: 0,
       sessionStatus: 'QUESTION_READY',
     };
     const result = {
