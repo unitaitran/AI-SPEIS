@@ -1,7 +1,6 @@
 import { ENDPOINTS } from '../config/api';
 import { TechnicalInterviewError } from '../features/technicalInterview/technicalInterviewErrors';
 import { TechnicalInterviewErrorCode } from '../features/technicalInterview/technicalInterview.types';
-import interviewSessionService from './InterviewSessionService';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
@@ -17,7 +16,7 @@ const getAuthHeaders = () => {
 const readResponseBody = async (response) => {
   if (response.status === 204) return null;
   const contentType = response.headers.get('Content-Type') || '';
-  if (!contentType.includes('application/json')) return null;
+  if (!contentType.includes('json')) return null;
   return response.json().catch(() => null);
 };
 
@@ -50,7 +49,12 @@ const request = async (url, options = {}) => {
     throw new TechnicalInterviewError(
       body?.message || body?.Message || body?.detail || `Request failed with status ${response.status}`,
       {
-        code: body?.code || body?.errorCode || body?.error?.code || getFallbackErrorCode(response.status),
+        code: body?.code
+          || body?.errorCode
+          || body?.error?.code
+          || body?.title
+          || body?.Title
+          || getFallbackErrorCode(response.status),
         status: response.status,
         details: body,
       },
@@ -69,14 +73,22 @@ const jsonOptions = (method, payload, extraHeaders = {}) => ({
 });
 
 const technicalInterviewApi = {
-  createSession: (payload) => request(
+  initializeSession: (interviewSessionId, selectedSkills) => request(
     ENDPOINTS.TECHNICAL_INTERVIEW_SESSIONS,
-    jsonOptions('POST', payload),
+    jsonOptions('POST', {
+      interviewSessionId: Number.isInteger(Number(interviewSessionId))
+        ? Number(interviewSessionId)
+        : interviewSessionId,
+      ...(selectedSkills?.length ? { selectedSkills } : {}),
+    }),
   ),
 
-  getSession: (sessionId) => interviewSessionService.getSession(sessionId),
+  getSession: (sessionId) => request(ENDPOINTS.TECHNICAL_INTERVIEW_SESSION(sessionId)),
 
-  startSession: (sessionId) => interviewSessionService.startSession(sessionId),
+  startSession: (sessionId) => request(
+    ENDPOINTS.TECHNICAL_INTERVIEW_START(sessionId),
+    { method: 'POST' },
+  ),
 
   getCurrentQuestion: (sessionId) => request(
     ENDPOINTS.TECHNICAL_INTERVIEW_CURRENT_QUESTION(sessionId),
@@ -87,7 +99,10 @@ const technicalInterviewApi = {
     jsonOptions('POST', payload, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
   ),
 
-  completeSession: (sessionId) => interviewSessionService.completeSession(sessionId),
+  completeSession: (sessionId) => request(
+    ENDPOINTS.TECHNICAL_INTERVIEW_COMPLETE(sessionId),
+    { method: 'POST' },
+  ),
 
   getResult: (sessionId) => request(ENDPOINTS.TECHNICAL_INTERVIEW_RESULT(sessionId)),
 };

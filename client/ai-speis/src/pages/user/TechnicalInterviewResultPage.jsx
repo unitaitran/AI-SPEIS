@@ -48,7 +48,9 @@ function TechnicalInterviewResultPage({ sessionId }) {
     content = (
       <TechnicalInterviewErrorState
         title={t('result.loadFailedTitle')}
-        message={t(getTechnicalInterviewErrorKey(error), { defaultValue: t('errors.UNKNOWN_ERROR') })}
+        message={t(getTechnicalInterviewErrorKey(error), {
+          defaultValue: error?.message || t('errors.UNKNOWN_ERROR'),
+        })}
         onRetry={reload}
         onBack={() => navigate(USER_ROUTES.DASHBOARD)}
         retryLabel={t('common.retry')}
@@ -59,7 +61,9 @@ function TechnicalInterviewResultPage({ sessionId }) {
     content = (
       <div className="technical-result-stack">
         <TechnicalResultSummary result={result} t={t} />
-        <TechnicalRubricBreakdown dimensions={result.dimensionResults} t={t} />
+        {result.dimensionResults?.length > 0 && (
+          <TechnicalRubricBreakdown dimensions={result.dimensionResults} t={t} />
+        )}
         <TechnicalSkillBreakdown skills={result.skillResults} t={t} />
         <TechnicalQuestionBreakdown questions={result.questionResults} t={t} />
         <TechnicalRecommendations recommendations={result.recommendations} t={t} />

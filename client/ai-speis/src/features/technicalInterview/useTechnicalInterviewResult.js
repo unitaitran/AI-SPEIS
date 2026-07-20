@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import technicalInterviewApi from '../../services/technicalInterviewApi';
+import { normalizeTechnicalInterviewResult } from './technicalInterviewResult';
 
 export default function useTechnicalInterviewResult(sessionId) {
   const [result, setResult] = useState(null);
@@ -18,7 +19,9 @@ export default function useTechnicalInterviewResult(sessionId) {
     setError(null);
     try {
       const response = await technicalInterviewApi.getResult(sessionId);
-      if (requestIdRef.current === requestId) setResult(response?.result || response);
+      if (requestIdRef.current === requestId) {
+        setResult(normalizeTechnicalInterviewResult(response?.result || response));
+      }
     } catch (requestError) {
       if (requestIdRef.current === requestId) setError(requestError);
     } finally {
@@ -35,4 +38,3 @@ export default function useTechnicalInterviewResult(sessionId) {
 
   return { result, isLoading, error, reload: load };
 }
-

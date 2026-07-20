@@ -41,6 +41,8 @@ export default function useTechnicalInterviewSession(sessionId) {
     setQuestionError(null);
 
     try {
+      await technicalInterviewApi.initializeSession(sessionId);
+      if (requestIdRef.current !== requestId) return null;
       const sessionResponse = await technicalInterviewApi.getSession(sessionId);
       if (requestIdRef.current !== requestId) return null;
       const nextSession = sessionResponse?.session || sessionResponse;
@@ -80,17 +82,20 @@ export default function useTechnicalInterviewSession(sessionId) {
     if (!sessionId) return null;
     setError(null);
     const response = await technicalInterviewApi.startSession(sessionId);
-    const nextSession = response?.session
-      || response?.sessions?.find((candidate) => String(candidate.interviewSessionId) === String(sessionId))
-      || response;
+    const question = response?.currentQuestion || response?.question || response;
+    const nextSession = response?.session || {
+      ...session,
+      sessionId,
+      status: question?.sessionStatus || TechnicalSessionStatus.QUESTION_READY,
+    };
     setSession(nextSession);
-    if (response?.currentQuestion || response?.question) {
-      setCurrentQuestion(response.currentQuestion || response.question);
+    if (question?.attemptId) {
+      setCurrentQuestion(question);
     } else {
       await load();
     }
     return nextSession;
-  }, [load, sessionId]);
+  }, [load, session, sessionId]);
 
   const applyAnswerResponse = useCallback((response) => {
     if (!response) return;
@@ -98,8 +103,8 @@ export default function useTechnicalInterviewSession(sessionId) {
     else if (response.sessionStatus) {
       setSession((current) => ({ ...current, sessionStatus: response.sessionStatus }));
     }
-    if (response.currentQuestion || response.question) {
-      setCurrentQuestion(response.currentQuestion || response.question);
+    if (response.nextQuestion || response.currentQuestion || response.question) {
+      setCurrentQuestion(response.nextQuestion || response.currentQuestion || response.question);
     } else if (response.sessionStatus === TechnicalSessionStatus.COMPLETED) {
       setCurrentQuestion(null);
     }

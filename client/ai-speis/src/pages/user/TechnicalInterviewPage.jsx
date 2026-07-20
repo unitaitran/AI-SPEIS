@@ -65,7 +65,9 @@ function TechnicalInterviewPage({ sessionId }) {
   const getErrorMessage = useCallback((error) => (
     error?.messageKey
       ? t(error.messageKey)
-      : t(getTechnicalInterviewErrorKey(error), { defaultValue: t('errors.UNKNOWN_ERROR') })
+      : t(getTechnicalInterviewErrorKey(error), {
+        defaultValue: error?.message || t('errors.UNKNOWN_ERROR'),
+      })
   ), [t]);
 
   const handleStart = async () => {
@@ -105,7 +107,7 @@ function TechnicalInterviewPage({ sessionId }) {
         navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
         return;
       }
-      if (!response.currentQuestion && !response.question) await room.reload();
+      if (!response.nextQuestion && !response.currentQuestion && !response.question) await room.reload();
     } catch (error) {
       setLocalError(error);
     }

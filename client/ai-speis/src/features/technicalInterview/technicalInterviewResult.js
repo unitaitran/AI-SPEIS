@@ -2,6 +2,28 @@ import { TechnicalQuestionType } from './technicalInterview.types';
 
 const getQuestionType = (question) => question?.questionType || question?.type;
 
+export const normalizeTechnicalInterviewResult = (result) => {
+  if (!result) return result;
+
+  const summary = result.summary || {};
+  return {
+    ...result,
+    summaryFeedback: result.summaryFeedback || summary.summary || '',
+    summaryStrengths: result.summaryStrengths || summary.strengths || [],
+    areasForImprovement: result.areasForImprovement || summary.areasForImprovement || [],
+    recommendations: result.recommendations || summary.recommendedNextSteps || [],
+    skillResults: result.skillResults || result.skillScores || [],
+    dimensionResults: result.dimensionResults || [],
+    questionResults: result.questionResults || (result.mainQuestions || []).map((question) => ({
+      ...question,
+      questionType: question.questionType || TechnicalQuestionType.MAIN,
+      content: question.content || question.question,
+      rubricBreakdown: question.rubricBreakdown || question.dimensions || [],
+      suggestions: question.suggestions || question.improvementSuggestions || [],
+    })),
+  };
+};
+
 export const getScorePercentage = (score, maxScore) => {
   const numericScore = Number(score);
   const numericMaxScore = Number(maxScore);
@@ -60,4 +82,3 @@ export const groupTechnicalQuestionResults = (questionResults = []) => {
     return left._displayOrder - right._displayOrder;
   });
 };
-
