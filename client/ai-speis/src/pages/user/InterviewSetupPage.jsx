@@ -335,6 +335,12 @@ function InterviewSetupPage() {
         const existingConfigurationKey = storedContext?.configurationKey || currentDraft.configurationKey;
 
         if (isLiveCampaign && existingConfigurationKey === configurationKey) {
+          saveInterviewSetupDraft({
+            ...currentDraft,
+            jobRole: jobTitle,
+            experienceLevel,
+            difficulty,
+          });
           saveActiveInterviewContext({
             campaign: existingCampaign,
             activeSessionId: storedContext?.activeSessionId || null,
@@ -366,6 +372,9 @@ function InterviewSetupPage() {
         campaignId: campaign.interviewCampaignId,
         configurationKey,
         previousCampaignId: null,
+        jobRole: jobTitle,
+        experienceLevel,
+        difficulty,
       });
       notifyInterviewQuotaChanged(campaign);
       navigate(USER_ROUTES.DEVICE_CHECK);
