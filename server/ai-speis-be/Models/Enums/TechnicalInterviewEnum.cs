@@ -38,12 +38,28 @@ namespace ai_speis_be.Models.Enums
     {
         QuestionSelection,
         AnswerEvaluation,
-        FinalSummary
+        FinalSummary,
+        FeedbackGeneration,
+        QuestionBundleGeneration
     }
 
     public enum AIInteractionStatus
     {
         Succeeded,
-        Failed
+        Failed,
+        Timeout,
+        InvalidOutput,
+        FallbackUsed
+    }
+
+    public enum TechnicalAITaskStatus
+    {
+        NotStarted,
+        Processing,
+        Fulfilled,
+        Rejected,
+        Timeout,
+        InvalidOutput,
+        FallbackUsed
     }
 }

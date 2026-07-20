@@ -52,6 +52,30 @@ namespace ai_speis_be.Models
 
         public TechnicalAttemptStatus Status { get; set; } = TechnicalAttemptStatus.Ready;
 
+        public TechnicalAITaskStatus EvaluationTaskStatus { get; set; } = TechnicalAITaskStatus.NotStarted;
+
+        public TechnicalAITaskStatus FeedbackTaskStatus { get; set; } = TechnicalAITaskStatus.NotStarted;
+
+        public TechnicalAITaskStatus QuestionGenerationTaskStatus { get; set; } = TechnicalAITaskStatus.NotStarted;
+
+        public bool EvaluationFallbackUsed { get; set; }
+
+        public bool FeedbackFallbackUsed { get; set; }
+
+        public bool QuestionFallbackUsed { get; set; }
+
+        public long? TotalProcessingLatencyMs { get; set; }
+
+        public long? CriticalPathLatencyMs { get; set; }
+
+        public long? SequentialEstimatedLatencyMs { get; set; }
+
+        public long? ParallelLatencySavingMs { get; set; }
+
+        public DateTime? ProcessingStartedAt { get; set; }
+
+        public DateTime? ProcessingCompletedAt { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? AnsweredAt { get; set; }

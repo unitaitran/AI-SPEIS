@@ -94,20 +94,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 }
             }
 
-            var needsNextQuestion = decision is TechnicalInterviewDecision.Clarification
-                or TechnicalInterviewDecision.FollowUp;
-            if (needsNextQuestion)
-            {
-                if (evaluation.NextQuestion is null
-                    || string.IsNullOrWhiteSpace(evaluation.NextQuestion.Content)
-                    || evaluation.NextQuestion.Content.Length > 2_000
-                    || evaluation.NextQuestion.TargetRubricCodes.Count == 0
-                    || evaluation.NextQuestion.TargetRubricCodes.Any(code => !expectedCodes.Contains(code)))
-                {
-                    return Invalid("INVALID_NEXT_QUESTION");
-                }
-            }
-
             return new TechnicalEvaluationValidationResult(true, decision, null);
         }
 

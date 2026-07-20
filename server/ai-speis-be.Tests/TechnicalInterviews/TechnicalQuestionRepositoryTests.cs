@@ -42,6 +42,31 @@ public sealed class TechnicalQuestionRepositoryTests
         Assert.Equal(1, result[0].QuestionId);
     }
 
+    [Fact]
+    public async Task GetActiveTechnicalQuestionsByIdsAsync_RevalidatesActiveBankRowsAfterAiWork()
+    {
+        await using var context = TestDbContextFactory.Create();
+        context.Users.Add(new User
+        {
+            UserId = 1,
+            Email = "admin@example.com",
+            PasswordHash = "test",
+            Status = true,
+            RoleId = 1
+        });
+        context.Questions.AddRange(
+            CreateQuestion(1, "Technical", false, "vi", "Backend Developer", "ASP.NET Core", "Junior", QuestionDifficultyEnum.Medium),
+            CreateQuestion(2, "Technical", true, "vi", "Backend Developer", "ASP.NET Core", "Junior", QuestionDifficultyEnum.Medium),
+            CreateQuestion(3, "CV Deep Dive", false, "vi", "Backend Developer", "ASP.NET Core", "Junior", QuestionDifficultyEnum.Medium));
+        await context.SaveChangesAsync();
+
+        var result = await new QuestionRepository(context)
+            .GetActiveTechnicalQuestionsByIdsAsync(new[] { 1, 2, 3, 999 });
+
+        Assert.Single(result);
+        Assert.Equal(1, result[0].QuestionId);
+    }
+
     private static Question CreateQuestion(
         int id,
         string type,

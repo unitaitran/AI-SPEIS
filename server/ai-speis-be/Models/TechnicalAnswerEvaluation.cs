@@ -51,6 +51,20 @@ namespace ai_speis_be.Models
         [Column(TypeName = "nvarchar(max)")]
         public string ImprovementSuggestionsJson { get; set; } = "[]";
 
+        [Required]
+        [Column(TypeName = "nvarchar(max)")]
+        public string FeedbackSummary { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(80)]
+        public string FeedbackPromptVersion { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(120)]
+        public string FeedbackModelName { get; set; } = string.Empty;
+
+        public bool FeedbackFallbackUsed { get; set; }
+
         public TechnicalInterviewDecision Decision { get; set; }
 
         [Column(TypeName = "decimal(5,4)")]

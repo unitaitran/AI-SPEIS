@@ -53,7 +53,9 @@ var technicalInterviewOptions = TechnicalInterviewOptions.FromConfiguration(buil
 builder.Services.AddSingleton(technicalInterviewOptions);
 builder.Services.AddHttpClient("TechnicalInterviewAI", client =>
 {
-    client.Timeout = TimeSpan.FromSeconds(technicalInterviewOptions.TimeoutSeconds);
+    // Each AI operation owns its timeout. A shared HttpClient timeout would make
+    // the three speculative operations interfere with their independent budgets.
+    client.Timeout = Timeout.InfiniteTimeSpan;
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -155,11 +157,15 @@ builder.Services.AddScoped<IInterviewSessionService, InterviewSessionService>();
 
 // Technical Interview module
 builder.Services.AddSingleton<ITechnicalRubricProvider, TechnicalRubricProvider>();
+builder.Services.AddSingleton<ITechnicalAIConcurrencyGate, TechnicalAIConcurrencyGate>();
 builder.Services.AddScoped<ExternalTechnicalInterviewAIProvider>();
+builder.Services.AddScoped<GeminiTechnicalInterviewAIProvider>();
 builder.Services.AddScoped<ITechnicalInterviewAIProviderResolver, TechnicalInterviewAIProviderResolver>();
 builder.Services.AddScoped<ITechnicalAIResponseValidator, TechnicalAIResponseValidator>();
 builder.Services.AddScoped<ITechnicalRubricScoringService, TechnicalRubricScoringService>();
 builder.Services.AddScoped<ITechnicalFollowUpDecisionEngine, TechnicalFollowUpDecisionEngine>();
+builder.Services.AddScoped<ITechnicalAnswerParallelProcessor, TechnicalAnswerParallelProcessor>();
+builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
 

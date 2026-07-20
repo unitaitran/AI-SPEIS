@@ -58,9 +58,32 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
     public sealed class TechnicalSubmitAnswerResponseDto
     {
         public Guid AttemptId { get; set; }
+        public TechnicalProcessingStatusDto Processing { get; set; } = new();
         public TechnicalEvaluationDecisionDto Evaluation { get; set; } = new();
+        public TechnicalFeedbackAcknowledgementDto Feedback { get; set; } = new();
         public TechnicalCurrentQuestionDto? NextQuestion { get; set; }
         public string SessionStatus { get; set; } = string.Empty;
+        public TechnicalFallbackStatusDto Fallbacks { get; set; } = new();
+    }
+
+    public sealed class TechnicalProcessingStatusDto
+    {
+        public string Evaluation { get; set; } = string.Empty;
+        public string Feedback { get; set; } = string.Empty;
+        public string QuestionGeneration { get; set; } = string.Empty;
+    }
+
+    public sealed class TechnicalFeedbackAcknowledgementDto
+    {
+        public string Status { get; set; } = string.Empty;
+        public bool AvailableInResult { get; set; } = true;
+    }
+
+    public sealed class TechnicalFallbackStatusDto
+    {
+        public bool EvaluationFallbackUsed { get; set; }
+        public bool FeedbackFallbackUsed { get; set; }
+        public bool QuestionFallbackUsed { get; set; }
     }
 
     public sealed class TechnicalEvaluationDecisionDto
@@ -93,6 +116,7 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public List<string> MissingPoints { get; set; } = new();
         public List<string> IncorrectClaims { get; set; } = new();
         public List<string> ImprovementSuggestions { get; set; } = new();
+        public string FeedbackSummary { get; set; } = string.Empty;
     }
 
     public sealed class TechnicalDimensionResultDto

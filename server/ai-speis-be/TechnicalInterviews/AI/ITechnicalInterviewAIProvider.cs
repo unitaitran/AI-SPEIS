@@ -9,7 +9,15 @@ namespace ai_speis_be.TechnicalInterviews.AI
             CancellationToken cancellationToken);
 
         Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAIEvaluationRequest request,
+            TechnicalAnswerProcessingContext context,
+            CancellationToken cancellationToken);
+
+        Task<AIProviderResult<TechnicalAIFeedbackDraftResponse>> GenerateFeedbackDraftAsync(
+            TechnicalAnswerProcessingContext context,
+            CancellationToken cancellationToken);
+
+        Task<AIProviderResult<TechnicalAIQuestionBundleResponse>> GenerateQuestionBundleAsync(
+            TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken);
 
         Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
