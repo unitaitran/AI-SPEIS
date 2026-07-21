@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -13,13 +13,16 @@ namespace ai_speis_be.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // Use idempotent SQL to avoid primary key violations when roles already exist
-            migrationBuilder.Sql(@"IF NOT EXISTS (SELECT 1 FROM [Role] WHERE [RoleId] = 1)
+            // IDENTITY_INSERT must be ON to insert explicit values into an IDENTITY column
+            migrationBuilder.Sql(@"
+SET IDENTITY_INSERT [Role] ON;
+IF NOT EXISTS (SELECT 1 FROM [Role] WHERE [RoleId] = 1)
     INSERT INTO [Role] ([RoleId], [Description], [RoleName], [Status])
-    VALUES (1, N'Quản trị viên', N'admin', CAST(1 AS bit));");
-
-            migrationBuilder.Sql(@"IF NOT EXISTS (SELECT 1 FROM [Role] WHERE [RoleId] = 2)
+    VALUES (1, N'Quản trị viên', N'admin', CAST(1 AS bit));
+IF NOT EXISTS (SELECT 1 FROM [Role] WHERE [RoleId] = 2)
     INSERT INTO [Role] ([RoleId], [Description], [RoleName], [Status])
-    VALUES (2, N'Người dùng', N'user', CAST(1 AS bit));");
+    VALUES (2, N'Người dùng', N'user', CAST(1 AS bit));
+SET IDENTITY_INSERT [Role] OFF;");
         }
 
         /// <inheritdoc />
