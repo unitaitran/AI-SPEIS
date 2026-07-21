@@ -5,6 +5,7 @@ import { navigate, NAVIGATION_EVENT } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import notify from '../../../utils/notification';
 import { beginNewInterviewCampaign } from '../../../utils/interviewContext';
+import { API_BASE_URL } from '../../../config/api';
 
 const MENU_GROUPS = [
   {
@@ -32,6 +33,7 @@ const MENU_GROUPS = [
 function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) {
   const { t } = useTranslation('dashboard');
   const [currentPathname, setCurrentPathname] = React.useState(window.location.pathname);
+  const [isPremium, setIsPremium] = React.useState(false);
 
   React.useEffect(() => {
     const syncPathname = () => setCurrentPathname(window.location.pathname);
@@ -40,6 +42,41 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
     return () => {
       window.removeEventListener('popstate', syncPathname);
       window.removeEventListener(NAVIGATION_EVENT, syncPathname);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const checkQuota = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch(`${API_BASE_URL}/api/InterviewSession/quota`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.planName === 'Premium') {
+            setIsPremium(true);
+          }
+        }
+      } catch {
+        // Ignore fetch errors
+      }
+    };
+
+    const handleQuotaChanged = (event) => {
+      const nextPlanName = event.detail?.planName;
+      if (typeof nextPlanName === 'string') {
+        setIsPremium(nextPlanName === 'Premium');
+      } else {
+        checkQuota();
+      }
+    };
+
+    checkQuota();
+    window.addEventListener('interview:quota-changed', handleQuotaChanged);
+    return () => {
+      window.removeEventListener('interview:quota-changed', handleQuotaChanged);
     };
   }, []);
 
@@ -140,25 +177,27 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
         </div>
 
         {/* Pro Upgrade Banner */}
-        <div className={`mt-8 ${compact ? 'lg:hidden' : ''}`}>
-          <div className="bg-surface-1 border border-border rounded-xl p-4 text-center">
-            <div className="flex justify-center mb-2">
-              <Lock size={20} className="text-primary-dark" />
+        {!isPremium && (
+          <div className={`mt-8 ${compact ? 'lg:hidden' : ''}`}>
+            <div className="bg-surface-1 border border-border rounded-xl p-4 text-center">
+              <div className="flex justify-center mb-2">
+                <Lock size={20} className="text-primary-dark" />
+              </div>
+              <h4 className="text-sm font-semibold text-text-primary mb-1">{t('sidebar.upgrade_pro', 'Nâng cấp Pro')}</h4>
+              <p className="text-xs text-text-secondary mb-3">{t('sidebar.unlock_desc', 'Mở khóa không giới hạn lượt phỏng vấn AI.')}</p>
+              <button
+                className="w-full bg-text-primary hover:bg-black text-white text-xs font-semibold py-2 px-4 rounded transition-colors cursor-pointer"
+                onClick={() => {
+                  if (onBeforeNavigate?.(USER_ROUTES.PACKAGES) === false) return;
+                  navigate(`${USER_ROUTES.PACKAGES}?purchase=true`);
+                  if (onNavigate) onNavigate();
+                }}
+              >
+                {t('sidebar.upgrade_now', 'NÂNG CẤP NGAY')}
+              </button>
             </div>
-            <h4 className="text-sm font-semibold text-text-primary mb-1">{t('sidebar.upgrade_pro', 'Nâng cấp Pro')}</h4>
-            <p className="text-xs text-text-secondary mb-3">{t('sidebar.unlock_desc', 'Mở khóa không giới hạn lượt phỏng vấn AI.')}</p>
-            <button
-              className="w-full bg-text-primary hover:bg-black text-white text-xs font-semibold py-2 px-4 rounded transition-colors cursor-pointer"
-              onClick={() => {
-                if (onBeforeNavigate?.(USER_ROUTES.PACKAGES) === false) return;
-                navigate(USER_ROUTES.PACKAGES);
-                if (onNavigate) onNavigate();
-              }}
-            >
-              {t('sidebar.upgrade_now', 'NÂNG CẤP NGAY')}
-            </button>
           </div>
-        </div>
+        )}
       </nav>
 
       {/* Start Interview Button */}

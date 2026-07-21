@@ -258,5 +258,18 @@ namespace ai_speis_be.Controllers
 
             return Ok(result);
         }
+
+        /// <summary>
+        /// FT-23 (Mở rộng): Lấy danh sách kết quả Fast Check đã được lưu trong database.
+        /// </summary>
+        [HttpGet("fastcheck")]
+        [Authorize]
+        public async Task<IActionResult> GetFastCheckResults()
+        {
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var results = await _jdService.GetFastCheckResultsAsync(userId);
+            return Ok(new { success = true, data = results });
+        }
     }
 }

@@ -617,7 +617,7 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign, QuotaMetadata? quota = null)
         {
-            var metadata = quota ?? new QuotaMetadata(campaign.User?.RemainingInterviewQuota ?? 0, BasicInterviewQuota, "Basic");
+            var metadata = quota ?? new QuotaMetadata(campaign.User?.RemainingInterviewQuota ?? 0, BasicInterviewQuota, "Free");
             return new InterviewCampaignDto
             {
                 InterviewCampaignId = campaign.InterviewCampaignId,
@@ -690,8 +690,13 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private async Task<QuotaMetadata> GetQuotaMetadataAsync(User user, DateTime now)
         {
-            var isPremium = await _context.Payments.AnyAsync(payment =>
-                payment.UserId == user.UserId && payment.Status == PaymentStatus.Paid);
+            var isPremium = user.IsPremium && user.PremiumExpireAt.HasValue && user.PremiumExpireAt.Value > now;
+
+            if (user.IsPremium && (!user.PremiumExpireAt.HasValue || user.PremiumExpireAt.Value <= now))
+            {
+                user.IsPremium = false;
+                user.UpdatedAt = now;
+            }
 
             var maxQuota = isPremium ? PremiumInterviewQuota : BasicInterviewQuota;
             var normalizedRemaining = Math.Clamp(user.RemainingInterviewQuota, 0, maxQuota);
@@ -701,7 +706,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 user.UpdatedAt = now;
             }
 
-            return new QuotaMetadata(normalizedRemaining, maxQuota, isPremium ? "Premium" : "Basic");
+            return new QuotaMetadata(normalizedRemaining, maxQuota, isPremium ? "Premium" : "Free");
         }
     }
 }

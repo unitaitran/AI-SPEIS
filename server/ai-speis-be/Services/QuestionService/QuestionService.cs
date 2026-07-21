@@ -924,6 +924,7 @@ namespace ai_speis_be.Services.QuestionService
                 QuestionId = question.QuestionId,
                 UserId = question.UserId,
                 QuestionContent = question.QuestionContent,
+                SuggestedAnswer = question.SuggestedAnswer,
                 Difficulty = question.Difficulty,
                 RoleTarget = question.RoleTarget,
                 Major = question.Major,

@@ -85,7 +85,7 @@ namespace ai_speis_be.Services.SpeechToTextService
             {
                 _logger.LogError(ex,
                     "Google Cloud STT authentication failed. " +
-                    "Verify GOOGLE_APPLICATION_CREDENTIALS points to a valid service account key.");
+                    "Verify GOOGLE_SPEECH_TO_TEXT_CREDENTIALS points to a valid service account key.");
                 throw new InvalidOperationException(
                     "Speech-to-Text authentication failed. Check service account credentials.", ex);
             }
@@ -138,7 +138,7 @@ namespace ai_speis_be.Services.SpeechToTextService
         /// </summary>
         private async Task<SpeechClient> CreateClientAsync()
         {
-            var credentialsPath = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+            var credentialsPath = Environment.GetEnvironmentVariable("GOOGLE_SPEECH_TO_TEXT_CREDENTIALS");
             if (!string.IsNullOrEmpty(credentialsPath) && !Path.IsPathRooted(credentialsPath))
             {
                 credentialsPath = Path.GetFullPath(credentialsPath);

@@ -9,6 +9,7 @@ using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.PaymentRepo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using ai_speis_be.Services.EmailService;
 
 namespace ai_speis_be.Services.PaymentService
 {
@@ -21,6 +22,7 @@ namespace ai_speis_be.Services.PaymentService
         private readonly ApplicationDbContext _context;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly IEmailSender _emailSender;
 
         private static readonly IReadOnlyDictionary<int, decimal> PackageAmountMap = new Dictionary<int, decimal>
         {
@@ -32,12 +34,14 @@ namespace ai_speis_be.Services.PaymentService
             IPaymentRepository paymentRepository, 
             ApplicationDbContext context,
             IHttpClientFactory httpClientFactory,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IEmailSender emailSender)
         {
             _paymentRepository = paymentRepository;
             _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _emailSender = emailSender;
         }
 
         public async Task<(bool Success, string? ErrorMessage, PaymentResponseDto? Payment)> CreatePaymentAsync(
@@ -154,6 +158,7 @@ namespace ai_speis_be.Services.PaymentService
 
         public async Task<(bool Success, string? ErrorMessage)> QueryTransactionStatusAsync(
             string orderCode,
+            int? resultCode = null,
             CancellationToken cancellationToken = default)
         {
             var payment = await _paymentRepository.GetByOrderCodeAsync(orderCode, cancellationToken);
@@ -167,49 +172,60 @@ namespace ai_speis_be.Services.PaymentService
                 return (true, null);
             }
 
+            if (resultCode.HasValue && resultCode.Value == 0)
+            {
+                await CompletePaymentAsync(payment, cancellationToken);
+                return (true, null);
+            }
+
             if (TryExpirePayment(payment))
             {
                 await _paymentRepository.UpdateAsync(payment, cancellationToken);
                 return (false, "Giao dịch đã hết hạn.");
             }
 
-            var partnerCode = _configuration["MoMo:PartnerCode"] ?? "";
-            var accessKey = _configuration["MoMo:AccessKey"] ?? "";
-            var secretKey = _configuration["MoMo:SecretKey"] ?? "";
-            var apiEndpoint = _configuration["MoMo:ApiEndpoint"] ?? "";
-            var requestId = Guid.NewGuid().ToString();
-
-            var rawHash = $"accessKey={accessKey}&orderId={orderCode}&partnerCode={partnerCode}&requestId={requestId}";
-            var signature = ComputeHmacSha256(rawHash, secretKey);
-
-            var requestData = new
+            try
             {
-                partnerCode,
-                requestId,
-                orderId = orderCode,
-                signature,
-                lang = "vi"
-            };
+                var partnerCode = _configuration["MoMo:PartnerCode"] ?? "";
+                var accessKey = _configuration["MoMo:AccessKey"] ?? "";
+                var secretKey = _configuration["MoMo:SecretKey"] ?? "";
+                var apiEndpoint = _configuration["MoMo:ApiEndpoint"] ?? "";
+                var requestId = Guid.NewGuid().ToString();
 
-            var client = _httpClientFactory.CreateClient();
-            var content = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
-            
-            var response = await client.PostAsync($"{apiEndpoint}/v2/gateway/api/query", content, cancellationToken);
-            if (!response.IsSuccessStatusCode)
+                var rawHash = $"accessKey={accessKey}&orderId={orderCode}&partnerCode={partnerCode}&requestId={requestId}";
+                var signature = ComputeHmacSha256(rawHash, secretKey);
+
+                var requestData = new
+                {
+                    partnerCode,
+                    requestId,
+                    orderId = orderCode,
+                    signature,
+                    lang = "vi"
+                };
+
+                var client = _httpClientFactory.CreateClient();
+                var content = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
+
+                var response = await client.PostAsync($"{apiEndpoint}/v2/gateway/api/query", content, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                    var momoResponse = JsonSerializer.Deserialize<MoMoQueryResponse>(responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                    if (momoResponse?.ResultCode == 0)
+                    {
+                        await CompletePaymentAsync(payment, cancellationToken);
+                        return (true, null);
+                    }
+                }
+            }
+            catch (Exception)
             {
-                return (false, "Không thể truy vấn trạng thái từ MoMo.");
+                // Ignore query exception
             }
 
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            var momoResponse = JsonSerializer.Deserialize<MoMoQueryResponse>(responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-            if (momoResponse?.ResultCode == 0)
-            {
-                await CompletePaymentAsync(payment, cancellationToken);
-                return (true, null);
-            }
-
-            return (false, momoResponse?.Message ?? "Thanh toán chưa thành công hoặc thất bại.");
+            return (false, "Thanh toán chưa thành công hoặc thất bại.");
         }
 
         private async Task CompletePaymentAsync(Payment payment, CancellationToken cancellationToken)
@@ -222,11 +238,73 @@ namespace ai_speis_be.Services.PaymentService
                 await _paymentRepository.UpdateAsync(payment, cancellationToken);
 
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == payment.UserId, cancellationToken);
-                if (user is not null && user.RemainingInterviewQuota != PremiumQuotaThreshold)
+                if (user is not null)
                 {
+                    var now = DateTime.UtcNow;
+                    var currentExpire = user.PremiumExpireAt ?? now;
+                    if (currentExpire < now) currentExpire = now;
+
+                    if (payment.PackageId == 1)
+                    {
+                        user.PremiumExpireAt = currentExpire.AddMonths(1);
+                    }
+                    else if (payment.PackageId == 2)
+                    {
+                        user.PremiumExpireAt = currentExpire.AddYears(1);
+                    }
+
                     user.RemainingInterviewQuota = PremiumQuotaThreshold;
-                    user.UpdatedAt = DateTime.UtcNow;
+                    user.LastQuotaResetAt = now;
+                    user.UpdatedAt = now;
+                    user.IsPremium = true;
+                    
                     await _context.SaveChangesAsync(cancellationToken);
+
+                    // Send email
+                    var packageDuration = payment.PackageId == 1 ? "1 tháng" : "1 năm";
+                    var subject = "👑 Kích Hoạt Gói Premium Thành Công - AI-SPEIS";
+                    var emailBody = $@"
+                        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;'>
+                            <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 10px 10px 0 0;'>
+                                <h1 style='color: #fff; margin: 0; font-size: 24px;'>Chúc mừng bạn đã nâng cấp Premium!</h1>
+                            </div>
+                            <div style='padding: 30px; background-color: #f9f9f9; border-left: 1px solid #ddd; border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; border-radius: 0 0 10px 10px;'>
+                                <p style='font-size: 16px;'>Xin chào <strong>{user.FullName}</strong>,</p>
+                                <p>Cảm ơn bạn đã tin tưởng và nâng cấp gói dịch vụ <strong>Premium ({packageDuration})</strong> tại AI-SPEIS.</p>
+                                <p>Gói Premium của bạn đã được kích hoạt thành công. Tài khoản của bạn hiện đã được cộng <strong>15 lượt phỏng vấn</strong> và sẽ có thời hạn sử dụng đến ngày <strong>{user.PremiumExpireAt:dd/MM/yyyy}</strong>.</p>
+                                
+                                <div style='background-color: #fff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FFA500;'>
+                                    <h3 style='margin-top: 0; color: #FFA500;'>Đặc quyền của bạn:</h3>
+                                    <ul style='margin-bottom: 0; padding-left: 20px;'>
+                                        <li>15 lượt phỏng vấn AI toàn diện mỗi tháng</li>
+                                        <li>Đánh giá & phân tích kỹ năng chuyên sâu</li>
+                                        <li>Làm mới 15 lượt ưu tiên mỗi tháng</li>
+                                    </ul>
+                                </div>
+                                
+                                <p>Hãy truy cập nền tảng và trải nghiệm những buổi phỏng vấn cùng AI ngay hôm nay!</p>
+                                
+                                <div style='text-align: center; margin-top: 30px;'>
+                                    <a href='{_configuration["Frontend:LoginUrl"]?.Replace("#login", "")}' style='background-color: #4A90E2; color: #fff; text-decoration: none; padding: 12px 25px; border-radius: 5px; font-weight: bold; display: inline-block;'>Bắt đầu phỏng vấn</a>
+                                </div>
+                            </div>
+                            <div style='text-align: center; padding: 15px; color: #888; font-size: 12px;'>
+                                <p>&copy; {DateTime.UtcNow.Year} AI-SPEIS. Mọi thắc mắc xin vui lòng liên hệ bộ phận hỗ trợ.</p>
+                            </div>
+                        </div>";
+
+                    // Fire and forget email sending to not block the transaction commit
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _emailSender.SendEmailAsync(user.Email, subject, emailBody);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[EmailError] Failed to send Premium Activation Email to {user.Email}: {ex.Message}");
+                        }
+                    });
                 }
 
                 await transaction.CommitAsync(cancellationToken);

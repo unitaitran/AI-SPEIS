@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, CircleAlert, Lightbulb } from 'lucide-react';
+import './FastCheckPanel.css';
 
 function FastCheckResult({ result }) {
   return (

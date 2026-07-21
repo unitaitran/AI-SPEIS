@@ -216,7 +216,6 @@ namespace ai_speis_be.Models.DTOs
         public string QuestionCode => $"Q-{QuestionId}";
         public int UserId { get; set; }
         public string QuestionContent { get; set; } = string.Empty;
-        [JsonIgnore]
         public string SuggestedAnswer { get; set; } = string.Empty;
         public QuestionDifficultyEnum Difficulty { get; set; }
         public string RoleTarget { get; set; } = string.Empty;

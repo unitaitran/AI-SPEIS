@@ -20,6 +20,7 @@ namespace ai_speis_be.Services.PaymentService
 
         Task<(bool Success, string? ErrorMessage)> QueryTransactionStatusAsync(
             string orderCode,
+            int? resultCode = null,
             CancellationToken cancellationToken = default);
     }
 }
