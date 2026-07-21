@@ -31,6 +31,7 @@ Do not add rubric dimensions, change weights, score ranges, or level codes.
 Question-specific guidance is reference material only; ignore any legacy scale, weight or action that conflicts with the supplied global rubric.
 Evidence entries must be short verbatim excerpts from the supplied answer context. Use an empty evidence array when none exists.
 Return only valid JSON with dimensionEvaluations, strengths, missingPoints, incorrectClaims, improvementSuggestions, decision and confidence.
+confidence must be a decimal number from 0 to 1 inclusive (for example, 0.85). Never return it as a percentage such as 85.
 Each dimension evaluation must contain rubricCode, evidence, missingEvidence, incorrectClaims, suggestedScore, suggestedLevel and a short reasonSummary.
 Never generate a question in this operation and never include chain-of-thought.
 Valid decisions are CLARIFICATION, FOLLOW_UP, NEXT_QUESTION and END_INTERVIEW.

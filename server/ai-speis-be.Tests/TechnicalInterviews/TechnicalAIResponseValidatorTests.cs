@@ -51,6 +51,47 @@ public sealed class TechnicalAIResponseValidatorTests
         Assert.Equal("EVIDENCE_NOT_IN_ANSWER", result.ErrorCode);
     }
 
+    [Theory]
+    [InlineData("-0.01")]
+    [InlineData("1.01")]
+    [InlineData("85")]
+    public void ValidateEvaluation_RejectsConfidenceOutsideZeroToOne(string confidenceValue)
+    {
+        var validator = new TechnicalAIResponseValidator();
+        var response = TechnicalTestRubric.CreateEvaluation(4m, 4m, 3m, 3m, 4m);
+        response.Confidence = decimal.Parse(
+            confidenceValue,
+            System.Globalization.CultureInfo.InvariantCulture);
+
+        var result = validator.ValidateEvaluation(
+            response,
+            TechnicalTestRubric.Create(),
+            new[] { new TechnicalAnswerContext("MAIN", "What is DI?", "Dependency injection separates construction from use.") });
+
+        Assert.False(result.IsValid);
+        Assert.Equal("INVALID_CONFIDENCE", result.ErrorCode);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("0.85")]
+    [InlineData("1")]
+    public void ValidateEvaluation_AcceptsConfidenceWithinZeroToOne(string confidenceValue)
+    {
+        var validator = new TechnicalAIResponseValidator();
+        var response = TechnicalTestRubric.CreateEvaluation(4m, 4m, 3m, 3m, 4m);
+        response.Confidence = decimal.Parse(
+            confidenceValue,
+            System.Globalization.CultureInfo.InvariantCulture);
+
+        var result = validator.ValidateEvaluation(
+            response,
+            TechnicalTestRubric.Create(),
+            new[] { new TechnicalAnswerContext("MAIN", "What is DI?", "Dependency injection separates construction from use.") });
+
+        Assert.True(result.IsValid);
+    }
+
     [Fact]
     public void IsValidSelection_RejectsQuestionOutsideCandidatePool()
     {
