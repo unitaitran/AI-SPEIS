@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, FileText, Clock, Package, Lock, Database, Plus, Mic} from 'lucide-react';
+import { LayoutDashboard, FileText, Clock, Package, Lock, Database, Mic } from 'lucide-react';
 import { navigate, NAVIGATION_EVENT } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import notify from '../../../utils/notification';
@@ -115,8 +115,7 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
                           ? 'text-primary-dark font-bold shadow-sm'
                           : 'text-text-secondary hover:text-primary-dark'
                           }`}
-                        aria-label={collapsed ? getItemLabel(item) : undefined}
-                        title={collapsed ? getItemLabel(item) : undefined}
+                        aria-label={compact ? getItemLabel(item) : undefined}
                       >
                         {/* Smooth active background fade */}
                         <div className={`absolute inset-0 bg-gradient-to-r from-primary-light to-primary-xlight transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-30'}`} />
