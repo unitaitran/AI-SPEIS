@@ -6,7 +6,7 @@ import MyCVPage from '../pages/user/MyCVPage';
 import CVJDManagementPage from '../pages/user/CVJDManagementPage';
 import QuestionsPage from '../pages/user/QuestionsPage';
 import DeviceReadinessCheckPage from '../pages/user/DeviceReadinessCheckPage';
-import TechnicalInterviewPage from '../pages/user/TechnicalInterviewPage';
+import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
 import TechnicalInterviewResultPage from '../pages/user/TechnicalInterviewResultPage';
 import ProfilePage from '../pages/user/ProfilePage';
 import InterviewSetupPage from '../pages/user/InterviewSetupPage';
@@ -82,7 +82,7 @@ function UserRoutes({ pathname }) {
   }
 
   if (isInterviewRoomRoute) {
-    return <TechnicalInterviewPage sessionId={getRouteId(USER_ROUTES.INTERVIEW_ROOM)} />;
+    return <AIInterviewRoomPage sessionId={getRouteId(USER_ROUTES.INTERVIEW_ROOM)} />;
   }
 
   if (isInterviewResultRoute) {

@@ -10,19 +10,24 @@ export const QuestionAudioStatus = Object.freeze({
   ERROR: 'ERROR',
 });
 
-const readAutoPlayPreference = () => {
+const readAutoPlayPreference = (storageKey = AUTO_PLAY_STORAGE_KEY) => {
   try {
-    return localStorage.getItem(AUTO_PLAY_STORAGE_KEY) !== 'false';
+    return localStorage.getItem(storageKey) !== 'false';
   } catch {
     return true;
   }
 };
 
-export default function useQuestionAudio({ question, sessionId, language }) {
+export default function useQuestionAudio({
+  question,
+  sessionId,
+  language,
+  preferenceKey = AUTO_PLAY_STORAGE_KEY,
+}) {
   const [status, setStatus] = useState(QuestionAudioStatus.IDLE);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(null);
-  const [autoPlay, setAutoPlay] = useState(readAutoPlayPreference);
+  const [autoPlay, setAutoPlay] = useState(() => readAutoPlayPreference(preferenceKey));
   const audioRef = useRef(null);
   const audioUrlRef = useRef(null);
   const requestRef = useRef(null);
@@ -30,7 +35,7 @@ export default function useQuestionAudio({ question, sessionId, language }) {
   const autoPlayRef = useRef(autoPlay);
 
   const questionKey = question
-    ? `${question.attemptId || question.questionId || 'question'}:${question.content || ''}`
+    ? `${question.attemptId || question.sessionQuestionId || question.questionId || 'question'}:${question.content || ''}`
     : null;
 
   const releaseResources = useCallback(() => {
@@ -149,7 +154,7 @@ export default function useQuestionAudio({ question, sessionId, language }) {
       const next = !current;
       autoPlayRef.current = next;
       try {
-        localStorage.setItem(AUTO_PLAY_STORAGE_KEY, String(next));
+        localStorage.setItem(preferenceKey, String(next));
       } catch {
         // The in-memory preference still works when storage is unavailable.
       }
@@ -158,7 +163,7 @@ export default function useQuestionAudio({ question, sessionId, language }) {
       }
       return next;
     });
-  }, [isPlaying]);
+  }, [isPlaying, preferenceKey]);
 
   return {
     status,
