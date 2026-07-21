@@ -11,6 +11,8 @@ function DashboardPage() {
   const { t } = useTranslation('dashboard');
   const [user, setUser] = useState(null);
   const [remainingInterviewQuota, setRemainingInterviewQuota] = useState(null);
+  const [maxInterviewQuota, setMaxInterviewQuota] = useState(null);
+  const [planName, setPlanName] = useState('Basic');
 
   useEffect(() => {
     // Try to load user from localStorage
@@ -27,14 +29,22 @@ function DashboardPage() {
     const loadQuota = async () => {
       try {
         const quota = await interviewSessionService.getQuota();
-        if (isMounted) setRemainingInterviewQuota(quota.remainingInterviewQuota);
+        if (isMounted) {
+          setRemainingInterviewQuota(quota.remainingInterviewQuota);
+          setMaxInterviewQuota(quota.maxInterviewQuota ?? null);
+          setPlanName(quota.planName || 'Basic');
+        }
       } catch {
         // The topbar and create-campaign API remain the authoritative fallback.
       }
     };
     const handleQuotaChanged = (event) => {
       const nextQuota = event.detail?.remainingInterviewQuota;
-      if (Number.isInteger(nextQuota)) setRemainingInterviewQuota(nextQuota);
+      if (Number.isInteger(nextQuota)) {
+        setRemainingInterviewQuota(nextQuota);
+        if (Number.isInteger(event.detail?.maxInterviewQuota)) setMaxInterviewQuota(event.detail.maxInterviewQuota);
+        if (typeof event.detail?.planName === 'string' && event.detail.planName.trim()) setPlanName(event.detail.planName);
+      }
       else loadQuota();
     };
     loadQuota();
@@ -49,8 +59,11 @@ function DashboardPage() {
     { label: t('stats.interviews', 'BUỔI PHỎNG VẤN ĐÃ LUYỆN'), value: '12', unit: t('stats.unit_session', 'buổi'), icon: CalendarDays, color: 'text-blue-500', bg: 'bg-blue-50' },
     { label: t('stats.avg_score', 'ĐIỂM TRUNG BÌNH'), value: '4.5', unit: '/ 5', icon: Target, color: 'text-primary-dark', bg: 'bg-primary-xlight' },
     { label: t('stats.streak', 'STREAK LUYỆN TẬP'), value: '4', unit: t('stats.unit_day', 'ngày'), icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-    { label: t('stats.quota', 'QUOTA CÒN LẠI'), value: remainingInterviewQuota ?? '—', unit: t('stats.unit_times', 'lượt'), icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-50' },
+    { label: t('stats.quota', 'QUOTA CÒN LẠI'), value: remainingInterviewQuota ?? '—', unit: `/ ${maxInterviewQuota ?? '—'} ${t('stats.unit_times', 'lượt')}`, icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-50' },
   ];
+
+  const quotaExhausted = remainingInterviewQuota === 0;
+  const oneAttemptLeft = remainingInterviewQuota === 1;
 
   const suggestions = [
     {
@@ -131,15 +144,33 @@ function DashboardPage() {
               </p>
             </div>
             <button
-              className="relative z-10 bg-white text-primary-dark hover:bg-primary-xlight py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto self-start group cursor-pointer"
+              className={`relative z-10 py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between shadow-md transition-all duration-300 w-full sm:w-auto self-start group ${quotaExhausted ? 'bg-white/60 text-white/80 cursor-not-allowed' : 'bg-white text-primary-dark hover:bg-primary-xlight hover:shadow-lg hover:-translate-y-1 cursor-pointer'}`}
                 onClick={() => {
+                  if (quotaExhausted) return;
                   beginNewInterviewCampaign();
                   navigate(USER_ROUTES.INTERVIEW_MODE);
                 }}
+              disabled={quotaExhausted}
             >
               {t('banner.button', 'BẮT ĐẦU PHỎNG VẤN')}
               <ArrowRight size={18} className="ml-4 transform group-hover:translate-x-1 transition-transform" />
             </button>
+
+            {quotaExhausted && (
+              <p className="relative z-10 mt-3 text-xs text-white/90 max-w-[320px]">
+                You have used all your interview attempts. Upgrade to Premium to get 15 interview attempts.
+              </p>
+            )}
+
+            {oneAttemptLeft && (
+              <p className="relative z-10 mt-3 text-xs font-semibold text-warning-light max-w-[320px]">
+                Warning: You only have 1 interview attempt left.
+              </p>
+            )}
+
+            <p className="relative z-10 mt-2 text-[11px] uppercase tracking-wide text-white/75">
+              Current Plan: {planName}
+            </p>
           </div>
 
           {/* Skill Progress Chart */}

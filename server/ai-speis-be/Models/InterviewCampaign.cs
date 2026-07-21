@@ -49,6 +49,14 @@ namespace ai_speis_be.Models
         [Required]
         public bool QuotaRefunded { get; set; }
 
+        /// <summary>
+        /// CV-JD Match Score (0–100) từ Fast Check — chỉ dùng để phân bổ nguồn câu hỏi CV/JD
+        /// (Adaptive Question Generation Rubric), không dùng để chấm điểm ứng viên.
+        /// Null khi chưa tính hoặc AI matching thất bại.
+        /// </summary>
+        [Range(0, 100)]
+        public int? CvJdMatchScore { get; set; }
+
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

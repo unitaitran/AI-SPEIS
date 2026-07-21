@@ -17,7 +17,7 @@ import {
 import InterviewProgressStepper from '../../components/user/InterviewProgressStepper/InterviewProgressStepper';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { USER_ROUTES } from '../../routes/routePaths';
+import { getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import audioService from '../../services/AudioService';
 import interviewSessionService from '../../services/InterviewSessionService';
 import { calculateAccuracy } from '../../utils/stringUtils';
@@ -620,7 +620,7 @@ function DeviceReadinessCheckPage() {
         configurationKey: interviewContext.configurationKey,
       };
       saveActiveInterviewContext(nextContext);
-      navigate(USER_ROUTES.INTERVIEW_ROOM);
+      navigate(getInterviewRoomPath(activeSession.interviewSessionId));
       return;
     }
 
@@ -648,7 +648,7 @@ function DeviceReadinessCheckPage() {
 
       saveActiveInterviewContext(nextContext);
       setInterviewContext(nextContext);
-      navigate(USER_ROUTES.INTERVIEW_ROOM);
+      navigate(getInterviewRoomPath(startedSession.interviewSessionId));
     } catch (error) {
       setContextError(error.message || t('device.startFailed'));
     } finally {

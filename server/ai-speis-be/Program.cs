@@ -24,9 +24,31 @@ using ai_speis_be.Repositories.InterviewCampaignRepo;
 using ai_speis_be.Services.InterviewSessionService;
 using ai_speis_be.Services.SpeechToTextService;
 using ai_speis_be.Services.TextToSpeechService;
+<<<<<<< HEAD
 using ai_speis_be.Repositories.CodingRepo;
 using ai_speis_be.Services.CodingService;
 using ai_speis_be.Services.Judge0Service;
+=======
+using ai_speis_be.Repositories.PaymentRepo;
+using ai_speis_be.Services.PaymentService;
+using ai_speis_be.BehaviouralInterviews.AI;
+using ai_speis_be.BehaviouralInterviews.Configuration;
+using ai_speis_be.BehaviouralInterviews.Orchestration;
+using ai_speis_be.BehaviouralInterviews.Rubrics;
+using ai_speis_be.BehaviouralInterviews.Scoring;
+using ai_speis_be.BehaviouralInterviews.Selection;
+using ai_speis_be.BehaviouralInterviews.Validation;
+using ai_speis_be.TechnicalInterviews.AI;
+using ai_speis_be.TechnicalInterviews.Configuration;
+using ai_speis_be.TechnicalInterviews.Orchestration;
+using ai_speis_be.TechnicalInterviews.Planning;
+using ai_speis_be.TechnicalInterviews.Rubrics;
+using ai_speis_be.TechnicalInterviews.Scoring;
+using ai_speis_be.TechnicalInterviews.Selection;
+using ai_speis_be.TechnicalInterviews.Validation;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+>>>>>>> dev
 
 LoadEnvFile();
 
@@ -40,6 +62,30 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
     
+builder.Services.AddHttpClient();
+var technicalInterviewOptions = TechnicalInterviewOptions.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(technicalInterviewOptions);
+builder.Services.AddHttpClient("TechnicalInterviewAI", client =>
+{
+    // Each AI operation owns its timeout. A shared HttpClient timeout would make
+    // the three speculative operations interfere with their independent budgets.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("technical-interview", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.FindFirst("UserId")?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -100,6 +146,8 @@ builder.Services.AddScoped<IJDService, JDService>();
 builder.Services.AddScoped<IJDRepository, JDRepository>();
 builder.Services.AddScoped<ISpeechToTextService, SpeechToTextService>();
 builder.Services.AddScoped<ITextToSpeechService, TextToSpeechService>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 // Background Worker for CV Parsing
 builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
@@ -121,6 +169,7 @@ builder.Services.AddScoped<ISavedQuestionService, SavedQuestionService>();
 builder.Services.AddScoped<IInterviewCampaignRepository, InterviewCampaignRepository>();
 builder.Services.AddScoped<IInterviewSessionService, InterviewSessionService>();
 
+<<<<<<< HEAD
 // Register Judge0 Code Execution
 builder.Services.AddHttpClient("Judge0", client =>
 {
@@ -131,6 +180,45 @@ builder.Services.AddHttpClient("Judge0", client =>
 builder.Services.AddScoped<IJudge0Service, Judge0Service>();
 builder.Services.AddScoped<ICodingRepository, CodingRepository>();
 builder.Services.AddScoped<ICodingService, CodingService>();
+=======
+// Register Behavioural Interview Components
+var behaviouralOptions = new BehaviouralInterviewOptions();
+builder.Configuration.GetSection(BehaviouralInterviewOptions.SectionName).Bind(behaviouralOptions);
+if (string.IsNullOrWhiteSpace(behaviouralOptions.ApiKey))
+{
+    behaviouralOptions.ApiKey = builder.Configuration["GeminiAI:ApiKey"] ?? string.Empty;
+}
+builder.Services.AddSingleton(behaviouralOptions);
+builder.Services.AddHttpClient("BehaviouralInterviewAI", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddScoped<IBehaviouralInterviewAIProvider, ExternalBehaviouralInterviewAIProvider>();
+builder.Services.AddSingleton<IBehaviouralRubricProvider, BehaviouralRubricProvider>();
+builder.Services.AddSingleton<IBehaviouralRubricScoringService, BehaviouralRubricScoringService>();
+builder.Services.AddSingleton<IBehaviouralAIResponseValidator, BehaviouralAIResponseValidator>();
+builder.Services.AddScoped<IBehaviouralInterviewAIProviderResolver, BehaviouralInterviewAIProviderResolver>();
+builder.Services.AddScoped<IBehaviouralQuestionSelectionService, BehaviouralQuestionSelectionService>();
+builder.Services.AddSingleton<IBehaviouralFollowUpDecisionEngine, BehaviouralFollowUpDecisionEngine>();
+builder.Services.AddScoped<IBehaviouralInterviewOrchestrator, BehaviouralInterviewOrchestrator>();
+
+// Technical Interview module
+builder.Services.AddSingleton<ITechnicalRubricProvider, TechnicalRubricProvider>();
+builder.Services.AddSingleton<ITechnicalAIConcurrencyGate, TechnicalAIConcurrencyGate>();
+builder.Services.AddScoped<ExternalTechnicalInterviewAIProvider>();
+builder.Services.AddScoped<GeminiTechnicalInterviewAIProvider>();
+builder.Services.AddScoped<ITechnicalInterviewAIProviderResolver, TechnicalInterviewAIProviderResolver>();
+builder.Services.AddScoped<ITechnicalAIResponseValidator, TechnicalAIResponseValidator>();
+builder.Services.AddScoped<ITechnicalRubricScoringService, TechnicalRubricScoringService>();
+builder.Services.AddScoped<ITechnicalFollowUpBonusCalculator, TechnicalFollowUpBonusCalculator>();
+builder.Services.AddScoped<ITechnicalFollowUpDecisionEngine, TechnicalFollowUpDecisionEngine>();
+builder.Services.AddScoped<ITechnicalAdaptiveRuleEngine, TechnicalAdaptiveRuleEngine>();
+builder.Services.AddScoped<ITechnicalQuestionPlanBuilder, TechnicalQuestionPlanBuilder>();
+builder.Services.AddScoped<ITechnicalAnswerParallelProcessor, TechnicalAnswerParallelProcessor>();
+builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
+builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
+builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
+>>>>>>> dev
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
@@ -230,6 +318,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

@@ -21,6 +21,8 @@ namespace ai_speis_be.Models.DTOs
         public DateTime? CompletedAt { get; set; }
         public DateTime? CancelledAt { get; set; }
         public int RemainingInterviewQuota { get; set; }
+        public int MaxInterviewQuota { get; set; }
+        public string PlanName { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<InterviewSessionDto> Sessions { get; set; } = new List<InterviewSessionDto>();
@@ -36,6 +38,22 @@ namespace ai_speis_be.Models.DTOs
         public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public int CompletedQuestionCount { get; set; }
+    }
+
+    public sealed class ActiveInterviewConflictDto
+    {
+        public int CampaignId { get; set; }
+        public int? SessionId { get; set; }
+        public string InterviewType { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public DateTime? StartedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public int CompletedQuestionCount { get; set; }
+        public bool CanResume { get; set; }
+        public bool CanEnd { get; set; }
+        public bool CanCloseCampaign { get; set; }
+        public InterviewCampaignDto Campaign { get; set; } = new();
     }
 
     public class CreateInterviewSessionRequest : IValidatableObject
@@ -157,5 +175,7 @@ namespace ai_speis_be.Models.DTOs
     public class InterviewQuotaDto
     {
         public int RemainingInterviewQuota { get; set; }
+        public int MaxInterviewQuota { get; set; }
+        public string PlanName { get; set; } = string.Empty;
     }
 }

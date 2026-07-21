@@ -26,7 +26,18 @@ namespace ai_speis_be.Models
         public DbSet<TestCase> TestCases { get; set; } = null!;
         public DbSet<CodingSubmission> CodingSubmissions { get; set; } = null!;
         public DbSet<SubmissionTestCaseResult> SubmissionTestCaseResults { get; set; } = null!;
-  
+        public DbSet<Payment> Payments { get; set; } = null!;
+
+        // Behavioural Round Models
+        public DbSet<BehaviourQuestionSet> BehaviourQuestionSets { get; set; } = null!;
+        public DbSet<BehaviourSessionQuestion> BehaviourSessionQuestions { get; set; } = null!;
+        public DbSet<BehaviourAnswer> BehaviourAnswers { get; set; } = null!;
+        public DbSet<BehaviourRoundResult> BehaviourRoundResults { get; set; } = null!;
+
+        public DbSet<TechnicalQuestionAttempt> TechnicalQuestionAttempts { get; set; } = null!;
+        public DbSet<TechnicalAnswerEvaluation> TechnicalAnswerEvaluations { get; set; } = null!;
+        public DbSet<AIInteractionLog> AIInteractionLogs { get; set; } = null!;
+
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -41,6 +52,9 @@ namespace ai_speis_be.Models
             modelBuilder.Entity<CodingQuestionTemplate>().HasQueryFilter(t => !t.CodingQuestion.InterviewSession.IsDeleted);
             modelBuilder.Entity<TestCase>().HasQueryFilter(tc => !tc.CodingQuestion.InterviewSession.IsDeleted);
             modelBuilder.Entity<SubmissionTestCaseResult>().HasQueryFilter(r => !r.CodingSubmission.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TechnicalQuestionAttempt>().HasQueryFilter(a => !a.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TechnicalAnswerEvaluation>().HasQueryFilter(e => !e.Attempt.InterviewSession.IsDeleted);
+            modelBuilder.Entity<AIInteractionLog>().HasQueryFilter(a => !a.InterviewSession.IsDeleted);
 
             // Seed default roles
             modelBuilder.Entity<Role>().HasData(
@@ -166,6 +180,65 @@ namespace ai_speis_be.Models
                 .HasForeignKey(s => s.InterviewCampaignId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<InterviewSession>()
+                .Property(s => s.TechnicalConcurrencyVersion)
+                .IsConcurrencyToken();
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasOne(a => a.InterviewSession)
+                .WithMany(s => s.TechnicalQuestionAttempts)
+                .HasForeignKey(a => a.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasOne(a => a.Question)
+                .WithMany()
+                .HasForeignKey(a => a.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasOne(a => a.ParentAttempt)
+                .WithMany(a => a.ChildAttempts)
+                .HasForeignKey(a => a.ParentAttemptId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasIndex(a => new { a.InterviewSessionId, a.SubmissionIdempotencyKey })
+                .IsUnique()
+                .HasFilter("[SubmissionIdempotencyKey] IS NOT NULL");
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasIndex(a => new { a.InterviewSessionId, a.Status })
+                .IsUnique()
+                .HasFilter("[Status] = 0");
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasIndex(a => new { a.RootMainAttemptId, a.QuestionType, a.SequenceWithinMain })
+                .IsUnique();
+
+            modelBuilder.Entity<TechnicalAnswerEvaluation>()
+                .HasOne(e => e.Attempt)
+                .WithMany(a => a.Evaluations)
+                .HasForeignKey(e => e.AttemptId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TechnicalAnswerEvaluation>()
+                .HasIndex(e => e.RootMainAttemptId)
+                .IsUnique()
+                .HasFilter("[IsFinalForMainQuestion] = 1");
+
+            modelBuilder.Entity<AIInteractionLog>()
+                .HasOne(log => log.InterviewSession)
+                .WithMany(session => session.AIInteractionLogs)
+                .HasForeignKey(log => log.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AIInteractionLog>()
+                .HasOne(log => log.Attempt)
+                .WithMany()
+                .HasForeignKey(log => log.AttemptId)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // CodingQuestion Relationships
             modelBuilder.Entity<CodingQuestion>()
                 .HasOne(q => q.InterviewSession)
@@ -212,6 +285,56 @@ namespace ai_speis_be.Models
                 .WithMany(tc => tc.SubmissionTestCaseResults)
                 .HasForeignKey(r => r.TestCaseId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Payment>()
+                .HasOne(payment => payment.User)
+                .WithMany()
+                .HasForeignKey(payment => payment.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ==========================================
+            // Behavioural Round Configurations
+            // ==========================================
+            
+            // Enum Conversions for BehaviourQuestionSet
+            modelBuilder.Entity<BehaviourQuestionSet>()
+                .Property(s => s.SelectionSource)
+                .HasConversion<string>();
+            modelBuilder.Entity<BehaviourQuestionSet>()
+                .Property(s => s.Status)
+                .HasConversion<string>();
+
+            // Enum Conversions for BehaviourSessionQuestion
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .Property(q => q.QuestionType)
+                .HasConversion<string>();
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .Property(q => q.Status)
+                .HasConversion<string>();
+
+            // Enum Conversions for BehaviourAnswer
+            modelBuilder.Entity<BehaviourAnswer>()
+                .Property(a => a.AiAnswerQuality)
+                .HasConversion<string>();
+            modelBuilder.Entity<BehaviourAnswer>()
+                .Property(a => a.AiRecommendedAction)
+                .HasConversion<string>();
+            modelBuilder.Entity<BehaviourAnswer>()
+                .Property(a => a.ResolvedAction)
+                .HasConversion<string>();
+
+            // Relationships
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .HasOne(q => q.ParentQuestion)
+                .WithMany()
+                .HasForeignKey(q => q.ParentQuestionId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .HasOne(q => q.BehaviourAnswerAnswer)
+                .WithOne(a => a.BehaviourSessionQuestion)
+                .HasForeignKey<BehaviourAnswer>(a => a.BehaviourSessionQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

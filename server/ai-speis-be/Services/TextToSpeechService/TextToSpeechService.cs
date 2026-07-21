@@ -1,4 +1,5 @@
 using ai_speis_be.Models.DTOs;
+using Google.Apis.Auth.OAuth2;
 using Google.Cloud.TextToSpeech.V1;
 
 namespace ai_speis_be.Services.TextToSpeechService
@@ -52,17 +53,19 @@ namespace ai_speis_be.Services.TextToSpeechService
             return response.AudioContent.ToByteArray();
         }
 
-        private Task<TextToSpeechClient> CreateClientAsync(CancellationToken cancellationToken)
+        private async Task<TextToSpeechClient> CreateClientAsync(CancellationToken cancellationToken)
         {
             var credentialsPath = ResolveCredentialsPath();
             var builder = new TextToSpeechClientBuilder();
 
             if (!string.IsNullOrWhiteSpace(credentialsPath))
             {
-                builder.CredentialsPath = credentialsPath;
+                var credential = await CredentialFactory
+                    .FromFileAsync<ServiceAccountCredential>(credentialsPath, cancellationToken);
+                builder.GoogleCredential = credential.ToGoogleCredential();
             }
 
-            return builder.BuildAsync(cancellationToken);
+            return await builder.BuildAsync(cancellationToken);
         }
 
         private string? ResolveCredentialsPath()

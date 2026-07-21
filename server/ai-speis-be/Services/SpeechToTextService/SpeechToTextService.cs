@@ -1,28 +1,23 @@
-using Google.Cloud.Speech.V1;
+using Google.Apis.Auth.OAuth2;
+using Google.Cloud.Speech.V2;
+using Google.Protobuf;
+using Grpc.Core;
 using Microsoft.AspNetCore.Http;
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace ai_speis_be.Services.SpeechToTextService
 {
     public class SpeechToTextService : ISpeechToTextService
     {
-        private static readonly Dictionary<string, RecognitionConfig.Types.AudioEncoding> ContentTypeToEncoding = new(StringComparer.OrdinalIgnoreCase)
+        private readonly ILogger<SpeechToTextService> _logger;
+
+        public SpeechToTextService(ILogger<SpeechToTextService> logger)
         {
-            ["audio/webm"]          = RecognitionConfig.Types.AudioEncoding.WebmOpus,
-            ["audio/webm;codecs=opus"] = RecognitionConfig.Types.AudioEncoding.WebmOpus,
-            ["audio/ogg"]           = RecognitionConfig.Types.AudioEncoding.OggOpus,
-            ["audio/ogg;codecs=opus"] = RecognitionConfig.Types.AudioEncoding.OggOpus,
-            ["audio/mpeg"]          = RecognitionConfig.Types.AudioEncoding.Mp3,
-            ["audio/mp3"]           = RecognitionConfig.Types.AudioEncoding.Mp3,
-            ["audio/wav"]           = RecognitionConfig.Types.AudioEncoding.Linear16,
-            ["audio/wave"]          = RecognitionConfig.Types.AudioEncoding.Linear16,
-            ["audio/x-wav"]         = RecognitionConfig.Types.AudioEncoding.Linear16,
-            ["audio/flac"]          = RecognitionConfig.Types.AudioEncoding.Flac,
-            ["audio/x-flac"]        = RecognitionConfig.Types.AudioEncoding.Flac,
-        };
+            _logger = logger;
+        }
 
         public async Task<string> RecognizeSpeechAsync(IFormFile audioFile, string languageCode = "vi-VN")
         {
@@ -33,56 +28,144 @@ namespace ai_speis_be.Services.SpeechToTextService
             await audioFile.CopyToAsync(memoryStream);
             var audioBytes = memoryStream.ToArray();
 
-            var credentialsPath = System.Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+            try
+            {
+                var client = await CreateClientAsync();
+
+                var projectId = Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT")
+                    ?? throw new InvalidOperationException(
+                        "GOOGLE_CLOUD_PROJECT environment variable is not set. " +
+                        "Speech-to-Text V2 requires an explicit project ID.");
+
+                var region = Environment.GetEnvironmentVariable("GOOGLE_CLOUD_SPEECH_REGION")
+                    ?? "us";
+
+                // Use the implicit default recognizer ("_") — no need to pre-create a Recognizer resource.
+                // Format: projects/{project}/locations/{location}/recognizers/_
+                var recognizerName = $"projects/{projectId}/locations/{region}/recognizers/_";
+
+                var request = new RecognizeRequest
+                {
+                    Recognizer = recognizerName,
+                    Config = new RecognitionConfig
+                    {
+                        // Chirp 3 — Google's latest foundation model for speech recognition.
+                        // Supports 100+ languages including Vietnamese with high accuracy.
+                        Model = "chirp_3",
+
+                        // Language(s) for recognition. V2 uses repeated LanguageCodes (not single LanguageCode).
+                        LanguageCodes = { string.IsNullOrWhiteSpace(languageCode) ? "vi-VN" : languageCode.Trim() },
+
+                        // Let Google auto-detect the audio encoding, sample rate, and channel count.
+                        // This replaces the manual ContentType-to-AudioEncoding mapping from V1.
+                        // Supports: WebM/Opus, OGG/Opus, MP3, WAV/LINEAR16, FLAC, and more.
+                        AutoDecodingConfig = new AutoDetectDecodingConfig(),
+
+                        // Recognition features — replaces top-level config booleans from V1.
+                        Features = new RecognitionFeatures
+                        {
+                            EnableAutomaticPunctuation = true,
+                            EnableWordTimeOffsets = true,
+                        },
+                    },
+                    // Audio content sent inline (same as V1's RecognitionAudio.FromBytes).
+                    Content = ByteString.CopyFrom(audioBytes),
+                };
+
+                var response = await client.RecognizeAsync(request);
+
+                if (response.Results == null || response.Results.Count == 0)
+                    return string.Empty;
+
+                return string.Join(" ", response.Results
+                    .Where(r => r.Alternatives != null && r.Alternatives.Count > 0)
+                    .Select(r => r.Alternatives[0].Transcript));
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.Unauthenticated)
+            {
+                _logger.LogError(ex,
+                    "Google Cloud STT authentication failed. " +
+                    "Verify GOOGLE_APPLICATION_CREDENTIALS points to a valid service account key.");
+                throw new InvalidOperationException(
+                    "Speech-to-Text authentication failed. Check service account credentials.", ex);
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+            {
+                _logger.LogError(ex,
+                    "Recognizer not found. Verify GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_SPEECH_REGION are correct.");
+                throw new InvalidOperationException(
+                    "Speech-to-Text recognizer not found. Check project ID and region configuration.", ex);
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.InvalidArgument)
+            {
+                _logger.LogError(ex,
+                    "Invalid argument sent to Google Cloud STT. Detail={Detail}. " +
+                    "This may indicate an unsupported audio format, invalid region, or misconfigured request.",
+                    ex.Status.Detail);
+                throw new InvalidOperationException(
+                    $"Speech-to-Text request was invalid: {ex.Status.Detail}", ex);
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.ResourceExhausted)
+            {
+                _logger.LogError(ex,
+                    "Google Cloud STT quota exceeded. " +
+                    "Check your project's quota and billing at https://console.cloud.google.com/iam-admin/quotas");
+                throw new InvalidOperationException(
+                    "Speech-to-Text quota exceeded. Please try again later.", ex);
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.Unavailable
+                                          || ex.StatusCode == StatusCode.Cancelled)
+            {
+                _logger.LogError(ex,
+                    "Google Cloud STT service unavailable or request cancelled. StatusCode={StatusCode}",
+                    ex.StatusCode);
+                throw new InvalidOperationException(
+                    "Speech-to-Text service is temporarily unavailable. Please try again.", ex);
+            }
+            catch (RpcException ex)
+            {
+                _logger.LogError(ex,
+                    "Unexpected gRPC error from Google Cloud STT. StatusCode={StatusCode}, Detail={Detail}",
+                    ex.StatusCode, ex.Status.Detail);
+                throw new InvalidOperationException(
+                    $"Speech-to-Text error: {ex.Status.Detail}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Creates a SpeechClient configured with the regional endpoint required by Chirp 3.
+        /// Chirp 3 is not available on the global endpoint — a regional endpoint must be used.
+        /// </summary>
+        private async Task<SpeechClient> CreateClientAsync()
+        {
+            var credentialsPath = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
             if (!string.IsNullOrEmpty(credentialsPath) && !Path.IsPathRooted(credentialsPath))
             {
                 credentialsPath = Path.GetFullPath(credentialsPath);
             }
 
-            var builder = new SpeechClientBuilder();
-            if (!string.IsNullOrEmpty(credentialsPath))
+            var region = Environment.GetEnvironmentVariable("GOOGLE_CLOUD_SPEECH_REGION")
+                ?? "us";
+
+            var builder = new SpeechClientBuilder
             {
-                builder.CredentialsPath = credentialsPath;
-            }
-            var client = await builder.BuildAsync();
+                // Regional endpoint required for Chirp 3.
+                // Format: {region}-speech.googleapis.com
+                Endpoint = $"{region}-speech.googleapis.com",
+            };
 
-            var encoding = DetectEncoding(audioFile.ContentType);
-
-            var response = await client.RecognizeAsync(new RecognitionConfig
+            // Load credentials from file. GoogleCredential.FromFile is the recommended
+            // non-deprecated method for loading service account credentials from a JSON key file.
+            if (!string.IsNullOrEmpty(credentialsPath) && File.Exists(credentialsPath))
             {
-                Encoding = encoding,
-                LanguageCode = languageCode,
-                // MP3 không cần khai báo sample rate (Google tự detect)
-                SampleRateHertz = encoding == RecognitionConfig.Types.AudioEncoding.Mp3 ? 0 : 0,
-                EnableAutomaticPunctuation = true,
-            }, RecognitionAudio.FromBytes(audioBytes));
-
-            if (response.Results.Count == 0) return string.Empty;
-
-            return string.Join(" ", response.Results.Select(r => r.Alternatives.First().Transcript));
-        }
-
-        private static RecognitionConfig.Types.AudioEncoding DetectEncoding(string? contentType)
-        {
-            if (string.IsNullOrWhiteSpace(contentType))
-                return RecognitionConfig.Types.AudioEncoding.WebmOpus;
-
-            // Normalize: "audio/webm; codecs=opus" → "audio/webm;codecs=opus"
-            var normalized = contentType.Replace(" ", "").ToLowerInvariant();
-
-            // Check exact match first
-            if (ContentTypeToEncoding.TryGetValue(normalized, out var encoding))
-                return encoding;
-
-            // Check prefix match (e.g. "audio/webm; codecs=vp9,opus")
-            foreach (var kvp in ContentTypeToEncoding)
-            {
-                if (normalized.StartsWith(kvp.Key))
-                    return kvp.Value;
+#pragma warning disable CS0618 // GoogleCredential.FromFile — suppress if future deprecation
+                var credential = GoogleCredential.FromFile(credentialsPath)
+                    .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+#pragma warning restore CS0618
+                builder.GoogleCredential = credential;
             }
 
-            // Fallback
-            return RecognitionConfig.Types.AudioEncoding.WebmOpus;
+            return await builder.BuildAsync();
         }
     }
 }

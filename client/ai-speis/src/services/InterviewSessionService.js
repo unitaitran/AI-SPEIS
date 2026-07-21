@@ -6,13 +6,27 @@ const getAuthHeaders = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
+export class InterviewSessionError extends Error {
+  constructor(message, { code, status, data, details } = {}) {
+    super(message);
+    this.name = 'InterviewSessionError';
+    this.code = code || 'INTERVIEW_REQUEST_FAILED';
+    this.status = status;
+    this.data = data;
+    this.details = details;
+  }
+}
+
 const handleResponse = async (response) => {
+  if (response.status === 204) return null;
+
   if (!response.ok) {
     const contentType = response.headers.get('Content-Type') || '';
     let message = `Request failed with status ${response.status}`;
+    let body = null;
 
-    if (contentType.includes('application/json')) {
-      const body = await response.json().catch(() => ({}));
+    if (contentType.includes('json')) {
+      body = await response.json().catch(() => ({}));
       const validationErrors = Object.values(body?.errors || body || {})
         .flatMap((value) => (Array.isArray(value) ? value : []))
         .filter((value) => typeof value === 'string');
@@ -23,7 +37,12 @@ const handleResponse = async (response) => {
         || message;
     }
 
-    throw new Error(message);
+    throw new InterviewSessionError(message, {
+      code: body?.code || body?.Code || body?.errorCode,
+      status: response.status,
+      data: body?.data || body?.Data,
+      details: body,
+    });
   }
 
   return response.json();
@@ -55,6 +74,14 @@ const interviewSessionService = {
   /** GET /api/InterviewSession/campaign/{campaignId} */
   getCampaign: async (campaignId) => {
     const response = await fetch(ENDPOINTS.INTERVIEW_CAMPAIGN(campaignId), {
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
+
+  /** GET /api/InterviewSession/active */
+  getActiveCampaign: async () => {
+    const response = await fetch(ENDPOINTS.INTERVIEW_ACTIVE_CAMPAIGN, {
       headers: { ...getAuthHeaders(), Accept: 'application/json' },
     });
     return handleResponse(response);

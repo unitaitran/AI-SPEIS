@@ -1,0 +1,108 @@
+.payment-result-page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 200px);
+  padding: 2rem;
+}
+
+.payment-result-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 3rem 2rem;
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+}
+
+.success-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--success-light);
+  animation: pulse-success 2s infinite;
+}
+
+.error-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--error-light);
+  animation: pulse-error 2s infinite;
+}
+
+.result-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.primary-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+
+.primary-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+}
+
+.secondary-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.secondary-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+@keyframes pulse-success {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(var(--success-rgb), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0);
+  }
+}
+
+@keyframes pulse-error {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--error-rgb), 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(var(--error-rgb), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--error-rgb), 0);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .payment-result-card {
+    background: var(--surface-2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  }
+}

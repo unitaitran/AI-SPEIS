@@ -15,6 +15,10 @@ namespace ai_speis_be.Services.InterviewSessionService
     public class InterviewSessionService : IInterviewSessionService
     {
         private static readonly TimeSpan PendingCampaignLifetime = TimeSpan.FromMinutes(30);
+        private const int BasicInterviewQuota = 5;
+        private const int PremiumInterviewQuota = 15;
+
+        private readonly record struct QuotaMetadata(int Remaining, int Max, string PlanName);
 
         private readonly IInterviewCampaignRepository _repository;
         private readonly ApplicationDbContext _context;
@@ -109,6 +113,14 @@ namespace ai_speis_be.Services.InterviewSessionService
                 if (user == null)
                     return (false, "Không tìm thấy người dùng.", null);
 
+                var quota = await GetQuotaMetadataAsync(user, now);
+                if (quota.Remaining != user.RemainingInterviewQuota)
+                {
+                    user.RemainingInterviewQuota = quota.Remaining;
+                    user.UpdatedAt = now;
+                    await _context.SaveChangesAsync();
+                }
+
                 var liveCampaigns = await _context.InterviewCampaigns
                     .Include(campaign => campaign.InterviewSessions.Where(session => !session.IsDeleted))
                     .Where(campaign => campaign.UserId == userId
@@ -138,14 +150,14 @@ namespace ai_speis_be.Services.InterviewSessionService
                         request.QuestionCounts))
                     {
                         await transaction.CommitAsync();
-                        return (true, null, MapCampaignToResponse(existingCampaign, user.RemainingInterviewQuota));
+                        return (true, null, MapCampaignToResponse(existingCampaign, quota));
                     }
 
                     await transaction.CommitAsync();
                     return (false, "Bạn đang có một campaign chưa kết thúc. Hãy tiếp tục hoặc hủy campaign đó trước khi tạo cấu hình mới.", null);
                 }
 
-                if (user.RemainingInterviewQuota <= 0)
+                if (quota.Remaining <= 0)
                 {
                     await transaction.CommitAsync();
                     return (false, "Bạn đã hết lượt phỏng vấn.", null);
@@ -165,8 +177,6 @@ namespace ai_speis_be.Services.InterviewSessionService
                     CreatedAt = now
                 };
 
-                user.RemainingInterviewQuota -= 1;
-                user.UpdatedAt = now;
                 _context.InterviewCampaigns.Add(campaign);
                 await _context.SaveChangesAsync();
 
@@ -222,7 +232,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             {
                 if (EnsureActiveCampaignTiming(campaign, now))
                     await _context.SaveChangesAsync();
-                return (true, null, MapCampaignToResponse(campaign));
+                var activeQuota = await GetQuotaMetadataAsync(campaign.User, now);
+                return (true, null, MapCampaignToResponse(campaign, activeQuota));
             }
 
             if (session.Status != InterviewSessionStatus.Pending)
@@ -247,7 +258,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             session.UpdatedAt = now;
             campaign.UpdatedAt = now;
             await _context.SaveChangesAsync();
-            return (true, null, MapCampaignToResponse(campaign));
+            var startedQuota = await GetQuotaMetadataAsync(campaign.User, now);
+            return (true, null, MapCampaignToResponse(campaign, startedQuota));
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CompleteSessionAsync(
@@ -266,7 +278,10 @@ namespace ai_speis_be.Services.InterviewSessionService
             }
 
             if (session.Status == InterviewSessionStatus.Completed)
-                return (true, null, MapCampaignToResponse(campaign));
+            {
+                var existingQuota = await GetQuotaMetadataAsync(campaign.User, now);
+                return (true, null, MapCampaignToResponse(campaign, existingQuota));
+            }
             if (session.Status != InterviewSessionStatus.Active)
                 return (false, "Chỉ có thể hoàn tất phiên đang hoạt động.", null);
 
@@ -288,11 +303,24 @@ namespace ai_speis_be.Services.InterviewSessionService
             {
                 campaign.Status = InterviewCampaignStatus.Completed;
                 campaign.CompletedAt = now;
+
+                var quota = await GetQuotaMetadataAsync(campaign.User, now);
+                if (quota.Remaining > 0)
+                {
+                    campaign.User.RemainingInterviewQuota = quota.Remaining - 1;
+                    campaign.User.UpdatedAt = now;
+                    quota = quota with { Remaining = campaign.User.RemainingInterviewQuota };
+                }
+
+                campaign.UpdatedAt = now;
+                await _context.SaveChangesAsync();
+                return (true, null, MapCampaignToResponse(campaign, quota));
             }
 
             campaign.UpdatedAt = now;
             await _context.SaveChangesAsync();
-            return (true, null, MapCampaignToResponse(campaign));
+            var inProgressQuota = await GetQuotaMetadataAsync(campaign.User, now);
+            return (true, null, MapCampaignToResponse(campaign, inProgressQuota));
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CancelCampaignAsync(
@@ -302,7 +330,10 @@ namespace ai_speis_be.Services.InterviewSessionService
             var campaign = await GetOwnedCampaignAsync(userId, campaignId);
             if (campaign == null) return (false, "Không tìm thấy campaign phỏng vấn.", null);
             if (campaign.Status == InterviewCampaignStatus.Cancelled)
-                return (true, null, MapCampaignToResponse(campaign));
+            {
+                var existingQuota = await GetQuotaMetadataAsync(campaign.User, DateTime.UtcNow);
+                return (true, null, MapCampaignToResponse(campaign, existingQuota));
+            }
             if (campaign.Status == InterviewCampaignStatus.Completed || campaign.Status == InterviewCampaignStatus.Expired)
                 return (false, $"Campaign ở trạng thái '{campaign.Status}' và không thể hủy.", null);
 
@@ -313,7 +344,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             CancelOpenSessions(campaign, now);
             RefundUnusedQuota(campaign, campaign.User);
             await _context.SaveChangesAsync();
-            return (true, null, MapCampaignToResponse(campaign));
+            var quota = await GetQuotaMetadataAsync(campaign.User, now);
+            return (true, null, MapCampaignToResponse(campaign, quota));
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> ExpireCampaignAsync(
@@ -323,18 +355,26 @@ namespace ai_speis_be.Services.InterviewSessionService
             var campaign = await GetOwnedCampaignAsync(userId, campaignId);
             if (campaign == null) return (false, "Không tìm thấy campaign phỏng vấn.", null);
             if (campaign.Status == InterviewCampaignStatus.Expired)
-                return (true, null, MapCampaignToResponse(campaign));
+            {
+                var existingQuota = await GetQuotaMetadataAsync(campaign.User, DateTime.UtcNow);
+                return (true, null, MapCampaignToResponse(campaign, existingQuota));
+            }
             if (!ExpireIfDue(campaign, campaign.User, DateTime.UtcNow))
                 return (false, "Campaign chưa đến thời điểm hết hạn.", null);
 
             await _context.SaveChangesAsync();
-            return (true, null, MapCampaignToResponse(campaign));
+            var quota = await GetQuotaMetadataAsync(campaign.User, DateTime.UtcNow);
+            return (true, null, MapCampaignToResponse(campaign, quota));
         }
 
         public async Task<InterviewQuotaDto?> GetQuotaAsync(int userId)
         {
             var user = await _context.Users.FirstOrDefaultAsync(candidate => candidate.UserId == userId);
             if (user == null) return null;
+
+            var now = DateTime.UtcNow;
+            var previousRemainingQuota = user.RemainingInterviewQuota;
+            var quota = await GetQuotaMetadataAsync(user, now);
 
             var liveCampaigns = await _context.InterviewCampaigns
                 .Include(campaign => campaign.InterviewSessions.Where(session => !session.IsDeleted))
@@ -344,13 +384,17 @@ namespace ai_speis_be.Services.InterviewSessionService
                         || campaign.Status == InterviewCampaignStatus.Active))
                 .ToListAsync();
 
-            var now = DateTime.UtcNow;
             var lifecycleChanged = false;
             foreach (var campaign in liveCampaigns)
                 lifecycleChanged |= ExpireIfDue(campaign, user, now);
-            if (lifecycleChanged) await _context.SaveChangesAsync();
+            if (lifecycleChanged || previousRemainingQuota != user.RemainingInterviewQuota) await _context.SaveChangesAsync();
 
-            return new InterviewQuotaDto { RemainingInterviewQuota = user.RemainingInterviewQuota };
+            return new InterviewQuotaDto
+            {
+                RemainingInterviewQuota = user.RemainingInterviewQuota,
+                MaxInterviewQuota = quota.Max,
+                PlanName = quota.PlanName,
+            };
         }
 
         public async Task<InterviewSessionDto?> GetSessionByIdAsync(int userId, int sessionId)
@@ -372,7 +416,37 @@ namespace ai_speis_be.Services.InterviewSessionService
             var lifecycleChanged = EnsureActiveCampaignTiming(campaign, now);
             lifecycleChanged |= ExpireIfDue(campaign, campaign.User, now);
             if (lifecycleChanged) await _context.SaveChangesAsync();
-            return MapCampaignToResponse(campaign);
+            var quota = await GetQuotaMetadataAsync(campaign.User, now);
+            return MapCampaignToResponse(campaign, quota);
+        }
+
+        public async Task<InterviewCampaignDto?> GetActiveCampaignAsync(int userId)
+        {
+            var campaigns = await _context.InterviewCampaigns
+                .Include(campaign => campaign.User)
+                .Include(campaign => campaign.InterviewSessions.Where(session => !session.IsDeleted))
+                .Where(campaign => campaign.UserId == userId
+                    && !campaign.IsDeleted
+                    && (campaign.Status == InterviewCampaignStatus.Pending
+                        || campaign.Status == InterviewCampaignStatus.Active))
+                .OrderByDescending(campaign => campaign.UpdatedAt ?? campaign.CreatedAt)
+                .ToListAsync();
+
+            var now = DateTime.UtcNow;
+            var lifecycleChanged = false;
+            foreach (var campaign in campaigns)
+            {
+                lifecycleChanged |= EnsureActiveCampaignTiming(campaign, now);
+                lifecycleChanged |= ExpireIfDue(campaign, campaign.User, now);
+            }
+
+            if (lifecycleChanged) await _context.SaveChangesAsync();
+
+            var activeCampaign = campaigns.FirstOrDefault(IsLiveCampaign);
+            if (activeCampaign == null) return null;
+
+            var quota = await GetQuotaMetadataAsync(activeCampaign.User, now);
+            return MapCampaignToResponse(activeCampaign, quota);
         }
 
         public async Task<IEnumerable<InterviewCampaignDto>> GetUserCampaignsAsync(int userId)
@@ -387,7 +461,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             foreach (var campaign in campaigns)
                 lifecycleChanged |= ExpireIfDue(campaign, user, now);
             if (lifecycleChanged) await _context.SaveChangesAsync();
-            return campaigns.Select(campaign => MapCampaignToResponse(campaign, user.RemainingInterviewQuota)).ToList();
+            var quota = await GetQuotaMetadataAsync(user, now);
+            return campaigns.Select(campaign => MapCampaignToResponse(campaign, quota)).ToList();
         }
 
         public async Task<AvailableRoundsDto?> GetAvailableRoundsAsync(int userId, int jdId)
@@ -468,6 +543,8 @@ namespace ai_speis_be.Services.InterviewSessionService
         {
             const int defaultQuestionCount = 5;
             const int defaultCodingQuestionCount = 3;
+            // Adaptive Question Generation Rubric: Behavioral Interview luôn gồm 03 Main Questions
+            const int defaultBehaviouralQuestionCount = 3;
 
             if (mode == InterviewMode.Practice && questionCounts != null)
             {
@@ -476,9 +553,13 @@ namespace ai_speis_be.Services.InterviewSessionService
                 if (!string.IsNullOrEmpty(configuredCount.Key)) return configuredCount.Value;
             }
 
-            return roundType == InterviewRoundType.Code
-                ? defaultCodingQuestionCount
-                : defaultQuestionCount;
+            return roundType switch
+            {
+                InterviewRoundType.Code => defaultCodingQuestionCount,
+                InterviewRoundType.Behavior => defaultBehaviouralQuestionCount,
+                InterviewRoundType.Technical => 3,
+                _ => defaultQuestionCount
+            };
         }
 
         private static bool ExpireIfDue(InterviewCampaign campaign, User user, DateTime now)
@@ -530,14 +611,13 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private static void RefundUnusedQuota(InterviewCampaign campaign, User user)
         {
-            if (campaign.StartedAt.HasValue || campaign.QuotaRefunded) return;
-            user.RemainingInterviewQuota += 1;
-            user.UpdatedAt = DateTime.UtcNow;
+            // Quota is consumed on completed campaigns only, so there is nothing to refund.
             campaign.QuotaRefunded = true;
         }
 
-        private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign, int? quota = null)
+        private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign, QuotaMetadata? quota = null)
         {
+            var metadata = quota ?? new QuotaMetadata(campaign.User?.RemainingInterviewQuota ?? 0, BasicInterviewQuota, "Basic");
             return new InterviewCampaignDto
             {
                 InterviewCampaignId = campaign.InterviewCampaignId,
@@ -552,7 +632,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                 ExpiresAt = AsUtc(campaign.ExpiresAt),
                 CompletedAt = AsUtc(campaign.CompletedAt),
                 CancelledAt = AsUtc(campaign.CancelledAt),
-                RemainingInterviewQuota = quota ?? campaign.User?.RemainingInterviewQuota ?? 0,
+                RemainingInterviewQuota = metadata.Remaining,
+                MaxInterviewQuota = metadata.Max,
+                PlanName = metadata.PlanName,
                 CreatedAt = AsUtc(campaign.CreatedAt),
                 UpdatedAt = AsUtc(campaign.UpdatedAt),
                 Sessions = campaign.InterviewSessions
@@ -575,7 +657,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                 QuestionCount = session.QuestionCount,
                 Status = session.Status.ToString(),
                 CreatedAt = AsUtc(session.CreatedAt),
-                UpdatedAt = AsUtc(session.UpdatedAt)
+                UpdatedAt = AsUtc(session.UpdatedAt),
+                CompletedQuestionCount = session.TechnicalCompletedMainQuestionCount
             };
         }
 
@@ -603,6 +686,22 @@ namespace ai_speis_be.Services.InterviewSessionService
                 || normalized.Contains("PRINCIPAL") || normalized.Contains("EXPERT"))
                 return QuestionDifficultyEnum.Hard;
             return QuestionDifficultyEnum.Medium;
+        }
+
+        private async Task<QuotaMetadata> GetQuotaMetadataAsync(User user, DateTime now)
+        {
+            var isPremium = await _context.Payments.AnyAsync(payment =>
+                payment.UserId == user.UserId && payment.Status == PaymentStatus.Paid);
+
+            var maxQuota = isPremium ? PremiumInterviewQuota : BasicInterviewQuota;
+            var normalizedRemaining = Math.Clamp(user.RemainingInterviewQuota, 0, maxQuota);
+            if (user.RemainingInterviewQuota != normalizedRemaining)
+            {
+                user.RemainingInterviewQuota = normalizedRemaining;
+                user.UpdatedAt = now;
+            }
+
+            return new QuotaMetadata(normalizedRemaining, maxQuota, isPremium ? "Premium" : "Basic");
         }
     }
 }
