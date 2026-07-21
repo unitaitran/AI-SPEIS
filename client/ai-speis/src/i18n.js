@@ -22,6 +22,12 @@ import viQuestionBank from './locales/vi/questionBank.json';
 import enInterview from './locales/en/interview.json';
 import viInterview from './locales/vi/interview.json';
 
+import enPackages from './locales/en/packages.json';
+import viPackages from './locales/vi/packages.json';
+
+import enCvjd from './locales/en/cvjd.json';
+import viCvjd from './locales/vi/cvjd.json';
+
 const resources = {
   en: {
     homepage: enHomepage,
@@ -32,6 +38,8 @@ const resources = {
     'admin-dashboard': enAdminDashboard,
     questionBank: enQuestionBank,
     interview: enInterview,
+    packages: enPackages,
+    cvjd: enCvjd,
   },
   vi: {
     homepage: viHomepage,
@@ -42,6 +50,8 @@ const resources = {
     'admin-dashboard': viAdminDashboard,
     questionBank: viQuestionBank,
     interview: viInterview,
+    packages: viPackages,
+    cvjd: viCvjd,
   },
 };
 
@@ -53,7 +63,7 @@ i18n
     fallbackLng: 'vi',
     supportedLngs: ['vi', 'en'],
     defaultNS: 'homepage',
-    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'questionBank', 'interview'],
+    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'questionBank', 'interview', 'packages', 'cvjd'],
     interpolation: {
       escapeValue: false,
     },

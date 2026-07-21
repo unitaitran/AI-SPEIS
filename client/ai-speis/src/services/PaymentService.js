@@ -55,12 +55,17 @@ const paymentService = {
     return parseJsonResponse(response);
   },
 
-  verifyPaymentResult: async (orderId) => {
+  verifyPaymentResult: async (orderId, resultCode = null) => {
     if (!orderId) {
       throw new Error('Missing order ID');
     }
 
-    const response = await fetch(ENDPOINTS.PAYMENT_VERIFY(orderId), {
+    let url = ENDPOINTS.PAYMENT_VERIFY(orderId);
+    if (resultCode !== null && resultCode !== undefined) {
+      url += `&resultCode=${encodeURIComponent(resultCode)}`;
+    }
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         Accept: 'application/json',

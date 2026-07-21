@@ -61,6 +61,13 @@ namespace ai_speis_be.Models
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }
+
+        public bool IsPremium { get; set; } = false;
+
+        public DateTime? PremiumExpireAt { get; set; }
+
+        public DateTime? LastQuotaResetAt { get; set; }
+
         [MaxLength(256)]
         public string? ImageUrl { get; set; }
         // Navigation property

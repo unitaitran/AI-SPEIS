@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
@@ -259,6 +259,37 @@ function QuestionsPage() {
   const totalItems = sortedQuestions.length;
   const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
   const displayedQuestions = sortedQuestions.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const pageButtons = useMemo(() => {
+    const buttons = [];
+    if (totalPages <= 7) {
+      for (let page = 1; page <= totalPages; page += 1) {
+        buttons.push(page);
+      }
+      return buttons;
+    }
+
+    const leftBound = Math.max(2, currentPage - 2);
+    const rightBound = Math.min(totalPages - 1, currentPage + 2);
+
+    buttons.push(1);
+
+    if (leftBound > 2) {
+      buttons.push('start-ellipsis');
+    }
+
+    for (let page = leftBound; page <= rightBound; page += 1) {
+      buttons.push(page);
+    }
+
+    if (rightBound < totalPages - 1) {
+      buttons.push('end-ellipsis');
+    }
+
+    buttons.push(totalPages);
+
+    return buttons;
+  }, [currentPage, totalPages]);
 
   return (
     <UserLayout>
@@ -530,19 +561,26 @@ function QuestionsPage() {
                     <ChevronLeft size={16} />
                   </button>
 
-                  {Array.from({ length: totalPages }).map((_, index) => {
-                    const pageNum = index + 1;
-                    const isActive = pageNum === currentPage;
+                  {pageButtons.map((button) => {
+                    if (button === 'start-ellipsis' || button === 'end-ellipsis') {
+                      return (
+                        <span key={button} className="px-2 text-text-secondary font-bold">
+                          ...
+                        </span>
+                      );
+                    }
+                    
+                    const isActive = button === currentPage;
                     return (
                       <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
+                        key={button}
+                        onClick={() => setCurrentPage(button)}
                         className={`w-9 h-9 text-xs font-bold rounded-lg border transition-all cursor-pointer ${isActive
                             ? 'bg-gradient-to-br from-primary to-[#4A90E2] border-transparent text-white shadow-sm'
                             : 'border-border bg-surface-2 text-text-secondary hover:text-text-primary hover:bg-surface-3'
                           }`}
                       >
-                        {pageNum}
+                        {button}
                       </button>
                     );
                   })}

@@ -105,6 +105,15 @@ const jdService = {
     });
     return handleResponse(response);
   },
+
+  /** GET /api/JDFile/fastcheck */
+  getFastCheckResults: async () => {
+    const response = await fetch(ENDPOINTS.JD_FASTCHECK_RESULTS, {
+      method: 'GET',
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+    });
+    return handleResponse(response);
+  },
 };
 
 export default jdService;

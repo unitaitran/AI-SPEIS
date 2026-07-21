@@ -70,14 +70,14 @@ namespace ai_speis_be.Controllers
 
         [HttpGet("callback")]
         [AllowAnonymous]
-        public async Task<IActionResult> Callback([FromQuery] string orderId, CancellationToken cancellationToken)
+        public async Task<IActionResult> Callback([FromQuery] string orderId, [FromQuery] int? resultCode, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(orderId))
             {
                 return BadRequest(new { Message = "Thiếu mã giao dịch." });
             }
 
-            var (success, errorMessage) = await _paymentService.QueryTransactionStatusAsync(orderId, cancellationToken);
+            var (success, errorMessage) = await _paymentService.QueryTransactionStatusAsync(orderId, resultCode, cancellationToken);
             if (!success)
             {
                 return BadRequest(new { Message = errorMessage });

@@ -27,6 +27,7 @@ namespace ai_speis_be.Models
         public DbSet<CodingSubmission> CodingSubmissions { get; set; } = null!;
         public DbSet<SubmissionTestCaseResult> SubmissionTestCaseResults { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
+        public DbSet<FastCheckResult> FastCheckResults { get; set; } = null!;
 
         // Behavioural Round Models
         public DbSet<BehaviourQuestionSet> BehaviourQuestionSets { get; set; } = null!;
@@ -139,6 +140,30 @@ namespace ai_speis_be.Models
                 .WithMany()
                 .HasForeignKey(usq => usq.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // FastCheckResult Relationships
+            modelBuilder.Entity<FastCheckResult>()
+                .HasOne(fc => fc.User)
+                .WithMany()
+                .HasForeignKey(fc => fc.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<FastCheckResult>()
+                .HasOne(fc => fc.CVFile)
+                .WithMany()
+                .HasForeignKey(fc => fc.CVFileId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<FastCheckResult>()
+                .HasOne(fc => fc.JDFile)
+                .WithMany()
+                .HasForeignKey(fc => fc.JDFileId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<FastCheckResult>()
+                .HasIndex(fc => new { fc.UserId, fc.CVFileId, fc.JDFileId })
+                .IsUnique()
+                .HasDatabaseName("IX_FastCheckResult_User_CV_JD");
 
             // InterviewCampaign Relationships
             modelBuilder.Entity<InterviewCampaign>()

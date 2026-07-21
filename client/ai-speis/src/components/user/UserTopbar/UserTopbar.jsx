@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings, Globe, Loader2 } from 'lucide-react';
+import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings, Globe, Loader2, Crown } from 'lucide-react';
 import { navigate } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import { getAvatarUrl } from '../../../routes/auth';
@@ -13,7 +13,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   const [user, setUser] = useState(null);
   const [remainingInterviewQuota, setRemainingInterviewQuota] = useState(null);
   const [maxInterviewQuota, setMaxInterviewQuota] = useState(null);
-  const [planName, setPlanName] = useState('Basic');
+  const [planName, setPlanName] = useState('Free');
 
   useEffect(() => {
     if (propUser) {
@@ -39,15 +39,14 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
         if (isMounted) {
           setRemainingInterviewQuota(quota.remainingInterviewQuota);
           setMaxInterviewQuota(quota.maxInterviewQuota ?? null);
-          setPlanName(quota.planName || 'Basic');
+          setPlanName(quota.planName || 'Free');
         }
       } catch {
         if (isMounted) {
-          setRemainingInterviewQuota(
-            propUser?.remainingInterviewQuota ?? user?.remainingInterviewQuota ?? null,
-          );
-          setMaxInterviewQuota(null);
-          setPlanName('Basic');
+          const fallbackRemaining = propUser?.remainingInterviewQuota ?? user?.remainingInterviewQuota ?? 5;
+          setRemainingInterviewQuota(fallbackRemaining);
+          setMaxInterviewQuota(5);
+          setPlanName('Free');
         }
       }
     };
@@ -172,8 +171,15 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
           </span>
         </div>
 
-        <div className={`hidden sm:inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold shadow-sm ${planName === 'Premium' ? 'border-success bg-success-light text-success' : 'border-border bg-surface-1 text-text-secondary'}`}>
-          {planName}
+        <div className={`hidden sm:inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold shadow-sm ${planName === 'Premium' ? 'border-[#FFD700] bg-[#FFF8DC] text-[#DAA520]' : 'border-border bg-surface-1 text-text-secondary'}`}>
+          {planName === 'Premium' ? (
+            <div className="flex items-center space-x-1">
+              <Crown size={14} className="text-[#FFD700]" />
+              <span className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-transparent bg-clip-text">Premium</span>
+            </div>
+          ) : (
+            planName
+          )}
         </div>
 
         {isLastAttempt && (

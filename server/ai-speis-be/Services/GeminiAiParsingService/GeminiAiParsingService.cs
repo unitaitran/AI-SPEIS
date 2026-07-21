@@ -1,31 +1,40 @@
 using System;
+using System.Net.Http;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using ai_speis_be.DTOs.CvParsing;
 using ai_speis_be.DTOs.JdParsing;
 using Microsoft.Extensions.Configuration;
-using Mscc.GenerativeAI;
-using Mscc.GenerativeAI.Types;
+
 
 namespace ai_speis_be.Services.GeminiAiParsingService
 {
     public class GeminiAiParsingService : IGeminiAiParsingService
     {
         private readonly string _apiKey;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private const string GeminiModel = "gemma-4-31b-it";
+        private const string GeminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/";
 
-        public GeminiAiParsingService(IConfiguration configuration)
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        public GeminiAiParsingService(IConfiguration configuration, IHttpClientFactory httpClientFactory)
         {
             _apiKey = configuration["GeminiAI:ApiKey"] 
                 ?? throw new InvalidOperationException("Gemini API key is missing. Add GeminiAI:ApiKey to appsettings or environment variables.");
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task<(bool Success, CvParsedResult? Data, string? RawResponse, string? Error)> ParseCvTextAsync(string cvText)
         {
             try
             {
-                var googleAi = new GoogleAI(_apiKey);
-                var model = googleAi.GenerativeModel(model: "gemini-2.5-flash");
-
                 string prompt = @"
 You are an expert HR recruiter and document classifier.
 You will receive text extracted from a PDF file. The document can be in Vietnamese or English.
@@ -95,34 +104,14 @@ Document text:
 --------------------
 " + cvText;
 
-                var response = await CallGeminiWithRetryAsync(model, prompt);
-                var rawJson = response.Text;
+                var rawJson = await CallGeminiRestApiWithRetryAsync(prompt);
 
                 if (string.IsNullOrWhiteSpace(rawJson))
                 {
                     return (false, null, null, "Không nhận được phản hồi từ Gemini.");
                 }
 
-                // Remove markdown block if Gemini wraps it in ```json ... ```
-                rawJson = rawJson.Trim();
-                if (rawJson.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
-                {
-                    rawJson = rawJson.Substring(7);
-                    if (rawJson.EndsWith("```"))
-                    {
-                        rawJson = rawJson.Substring(0, rawJson.Length - 3);
-                    }
-                }
-                else if (rawJson.StartsWith("```"))
-                {
-                    rawJson = rawJson.Substring(3);
-                    if (rawJson.EndsWith("```"))
-                    {
-                        rawJson = rawJson.Substring(0, rawJson.Length - 3);
-                    }
-                }
-
-                rawJson = rawJson.Trim();
+                rawJson = StripMarkdownFence(rawJson);
 
                 var parsedData = JsonSerializer.Deserialize<CvParsedResult>(rawJson, new JsonSerializerOptions 
                 { 
@@ -142,37 +131,10 @@ Document text:
             }
         }
 
-        private async Task<GenerateContentResponse> CallGeminiWithRetryAsync(GenerativeModel model, string prompt)
-        {
-            int maxRetries = 3;
-            int delayMs = 2000;
-
-            for (int i = 0; i < maxRetries; i++)
-            {
-                try
-                {
-                    return await model.GenerateContent(prompt);
-                }
-                catch (Exception ex) when (ex.Message.Contains("503") || ex.Message.Contains("500") || ex.Message.Contains("429"))
-                {
-                    if (i == maxRetries - 1)
-                    {
-                        throw;
-                    }
-                    await Task.Delay(delayMs);
-                    delayMs *= 2; // Exponential backoff (2s, 4s, 8s)
-                }
-            }
-            throw new Exception("Quá số lần thử lại khi gọi API Gemini.");
-        }
-
         public async Task<(bool Success, JdParsedResult? Data, string? RawResponse, string? Error)> ParseJdTextAsync(string jdText)
         {
             try
             {
-                var googleAi = new GoogleAI(_apiKey);
-                var model = googleAi.GenerativeModel(model: "gemini-2.5-flash");
-
                 string prompt = @"
 You are an expert IT recruiter and document classifier.
 You will receive text extracted from a Job Description (JD) file or raw text input. The JD can be in Vietnamese or English.
@@ -219,23 +181,15 @@ Ensure the output is valid JSON.
 === JD TEXT TO ANALYZE ===
 " + jdText;
 
-                var response = await model.GenerateContent(prompt);
-                string jsonText = response.Text ?? "";
+                var rawJson = await CallGeminiRestApiWithRetryAsync(prompt);
+                string jsonText = rawJson ?? "";
 
-                // Clean up possible markdown fences
-                if (jsonText.StartsWith("```"))
-                {
-                    jsonText = jsonText.Trim('`', '\n', '\r');
-                    if (jsonText.StartsWith("json"))
-                    {
-                        jsonText = jsonText.Substring(4).Trim();
-                    }
-                }
+                jsonText = StripMarkdownFence(jsonText);
 
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var result = JsonSerializer.Deserialize<JdParsedResult>(jsonText, options);
 
-                return (true, result, response.Text, null);
+                return (true, result, rawJson, null);
             }
             catch (Exception ex)
             {
@@ -247,9 +201,6 @@ Ensure the output is valid JSON.
         {
             try
             {
-                var googleAi = new GoogleAI(_apiKey);
-                var model = googleAi.GenerativeModel(model: "gemini-2.5-flash");
-
                 string prompt = $@"
 You are an expert Technical Recruiter.
 You are given two JSON strings: one represents a Candidate's CV, and the other represents a Job Description (JD).
@@ -275,18 +226,10 @@ IMPORTANT: YOU MUST OUTPUT ALL EXTRACTED DATA (Advice, SuitabilityLevel, etc.) S
 {jdJson}
 ";
 
-                var response = await model.GenerateContent(prompt);
-                string jsonText = response.Text ?? "";
+                var rawJson = await CallGeminiRestApiWithRetryAsync(prompt);
+                string jsonText = rawJson ?? "";
 
-                // Clean up possible markdown fences
-                if (jsonText.StartsWith("```"))
-                {
-                    jsonText = jsonText.Trim('`', '\n', '\r');
-                    if (jsonText.StartsWith("json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        jsonText = jsonText.Substring(4).Trim();
-                    }
-                }
+                jsonText = StripMarkdownFence(jsonText);
 
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var result = JsonSerializer.Deserialize<CvJdMatchResultResponse>(jsonText, options);
@@ -294,12 +237,136 @@ IMPORTANT: YOU MUST OUTPUT ALL EXTRACTED DATA (Advice, SuitabilityLevel, etc.) S
                 if (result == null)
                     return (false, null, jsonText, "Lỗi deserialize JSON trả về từ Gemini.");
 
-                return (true, result, response.Text, null);
+                return (true, result, rawJson, null);
             }
             catch (Exception ex)
             {
                 return (false, null, null, $"Lỗi khi gọi Gemini API: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Calls the Gemini REST API directly using HttpClient, bypassing the Mscc.GenerativeAI
+        /// library which incorrectly uses Application Default Credentials (ADC) even when an
+        /// API key is provided, causing PERMISSION_DENIED errors.
+        /// </summary>
+        private async Task<string?> CallGeminiRestApiWithRetryAsync(string prompt)
+        {
+            int maxRetries = 3;
+            int delayMs = 2000;
+
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    return await CallGeminiRestApiAsync(prompt);
+                }
+                catch (HttpRequestException ex) when (
+                    ex.Message.Contains("503") || 
+                    ex.Message.Contains("500") || 
+                    ex.Message.Contains("429"))
+                {
+                    if (i == maxRetries - 1)
+                    {
+                        throw;
+                    }
+                    await Task.Delay(delayMs);
+                    delayMs *= 2; // Exponential backoff (2s, 4s, 8s)
+                }
+            }
+            throw new Exception("Quá số lần thử lại khi gọi API Gemini.");
+        }
+
+        private async Task<string?> CallGeminiRestApiAsync(string prompt)
+        {
+            var url = $"{GeminiApiBaseUrl}{GeminiModel}:generateContent?key={_apiKey}";
+
+            var requestBody = new
+            {
+                contents = new[]
+                {
+                    new
+                    {
+                        parts = new[]
+                        {
+                            new { text = prompt }
+                        }
+                    }
+                }
+            };
+
+            var jsonBody = JsonSerializer.Serialize(requestBody, JsonOptions);
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(120);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+            using var response = await client.SendAsync(request);
+            var responseText = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"The request was not successful. Last API response: {responseText}");
+            }
+
+            // Parse the Gemini REST API response
+            using var doc = JsonDocument.Parse(responseText);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("candidates", out var candidates) &&
+                candidates.GetArrayLength() > 0)
+            {
+                var firstCandidate = candidates[0];
+                if (firstCandidate.TryGetProperty("content", out var content) &&
+                    content.TryGetProperty("parts", out var parts) &&
+                    parts.GetArrayLength() > 0)
+                {
+                    var finalTexts = new List<string>();
+                    foreach (var part in parts.EnumerateArray())
+                    {
+                        if (part.TryGetProperty("thought", out var thought) && thought.GetBoolean())
+                        {
+                            continue; // Skip the reasoning process
+                        }
+                        if (part.TryGetProperty("text", out var textProp))
+                        {
+                            finalTexts.Add(textProp.GetString() ?? "");
+                        }
+                    }
+                    if (finalTexts.Count > 0)
+                    {
+                        return string.Join("\n", finalTexts);
+                    }
+                    // Fallback to first part if no non-thought text found
+                    return parts[0].GetProperty("text").GetString();
+                }
+            }
+
+            return null;
+        }
+
+        private static string StripMarkdownFence(string content)
+        {
+            var trimmed = content.Trim();
+            if (trimmed.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+            {
+                trimmed = trimmed.Substring(7);
+                if (trimmed.EndsWith("```"))
+                {
+                    trimmed = trimmed.Substring(0, trimmed.Length - 3);
+                }
+            }
+            else if (trimmed.StartsWith("```"))
+            {
+                trimmed = trimmed.Substring(3);
+                if (trimmed.EndsWith("```"))
+                {
+                    trimmed = trimmed.Substring(0, trimmed.Length - 3);
+                }
+            }
+            return trimmed.Trim();
         }
     }
 }

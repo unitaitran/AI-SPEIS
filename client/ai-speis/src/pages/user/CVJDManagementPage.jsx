@@ -6,7 +6,6 @@ import {
   Trash2,
   Eye,
   Plus,
-  Clock,
   CheckCircle2,
   AlertCircle,
   X,
@@ -16,19 +15,23 @@ import {
   Award,
   Star,
   CheckSquare,
-  Building
+  Building,
+  Sparkles
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
+import { useTranslation } from 'react-i18next';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import jdService from '../../services/JDService';
 import { API_BASE_URL } from '../../config/api';
-import FastCheckPanel from '../../features/cvJdFastCheck/FastCheckPanel';
+import { mapCvJdMatchResponse } from '../../features/cvJdFastCheck/cvJdMatchAdapter';
+import FastCheckResult from '../../features/cvJdFastCheck/FastCheckResult';
 import notify from '../../utils/notification';
 import '../../styles/user/MyCVPage.css';
 
-function CVJDManagementPage() {  
+function CVJDManagementPage() {
+  const { t } = useTranslation('cvjd');  
   // CV State
   const [cvs, setCvs] = useState([]);
   const [isLoadingCvs, setIsLoadingCvs] = useState(true);
@@ -42,7 +45,14 @@ function CVJDManagementPage() {
   const [jdTextName, setJdTextName] = useState('');
   const [showJDInfoModal, setShowJDInfoModal] = useState(false);
   const [selectedJDParsedData, setSelectedJDParsedData] = useState(null);
+  const [selectedJDId, setSelectedJDId] = useState(null);
   const jdPollTimerRef = useRef(null);
+
+  // Fast Check State
+  const [fastCheckResults, setFastCheckResults] = useState({});
+  const [isFastChecking, setIsFastChecking] = useState({});
+  const [showFastCheckModal, setShowFastCheckModal] = useState(false);
+  const [currentFastCheckJD, setCurrentFastCheckJD] = useState(null);
 
   useEffect(() => {
     return () => stopJdPolling();
@@ -66,6 +76,7 @@ function CVJDManagementPage() {
           fetchJDHistory();
           const parsed = await jdService.getParsedData(jdId);
           setSelectedJDParsedData(parsed.data);
+          setSelectedJDId(jdId);
           setShowJDInfoModal(true);
         } else if (statusStr === 'AnalysisFailed' || statusStr === 'Failed') {
           stopJdPolling();
@@ -82,6 +93,7 @@ function CVJDManagementPage() {
   useEffect(() => {
     fetchCVHistory();
     fetchJDHistory();
+    fetchFastCheckResults();
   }, []);
 
   const fetchCVHistory = async () => {
@@ -100,6 +112,21 @@ function CVJDManagementPage() {
       console.error('Lỗi khi lấy lịch sử CV:', err);
     } finally {
       setIsLoadingCvs(false);
+    }
+  };
+
+  const fetchFastCheckResults = async () => {
+    try {
+      const response = await jdService.getFastCheckResults();
+      if (response && response.data) {
+        const resultsMap = {};
+        response.data.forEach(item => {
+          resultsMap[item.jdFileId] = mapCvJdMatchResponse(item);
+        });
+        setFastCheckResults(resultsMap);
+      }
+    } catch (err) {
+      console.error('Lỗi khi lấy lịch sử FastCheck:', err);
     }
   };
 
@@ -139,15 +166,6 @@ function CVJDManagementPage() {
     return status;
   };
 
-  const getStatusBadge = (rawStatus) => {
-    const status = getStatusString(rawStatus);
-    if (status === 'Confirmed') return <span className="mycv-badge mycv-badge--success"><CheckCircle2 size={10} /> Đã xác nhận</span>;
-    if (status === 'Archived') return <span className="mycv-badge mycv-badge--default"><Clock size={10} /> Đã lưu trữ</span>;
-    if (status === 'ConfirmationRequired') return <span className="mycv-badge mycv-badge--info"><AlertCircle size={10} /> Cần xác nhận</span>;
-    if (status === 'Pending' || status === 'Processing') return <span className="mycv-badge mycv-badge--warning"><Clock size={10} /> Đang xử lý</span>;
-    return <span className="mycv-badge mycv-badge--error"><AlertCircle size={10} /> {status}</span>;
-  };
-
   const handleCVClick = (id) => {
     navigate(USER_ROUTES.CV_DETAIL);
   };
@@ -172,11 +190,12 @@ function CVJDManagementPage() {
       }
     } else if (statusStr === 'Processing') {
       startJdPolling(jdId);
-      notify.info('JD đang được xử lý, vui lòng chờ...', { title: 'Đang phân tích JD' });
+      notify.info('JD đang được xử lý, vui lòng chờ...', { title: `${t('analyzing', 'Đang phân tích')} JD` });
     } else if (statusStr === 'ConfirmationRequired' || statusStr === 'Confirmed') {
       try {
         const parsed = await jdService.getParsedData(jdId);
         setSelectedJDParsedData(parsed.data);
+        setSelectedJDId(jdId);
         setShowJDInfoModal(true);
       } catch (err) {
         notify.error(`Lỗi lấy dữ liệu: ${err.message}`, { title: 'Không thể tải dữ liệu JD' });
@@ -225,6 +244,35 @@ function CVJDManagementPage() {
     }
   };
 
+  const handleFastCheckClick = async (jdId, e) => {
+    e.stopPropagation();
+    if (!cvs[0]) {
+      notify.warning('Vui lòng tải lên CV trước khi dùng tính năng Fast Check.');
+      return;
+    }
+    
+    // If we already have the result, just show it
+    if (fastCheckResults[jdId]) {
+      setCurrentFastCheckJD(jdId);
+      setShowFastCheckModal(true);
+      return;
+    }
+
+    // Call API to do fast check
+    setIsFastChecking(prev => ({ ...prev, [jdId]: true }));
+    try {
+      const response = await jdService.matchCvToJd(jdId, cvs[0].cvFileId);
+      const mappedResult = mapCvJdMatchResponse(response);
+      setFastCheckResults(prev => ({ ...prev, [jdId]: mappedResult }));
+      setCurrentFastCheckJD(jdId);
+      setShowFastCheckModal(true);
+    } catch (err) {
+      notify.error(err.message, { title: 'Lỗi Fast Check' });
+    } finally {
+      setIsFastChecking(prev => ({ ...prev, [jdId]: false }));
+    }
+  };
+
   return (
     <UserLayout>
       <div className="mycv-container animate-pageEntrance relative">
@@ -237,18 +285,6 @@ function CVJDManagementPage() {
             </p>
           </div>
         </section>
-
-        <FastCheckPanel
-          currentCv={cvs[0] || null}
-          jds={jds}
-          loadingSources={isLoadingCvs || isLoadingJds}
-          onAddJd={() => setShowJDModal(true)}
-          onCvUploaded={(cv) => setCvs([cv])}
-          onSourcesChanged={() => {
-            fetchCVHistory();
-            fetchJDHistory();
-          }}
-        />
 
         {/* 2 Columns Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -346,9 +382,22 @@ function CVJDManagementPage() {
                     </div>
                     <div className="mycv-info-actions border-l border-border pl-3 ml-2 flex gap-2">
                       {getStatusString(jd.status) === 'ConfirmationRequired' || getStatusString(jd.status) === 'Confirmed' ? (
-                        <button className="mycv-btn mycv-btn--outline mycv-btn--sm py-1.5 px-3" onClick={(e) => handleJDActionClick(jd.jdFileId, e)}>
-                          <Eye size={14} /> Xem
-                        </button>
+                        <>
+                          <button className="mycv-btn mycv-btn--outline mycv-btn--sm py-1.5 px-3" onClick={(e) => handleJDActionClick(jd.jdFileId, e)}>
+                            <Eye size={14} /> Xem
+                          </button>
+                          <button 
+                            className="mycv-btn mycv-btn--primary mycv-btn--sm py-1.5 px-3" 
+                            onClick={(e) => handleFastCheckClick(jd.jdFileId, e)}
+                            disabled={isFastChecking[jd.jdFileId]}
+                          >
+                            {isFastChecking[jd.jdFileId] ? (
+                              <><Loader2 size={14} className="animate-spin" /> Đang Check</>
+                            ) : (
+                              <><Sparkles size={14} /> Fast Check</>
+                            )}
+                          </button>
+                        </>
                       ) : getStatusString(jd.status) === 'Processing' ? (
                         <button className="mycv-btn mycv-btn--warning mycv-btn--sm py-1.5 px-3" disabled>
                           <Loader2 size={14} className="animate-spin" /> Đang xử lí
@@ -358,7 +407,7 @@ function CVJDManagementPage() {
                           <CheckCircle2 size={14} /> Check tỉ lệ
                         </button>
                       )}
-                      <button className="p-1.5 text-text-secondary hover:text-error transition-colors bg-surface-2 rounded hover:bg-error/10" title="Xóa" onClick={(e) => handleDeleteJD(jd.jdFileId, e)}>
+                      <button className="p-1.5 text-text-secondary hover:text-error transition-colors bg-surface-2 rounded hover:bg-error/10" title="{t('delete', 'Xóa')}" onClick={(e) => handleDeleteJD(jd.jdFileId, e)}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -494,14 +543,29 @@ function CVJDManagementPage() {
                      <p className="text-sm text-text-secondary"><strong className="text-text-primary">Cấp bậc:</strong> {selectedJDParsedData.experienceLevel || 'Không xác định'}</p>
                    </div>
                 </div>
-                <div className="bg-surface-2 p-4 rounded-lg border border-border/50 shadow-sm">
+                <div className="bg-surface-2 p-4 rounded-lg border border-border/50 shadow-sm flex flex-col justify-between">
                    <div className="flex items-center gap-2 mb-2">
                      <CheckCircle2 size={16} className="text-[#4A90E2]" />
                      <h4 className="text-base font-semibold text-text-primary">CV-JD Fast Check</h4>
                    </div>
-                   <p className="text-sm text-text-secondary leading-relaxed">
-                     JD này đã có dữ liệu trích xuất. Hãy chọn JD trong khu vực Fast Check để backend đối chiếu với CV của bạn.
-                   </p>
+                   {fastCheckResults[selectedJDId] ? (
+                     <div className="space-y-2">
+                       <p className="text-sm text-text-secondary">Độ phù hợp: <span className="font-bold text-[#4A90E2]">{fastCheckResults[selectedJDId].suitabilityLevel}</span> ({fastCheckResults[selectedJDId].score}%)</p>
+                       <button onClick={(e) => { e.stopPropagation(); setShowJDInfoModal(false); handleFastCheckClick(selectedJDId, e); }} className="text-xs bg-[#4A90E2]/10 text-[#4A90E2] px-3 py-1.5 rounded font-medium hover:bg-[#4A90E2]/20 transition-colors w-max cursor-pointer">
+                         Xem chi tiết Fast Check
+                       </button>
+                     </div>
+                   ) : (
+                     <div className="space-y-2">
+                       <p className="text-sm text-text-secondary leading-relaxed">
+                         JD này đã có dữ liệu trích xuất. Hãy chạy Fast Check để đối chiếu với CV của bạn.
+                       </p>
+                       <button onClick={(e) => { e.stopPropagation(); handleFastCheckClick(selectedJDId, e); }} disabled={isFastChecking[selectedJDId] || !cvs[0]} className="text-xs bg-[#4A90E2]/10 text-[#4A90E2] px-3 py-1.5 rounded font-medium hover:bg-[#4A90E2]/20 transition-colors flex items-center gap-1.5 w-max disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                         {isFastChecking[selectedJDId] ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                         {isFastChecking[selectedJDId] ? `${t('analyzing', 'Đang phân tích')}...` : 'Chạy Fast Check ngay'}
+                       </button>
+                     </div>
+                   )}
                 </div>
               </div>
 
@@ -510,7 +574,7 @@ function CVJDManagementPage() {
                 <div>
                    <div className="flex items-center gap-2 mb-2">
                      <CheckSquare size={16} className="text-success" />
-                     <h4 className="text-base font-semibold text-text-primary">Kỹ năng yêu cầu (Bắt buộc)</h4>
+                     <h4 className="text-base font-semibold text-text-primary">{t('skills', 'Kỹ năng')} yêu cầu (Bắt buộc)</h4>
                    </div>
                    <div className="flex flex-wrap gap-2">
                      {selectedJDParsedData.requiredSkills?.length > 0 ? (
@@ -526,7 +590,7 @@ function CVJDManagementPage() {
                 <div>
                    <div className="flex items-center gap-2 mb-2">
                      <Star size={16} className="text-warning" />
-                     <h4 className="text-base font-semibold text-text-primary">Kỹ năng ưu tiên (Nice-to-have)</h4>
+                     <h4 className="text-base font-semibold text-text-primary">{t('skills', 'Kỹ năng')} ưu tiên (Nice-to-have)</h4>
                    </div>
                    <div className="flex flex-wrap gap-2">
                      {selectedJDParsedData.niceToHaveSkills?.length > 0 ? (
@@ -562,6 +626,28 @@ function CVJDManagementPage() {
                 </div>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fast Check Result Modal */}
+      {showFastCheckModal && currentFastCheckJD && fastCheckResults[currentFastCheckJD] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-1 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col animate-pageEntrance border border-border">
+            <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
+              <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
+                <div className="p-1.5 bg-primary text-white rounded-md shadow-sm">
+                  <Sparkles size={18} />
+                </div>
+                Kết quả CV-JD Fast Check
+              </h3>
+              <button onClick={() => setShowFastCheckModal(false)} className="p-1 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 bg-surface-1 relative">
+               <FastCheckResult result={fastCheckResults[currentFastCheckJD]} />
             </div>
           </div>
         </div>
