@@ -2,7 +2,7 @@ import React from 'react';
 import { Loader2, Pause, Play, RefreshCw, RotateCcw, Volume2 } from 'lucide-react';
 import { QuestionAudioStatus } from '../../features/technicalInterview/useQuestionAudio';
 
-function QuestionAudioControls({ audio, t }) {
+function QuestionAudioControls({ audio, disabled = false, t }) {
   const isLoading = audio.status === QuestionAudioStatus.IDLE
     || audio.status === QuestionAudioStatus.LOADING;
   const isReady = audio.status === QuestionAudioStatus.READY;
@@ -27,7 +27,7 @@ function QuestionAudioControls({ audio, t }) {
             type="button"
             className="technical-audio__button"
             onClick={audio.isPlaying ? audio.pause : audio.play}
-            disabled={!isReady}
+            disabled={disabled || !isReady}
             aria-label={audio.isPlaying ? t('room.pauseQuestionAudio') : t('room.playQuestionAudio')}
           >
             {audio.isPlaying ? <Pause size={17} aria-hidden="true" /> : <Play size={17} aria-hidden="true" />}
@@ -37,7 +37,7 @@ function QuestionAudioControls({ audio, t }) {
             type="button"
             className="technical-audio__button"
             onClick={audio.replay}
-            disabled={!isReady}
+            disabled={disabled || !isReady}
             aria-label={t('room.replayQuestionAudio')}
           >
             <RotateCcw size={17} aria-hidden="true" />
@@ -49,6 +49,7 @@ function QuestionAudioControls({ audio, t }) {
             role="switch"
             aria-checked={audio.autoPlay}
             onClick={audio.toggleAutoPlay}
+            disabled={disabled}
           >
             {t('room.autoPlayAudio')}: {audio.autoPlay ? t('room.on') : t('room.off')}
           </button>
