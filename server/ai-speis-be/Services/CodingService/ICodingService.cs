@@ -36,5 +36,12 @@ namespace ai_speis_be.Services.CodingService
             int sessionId,
             int questionId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Import Coding Questions từ file Excel.
+        /// </summary>
+        Task<(bool Success, string? ErrorMessage, int ImportedCount)> ImportAdminCodingQuestionsAsync(
+            Microsoft.AspNetCore.Http.IFormFile file,
+            CancellationToken cancellationToken = default);
     }
 }

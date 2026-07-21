@@ -14,8 +14,8 @@ namespace ai_speis_be.Repositories.CodingRepo
         /// <summary>
         /// Lấy danh sách câu hỏi coding theo InterviewSession, kèm Templates và sample TestCases.
         /// </summary>
-        Task<List<CodingQuestion>> GetCodingQuestionsBySessionIdAsync(
-            int sessionId,
+        Task<List<CodingQuestion>> GetCodingQuestionsBySkillsAsync(
+            List<string> skills,
             CancellationToken cancellationToken = default);
 
         /// <summary>

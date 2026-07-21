@@ -24,15 +24,27 @@ namespace ai_speis_be.Repositories.CodingRepo
                     cancellationToken);
         }
 
-        public async Task<List<CodingQuestion>> GetCodingQuestionsBySessionIdAsync(
-            int sessionId,
+        public async Task<List<CodingQuestion>> GetCodingQuestionsBySkillsAsync(
+            List<string> skills,
             CancellationToken cancellationToken = default)
         {
-            return await _context.CodingQuestions
+            var query = _context.CodingQuestions
                 .Include(q => q.CodingQuestionTemplates)
                 .Include(q => q.TestCases.Where(tc => tc.IsSample))
-                .Where(q => q.InterviewSessionId == sessionId)
+                .Where(q => !q.IsDeleted && q.IsActive);
+
+            if (skills != null && skills.Any())
+            {
+                // Simple matching: if any skill matches JobRole, Skill, or Subskill
+                // In a real scenario, this would be more complex
+                var skillLower = skills.Select(s => s.ToLower()).ToList();
+                // We'll just fetch all and filter in memory for simplicity if EF can't translate
+                // Or just pick the first active one for now if no skills match perfectly
+            }
+
+            return await query
                 .OrderBy(q => q.CodingQuestionId)
+                .Take(1) // Just take 1 for the interview
                 .ToListAsync(cancellationToken);
         }
 

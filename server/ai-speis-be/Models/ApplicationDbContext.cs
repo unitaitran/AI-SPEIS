@@ -47,10 +47,10 @@ namespace ai_speis_be.Models
             // Configure soft delete query filters
             modelBuilder.Entity<InterviewCampaign>().HasQueryFilter(c => !c.IsDeleted);
             modelBuilder.Entity<InterviewSession>().HasQueryFilter(s => !s.IsDeleted);
-            modelBuilder.Entity<CodingQuestion>().HasQueryFilter(q => !q.InterviewSession.IsDeleted);
+            modelBuilder.Entity<CodingQuestion>().HasQueryFilter(q => !q.IsDeleted);
             modelBuilder.Entity<CodingSubmission>().HasQueryFilter(sub => !sub.InterviewSession.IsDeleted);
-            modelBuilder.Entity<CodingQuestionTemplate>().HasQueryFilter(t => !t.CodingQuestion.InterviewSession.IsDeleted);
-            modelBuilder.Entity<TestCase>().HasQueryFilter(tc => !tc.CodingQuestion.InterviewSession.IsDeleted);
+            modelBuilder.Entity<CodingQuestionTemplate>().HasQueryFilter(t => !t.CodingQuestion.IsDeleted);
+            modelBuilder.Entity<TestCase>().HasQueryFilter(tc => !tc.CodingQuestion.IsDeleted);
             modelBuilder.Entity<SubmissionTestCaseResult>().HasQueryFilter(r => !r.CodingSubmission.InterviewSession.IsDeleted);
             modelBuilder.Entity<TechnicalQuestionAttempt>().HasQueryFilter(a => !a.InterviewSession.IsDeleted);
             modelBuilder.Entity<TechnicalAnswerEvaluation>().HasQueryFilter(e => !e.Attempt.InterviewSession.IsDeleted);
@@ -239,12 +239,7 @@ namespace ai_speis_be.Models
                 .HasForeignKey(log => log.AttemptId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // CodingQuestion Relationships
-            modelBuilder.Entity<CodingQuestion>()
-                .HasOne(q => q.InterviewSession)
-                .WithMany()
-                .HasForeignKey(q => q.InterviewSessionId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // CodingQuestion Relationships (No longer tied to InterviewSession)
 
             // CodingQuestionTemplate Relationships
             modelBuilder.Entity<CodingQuestionTemplate>()

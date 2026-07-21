@@ -68,7 +68,7 @@ namespace ai_speis_be.Controllers
             int sessionId,
             CancellationToken cancellationToken)
         {
-            if (sessionId <= 0)
+            if (sessionId < 0)
                 return BadRequest(new { Message = "ID phiên phỏng vấn không hợp lệ." });
 
             if (!TryGetUserId(out int userId))
@@ -152,6 +152,28 @@ namespace ai_speis_be.Controllers
                 return StatusCode(StatusCodes.Status503ServiceUnavailable,
                     new { Message = "Không thể kết nối đến Judge0.", Detail = ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Import Coding Questions từ file Excel.
+        /// </summary>
+        [HttpPost("admin/import")]
+        [Authorize(Roles = "admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> ImportAdminCodingQuestions(
+            IFormFile file,
+            CancellationToken cancellationToken)
+        {
+            var (success, errorMessage, importedCount) = await _codingService.ImportAdminCodingQuestionsAsync(
+                file, cancellationToken);
+
+            if (!success)
+                return BadRequest(new { Message = errorMessage });
+
+            return Ok(new { Message = $"Import thành công {importedCount} câu hỏi coding." });
         }
     }
 }

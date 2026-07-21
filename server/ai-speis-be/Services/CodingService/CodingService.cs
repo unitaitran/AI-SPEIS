@@ -10,7 +10,8 @@ using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.CodingRepo;
 using ai_speis_be.Services.Judge0Service;
 using Microsoft.EntityFrameworkCore;
-
+using ai_speis_be.Services.CodingService.Helpers;
+using System.Text.Json;
 namespace ai_speis_be.Services.CodingService
 {
     public class CodingService : ICodingService
@@ -37,21 +38,23 @@ namespace ai_speis_be.Services.CodingService
             SubmitCodeRequestDto request,
             CancellationToken cancellationToken = default)
         {
-            // 1. Validate session thuộc về user và đang Active
-            var session = await _context.InterviewSessions
-                .Include(s => s.InterviewCampaign)
-                .FirstOrDefaultAsync(
-                    s => s.InterviewSessionId == request.InterviewSessionId,
-                    cancellationToken);
+            if (request.InterviewSessionId > 0)
+            {
+                var session = await _context.InterviewSessions
+                    .Include(s => s.InterviewCampaign)
+                    .FirstOrDefaultAsync(
+                        s => s.InterviewSessionId == request.InterviewSessionId,
+                        cancellationToken);
 
-            if (session == null)
-                return (false, "Không tìm thấy phiên phỏng vấn.", null);
+                if (session == null)
+                    return (false, "Không tìm thấy phiên phỏng vấn.", null);
 
-            if (session.InterviewCampaign.UserId != userId)
-                return (false, "Bạn không có quyền truy cập phiên phỏng vấn này.", null);
+                if (session.InterviewCampaign.UserId != userId)
+                    return (false, "Bạn không có quyền truy cập phiên phỏng vấn này.", null);
 
-            if (session.Status != InterviewSessionStatus.Active)
-                return (false, "Phiên phỏng vấn chưa bắt đầu hoặc đã kết thúc.", null);
+                if (session.Status != InterviewSessionStatus.Active)
+                    return (false, "Phiên phỏng vấn chưa bắt đầu hoặc đã kết thúc.", null);
+            }
 
             // 2. Lấy câu hỏi + test cases
             var question = await _repository.GetCodingQuestionWithTestCasesAsync(
@@ -60,8 +63,8 @@ namespace ai_speis_be.Services.CodingService
             if (question == null)
                 return (false, "Không tìm thấy câu hỏi coding.", null);
 
-            if (question.InterviewSessionId != request.InterviewSessionId)
-                return (false, "Câu hỏi không thuộc phiên phỏng vấn này.", null);
+            // if (question.InterviewSessionId != request.InterviewSessionId)
+            //    return (false, "Câu hỏi không thuộc phiên phỏng vấn này.", null);
 
             var testCases = question.TestCases.ToList();
             if (testCases.Count == 0)
@@ -187,13 +190,23 @@ namespace ai_speis_be.Services.CodingService
             submission.Status = overallStatus;
             submission.SubmissionTestCaseResults = testCaseResults;
 
-            // 5. Lưu vào database
-            await _repository.CreateSubmissionAsync(submission, cancellationToken);
-
-            _logger.LogInformation(
-                "Submission {SubmissionId} cho câu hỏi {QuestionId}: {Passed}/{Total} passed — {Status}",
-                submission.CodingSubmissionId, request.CodingQuestionId,
-                passedCount, testCases.Count, overallStatus);
+            // 5. Lưu vào database (bỏ qua nếu là test mode - sessionId = 0)
+            if (request.InterviewSessionId > 0)
+            {
+                await _repository.CreateSubmissionAsync(submission, cancellationToken);
+                _logger.LogInformation(
+                    "Submission {SubmissionId} cho câu hỏi {QuestionId}: {Passed}/{Total} passed — {Status}",
+                    submission.CodingSubmissionId, request.CodingQuestionId,
+                    passedCount, testCases.Count, overallStatus);
+            }
+            else
+            {
+                // Dummy ID cho test mode
+                submission.CodingSubmissionId = 9999;
+                _logger.LogInformation(
+                    "Test Mode Submission cho câu hỏi {QuestionId}: {Passed}/{Total} passed — {Status}",
+                    request.CodingQuestionId, passedCount, testCases.Count, overallStatus);
+            }
 
             // 6. Map sang response DTO
             var responseDto = MapToSubmissionResponseDto(submission, testCases);
@@ -206,21 +219,47 @@ namespace ai_speis_be.Services.CodingService
             int sessionId,
             CancellationToken cancellationToken = default)
         {
-            // Validate session thuộc về user
-            var session = await _context.InterviewSessions
-                .Include(s => s.InterviewCampaign)
-                .FirstOrDefaultAsync(
-                    s => s.InterviewSessionId == sessionId,
-                    cancellationToken);
+            List<CodingQuestion> questions = new List<CodingQuestion>();
 
-            if (session == null)
-                return (false, "Không tìm thấy phiên phỏng vấn.", null);
+            if (sessionId > 0)
+            {
+                // Validate session thuộc về user
+                var session = await _context.InterviewSessions
+                    .Include(s => s.InterviewCampaign)
+                    .FirstOrDefaultAsync(
+                        s => s.InterviewSessionId == sessionId,
+                        cancellationToken);
 
-            if (session.InterviewCampaign.UserId != userId)
-                return (false, "Bạn không có quyền truy cập phiên phỏng vấn này.", null);
+                if (session == null)
+                    return (false, "Không tìm thấy phiên phỏng vấn.", null);
 
-            var questions = await _repository.GetCodingQuestionsBySessionIdAsync(
-                sessionId, cancellationToken);
+                if (session.InterviewCampaign.UserId != userId)
+                    return (false, "Bạn không có quyền truy cập phiên phỏng vấn này.", null);
+
+                // Get skills from JD or CV
+                var skills = new List<string>();
+                if (session.InterviewCampaign.CVExtractedProfileId > 0)
+                {
+                    var cvSkills = await _context.CVSkills
+                        .Where(s => s.ExtractedProfileId == session.InterviewCampaign.CVExtractedProfileId)
+                        .Select(s => s.SkillName)
+                        .ToListAsync(cancellationToken);
+                    skills.AddRange(cvSkills);
+                }
+
+                questions = await _repository.GetCodingQuestionsBySkillsAsync(
+                    skills, cancellationToken);
+            }
+            else
+            {
+                // TEST MODE: SessionId = 0 -> Bypass check, load random questions
+                questions = await _context.CodingQuestions
+                    .Where(q => q.IsActive)
+                    .Include(q => q.CodingQuestionTemplates)
+                    .Include(q => q.TestCases)
+                    .Take(5)
+                    .ToListAsync(cancellationToken);
+            }
 
             var dtos = questions.Select(q => new CodingQuestionResponseDto
             {
@@ -360,6 +399,158 @@ namespace ai_speis_be.Services.CodingService
                     };
                 }).ToList()
             };
+        }
+
+        public async Task<(bool Success, string? ErrorMessage, int ImportedCount)> ImportAdminCodingQuestionsAsync(
+            IFormFile file,
+            CancellationToken cancellationToken = default)
+        {
+            if (file == null || file.Length == 0)
+                return (false, "File tải lên không hợp lệ.", 0);
+
+            var expectedColumns = new[]
+            {
+                "language", "job_role", "skill", "subskill", "difficulty", "experience_level", 
+                "level_tags", "company_category", "company_subcategory", "question_type", 
+                "title", "problem_statement", "input_description", "output_description", 
+                "constraints", "examples", "function_name", "function_parameters", "return_type", 
+                "function_signature", "starter_code", "reference_solution", "public_test_cases", 
+                "hidden_test_cases", "supported_programming_languages", "time_limit_seconds", 
+                "memory_limit_mb", "expected_time_complexity", "expected_space_complexity", 
+                "solution_explanation", "evaluation_criteria", "keywords", "keyword_tags", 
+                "is_active", "embedding_text", "qdrant_payload_json"
+            };
+
+            List<Dictionary<string, string>> rows;
+            try
+            {
+                rows = await CodingExcelParser.ParseExcelAsync(file, expectedColumns, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi parse Excel file coding question.");
+                return (false, $"Lỗi xử lý file Excel: {ex.Message}", 0);
+            }
+
+            int importedCount = 0;
+            var newQuestions = new List<CodingQuestion>();
+
+            foreach (var row in rows)
+            {
+                // Title & Problem Statement are required
+                if (string.IsNullOrWhiteSpace(row.GetValueOrDefault("title")) ||
+                    string.IsNullOrWhiteSpace(row.GetValueOrDefault("problem_statement")))
+                {
+                    continue; // Skip invalid
+                }
+
+                double timeLimit = 2.0;
+                if (double.TryParse(row.GetValueOrDefault("time_limit_seconds"), out var parsedTime))
+                    timeLimit = parsedTime;
+
+                int memoryLimit = 256000;
+                if (int.TryParse(row.GetValueOrDefault("memory_limit_mb"), out var parsedMem))
+                    memoryLimit = parsedMem * 1024; // Excel often in MB, store in KB. Wait, if it's already KB? We assume MB based on column name.
+
+                var q = new CodingQuestion
+                {
+                    Title = row.GetValueOrDefault("title")!,
+                    Description = row.GetValueOrDefault("problem_statement")!,
+                    Language = row.GetValueOrDefault("language"),
+                    JobRole = row.GetValueOrDefault("job_role"),
+                    Skill = row.GetValueOrDefault("skill"),
+                    Subskill = row.GetValueOrDefault("subskill"),
+                    Difficulty = row.GetValueOrDefault("difficulty"),
+                    ExperienceLevel = row.GetValueOrDefault("experience_level"),
+                    LevelTags = row.GetValueOrDefault("level_tags"),
+                    CompanyCategory = row.GetValueOrDefault("company_category"),
+                    CompanySubcategory = row.GetValueOrDefault("company_subcategory"),
+                    QuestionType = "Coding",
+                    InputDescription = row.GetValueOrDefault("input_description"),
+                    OutputDescription = row.GetValueOrDefault("output_description"),
+                    Constraints = row.GetValueOrDefault("constraints"),
+                    Examples = row.GetValueOrDefault("examples"),
+                    FunctionName = row.GetValueOrDefault("function_name"),
+                    FunctionParameters = row.GetValueOrDefault("function_parameters"),
+                    ReturnType = row.GetValueOrDefault("return_type"),
+                    FunctionSignature = row.GetValueOrDefault("function_signature"),
+                    StarterCode = row.GetValueOrDefault("starter_code"),
+                    ReferenceSolution = row.GetValueOrDefault("reference_solution"),
+                    PublicTestCases = row.GetValueOrDefault("public_test_cases"),
+                    HiddenTestCases = row.GetValueOrDefault("hidden_test_cases"),
+                    SupportedProgrammingLanguages = row.GetValueOrDefault("supported_programming_languages"),
+                    TimeLimit = timeLimit,
+                    MemoryLimit = memoryLimit,
+                    ExpectedTimeComplexity = row.GetValueOrDefault("expected_time_complexity"),
+                    ExpectedSpaceComplexity = row.GetValueOrDefault("expected_space_complexity"),
+                    SolutionExplanation = row.GetValueOrDefault("solution_explanation"),
+                    EvaluationCriteria = row.GetValueOrDefault("evaluation_criteria"),
+                    Keywords = row.GetValueOrDefault("keywords"),
+                    KeywordTags = row.GetValueOrDefault("keyword_tags"),
+                    IsActive = string.Equals(row.GetValueOrDefault("is_active"), "TRUE", StringComparison.OrdinalIgnoreCase) || row.GetValueOrDefault("is_active") == "1",
+                    EmbeddingText = row.GetValueOrDefault("embedding_text"),
+                    QdrantPayloadJson = row.GetValueOrDefault("qdrant_payload_json"),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Try parse test cases
+                try {
+                    if (!string.IsNullOrWhiteSpace(q.PublicTestCases)) {
+                        var publicTcList = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(q.PublicTestCases);
+                        if (publicTcList != null) {
+                            foreach (var tc in publicTcList) {
+                                q.TestCases.Add(new TestCase {
+                                    Input = tc.GetValueOrDefault("input", ""),
+                                    ExpectedOutput = tc.GetValueOrDefault("expectedOutput", ""),
+                                    IsSample = true,
+                                    IsHidden = false
+                                });
+                            }
+                        }
+                    }
+                    if (!string.IsNullOrWhiteSpace(q.HiddenTestCases)) {
+                        var hiddenTcList = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(q.HiddenTestCases);
+                        if (hiddenTcList != null) {
+                            foreach (var tc in hiddenTcList) {
+                                q.TestCases.Add(new TestCase {
+                                    Input = tc.GetValueOrDefault("input", ""),
+                                    ExpectedOutput = tc.GetValueOrDefault("expectedOutput", ""),
+                                    IsSample = false,
+                                    IsHidden = true
+                                });
+                            }
+                        }
+                    }
+                } catch { /* Ignored parsing errors */ }
+
+                // Try parse starter code
+                try {
+                    if (!string.IsNullOrWhiteSpace(q.StarterCode)) {
+                        var templates = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(q.StarterCode);
+                        if (templates != null) {
+                            foreach (var t in templates) {
+                                if (int.TryParse(t.GetValueOrDefault("languageId"), out var langId)) {
+                                    q.CodingQuestionTemplates.Add(new CodingQuestionTemplate {
+                                        LanguageId = langId,
+                                        TemplateCode = t.GetValueOrDefault("templateCode", "")
+                                    });
+                                }
+                            }
+                        }
+                    }
+                } catch { /* Ignored parsing errors */ }
+
+                newQuestions.Add(q);
+            }
+
+            if (newQuestions.Count > 0)
+            {
+                await _context.CodingQuestions.AddRangeAsync(newQuestions, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
+                importedCount = newQuestions.Count;
+            }
+
+            return (true, null, importedCount);
         }
     }
 }

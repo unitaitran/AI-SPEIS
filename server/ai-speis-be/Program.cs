@@ -24,11 +24,9 @@ using ai_speis_be.Repositories.InterviewCampaignRepo;
 using ai_speis_be.Services.InterviewSessionService;
 using ai_speis_be.Services.SpeechToTextService;
 using ai_speis_be.Services.TextToSpeechService;
-<<<<<<< HEAD
 using ai_speis_be.Repositories.CodingRepo;
 using ai_speis_be.Services.CodingService;
 using ai_speis_be.Services.Judge0Service;
-=======
 using ai_speis_be.Repositories.PaymentRepo;
 using ai_speis_be.Services.PaymentService;
 using ai_speis_be.BehaviouralInterviews.AI;
@@ -48,7 +46,6 @@ using ai_speis_be.TechnicalInterviews.Selection;
 using ai_speis_be.TechnicalInterviews.Validation;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
->>>>>>> dev
 
 LoadEnvFile();
 
@@ -169,7 +166,6 @@ builder.Services.AddScoped<ISavedQuestionService, SavedQuestionService>();
 builder.Services.AddScoped<IInterviewCampaignRepository, InterviewCampaignRepository>();
 builder.Services.AddScoped<IInterviewSessionService, InterviewSessionService>();
 
-<<<<<<< HEAD
 // Register Judge0 Code Execution
 builder.Services.AddHttpClient("Judge0", client =>
 {
@@ -180,7 +176,6 @@ builder.Services.AddHttpClient("Judge0", client =>
 builder.Services.AddScoped<IJudge0Service, Judge0Service>();
 builder.Services.AddScoped<ICodingRepository, CodingRepository>();
 builder.Services.AddScoped<ICodingService, CodingService>();
-=======
 // Register Behavioural Interview Components
 var behaviouralOptions = new BehaviouralInterviewOptions();
 builder.Configuration.GetSection(BehaviouralInterviewOptions.SectionName).Bind(behaviouralOptions);
@@ -218,7 +213,6 @@ builder.Services.AddScoped<ITechnicalAnswerParallelProcessor, TechnicalAnswerPar
 builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
->>>>>>> dev
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
