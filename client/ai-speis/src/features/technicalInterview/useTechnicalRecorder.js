@@ -30,6 +30,30 @@ export default function useTechnicalRecorder(language = 'vi') {
   const startInFlightRef = useRef(false);
   const requestIdRef = useRef(0);
 
+  const transcribe = useCallback(async (blob, requestId = requestIdRef.current) => {
+    setSttError(null);
+    setRecordingStatus(RecordingStatus.PROCESSING);
+    setSttStatus(SttStatus.PROCESSING);
+    try {
+      const response = await audioService.checkSpeechToText(
+        blob,
+        language === 'en' ? 'en-US' : 'vi-VN',
+      );
+      if (!mountedRef.current || requestIdRef.current !== requestId) return null;
+      setTranscript(response?.transcript || '');
+      setAudioId(response?.audioId || null);
+      setSttStatus(SttStatus.COMPLETED);
+      setRecordingStatus(RecordingStatus.READY);
+      return response;
+    } catch (error) {
+      if (!mountedRef.current || requestIdRef.current !== requestId) return null;
+      setSttError(error);
+      setSttStatus(SttStatus.FAILED);
+      setRecordingStatus(RecordingStatus.ERROR);
+      throw error;
+    }
+  }, [language]);
+
   const clearTimer = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = null;
@@ -111,24 +135,9 @@ export default function useTechnicalRecorder(language = 'vi') {
 
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         setAudioBlob(blob);
-        setRecordingStatus(RecordingStatus.PROCESSING);
-        setSttStatus(SttStatus.PROCESSING);
         try {
-          const response = await audioService.checkSpeechToText(
-            blob,
-            language === 'en' ? 'en-US' : 'vi-VN',
-          );
-          if (!mountedRef.current || requestIdRef.current !== requestId) return;
-          setTranscript(response?.transcript || '');
-          setAudioId(response?.audioId || null);
-          setSttStatus(SttStatus.COMPLETED);
-          setRecordingStatus(RecordingStatus.READY);
-        } catch (error) {
-          if (!mountedRef.current || requestIdRef.current !== requestId) return;
-          setSttError(error);
-          setSttStatus(SttStatus.FAILED);
-          setRecordingStatus(RecordingStatus.ERROR);
-        }
+          await transcribe(blob, requestId);
+        } catch { /* The retained audio can be transcribed again. */ }
       };
 
       recorder.start(250);
@@ -144,7 +153,7 @@ export default function useTechnicalRecorder(language = 'vi') {
     } finally {
       startInFlightRef.current = false;
     }
-  }, [cleanupMedia, clearTimer, language]);
+  }, [cleanupMedia, clearTimer, transcribe]);
 
   const stopRecording = useCallback(() => {
     const recorder = recorderRef.current;
@@ -174,6 +183,13 @@ export default function useTechnicalRecorder(language = 'vi') {
     ));
   }, [cleanupMedia, transcript]);
 
+  const retryTranscription = useCallback(async () => {
+    if (!audioBlob || sttStatus === SttStatus.PROCESSING) return null;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    return transcribe(audioBlob, requestId);
+  }, [audioBlob, sttStatus, transcribe]);
+
   return {
     recordingStatus,
     audioBlob,
@@ -186,6 +202,7 @@ export default function useTechnicalRecorder(language = 'vi') {
     elapsedSeconds,
     startRecording,
     stopRecording,
+    retryTranscription,
     setTranscript,
     stopForSubmission,
     reset,
