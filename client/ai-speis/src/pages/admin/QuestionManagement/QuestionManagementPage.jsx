@@ -14,6 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { questionService } from '../../../services/QuestionService';
+import { codingService } from '../../../services/codingService';
 import notify from '../../../utils/notification';
 import '../../../styles/admin/QuestionManagementPage.css';
 
@@ -59,6 +60,7 @@ function QuestionManagementPage() {
   });
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportCodingModalOpen, setIsImportCodingModalOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importing, setImporting] = useState(false);
 
@@ -206,6 +208,12 @@ function QuestionManagementPage() {
     setIsImportModalOpen(false);
     setImportFile(null);
   };
+  
+  const openImportCodingModal = () => setIsImportCodingModalOpen(true);
+  const closeImportCodingModal = () => {
+    setIsImportCodingModalOpen(false);
+    setImportFile(null);
+  };
 
   const handleImportFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -228,6 +236,20 @@ function QuestionManagementPage() {
       fetchQuestions();
     } catch (err) {
       notify.error(err.message || 'Failed to import questions');
+    } finally {
+      setImporting(false);
+    }
+  };
+  
+  const confirmImportCoding = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    try {
+      await codingService.importCodingQuestions(importFile);
+      notify.success(t('importSuccess', 'Imported coding questions successfully!'));
+      closeImportCodingModal();
+    } catch (err) {
+      notify.error(err.message || 'Failed to import coding questions');
     } finally {
       setImporting(false);
     }
@@ -298,6 +320,10 @@ function QuestionManagementPage() {
           </div>
 
           <div className="page-actions">
+            <button type="button" className="btn-secondary" onClick={openImportCodingModal}>
+              <FileInput size={16} />
+              {t('importCodingExcel', 'Import Coding')}
+            </button>
             <button type="button" className="btn-secondary" onClick={openImportModal}>
               <FileInput size={16} />
               {t('importExcel', 'Import Excel')}
@@ -707,6 +733,32 @@ function QuestionManagementPage() {
                 {t('cancel', 'Cancel')}
               </button>
               <button type="button" className="btn-primary" onClick={confirmImport} disabled={!importFile || importing}>
+                {importing ? t('importing', 'Importing...') : t('import', 'Import')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Import Coding Modal */}
+      {isImportCodingModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3 className="modal-title">{t('importCodingTitle', 'Import Coding Questions')}</h3>
+              <button type="button" className="btn-close" onClick={closeImportCodingModal} disabled={importing}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>{t('importCodingDesc', 'Upload an Excel file to bulk import coding questions.')}</p>
+              <input type="file" accept=".xlsx, .xls" onChange={handleImportFileChange} />
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={closeImportCodingModal} disabled={importing}>
+                {t('cancel', 'Cancel')}
+              </button>
+              <button type="button" className="btn-primary" onClick={confirmImportCoding} disabled={!importFile || importing}>
                 {importing ? t('importing', 'Importing...') : t('import', 'Import')}
               </button>
             </div>

@@ -24,6 +24,9 @@ using ai_speis_be.Repositories.InterviewCampaignRepo;
 using ai_speis_be.Services.InterviewSessionService;
 using ai_speis_be.Services.SpeechToTextService;
 using ai_speis_be.Services.TextToSpeechService;
+using ai_speis_be.Repositories.CodingRepo;
+using ai_speis_be.Services.CodingService;
+using ai_speis_be.Services.Judge0Service;
 using ai_speis_be.Repositories.PaymentRepo;
 using ai_speis_be.Services.PaymentService;
 using ai_speis_be.BehaviouralInterviews.AI;
@@ -163,6 +166,16 @@ builder.Services.AddScoped<ISavedQuestionService, SavedQuestionService>();
 builder.Services.AddScoped<IInterviewCampaignRepository, InterviewCampaignRepository>();
 builder.Services.AddScoped<IInterviewSessionService, InterviewSessionService>();
 
+// Register Judge0 Code Execution
+builder.Services.AddHttpClient("Judge0", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Judge0:BaseUrl"] ?? "http://localhost:2358");
+    var timeoutSeconds = int.TryParse(builder.Configuration["Judge0:TimeoutSeconds"], out var t) ? t : 30;
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+});
+builder.Services.AddScoped<IJudge0Service, Judge0Service>();
+builder.Services.AddScoped<ICodingRepository, CodingRepository>();
+builder.Services.AddScoped<ICodingService, CodingService>();
 // Register Behavioural Interview Components
 var behaviouralOptions = new BehaviouralInterviewOptions();
 builder.Configuration.GetSection(BehaviouralInterviewOptions.SectionName).Bind(behaviouralOptions);
