@@ -8,6 +8,7 @@ import QuestionsPage from '../pages/user/QuestionsPage';
 import DeviceReadinessCheckPage from '../pages/user/DeviceReadinessCheckPage';
 import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
 import TechnicalInterviewResultPage from '../pages/user/TechnicalInterviewResultPage';
+import CodingInterviewPage from '../pages/user/CodingInterview/CodingInterviewPage';
 import ProfilePage from '../pages/user/ProfilePage';
 import InterviewSetupPage from '../pages/user/InterviewSetupPage';
 import InterviewModePage from '../pages/user/InterviewModePage';
@@ -17,6 +18,8 @@ import PaymentResultPage from '../pages/user/PaymentResultPage';
 function UserRoutes({ pathname }) {
   const isInterviewRoomRoute = pathname === USER_ROUTES.INTERVIEW_ROOM
     || pathname.startsWith(`${USER_ROUTES.INTERVIEW_ROOM}/`);
+  const isCodingInterviewRoomRoute = pathname === USER_ROUTES.CODING_INTERVIEW_ROOM
+    || pathname.startsWith(`${USER_ROUTES.CODING_INTERVIEW_ROOM}/`);
   const isInterviewResultRoute = pathname === USER_ROUTES.INTERVIEW_RESULT
     || pathname.startsWith(`${USER_ROUTES.INTERVIEW_RESULT}/`);
   const getRouteId = (basePath) => {
@@ -36,6 +39,7 @@ function UserRoutes({ pathname }) {
     pathname === USER_ROUTES.INTERVIEW_SETUP ||
     pathname === USER_ROUTES.DEVICE_CHECK ||
     isInterviewRoomRoute ||
+    isCodingInterviewRoomRoute ||
     isInterviewResultRoute ||
     pathname === USER_ROUTES.PAYMENT_RESULT;
 
@@ -83,6 +87,10 @@ function UserRoutes({ pathname }) {
 
   if (isInterviewRoomRoute) {
     return <AIInterviewRoomPage sessionId={getRouteId(USER_ROUTES.INTERVIEW_ROOM)} />;
+  }
+  
+  if (isCodingInterviewRoomRoute) {
+    return <CodingInterviewPage sessionId={getRouteId(USER_ROUTES.CODING_INTERVIEW_ROOM)} />;
   }
 
   if (isInterviewResultRoute) {
