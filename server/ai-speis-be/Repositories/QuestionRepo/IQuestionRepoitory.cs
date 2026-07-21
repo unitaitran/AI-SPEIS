@@ -27,6 +27,16 @@ namespace ai_speis_be.Repositories.QuestionRepo
             Question question,
             CancellationToken cancellationToken = default);
         Task<QuestionFiltersDto> GetQuestionFiltersAsync(CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<Question>> GetTechnicalCandidatesAsync(
+            TechnicalQuestionCandidateQuery query,
+            CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<Question>> GetActiveTechnicalQuestionsByIdsAsync(
+            IReadOnlyCollection<int> questionIds,
+            CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<string>> GetTechnicalSkillsAsync(
+            string language,
+            IReadOnlyCollection<string> roleTargets,
+            CancellationToken cancellationToken = default);
 
         Task<IReadOnlyList<Question>> GetBehaviouralCandidatesAsync(
             BehaviouralQuestionCandidateQuery query,

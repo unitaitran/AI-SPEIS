@@ -12,15 +12,23 @@ namespace ai_speis_be.Controllers
     [ApiController]
     public class AudioController : ControllerBase
     {
+        private const int MaxTextLength = 5000;
+        private const int DefaultTimeoutSeconds = 20;
         private readonly ISpeechToTextService _speechToTextService;
         private readonly ITextToSpeechService _textToSpeechService;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<AudioController> _logger;
 
         public AudioController(
             ISpeechToTextService speechToTextService,
-            ITextToSpeechService textToSpeechService)
+            ITextToSpeechService textToSpeechService,
+            IConfiguration configuration,
+            ILogger<AudioController> logger)
         {
             _speechToTextService = speechToTextService;
             _textToSpeechService = textToSpeechService;
+            _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpPost("speech-to-text")]
@@ -49,21 +57,68 @@ namespace ai_speis_be.Controllers
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(request?.Text))
-                return BadRequest(new { Message = "Text is required." });
+                return BadRequest(new { Code = "TTS_TEXT_REQUIRED", Message = "Text is required." });
+            if (request.Text.Trim().Length > MaxTextLength)
+                return BadRequest(new
+                {
+                    Code = "TTS_TEXT_TOO_LONG",
+                    Message = $"Text cannot exceed {MaxTextLength} characters."
+                });
 
+            using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutSource.CancelAfter(TimeSpan.FromSeconds(GetTimeoutSeconds()));
             try
             {
-                var audioBytes = await _textToSpeechService.SynthesizeSpeechAsync(request, cancellationToken);
+                var audioBytes = await _textToSpeechService.SynthesizeSpeechAsync(request, timeoutSource.Token);
 
                 if (audioBytes == null || audioBytes.Length == 0)
-                    return BadRequest(new { Message = "Could not synthesize speech from the provided text." });
+                {
+                    return StatusCode(StatusCodes.Status502BadGateway, new
+                    {
+                        Code = "TTS_GENERATION_FAILED",
+                        Message = "Could not synthesize speech from the provided text."
+                    });
+                }
 
                 return File(audioBytes, "audio/mpeg");
             }
-            catch (System.Exception ex)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return StatusCode(500, new { Message = "Error synthesizing speech: " + ex.Message });
+                return StatusCode(StatusCodes.Status504GatewayTimeout, new
+                {
+                    Code = "TTS_GENERATION_TIMEOUT",
+                    Message = "Speech synthesis timed out."
+                });
             }
+            catch (OperationCanceledException)
+            {
+                return StatusCode(499, new
+                {
+                    Code = "TTS_REQUEST_CANCELLED",
+                    Message = "Speech synthesis was cancelled."
+                });
+            }
+            catch (System.Exception)
+            {
+                _logger.LogWarning(
+                    "Text-to-speech generation failed for session {SessionId}, question {QuestionId}, attempt {AttemptId}.",
+                    request.SessionId,
+                    request.QuestionId,
+                    request.AttemptId);
+                return StatusCode(StatusCodes.Status502BadGateway, new
+                {
+                    Code = "TTS_GENERATION_FAILED",
+                    Message = "Unable to generate question audio."
+                });
+            }
+        }
+
+        private int GetTimeoutSeconds()
+        {
+            var configured = _configuration["TTS_TIMEOUT_SECONDS"];
+            return int.TryParse(configured, out var seconds) && seconds is >= 1 and <= 120
+                ? seconds
+                : DefaultTimeoutSeconds;
         }
     }
 }

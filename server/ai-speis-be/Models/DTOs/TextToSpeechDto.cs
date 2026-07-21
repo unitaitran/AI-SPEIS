@@ -19,5 +19,13 @@ namespace ai_speis_be.Models.DTOs
 
         [Range(-20.0, 20.0, ErrorMessage = "Pitch must be between -20.0 and 20.0.")]
         public double Pitch { get; set; } = 0.0;
+
+        [Range(1, int.MaxValue, ErrorMessage = "SessionId must be positive.")]
+        public int? SessionId { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "QuestionId must be positive.")]
+        public int? QuestionId { get; set; }
+
+        public Guid? AttemptId { get; set; }
     }
 }

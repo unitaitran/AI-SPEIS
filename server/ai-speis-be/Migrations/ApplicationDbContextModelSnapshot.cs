@@ -22,6 +22,84 @@ namespace ai_speis_be.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ai_speis_be.Models.AIInteractionLog", b =>
+                {
+                    b.Property<Guid>("AIInteractionLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AttemptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("EstimatedCost")
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<bool>("FallbackUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("InputTokenCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InterviewSessionId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("LatencyMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("OperationType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("OutputTokenCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PromptVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RubricVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.HasKey("AIInteractionLogId");
+
+                    b.HasIndex("AttemptId");
+
+                    b.HasIndex("InterviewSessionId", "CreatedAt");
+
+                    b.ToTable("AIInteractionLog");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.BehaviourAnswer", b =>
                 {
                     b.Property<int>("BehaviourAnswerId")
@@ -641,6 +719,90 @@ namespace ai_speis_be.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<string>("TechnicalAdaptiveRuleVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("TechnicalAiModel")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("TechnicalAiProvider")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TechnicalBonusCalculationVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("TechnicalCompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("TechnicalCompletedMainQuestionCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TechnicalConcurrencyVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<string>("TechnicalExperienceLevel")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("TechnicalFinalScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("TechnicalJobRole")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("TechnicalLanguage")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int?>("TechnicalMatchBand")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TechnicalMatchScoreSnapshot")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TechnicalPerformanceBand")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("TechnicalPlannedCvQuestionCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TechnicalPlannedJdQuestionCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TechnicalQuestionPlanJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TechnicalQuestionPlanVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("TechnicalRubricVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TechnicalScoringPolicyVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TechnicalSelectedSkillsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("TechnicalStartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("TechnicalState")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TechnicalSummaryJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -1038,6 +1200,304 @@ namespace ai_speis_be.Migrations
                     b.ToTable("SubmissionTestCaseResult");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.TechnicalAnswerEvaluation", b =>
+                {
+                    b.Property<Guid>("EvaluationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("AiSuggestedAction")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("AiSuggestedOverallScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("BackendResolvedAction")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Confidence")
+                        .HasColumnType("decimal(5,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Decision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DimensionEvaluationsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("FeedbackFallbackUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("FeedbackModelName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("FeedbackPromptVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("FeedbackSummary")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("FinalOverallScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("ImprovementSuggestionsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IncorrectClaimsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsFinalForMainQuestion")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MissingPointsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("OverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PromptVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid>("RootMainAttemptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RubricVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ScoringBreakdownJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ScoringPolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("StrengthsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("EvaluationId");
+
+                    b.HasIndex("AttemptId")
+                        .IsUnique();
+
+                    b.HasIndex("RootMainAttemptId")
+                        .IsUnique()
+                        .HasFilter("[IsFinalForMainQuestion] = 1");
+
+                    b.ToTable("TechnicalAnswerEvaluation");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.TechnicalQuestionAttempt", b =>
+                {
+                    b.Property<Guid>("AttemptId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("AdaptiveStage")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AnswerTranscript")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("AnsweredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("AppliedBonus")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("AudioId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("BonusCalculationVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CompletedClarificationCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompletedFollowUpCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("CriticalPathLatencyMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("CumulativeFollowUpBonus")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int?>("DifficultySnapshot")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EvaluationFallbackUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("EvaluationObjective")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EvaluationTaskStatus")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("FeedbackFallbackUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("FeedbackTaskStatus")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("FinalMainScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int?>("GenerationReason")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("InitialMainScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("InterviewSessionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MainQuestionIndex")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("ParallelLatencySavingMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("ParentAttemptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("PlanDeviation")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PlanDeviationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ProcessingCompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ProcessingStartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("QuestionContentSnapshot")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("QuestionFallbackUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("QuestionGenerationTaskStatus")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("QuestionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("RawScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("RequiredClarificationCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RequiredFollowUpCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("RootMainAttemptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SequenceWithinMain")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("SequentialEstimatedLatencyMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SkillSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("SourceType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SubmissionIdempotencyKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("SubskillSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("TargetSkillSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("TargetSubskillSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long?>("TotalProcessingLatencyMs")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("AttemptId");
+
+                    b.HasIndex("ParentAttemptId");
+
+                    b.HasIndex("QuestionId");
+
+                    b.HasIndex("InterviewSessionId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("InterviewSessionId", "Status")
+                        .IsUnique()
+                        .HasFilter("[Status] = 0");
+
+                    b.HasIndex("InterviewSessionId", "SubmissionIdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[SubmissionIdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("RootMainAttemptId", "QuestionType", "SequenceWithinMain")
+                        .IsUnique();
+
+                    b.ToTable("TechnicalQuestionAttempt");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.TestCase", b =>
                 {
                     b.Property<int>("TestCaseId")
@@ -1202,6 +1662,24 @@ namespace ai_speis_be.Migrations
                         .IsUnique();
 
                     b.ToTable("UserProfile");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.AIInteractionLog", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.TechnicalQuestionAttempt", "Attempt")
+                        .WithMany()
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ai_speis_be.Models.InterviewSession", "InterviewSession")
+                        .WithMany("AIInteractionLogs")
+                        .HasForeignKey("InterviewSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Attempt");
+
+                    b.Navigation("InterviewSession");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.BehaviourAnswer", b =>
@@ -1481,6 +1959,42 @@ namespace ai_speis_be.Migrations
                     b.Navigation("TestCase");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.TechnicalAnswerEvaluation", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.TechnicalQuestionAttempt", "Attempt")
+                        .WithMany("Evaluations")
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Attempt");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.TechnicalQuestionAttempt", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.InterviewSession", "InterviewSession")
+                        .WithMany("TechnicalQuestionAttempts")
+                        .HasForeignKey("InterviewSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ai_speis_be.Models.TechnicalQuestionAttempt", "ParentAttempt")
+                        .WithMany("ChildAttempts")
+                        .HasForeignKey("ParentAttemptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ai_speis_be.Models.Question", "Question")
+                        .WithMany()
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("InterviewSession");
+
+                    b.Navigation("ParentAttempt");
+
+                    b.Navigation("Question");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.TestCase", b =>
                 {
                     b.HasOne("ai_speis_be.Models.CodingQuestion", "CodingQuestion")
@@ -1548,6 +2062,20 @@ namespace ai_speis_be.Migrations
             modelBuilder.Entity("ai_speis_be.Models.InterviewCampaign", b =>
                 {
                     b.Navigation("InterviewSessions");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.InterviewSession", b =>
+                {
+                    b.Navigation("AIInteractionLogs");
+
+                    b.Navigation("TechnicalQuestionAttempts");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.TechnicalQuestionAttempt", b =>
+                {
+                    b.Navigation("ChildAttempts");
+
+                    b.Navigation("Evaluations");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.TestCase", b =>

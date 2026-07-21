@@ -6,7 +6,8 @@ import MyCVPage from '../pages/user/MyCVPage';
 import CVJDManagementPage from '../pages/user/CVJDManagementPage';
 import QuestionsPage from '../pages/user/QuestionsPage';
 import DeviceReadinessCheckPage from '../pages/user/DeviceReadinessCheckPage';
-import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
+import TechnicalInterviewPage from '../pages/user/TechnicalInterviewPage';
+import TechnicalInterviewResultPage from '../pages/user/TechnicalInterviewResultPage';
 import ProfilePage from '../pages/user/ProfilePage';
 import InterviewSetupPage from '../pages/user/InterviewSetupPage';
 import InterviewModePage from '../pages/user/InterviewModePage';
@@ -14,6 +15,15 @@ import PackagesPage from '../pages/user/PackagesPage';
 import PaymentResultPage from '../pages/user/PaymentResultPage';
 
 function UserRoutes({ pathname }) {
+  const isInterviewRoomRoute = pathname === USER_ROUTES.INTERVIEW_ROOM
+    || pathname.startsWith(`${USER_ROUTES.INTERVIEW_ROOM}/`);
+  const isInterviewResultRoute = pathname === USER_ROUTES.INTERVIEW_RESULT
+    || pathname.startsWith(`${USER_ROUTES.INTERVIEW_RESULT}/`);
+  const getRouteId = (basePath) => {
+    if (!pathname.startsWith(`${basePath}/`)) return null;
+    const routeId = pathname.slice(basePath.length + 1).split('/')[0];
+    return routeId ? decodeURIComponent(routeId) : null;
+  };
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
   const isProfileRoute = pathname === USER_ROUTES.PROFILE;
   const isKnownRoute =
@@ -25,7 +35,8 @@ function UserRoutes({ pathname }) {
     pathname === USER_ROUTES.INTERVIEW_MODE ||
     pathname === USER_ROUTES.INTERVIEW_SETUP ||
     pathname === USER_ROUTES.DEVICE_CHECK ||
-    pathname === USER_ROUTES.INTERVIEW_ROOM ||
+    isInterviewRoomRoute ||
+    isInterviewResultRoute ||
     pathname === USER_ROUTES.PAYMENT_RESULT;
 
   useEffect(() => {
@@ -70,8 +81,12 @@ function UserRoutes({ pathname }) {
     return <DeviceReadinessCheckPage />;
   }
 
-  if (pathname === USER_ROUTES.INTERVIEW_ROOM) {
-    return <AIInterviewRoomPage />;
+  if (isInterviewRoomRoute) {
+    return <TechnicalInterviewPage sessionId={getRouteId(USER_ROUTES.INTERVIEW_ROOM)} />;
+  }
+
+  if (isInterviewResultRoute) {
+    return <TechnicalInterviewResultPage sessionId={getRouteId(USER_ROUTES.INTERVIEW_RESULT)} />;
   }
 
   return isKnownRoute ? <DashboardPage /> : null;
