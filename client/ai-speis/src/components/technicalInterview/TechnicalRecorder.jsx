@@ -43,8 +43,12 @@ function TechnicalRecorder({ recorder, disabled, t }) {
         disabled={disabled || isProcessing || isRequestingPermission}
         aria-label={isRecording ? t('room.stopRecording') : t('room.startRecording')}
       >
-        {isRecording ? <Square size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
-        {isRecording ? t('room.stopRecording') : t('room.startRecording')}
+        <span className="technical-recorder-button__icon" aria-hidden="true">
+          {isRecording ? <Square size={22} /> : <Mic size={24} />}
+        </span>
+        <span className="technical-recorder-button__label">
+          {isRecording ? t('room.stopRecording') : t('room.startRecording')}
+        </span>
       </button>
     </div>
   );

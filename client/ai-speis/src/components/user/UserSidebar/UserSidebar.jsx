@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, FileText, Clock, Package, Lock, Database } from 'lucide-react';
+import { LayoutDashboard, FileText, Clock, Package, Lock, Database, Plus } from 'lucide-react';
 import { navigate, NAVIGATION_EVENT } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import notify from '../../../utils/notification';
@@ -29,7 +29,7 @@ const MENU_GROUPS = [
   }
 ];
 
-function UserSidebar({ isOpen, onNavigate }) {
+function UserSidebar({ isOpen, collapsed = false, onNavigate }) {
   const { t } = useTranslation('dashboard');
   const [currentPathname, setCurrentPathname] = React.useState(window.location.pathname);
 
@@ -84,23 +84,27 @@ function UserSidebar({ isOpen, onNavigate }) {
   };
 
   return (
-    <aside className={`fixed top-0 left-0 h-full w-[240px] bg-surface-2 border-r border-border flex flex-col z-20 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} aria-label="User navigation">
+    <aside
+      className={`fixed top-0 left-0 h-full w-[240px] ${collapsed ? 'lg:w-[72px]' : 'lg:w-[240px]'} bg-surface-2 border-r border-border flex flex-col z-20 transition-[width,transform] duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+      aria-label="User navigation"
+      data-sidebar-collapsed={collapsed ? 'true' : 'false'}
+    >
       {/* Logo Area */}
-      <div className="h-[85px] flex items-center px-6 border-b border-border shrink-0 justify-center">
+      <div className={`h-[85px] flex items-center border-b border-border shrink-0 justify-center ${collapsed ? 'lg:px-2' : 'px-6'}`}>
         <img
           src="/logo_AI-SPEIS-removebg.png"
           alt="AI-SPEIS"
           style={{ height: '5.4rem' }}
-          className="max-w-full object-contain"
+          className={`max-w-full object-contain ${collapsed ? 'lg:w-14' : ''}`}
         />
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 overflow-y-auto py-6 px-4 flex flex-col">
+      <nav className={`flex-1 overflow-y-auto py-6 px-4 flex flex-col ${collapsed ? 'lg:px-2' : ''}`}>
         <div className="space-y-6">
           {MENU_GROUPS.map((group, idx) => (
             <div key={idx}>
-              <p className="text-xs font-semibold text-text-disabled mb-2 px-2 uppercase tracking-wider">{getGroupLabel(group)}</p>
+              <p className={`text-xs font-semibold text-text-disabled mb-2 px-2 uppercase tracking-wider ${collapsed ? 'lg:sr-only' : ''}`}>{getGroupLabel(group)}</p>
               <ul className="space-y-1">
                 {group.items.map((item) => {
                   const isActive = currentPathname === item.path;
@@ -109,10 +113,12 @@ function UserSidebar({ isOpen, onNavigate }) {
                       <a
                         href={item.path}
                         onClick={(e) => handleMenuClick(e, item.path)}
-                        className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all duration-300 relative group overflow-hidden ${isActive
+                        className={`flex items-center px-3 py-2.5 rounded-md text-sm transition-all duration-300 relative group overflow-hidden ${collapsed ? 'lg:justify-center lg:px-2' : ''} ${isActive
                           ? 'text-primary-dark font-bold shadow-sm'
                           : 'text-text-secondary hover:text-primary-dark'
                           }`}
+                        aria-label={collapsed ? getItemLabel(item) : undefined}
+                        title={collapsed ? getItemLabel(item) : undefined}
                       >
                         {/* Smooth active background fade */}
                         <div className={`absolute inset-0 bg-gradient-to-r from-primary-light to-primary-xlight transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-30'}`} />
@@ -122,9 +128,9 @@ function UserSidebar({ isOpen, onNavigate }) {
 
                         <item.icon
                           size={20}
-                          className={`mr-3 relative z-10 transition-colors duration-300 ${isActive ? 'text-primary-dark' : 'text-text-secondary group-hover:text-primary-dark'}`}
+                          className={`${collapsed ? 'lg:mr-0' : 'mr-3'} relative z-10 transition-colors duration-300 ${isActive ? 'text-primary-dark' : 'text-text-secondary group-hover:text-primary-dark'}`}
                         />
-                        <span className="relative z-10 transition-transform duration-300 group-hover:translate-x-0.5">
+                        <span className={`relative z-10 transition-transform duration-300 group-hover:translate-x-0.5 ${collapsed ? 'lg:sr-only' : ''}`}>
                           {getItemLabel(item)}
                         </span>
                       </a>
@@ -137,7 +143,7 @@ function UserSidebar({ isOpen, onNavigate }) {
         </div>
 
         {/* Pro Upgrade Banner */}
-        <div className="mt-8">
+        <div className={`mt-8 ${collapsed ? 'lg:hidden' : ''}`}>
           <div className="bg-surface-1 border border-border rounded-xl p-4 text-center">
             <div className="flex justify-center mb-2">
               <Lock size={20} className="text-primary-dark" />
@@ -158,16 +164,19 @@ function UserSidebar({ isOpen, onNavigate }) {
       </nav>
 
       {/* Start Interview Button */}
-      <div className="p-4 shrink-0 bg-surface-2 border-t border-border">
+      <div className={`p-4 shrink-0 bg-surface-2 border-t border-border ${collapsed ? 'lg:p-2' : ''}`}>
         <button
-          className="w-full bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-sm font-semibold py-3 px-4 rounded transition-all shadow-sm cursor-pointer"
+          className={`w-full bg-primary hover:bg-primary-dark text-white text-sm font-semibold py-3 px-4 rounded transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2 ${collapsed ? 'lg:px-2' : ''}`}
             onClick={() => {
               beginNewInterviewCampaign();
               navigate(USER_ROUTES.INTERVIEW_MODE);
             if (onNavigate) onNavigate();
           }}
         >
-          {t('sidebar.start_interview', 'Bắt đầu phỏng vấn')}
+          {collapsed && <Plus size={20} aria-hidden="true" />}
+          <span className={collapsed ? 'lg:sr-only' : ''}>
+            {t('sidebar.start_interview', 'Bắt đầu phỏng vấn')}
+          </span>
         </button>
       </div>
     </aside>

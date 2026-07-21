@@ -1,10 +1,11 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import TechnicalQuestionPanel from './TechnicalQuestionPanel';
 import TechnicalInterviewProgress from './TechnicalInterviewProgress';
 import TechnicalQuestionBreakdown from './TechnicalQuestionBreakdown';
 import TechnicalRubricBreakdown from './TechnicalRubricBreakdown';
 import TechnicalTranscriptEditor from './TechnicalTranscriptEditor';
+import TechnicalTranscriptPanel from './TechnicalTranscriptPanel';
 
 const t = (key, options = {}) => {
   const labels = {
@@ -24,6 +25,13 @@ const t = (key, options = {}) => {
     'room.transcriptPlaceholder': 'Answer here',
     'room.transcriptHelper': 'Editable transcript',
     'room.transcriptReadOnly': 'Read-only transcript',
+    'room.transcriptPanelTitle': 'Interview Transcript',
+    'room.transcriptPanelDescription': 'Live interview transcript',
+    'room.closeTranscript': 'Close transcript',
+    'room.transcriptInterviewer': 'Interviewer',
+    'room.transcriptCandidate': 'Candidate',
+    'room.transcriptEmpty': 'No transcript yet',
+    'room.transcriptStatuses.DRAFT': 'Draft',
     'result.rubricEyebrow': 'Rubric detail',
     'result.rubricDimensions': 'Rubric dimensions',
     'result.notAvailable': 'N/A',
@@ -156,6 +164,52 @@ describe('technical interview components', () => {
     expect(transcript).toHaveAttribute('readonly');
     expect(transcript).not.toBeDisabled();
     expect(screen.getByText('Read-only transcript')).toBeInTheDocument();
+  });
+
+  test('renders real interviewer/candidate items and supports keyboard closing', () => {
+    const onClose = jest.fn();
+    render(
+      <TechnicalTranscriptPanel
+        items={[
+          {
+            id: 'attempt-1:question',
+            attemptId: 'attempt-1',
+            role: 'INTERVIEWER',
+            content: 'Explain event delegation.',
+            status: 'FINAL',
+          },
+          {
+            id: 'attempt-1:answer',
+            attemptId: 'attempt-1',
+            role: 'CANDIDATE',
+            content: 'It uses bubbling.',
+            status: 'DRAFT',
+          },
+        ]}
+        recorder={{
+          recordingStatus: 'IDLE',
+          sttStatus: 'IDLE',
+          permissionError: null,
+          sttError: null,
+          setTranscript: jest.fn(),
+        }}
+        currentTranscript="It uses bubbling."
+        hasActiveAttempt
+        transcriptEditable
+        disabled={false}
+        isOpen
+        onClose={onClose}
+        t={t}
+      />,
+    );
+
+    expect(screen.getByRole('log')).toHaveTextContent('Explain event delegation.');
+    expect(screen.getByRole('log')).toHaveTextContent('It uses bubbling.');
+    expect(screen.getByText('Draft')).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close transcript' }));
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   test('renders every dimension returned by the backend and respects each maxScore', () => {

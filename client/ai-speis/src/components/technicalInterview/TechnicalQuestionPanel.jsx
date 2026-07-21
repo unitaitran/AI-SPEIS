@@ -3,7 +3,7 @@ import TechnicalQuestionTypeBadge from './TechnicalQuestionTypeBadge';
 import { TechnicalQuestionType } from '../../features/technicalInterview/technicalInterview.types';
 import QuestionAudioControls from './QuestionAudioControls';
 
-function TechnicalQuestionPanel({ question, audio, t }) {
+function TechnicalQuestionPanel({ question, audio, audioDisabled = false, stageMode = false, t }) {
   const headingRef = useRef(null);
 
   useEffect(() => {
@@ -17,14 +17,19 @@ function TechnicalQuestionPanel({ question, audio, t }) {
 
   return (
     <section
-      className="technical-question-panel technical-card"
+      className={`technical-question-panel technical-card${stageMode ? ' technical-question-panel--stage' : ''}`}
       aria-labelledby="technical-question-title"
       aria-live="polite"
     >
       <div className="technical-question-panel__header">
         <div>
           <p className="technical-section__eyebrow">{t('room.interviewerAsks')}</p>
-          <h2 id="technical-question-title" ref={headingRef} tabIndex={-1}>
+          <h2
+            id="technical-question-title"
+            ref={headingRef}
+            tabIndex={-1}
+            className={stageMode ? 'technical-visually-hidden' : undefined}
+          >
             {t('room.questionTitle')}
           </h2>
         </div>
@@ -35,7 +40,7 @@ function TechnicalQuestionPanel({ question, audio, t }) {
         </div>
       </div>
       <p className="technical-question-panel__content">{question.content}</p>
-      {audio && <QuestionAudioControls audio={audio} t={t} />}
+      {audio && <QuestionAudioControls audio={audio} disabled={audioDisabled} t={t} />}
       {isSubQuestion && (
         <p className="technical-question-panel__context">
           {question.questionType === TechnicalQuestionType.CLARIFICATION
