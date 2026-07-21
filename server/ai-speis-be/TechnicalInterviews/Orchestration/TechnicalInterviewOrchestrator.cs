@@ -534,7 +534,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             if (session is null)
                 return NotFound<TechnicalInterviewResultDto>();
             if (session.TechnicalState == TechnicalInterviewState.Completed)
+            {
+                if (!await EnsureLifecycleCompletionAsync(userId, session))
+                    return Conflict<TechnicalInterviewResultDto>(
+                        "ROUND_LIFECYCLE_TRANSITION_FAILED",
+                        "The Technical result is ready, but the next interview round could not be activated.");
                 return TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session));
+            }
             if (IsLifecycleClosed(session))
                 return Conflict<TechnicalInterviewResultDto>("SESSION_ALREADY_ENDED", "The interview session is no longer active.");
             if (session.TechnicalCompletedMainQuestionCount < GetTargetMainQuestionCount(session))
@@ -557,6 +563,11 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 return Conflict<TechnicalInterviewResultDto>("SESSION_ALREADY_ENDED", "The interview session ended before a Technical result was available.");
             if (session.TechnicalState != TechnicalInterviewState.Completed)
                 return Conflict<TechnicalInterviewResultDto>("SESSION_NOT_COMPLETED", "Technical result is available only after completion.");
+
+            if (!await EnsureLifecycleCompletionAsync(userId, session))
+                return Conflict<TechnicalInterviewResultDto>(
+                    "ROUND_LIFECYCLE_TRANSITION_FAILED",
+                    "The Technical result is ready, but the next interview round could not be activated.");
 
             return TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session));
         }
@@ -993,17 +1004,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     "The session changed while final Technical Interview results were being persisted.");
             }
 
-            if (session.Status == InterviewSessionStatus.Active)
-            {
-                var lifecycleResult = await _sessionLifecycleService.CompleteSessionAsync(userId, session.InterviewSessionId);
-                if (!lifecycleResult.Success)
-                {
-                    _logger.LogWarning(
-                        "Technical session {SessionId} completed, but generic session lifecycle completion was rejected: {Error}",
-                        session.InterviewSessionId,
-                        lifecycleResult.ErrorMessage);
-                }
-            }
+            await EnsureLifecycleCompletionAsync(userId, session);
 
             return TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session));
         }
@@ -1380,8 +1381,85 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 RequiredFollowUpCount = root?.RequiredFollowUpCount ?? 0,
                 CompletedFollowUpCount = root?.CompletedFollowUpCount ?? 0,
                 ProcessingStatus = sessionStatus,
-                SessionStatus = sessionStatus
+                SessionStatus = sessionStatus,
+                Transcript = BuildTranscript(session.TechnicalQuestionAttempts)
             };
+        }
+
+        private static List<TechnicalTranscriptEntryDto> BuildTranscript(
+            IEnumerable<TechnicalQuestionAttempt> attempts)
+        {
+            return attempts
+                .OrderBy(attempt => attempt.SequenceNumber)
+                .SelectMany(attempt =>
+                {
+                    var questionStatus = string.IsNullOrWhiteSpace(attempt.AnswerTranscript)
+                        ? "CURRENT"
+                        : "FINAL";
+                    var entries = new List<TechnicalTranscriptEntryDto>
+                    {
+                        new()
+                        {
+                            Id = $"{attempt.AttemptId}:question",
+                            AttemptId = attempt.AttemptId,
+                            Role = "INTERVIEWER",
+                            Content = attempt.QuestionContentSnapshot,
+                            QuestionType = ToApi(attempt.QuestionType),
+                            Status = questionStatus,
+                            CreatedAt = attempt.CreatedAt
+                        }
+                    };
+
+                    if (!string.IsNullOrWhiteSpace(attempt.AnswerTranscript))
+                    {
+                        entries.Add(new TechnicalTranscriptEntryDto
+                        {
+                            Id = $"{attempt.AttemptId}:answer",
+                            AttemptId = attempt.AttemptId,
+                            Role = "CANDIDATE",
+                            Content = attempt.AnswerTranscript,
+                            QuestionType = ToApi(attempt.QuestionType),
+                            Status = attempt.Status == TechnicalAttemptStatus.Evaluating
+                                ? "PROCESSING"
+                                : "FINAL",
+                            CreatedAt = attempt.AnsweredAt ?? attempt.CreatedAt
+                        });
+                    }
+
+                    return entries;
+                })
+                .ToList();
+        }
+
+        private async Task<bool> EnsureLifecycleCompletionAsync(int userId, InterviewSession session)
+        {
+            if (session.Status == InterviewSessionStatus.Completed
+                && session.InterviewCampaign.Status is InterviewCampaignStatus.Completed
+                    or InterviewCampaignStatus.Cancelled
+                    or InterviewCampaignStatus.Expired)
+            {
+                return true;
+            }
+
+            if (session.Status != InterviewSessionStatus.Active
+                && session.Status != InterviewSessionStatus.Completed)
+            {
+                return false;
+            }
+
+            var lifecycleResult = await _sessionLifecycleService.CompleteSessionAsync(
+                userId,
+                session.InterviewSessionId);
+            if (lifecycleResult.Success)
+            {
+                return true;
+            }
+
+            _logger.LogWarning(
+                "Technical session {SessionId} completed, but generic session lifecycle completion was rejected: {Error}",
+                session.InterviewSessionId,
+                lifecycleResult.ErrorMessage);
+            return false;
         }
 
         private static bool IsLifecycleClosed(InterviewSession session) =>

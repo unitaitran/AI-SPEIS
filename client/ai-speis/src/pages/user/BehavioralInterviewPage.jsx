@@ -4,7 +4,6 @@ import {
   AlertCircle,
   ArrowLeft,
   Bot,
-  FileText,
   Loader2,
   Pause,
   Play,
@@ -15,24 +14,26 @@ import {
 import BehavioralCompletion from '../../components/behavioralInterview/BehavioralCompletion';
 import BehavioralRecorderControls from '../../components/behavioralInterview/BehavioralRecorderControls';
 import BehavioralRoomDialog from '../../components/behavioralInterview/BehavioralRoomDialog';
-import BehavioralTranscriptPanel from '../../components/behavioralInterview/BehavioralTranscriptPanel';
+import InterviewRoomShell from '../../components/interviewRoom/InterviewRoomShell';
+import InterviewRoomState from '../../components/interviewRoom/InterviewRoomState';
+import InterviewRoomTranscriptPanel from '../../components/interviewRoom/InterviewRoomTranscriptPanel';
 import {
   BehavioralFlowPhase,
 } from '../../features/behavioralInterview/behavioralInterview.types';
 import useBehavioralInterviewSession from '../../features/behavioralInterview/useBehavioralInterviewSession';
 import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio';
 import useTechnicalRecorder from '../../features/technicalInterview/useTechnicalRecorder';
-import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { USER_ROUTES } from '../../routes/routePaths';
+import { getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
 import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
-  getNextPendingSession,
+  getNextOpenSession,
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
 import '../../styles/user/BehavioralInterview.css';
+import '../../styles/user/TechnicalInterview.css';
 
 const ACTIVE_PHASES = new Set([
   BehavioralFlowPhase.READY_TO_ANSWER,
@@ -54,7 +55,10 @@ function BehavioralInterviewPage({ sessionId }) {
   const initialContext = useMemo(() => getActiveInterviewContext(), []);
   const setupDraft = useMemo(() => getInterviewSetupDraft(), []);
   const resolvedSessionId = sessionId || initialContext?.activeSessionId || null;
-  const interviewLanguage = (initialContext?.campaign?.language || setupDraft?.language) === 'en' ? 'en' : 'vi';
+  const room = useBehavioralInterviewSession(resolvedSessionId);
+  const interviewLanguage = (room.session?.language
+    || initialContext?.campaign?.language
+    || setupDraft?.language) === 'en' ? 'en' : 'vi';
   const { t: translate } = useTranslation('interview');
   const t = useCallback((key, options = {}) => translate(`behavioralRoom.${key}`, {
     ...options,
@@ -62,7 +66,6 @@ function BehavioralInterviewPage({ sessionId }) {
     defaultValue: options.defaultValue || key,
   }), [interviewLanguage, translate]);
 
-  const room = useBehavioralInterviewSession(resolvedSessionId);
   const recorder = useTechnicalRecorder(interviewLanguage);
   const questionAudio = useQuestionAudio({
     question: room.currentQuestion,
@@ -71,6 +74,7 @@ function BehavioralInterviewPage({ sessionId }) {
     preferenceKey: 'ai-speis:behavioral-interview:auto-play-question',
   });
   const resetRecorder = recorder.reset;
+  const setRecorderTranscript = recorder.setTranscript;
   const cleanupRecorder = recorder.cleanup;
   const pauseQuestionAudio = questionAudio.pause;
   const [transcriptOpen, setTranscriptOpen] = useState(() => (
@@ -81,18 +85,66 @@ function BehavioralInterviewPage({ sessionId }) {
   const [localError, setLocalError] = useState(null);
   const [latestCampaign, setLatestCampaign] = useState(initialContext?.campaign || null);
   const previousQuestionRef = useRef(null);
+  const hydratingDraftRef = useRef(false);
 
   const phaseIsActive = ACTIVE_PHASES.has(room.phase);
   const isSubmitting = room.phase === BehavioralFlowPhase.SUBMITTING_ANSWER
     || room.phase === BehavioralFlowPhase.EVALUATING_ANSWER;
   const error = localError || room.error;
-  const nextPendingSession = getNextPendingSession(latestCampaign);
+  const nextRoundSession = getNextOpenSession(latestCampaign, resolvedSessionId);
+  const transcriptItems = useMemo(() => {
+    const restored = room.transcriptMessages.map((message) => ({
+      ...message,
+      role: message.speaker === 'candidate' ? 'CANDIDATE' : 'INTERVIEWER',
+      statusLabel: message.questionType && message.questionType !== 'Main'
+        ? t(`questionType.${message.questionType}`)
+        : '',
+    }));
+    const draft = !isSubmitting && recorder.transcript.trim()
+      ? [{
+        id: `draft-${room.currentQuestion?.sessionQuestionId || 'current'}`,
+        role: 'CANDIDATE',
+        content: recorder.transcript,
+        statusLabel: t('draft'),
+      }]
+      : [];
+    return [...restored, ...draft];
+  }, [isSubmitting, recorder.transcript, room.currentQuestion?.sessionQuestionId, room.transcriptMessages, t]);
 
   useEffect(() => {
     const currentId = room.currentQuestion?.sessionQuestionId || null;
-    if (previousQuestionRef.current && previousQuestionRef.current !== currentId) resetRecorder();
+    if (currentId && previousQuestionRef.current !== currentId) {
+      if (previousQuestionRef.current) resetRecorder();
+      try {
+        const savedDraft = localStorage.getItem(
+          `behavioral-interview:${resolvedSessionId}:${currentId}:draft`,
+        );
+        if (savedDraft) {
+          hydratingDraftRef.current = true;
+          setRecorderTranscript(savedDraft);
+        }
+      } catch {
+        // Draft persistence is best-effort; server-owned submitted transcript remains authoritative.
+      }
+    }
     previousQuestionRef.current = currentId;
-  }, [resetRecorder, room.currentQuestion?.sessionQuestionId]);
+  }, [resetRecorder, resolvedSessionId, room.currentQuestion?.sessionQuestionId, setRecorderTranscript]);
+
+  useEffect(() => {
+    const currentId = room.currentQuestion?.sessionQuestionId;
+    if (!resolvedSessionId || !currentId) return;
+    if (hydratingDraftRef.current) {
+      hydratingDraftRef.current = false;
+      return;
+    }
+    const draftKey = `behavioral-interview:${resolvedSessionId}:${currentId}:draft`;
+    try {
+      if (recorder.transcript.trim()) localStorage.setItem(draftKey, recorder.transcript);
+      else localStorage.removeItem(draftKey);
+    } catch {
+      // Storage quota or privacy settings must not interrupt the interview.
+    }
+  }, [recorder.transcript, resolvedSessionId, room.currentQuestion?.sessionQuestionId]);
 
   useEffect(() => {
     if (!phaseIsActive) return undefined;
@@ -104,26 +156,34 @@ function BehavioralInterviewPage({ sessionId }) {
     return () => window.removeEventListener('beforeunload', warnBeforeUnload);
   }, [phaseIsActive]);
 
+  const refreshCompletedCampaign = useCallback(async () => {
+    const campaignId = room.generalSession?.interviewCampaignId
+      || initialContext?.campaign?.interviewCampaignId;
+    if (!campaignId) return;
+    setLocalError(null);
+    try {
+      const campaign = await interviewSessionService.getCampaign(campaignId);
+      const nextActiveSession = getNextOpenSession(campaign, resolvedSessionId);
+      saveActiveInterviewContext({
+        campaign,
+        activeSessionId: nextActiveSession?.status === 'Active'
+          ? nextActiveSession.interviewSessionId
+          : null,
+        configurationKey: initialContext?.configurationKey || null,
+      });
+      setLatestCampaign(campaign);
+    } catch (campaignError) {
+      setLatestCampaign(initialContext?.campaign || null);
+      setLocalError(campaignError);
+    }
+  }, [initialContext, resolvedSessionId, room.generalSession?.interviewCampaignId]);
+
   useEffect(() => {
     if (room.phase !== BehavioralFlowPhase.COMPLETED) return;
     resetRecorder();
     pauseQuestionAudio();
-    const campaignId = initialContext?.campaign?.interviewCampaignId;
-    if (!campaignId) return;
-    interviewSessionService.getCampaign(campaignId)
-      .then((campaign) => {
-        const nextContext = {
-          campaign,
-          activeSessionId: null,
-          configurationKey: initialContext?.configurationKey || null,
-        };
-        saveActiveInterviewContext(nextContext);
-        setLatestCampaign(campaign);
-      })
-      .catch(() => {
-        setLatestCampaign(initialContext?.campaign || null);
-      });
-  }, [initialContext, pauseQuestionAudio, resetRecorder, room.phase]);
+    refreshCompletedCampaign();
+  }, [pauseQuestionAudio, refreshCompletedCampaign, resetRecorder, room.phase]);
 
   const getErrorMessage = useCallback((requestError) => {
     const code = requestError?.code || 'UNKNOWN_ERROR';
@@ -144,7 +204,16 @@ function BehavioralInterviewPage({ sessionId }) {
         audioId: recorder.audioId || undefined,
         durationSeconds: recorder.elapsedSeconds,
       });
-      if (result?.accepted) recorder.reset();
+      if (result?.accepted) {
+        try {
+          localStorage.removeItem(
+            `behavioral-interview:${resolvedSessionId}:${room.currentQuestion?.sessionQuestionId}:draft`,
+          );
+        } catch {
+          // Best-effort cleanup only.
+        }
+        recorder.reset();
+      }
     } catch (submitError) {
       setLocalError(submitError);
     }
@@ -180,40 +249,57 @@ function BehavioralInterviewPage({ sessionId }) {
   };
 
   const handleContinue = () => {
-    if (!nextPendingSession) return;
+    if (!nextRoundSession) return;
     const currentContext = getActiveInterviewContext();
     if (currentContext?.campaign) {
       saveActiveInterviewContext({
         ...currentContext,
-        activeSessionId: null,
+        activeSessionId: nextRoundSession.status === 'Active'
+          ? nextRoundSession.interviewSessionId
+          : null,
       });
     }
-    navigate(USER_ROUTES.DEVICE_CHECK);
+    navigate(nextRoundSession.status === 'Active'
+      ? getInterviewRoomPath(nextRoundSession.interviewSessionId)
+      : USER_ROUTES.DEVICE_CHECK);
+  };
+
+  const handleForceEndSession = async () => {
+    if (!resolvedSessionId) return;
+    setLocalError(null);
+    try {
+      const campaign = await interviewSessionService.completeSession(resolvedSessionId);
+      const nextSession = getNextOpenSession(campaign, resolvedSessionId);
+      saveActiveInterviewContext({
+        campaign,
+        activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
+        configurationKey: initialContext?.configurationKey || null,
+      });
+      navigate(nextSession?.status === 'Active'
+        ? getInterviewRoomPath(nextSession.interviewSessionId)
+        : USER_ROUTES.INTERVIEW_SETUP, { replace: true });
+    } catch (endError) {
+      setLocalError(endError);
+    }
   };
 
   const renderLoading = () => {
     const copyKey = PHASE_COPY[room.phase] || 'preparingQuestion';
-    return (
-      <section className="behavior-room-state" role="status" aria-live="polite">
-        <div className="behavior-room-state__bot"><Bot size={34} /><Loader2 className="behavior-spin" size={22} /></div>
-        <h1>{t(copyKey)}</h1>
-        <p>{t(`${copyKey}Description`)}</p>
-      </section>
-    );
+    return <InterviewRoomState title={t(copyKey)} description={t(`${copyKey}Description`)} />;
   };
 
   const renderFatalError = () => (
-    <section className="behavior-room-state behavior-room-state--error" role="alert">
-      <span><AlertCircle size={34} /></span>
-      <h1>{t('openFailed')}</h1>
-      <p>{getErrorMessage(room.error)}</p>
-      <div>
-        <button type="button" onClick={room.reload}><RefreshCw size={18} />{t('retry')}</button>
-        <button type="button" onClick={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}>
-          <ArrowLeft size={18} />{t('backToSetup')}
-        </button>
-      </div>
-    </section>
+    <InterviewRoomState
+      variant="error"
+      title={t('openFailed')}
+      description={getErrorMessage(error)}
+      onRetry={room.reload}
+      retryLabel={t('retry')}
+      onBack={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
+      backLabel={t('backToSetup')}
+      onEnd={handleForceEndSession}
+      endLabel={t('endInterview')}
+    />
   );
 
   const renderConflict = () => (
@@ -250,35 +336,60 @@ function BehavioralInterviewPage({ sessionId }) {
   const isContinuation = questionType && questionType !== 'Main';
 
   return (
-    <UserLayout compactSidebar immersive onBeforeNavigate={requestNavigation}>
-      <div className={`behavior-room ${transcriptOpen ? 'behavior-room--transcript-open' : ''}`} lang={interviewLanguage}>
-        <BehavioralTranscriptPanel
+    <InterviewRoomShell
+      language={interviewLanguage}
+      mainFlush
+      onBeforeNavigate={requestNavigation}
+      isTranscriptOpen={transcriptOpen}
+      onCloseTranscript={() => setTranscriptOpen(false)}
+      onToggleTranscript={() => setTranscriptOpen((open) => !open)}
+      transcriptCloseLabel={t('closeTranscript')}
+      transcriptLabel={t('transcript')}
+      transcript={(
+        <InterviewRoomTranscriptPanel
+          candidateLabel={t('candidate')}
+          closeLabel={t('closeTranscript')}
+          description={t('transcriptDescription')}
+          emptyMessage={t('transcriptEmpty')}
+          interviewerLabel={t('interviewer')}
           isOpen={transcriptOpen}
-          messages={room.transcriptMessages}
-          draftTranscript={isSubmitting ? '' : recorder.transcript}
-          sttStatus={recorder.sttStatus}
+          items={transcriptItems}
+          liveState={recorder.sttStatus === 'PROCESSING'
+            ? { icon: Loader2, label: t('transcribing'), tone: 'processing', spin: true }
+            : null}
           onClose={() => setTranscriptOpen(false)}
+          title={t('transcriptTitle')}
+        />
+      )}
+      dialog={(
+        <BehavioralRoomDialog
+          dialog={dialog}
+          busy={room.phase === BehavioralFlowPhase.COMPLETING}
+          onCancel={() => { setDialog(null); setPendingNavigation(null); }}
+          onConfirm={handleDialogConfirm}
           t={t}
         />
-        {transcriptOpen ? (
-          <button
-            type="button"
-            className="behavior-transcript-backdrop"
-            aria-label={t('closeTranscript')}
-            onClick={() => setTranscriptOpen(false)}
-          />
-        ) : null}
-
-        <section className="behavior-stage" aria-label={t('behavioralInterview')}>
+      )}
+    >
+      <section className="behavior-stage" aria-label={t('behavioralInterview')}>
           {room.phase === BehavioralFlowPhase.COMPLETED ? (
-            <BehavioralCompletion
-              result={room.completionResult}
-              answeredCount={room.completionResult?.mainQuestions?.length || room.session?.completedMainQuestionCount || 0}
-              hasNextRound={Boolean(nextPendingSession)}
-              onContinue={handleContinue}
-              onOverview={() => navigate(USER_ROUTES.DASHBOARD)}
-              t={t}
-            />
+            <div className="behavior-completion-stack">
+              <BehavioralCompletion
+                result={room.completionResult}
+                answeredCount={room.completionResult?.mainQuestions?.length || room.session?.completedMainQuestionCount || 0}
+                hasNextRound={Boolean(nextRoundSession)}
+                onContinue={handleContinue}
+                onOverview={() => navigate(USER_ROUTES.DASHBOARD)}
+                t={t}
+              />
+              {localError ? (
+                <div className="behavior-inline-error" role="alert">
+                  <AlertCircle size={18} />
+                  <span>{getErrorMessage(localError)}</span>
+                  <button type="button" onClick={refreshCompletedCampaign}>{t('retry')}</button>
+                </div>
+              ) : null}
+            </div>
           ) : room.phase === BehavioralFlowPhase.FATAL_ERROR ? (
             renderFatalError()
           ) : room.phase === BehavioralFlowPhase.SESSION_CONFLICT ? (
@@ -295,15 +406,6 @@ function BehavioralInterviewPage({ sessionId }) {
                   <strong>{room.session?.jobRole || setupDraft?.jobRole || t('interviewSession')}</strong>
                 </div>
                 <div className="behavior-stage__top-actions">
-                  <button
-                    type="button"
-                    className="behavior-stage__transcript-toggle"
-                    onClick={() => setTranscriptOpen((open) => !open)}
-                    aria-expanded={transcriptOpen}
-                  >
-                    <FileText size={18} />
-                    {t('transcript')}
-                  </button>
                   <button type="button" className="behavior-stage__end" onClick={() => setDialog({ type: 'end' })}>
                     {t('endInterview')}
                   </button>
@@ -387,17 +489,8 @@ function BehavioralInterviewPage({ sessionId }) {
           ) : (
             renderLoading()
           )}
-        </section>
-
-        <BehavioralRoomDialog
-          dialog={dialog}
-          busy={room.phase === BehavioralFlowPhase.COMPLETING}
-          onCancel={() => { setDialog(null); setPendingNavigation(null); }}
-          onConfirm={handleDialogConfirm}
-          t={t}
-        />
-      </div>
-    </UserLayout>
+      </section>
+    </InterviewRoomShell>
   );
 }
 

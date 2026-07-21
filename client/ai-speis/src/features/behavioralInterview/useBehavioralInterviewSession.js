@@ -24,6 +24,12 @@ const initialState = {
 
 const isCompletedStatus = (status) => String(status || '').toLowerCase() === 'completed';
 
+const isReadyToComplete = (sessionState) => {
+  const targetCount = Number(sessionState?.targetMainQuestionCount || 0);
+  const completedCount = Number(sessionState?.completedMainQuestionCount || 0);
+  return targetCount > 0 && completedCount >= targetCount;
+};
+
 const interviewerMessage = (question) => ({
   id: `question-${question.sessionQuestionId}`,
   speaker: 'interviewer',
@@ -42,11 +48,25 @@ const candidateMessage = (question, transcript) => ({
   createdAt: new Date().toISOString(),
 });
 
+const normalizeServerTranscript = (entries = []) => entries
+  .filter((entry) => entry?.id && entry?.content)
+  .map((entry) => ({
+    id: String(entry.id),
+    speaker: String(entry.role || '').toUpperCase() === 'CANDIDATE' ? 'candidate' : 'interviewer',
+    content: entry.content,
+    questionType: entry.questionType,
+    status: String(entry.status || '').toUpperCase() === 'CURRENT' ? 'current' : 'submitted',
+    createdAt: entry.createdAt || new Date().toISOString(),
+  }));
+
 const appendUnique = (messages, additions) => {
   const existingIds = new Set(messages.map((message) => message.id));
+  const additionIds = new Set(additions.map((message) => message.id));
   return [
     ...messages.map((message) => (
-      message.status === 'current' ? { ...message, status: 'submitted' } : message
+      message.status === 'current' && !additionIds.has(message.id)
+        ? { ...message, status: 'submitted' }
+        : message
     )),
     ...additions.filter((message) => !existingIds.has(message.id)),
   ];
@@ -58,13 +78,16 @@ function reducer(state, action) {
       return { ...state, phase: action.phase, error: null };
     case 'READY': {
       const additions = action.question ? [interviewerMessage(action.question)] : [];
+      const restoredTranscript = action.transcript
+        ? normalizeServerTranscript(action.transcript)
+        : state.transcriptMessages;
       return {
         ...state,
         phase: BehavioralFlowPhase.READY_TO_ANSWER,
         generalSession: action.generalSession || state.generalSession,
         session: action.session || state.session,
         currentQuestion: action.question,
-        transcriptMessages: appendUnique(state.transcriptMessages, additions),
+        transcriptMessages: appendUnique(restoredTranscript, additions),
         resumed: action.resumed ?? state.resumed,
         error: null,
         conflict: null,
@@ -87,6 +110,7 @@ function reducer(state, action) {
       return {
         ...state,
         phase: BehavioralFlowPhase.COMPLETED,
+        generalSession: action.generalSession || state.generalSession,
         currentQuestion: null,
         completionResult: action.result,
         error: null,
@@ -199,7 +223,7 @@ export default function useBehavioralInterviewSession(sessionId) {
       if (isCompletedStatus(generalSession.status)) {
         dispatch({ type: 'PHASE', phase: BehavioralFlowPhase.COMPLETING });
         const result = await behavioralInterviewApi.getResult(sessionId, { signal: controller.signal });
-        dispatch({ type: 'COMPLETED', result });
+        dispatch({ type: 'COMPLETED', result, generalSession });
         return;
       }
 
@@ -247,11 +271,14 @@ export default function useBehavioralInterviewSession(sessionId) {
       } catch (error) {
         if (error?.name === 'AbortError') return;
         if (error?.code !== BehavioralErrorCode.NOT_INITIALIZED) throw error;
+        sessionState = await behavioralInterviewApi.initialize(sessionId, undefined, {
+          signal: controller.signal,
+        });
       }
 
       if (isCompletedStatus(sessionState?.status)) {
         const result = await behavioralInterviewApi.getResult(sessionId, { signal: controller.signal });
-        dispatch({ type: 'COMPLETED', result });
+        dispatch({ type: 'COMPLETED', result, generalSession });
         return;
       }
 
@@ -261,8 +288,12 @@ export default function useBehavioralInterviewSession(sessionId) {
         question = await behavioralInterviewApi.start(sessionId, { signal: controller.signal });
       } catch (error) {
         if (error?.code === BehavioralErrorCode.ALL_QUESTIONS_ANSWERED) {
+          const latestState = await behavioralInterviewApi.getState(sessionId, {
+            signal: controller.signal,
+          });
+          if (!isReadyToComplete(latestState)) throw error;
           const result = await behavioralInterviewApi.complete(sessionId, { signal: controller.signal });
-          dispatch({ type: 'COMPLETED', result });
+          dispatch({ type: 'COMPLETED', result, generalSession });
           return;
         }
         if (error?.code === BehavioralErrorCode.ROUND_COMPLETED) {
@@ -283,6 +314,7 @@ export default function useBehavioralInterviewSession(sessionId) {
         generalSession,
         session: latestState,
         question,
+        transcript: latestState?.transcript,
         resumed: (latestState?.completedMainQuestionCount || 0) > 0,
       });
     } catch (error) {
@@ -376,20 +408,23 @@ export default function useBehavioralInterviewSession(sessionId) {
         }
       } catch (reconcileError) {
         if (reconcileError?.code === BehavioralErrorCode.ALL_QUESTIONS_ANSWERED) {
-          dispatch({
-            type: 'ANSWER_ACCEPTED',
-            question,
-            transcript: normalizedTranscript,
-            nextQuestion: null,
-          });
-          idempotencyKeysRef.current.delete(keyId);
-          try {
-            const result = await behavioralInterviewApi.complete(sessionId);
-            dispatch({ type: 'COMPLETED', result });
-            return { accepted: true, reconciled: true, completed: true, result };
-          } catch (completionError) {
-            dispatch({ type: 'ERROR', error: normalizeError(completionError), fatal: false });
-            return { accepted: true, reconciled: true, completionPending: true };
+          const latestState = await behavioralInterviewApi.getState(sessionId);
+          if (isReadyToComplete(latestState)) {
+            dispatch({
+              type: 'ANSWER_ACCEPTED',
+              question,
+              transcript: normalizedTranscript,
+              nextQuestion: null,
+            });
+            idempotencyKeysRef.current.delete(keyId);
+            try {
+              const result = await behavioralInterviewApi.complete(sessionId);
+              dispatch({ type: 'COMPLETED', result });
+              return { accepted: true, reconciled: true, completed: true, result };
+            } catch (completionError) {
+              dispatch({ type: 'ERROR', error: normalizeError(completionError), fatal: false });
+              return { accepted: true, reconciled: true, completionPending: true };
+            }
           }
         }
       }

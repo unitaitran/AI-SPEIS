@@ -52,6 +52,18 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public int CompletedFollowUpCount { get; set; }
         public string ProcessingStatus { get; set; } = string.Empty;
         public string SessionStatus { get; set; } = string.Empty;
+        public List<TechnicalTranscriptEntryDto> Transcript { get; set; } = new();
+    }
+
+    public sealed class TechnicalTranscriptEntryDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public Guid AttemptId { get; set; }
+        public string Role { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string QuestionType { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
     }
 
     public sealed class TechnicalCurrentQuestionDto

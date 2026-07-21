@@ -236,6 +236,24 @@ namespace ai_speis_be.Services.InterviewSessionService
                 return (true, null, MapCampaignToResponse(campaign, activeQuota));
             }
 
+            // Recover sessions started by older round-specific flows that activated the
+            // round without advancing the parent campaign lifecycle.
+            if (session.Status == InterviewSessionStatus.Active
+                && campaign.Status == InterviewCampaignStatus.Pending
+                && !campaign.InterviewSessions.Any(candidate =>
+                    candidate.InterviewSessionId != session.InterviewSessionId
+                    && candidate.Status == InterviewSessionStatus.Active))
+            {
+                campaign.Status = InterviewCampaignStatus.Active;
+                campaign.StartedAt ??= now;
+                campaign.ExpiresAt = campaign.StartedAt.Value.AddMinutes(campaign.DurationMinutes);
+                campaign.UpdatedAt = now;
+                session.UpdatedAt = now;
+                await _context.SaveChangesAsync();
+                var recoveredQuota = await GetQuotaMetadataAsync(campaign.User, now);
+                return (true, null, MapCampaignToResponse(campaign, recoveredQuota));
+            }
+
             if (session.Status != InterviewSessionStatus.Pending)
                 return (false, $"Phiên phỏng vấn đang ở trạng thái '{session.Status}' và không thể bắt đầu.", null);
             if (!IsLiveCampaign(campaign))
@@ -279,48 +297,16 @@ namespace ai_speis_be.Services.InterviewSessionService
 
             if (session.Status == InterviewSessionStatus.Completed)
             {
-                var existingQuota = await GetQuotaMetadataAsync(campaign.User, now);
-                return (true, null, MapCampaignToResponse(campaign, existingQuota));
+                var recoveredQuota = await AdvanceCampaignAsync(campaign, now);
+                return (true, null, MapCampaignToResponse(campaign, recoveredQuota));
             }
             if (session.Status != InterviewSessionStatus.Active)
                 return (false, "Chỉ có thể hoàn tất phiên đang hoạt động.", null);
 
             session.Status = InterviewSessionStatus.Completed;
             session.UpdatedAt = now;
-
-            var nextSession = campaign.InterviewSessions
-                .Where(candidate => !candidate.IsDeleted && candidate.Status == InterviewSessionStatus.Pending)
-                .OrderBy(candidate => GetRoundOrder(candidate.InterviewRoundType))
-                .ThenBy(candidate => candidate.InterviewSessionId)
-                .FirstOrDefault();
-
-            if (nextSession != null)
-            {
-                nextSession.Status = InterviewSessionStatus.Active;
-                nextSession.UpdatedAt = now;
-            }
-            else
-            {
-                campaign.Status = InterviewCampaignStatus.Completed;
-                campaign.CompletedAt = now;
-
-                var quota = await GetQuotaMetadataAsync(campaign.User, now);
-                if (quota.Remaining > 0)
-                {
-                    campaign.User.RemainingInterviewQuota = quota.Remaining - 1;
-                    campaign.User.UpdatedAt = now;
-                    quota = quota with { Remaining = campaign.User.RemainingInterviewQuota };
-                }
-
-                campaign.UpdatedAt = now;
-                await _context.SaveChangesAsync();
-                return (true, null, MapCampaignToResponse(campaign, quota));
-            }
-
-            campaign.UpdatedAt = now;
-            await _context.SaveChangesAsync();
-            var inProgressQuota = await GetQuotaMetadataAsync(campaign.User, now);
-            return (true, null, MapCampaignToResponse(campaign, inProgressQuota));
+            var quota = await AdvanceCampaignAsync(campaign, now);
+            return (true, null, MapCampaignToResponse(campaign, quota));
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CancelCampaignAsync(
@@ -506,6 +492,63 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private static bool IsLiveCampaign(InterviewCampaign campaign) =>
             campaign.Status == InterviewCampaignStatus.Pending || campaign.Status == InterviewCampaignStatus.Active;
+
+        private async Task<QuotaMetadata> AdvanceCampaignAsync(InterviewCampaign campaign, DateTime now)
+        {
+            // A completed round may be retried after a transient failure. If another round is
+            // already active, the lifecycle transition has already succeeded and is idempotent.
+            if (campaign.InterviewSessions.Any(candidate =>
+                !candidate.IsDeleted && candidate.Status == InterviewSessionStatus.Active))
+            {
+                if (campaign.Status == InterviewCampaignStatus.Pending)
+                {
+                    campaign.Status = InterviewCampaignStatus.Active;
+                    campaign.StartedAt ??= now;
+                    campaign.ExpiresAt = campaign.StartedAt.Value.AddMinutes(campaign.DurationMinutes);
+                }
+                campaign.UpdatedAt = now;
+                await _context.SaveChangesAsync();
+                return await GetQuotaMetadataAsync(campaign.User, now);
+            }
+
+            var nextSession = campaign.InterviewSessions
+                .Where(candidate => !candidate.IsDeleted && candidate.Status == InterviewSessionStatus.Pending)
+                .OrderBy(candidate => GetRoundOrder(candidate.InterviewRoundType))
+                .ThenBy(candidate => candidate.InterviewSessionId)
+                .FirstOrDefault();
+
+            if (nextSession != null)
+            {
+                nextSession.Status = InterviewSessionStatus.Active;
+                nextSession.UpdatedAt = now;
+                if (campaign.Status == InterviewCampaignStatus.Pending)
+                {
+                    campaign.StartedAt ??= now;
+                    campaign.ExpiresAt = campaign.StartedAt.Value.AddMinutes(campaign.DurationMinutes);
+                }
+                campaign.Status = InterviewCampaignStatus.Active;
+                campaign.UpdatedAt = now;
+                await _context.SaveChangesAsync();
+                return await GetQuotaMetadataAsync(campaign.User, now);
+            }
+
+            var quota = await GetQuotaMetadataAsync(campaign.User, now);
+            if (campaign.Status != InterviewCampaignStatus.Completed)
+            {
+                campaign.Status = InterviewCampaignStatus.Completed;
+                campaign.CompletedAt = now;
+                campaign.UpdatedAt = now;
+                if (quota.Remaining > 0)
+                {
+                    campaign.User.RemainingInterviewQuota = quota.Remaining - 1;
+                    campaign.User.UpdatedAt = now;
+                    quota = quota with { Remaining = campaign.User.RemainingInterviewQuota };
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return quota;
+        }
 
         private static bool MatchesConfiguration(
             InterviewCampaign campaign,

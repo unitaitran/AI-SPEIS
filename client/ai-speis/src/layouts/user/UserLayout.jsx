@@ -7,12 +7,14 @@ import { Menu } from 'lucide-react';
 function UserLayout({
   children,
   compactSidebar = false,
+  collapseSidebar = false,
   immersive = false,
   onBeforeNavigate,
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const sidebarIsCompact = compactSidebar || collapseSidebar;
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -45,13 +47,14 @@ function UserLayout({
       {/* Sidebar */}
       <UserSidebar
         isOpen={isSidebarOpen}
-        compact={compactSidebar}
+        compact={sidebarIsCompact}
+        collapsed={sidebarIsCompact}
         onNavigate={closeSidebar}
         onBeforeNavigate={onBeforeNavigate}
       />
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${compactSidebar ? 'lg:ml-[72px]' : 'lg:ml-[240px]'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarIsCompact ? 'lg:ml-[72px]' : 'lg:ml-[240px]'}`}>
         {immersive ? (
           <button
             type="button"

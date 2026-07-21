@@ -89,3 +89,11 @@ export function getNextPendingSession(campaign) {
       return leftOrder - rightOrder;
     })[0] || null;
 }
+
+export function getNextOpenSession(campaign, currentSessionId) {
+  const activeSession = (campaign?.sessions || []).find((session) => (
+    session.status === 'Active'
+    && String(session.interviewSessionId) !== String(currentSessionId)
+  ));
+  return activeSession || getNextPendingSession(campaign);
+}

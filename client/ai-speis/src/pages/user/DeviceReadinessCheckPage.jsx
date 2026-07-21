@@ -19,6 +19,7 @@ import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import audioService from '../../services/AudioService';
+import behavioralInterviewApi from '../../services/behavioralInterviewApi';
 import interviewSessionService from '../../services/InterviewSessionService';
 import { calculateAccuracy } from '../../utils/stringUtils';
 import {
@@ -87,6 +88,12 @@ function stopAudioContext(audioContext) {
   audioContext.close().catch(() => {
     // AudioContext can be closing already; MediaStream cleanup is handled separately.
   });
+}
+
+async function prepareInterviewRound(session) {
+  if (session?.interviewRoundType === 'Behavior') {
+    await behavioralInterviewApi.start(session.interviewSessionId);
+  }
 }
 
 function getMediaSupport() {
@@ -614,13 +621,22 @@ function DeviceReadinessCheckPage() {
     const activeSession = (campaign.sessions || []).find((session) => session.status === 'Active');
 
     if (activeSession?.status === 'Active') {
-      const nextContext = {
-        campaign,
-        activeSessionId: activeSession.interviewSessionId,
-        configurationKey: interviewContext.configurationKey,
-      };
-      saveActiveInterviewContext(nextContext);
-      navigate(getInterviewRoomPath(activeSession.interviewSessionId));
+      setIsStartingSession(true);
+      setContextError('');
+      try {
+        await prepareInterviewRound(activeSession);
+        const nextContext = {
+          campaign,
+          activeSessionId: activeSession.interviewSessionId,
+          configurationKey: interviewContext.configurationKey,
+        };
+        saveActiveInterviewContext(nextContext);
+        navigate(getInterviewRoomPath(activeSession.interviewSessionId));
+      } catch (error) {
+        setContextError(error.message || t('device.startFailed'));
+      } finally {
+        setIsStartingSession(false);
+      }
       return;
     }
 
@@ -640,6 +656,7 @@ function DeviceReadinessCheckPage() {
       if (!startedSession) {
         throw new Error(t('device.activeSessionMissing'));
       }
+      await prepareInterviewRound(startedSession);
       const nextContext = {
         campaign: startedCampaign,
         activeSessionId: startedSession.interviewSessionId,

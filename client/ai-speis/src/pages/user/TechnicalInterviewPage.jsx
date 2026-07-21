@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import EndSessionConfirmDialog from '../../components/technicalInterview/EndSessionConfirmDialog';
 import InterviewInitializationLoading from '../../components/technicalInterview/InterviewInitializationLoading';
@@ -9,7 +9,7 @@ import TechnicalInterviewHeader from '../../components/technicalInterview/Techni
 import TechnicalInterviewProgress from '../../components/technicalInterview/TechnicalInterviewProgress';
 import TechnicalQuestionPanel from '../../components/technicalInterview/TechnicalQuestionPanel';
 import TechnicalTranscriptPanel from '../../components/technicalInterview/TechnicalTranscriptPanel';
-import TechnicalTranscriptToggle from '../../components/technicalInterview/TechnicalTranscriptToggle';
+import InterviewRoomShell from '../../components/interviewRoom/InterviewRoomShell';
 import {
   clearStaleTechnicalInterviewDrafts,
   clearTechnicalInterviewDraft,
@@ -33,11 +33,16 @@ import useTechnicalRecorder from '../../features/technicalInterview/useTechnical
 import useTechnicalInterviewTranscript, {
   TechnicalTranscriptItemStatus,
 } from '../../features/technicalInterview/useTechnicalInterviewTranscript';
-import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { getInterviewResultPath, USER_ROUTES } from '../../routes/routePaths';
+import { getInterviewResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import technicalInterviewApi from '../../services/technicalInterviewApi';
-import { getActiveInterviewContext, getInterviewSetupDraft } from '../../utils/interviewContext';
+import interviewSessionService from '../../services/InterviewSessionService';
+import {
+  getActiveInterviewContext,
+  getInterviewSetupDraft,
+  getNextOpenSession,
+  saveActiveInterviewContext,
+} from '../../utils/interviewContext';
 import '../../styles/user/TechnicalInterview.css';
 
 const getDefaultTranscriptVisibility = () => (
@@ -48,12 +53,14 @@ function TechnicalInterviewPage({ sessionId }) {
   const activeContext = useMemo(() => getActiveInterviewContext(), []);
   const setupDraft = useMemo(() => getInterviewSetupDraft(), []);
   const resolvedSessionId = sessionId || activeContext?.activeSessionId || null;
-  const interviewLanguage = (activeContext?.campaign?.language || setupDraft?.language) === 'en' ? 'en' : 'vi';
+  const room = useTechnicalInterviewSession(resolvedSessionId);
+  const interviewLanguage = (room.session?.language
+    || activeContext?.campaign?.language
+    || setupDraft?.language) === 'en' ? 'en' : 'vi';
   const { t: translate } = useTranslation('interview');
   const t = useCallback((key, options = {}) => (
     translate(key, { ...options, lng: interviewLanguage })
   ), [interviewLanguage, translate]);
-  const room = useTechnicalInterviewSession(resolvedSessionId);
   const {
     error: roomLoadError,
     isLoading: isRoomLoading,
@@ -69,6 +76,7 @@ function TechnicalInterviewPage({ sessionId }) {
     markCandidateProcessing,
     syncCandidate,
     syncQuestion,
+    syncServerTranscript,
   } = transcriptLedger;
   const questionAudio = useQuestionAudio({
     question: room.currentQuestion,
@@ -81,7 +89,6 @@ function TechnicalInterviewPage({ sessionId }) {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(getDefaultTranscriptVisibility);
-  const transcriptToggleRef = useRef(null);
 
   const status = getTechnicalSessionStatus(room.session);
   const attemptId = room.currentQuestion?.attemptId || null;
@@ -93,7 +100,6 @@ function TechnicalInterviewPage({ sessionId }) {
 
   const closeTranscript = useCallback(() => {
     setIsTranscriptOpen(false);
-    window.requestAnimationFrame(() => transcriptToggleRef.current?.focus());
   }, []);
 
   const openTranscript = useCallback(() => setIsTranscriptOpen(true), []);
@@ -107,6 +113,10 @@ function TechnicalInterviewPage({ sessionId }) {
   useEffect(() => {
     syncQuestion(room.currentQuestion);
   }, [room.currentQuestion, syncQuestion]);
+
+  useEffect(() => {
+    syncServerTranscript(room.session?.transcript);
+  }, [room.session?.transcript, syncServerTranscript]);
 
   useEffect(() => {
     if (!attemptId || !recorder.transcript.trim()) return;
@@ -262,6 +272,28 @@ function TechnicalInterviewPage({ sessionId }) {
     }
   };
 
+  const handleForceEndSession = async () => {
+    if (!resolvedSessionId || isCompleting) return;
+    setIsCompleting(true);
+    setLocalError(null);
+    try {
+      const campaign = await interviewSessionService.completeSession(resolvedSessionId);
+      const nextSession = getNextOpenSession(campaign, resolvedSessionId);
+      saveActiveInterviewContext({
+        campaign,
+        activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
+        configurationKey: activeContext?.configurationKey || null,
+      });
+      navigate(nextSession?.status === 'Active'
+        ? getInterviewRoomPath(nextSession.interviewSessionId)
+        : USER_ROUTES.INTERVIEW_SETUP, { replace: true });
+    } catch (error) {
+      setLocalError(error);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
   const header = room.session && (
     <TechnicalInterviewHeader
       t={t}
@@ -295,11 +327,13 @@ function TechnicalInterviewPage({ sessionId }) {
     content = (
       <TechnicalInterviewErrorState
         title={t('room.openFailed')}
-        message={getErrorMessage(room.error)}
+        message={getErrorMessage(localError || room.error)}
         onRetry={canRetryQuestionGeneration ? handleStart : room.reload}
         onBack={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
+        onEnd={handleForceEndSession}
         retryLabel={t('common.retry')}
         backLabel={t('room.backToSetup')}
+        endLabel={isCompleting ? t('room.ending') : t('room.endEarly')}
       />
     );
   } else if (status === TechnicalSessionStatus.CREATED
@@ -311,11 +345,13 @@ function TechnicalInterviewPage({ sessionId }) {
     content = (
       <TechnicalInterviewErrorState
         title={t('room.failedTitle')}
-        message={t('room.failedDescription')}
+        message={localError ? getErrorMessage(localError) : t('room.failedDescription')}
         onRetry={handleStart}
         retryLabel={t('common.retry')}
         onBack={() => navigate(USER_ROUTES.DASHBOARD)}
         backLabel={t('room.backToDashboard')}
+        onEnd={handleForceEndSession}
+        endLabel={isCompleting ? t('room.ending') : t('room.endEarly')}
       />
     );
   } else if (status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting) {
@@ -358,57 +394,44 @@ function TechnicalInterviewPage({ sessionId }) {
     content = (
       <TechnicalInterviewErrorState
         title={t('room.questionUnavailableTitle')}
-        message={room.questionError?.status === 404
+        message={localError
+          ? getErrorMessage(localError)
+          : room.questionError?.status === 404
           ? t('room.questionApiUnavailable')
           : room.questionError
             ? getErrorMessage(room.questionError)
             : t('room.questionUnavailableDescription')}
         onRetry={room.reload}
         retryLabel={t('common.retry')}
+        onEnd={handleForceEndSession}
+        endLabel={isCompleting ? t('room.ending') : t('room.endEarly')}
       />
     );
   }
 
   return (
-    <UserLayout collapseSidebar immersive>
-      <div className="technical-page technical-page--room animate-pageEntrance" lang={interviewLanguage}>
-        <div className={`technical-interview-workspace${isTranscriptOpen ? ' technical-interview-workspace--transcript-open' : ''}`}>
-          {isTranscriptOpen && (
-            <>
-              <button
-                type="button"
-                className="technical-transcript-backdrop"
-                onClick={closeTranscript}
-                aria-label={t('room.closeTranscript')}
-              />
-              <TechnicalTranscriptPanel
-                items={transcriptItems}
-                recorder={recorder}
-                currentTranscript={visibleTranscript}
-                hasActiveAttempt={Boolean(attemptId || processingDraft?.attemptId)}
-                transcriptEditable={transcriptEditable}
-                disabled={status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting}
-                isOpen={isTranscriptOpen}
-                onClose={closeTranscript}
-                t={t}
-              />
-            </>
-          )}
-          <section className="technical-main-stage" aria-label={t('room.interviewWorkspace')}>
-            {header}
-            <div className="technical-main-stage__body">
-              {content}
-            </div>
-            <div className="technical-main-stage__actions">
-              <TechnicalTranscriptToggle
-                ref={transcriptToggleRef}
-                isOpen={isTranscriptOpen}
-                onClick={isTranscriptOpen ? closeTranscript : openTranscript}
-                t={t}
-              />
-            </div>
-          </section>
-        </div>
+    <InterviewRoomShell
+      language={interviewLanguage}
+      header={header}
+      isTranscriptOpen={isTranscriptOpen}
+      onCloseTranscript={closeTranscript}
+      onToggleTranscript={isTranscriptOpen ? closeTranscript : openTranscript}
+      transcriptCloseLabel={t('room.closeTranscript')}
+      transcriptLabel={t('room.transcript')}
+      transcript={(
+        <TechnicalTranscriptPanel
+          items={transcriptItems}
+          recorder={recorder}
+          currentTranscript={visibleTranscript}
+          hasActiveAttempt={Boolean(attemptId || processingDraft?.attemptId)}
+          transcriptEditable={transcriptEditable}
+          disabled={status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting}
+          isOpen={isTranscriptOpen}
+          onClose={closeTranscript}
+          t={t}
+        />
+      )}
+      dialog={(
         <EndSessionConfirmDialog
           action={isEndConfirmOpen ? 'session' : null}
           isSubmitting={isCompleting}
@@ -416,8 +439,10 @@ function TechnicalInterviewPage({ sessionId }) {
           onCancel={() => setIsEndConfirmOpen(false)}
           t={t}
         />
-      </div>
-    </UserLayout>
+      )}
+    >
+      {content}
+    </InterviewRoomShell>
   );
 }
 

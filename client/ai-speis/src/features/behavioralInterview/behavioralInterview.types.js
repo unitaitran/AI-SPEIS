@@ -31,6 +31,9 @@ export const BehavioralErrorCode = Object.freeze({
   SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
   SESSION_ACCESS_DENIED: 'SESSION_ACCESS_DENIED',
   WRONG_ROUND_TYPE: 'WRONG_ROUND_TYPE',
+  SESSION_START_REJECTED: 'SESSION_START_REJECTED',
+  INVALID_SESSION_STATUS: 'INVALID_SESSION_STATUS',
+  ROUND_LIFECYCLE_TRANSITION_FAILED: 'ROUND_LIFECYCLE_TRANSITION_FAILED',
   NOT_INITIALIZED: 'NOT_INITIALIZED',
   NOT_STARTED: 'NOT_STARTED',
   ROUND_COMPLETED: 'ROUND_COMPLETED',
@@ -64,6 +67,16 @@ export const BehavioralErrorCode = Object.freeze({
  * @property {number} mainQuestionIndex
  * @property {number} totalMainQuestions
  * @property {string} sessionStatus
+ */
+
+/**
+ * @typedef {Object} BehavioralInterviewSession
+ * @property {number} sessionId
+ * @property {string} status
+ * @property {string} language
+ * @property {number} targetMainQuestionCount
+ * @property {number} completedMainQuestionCount
+ * @property {Array<Object>} transcript Server-authoritative question and submitted-answer history.
  */
 
 /**

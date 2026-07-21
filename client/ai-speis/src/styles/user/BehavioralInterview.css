@@ -178,6 +178,18 @@
     var(--surface-1);
 }
 
+.technical-main-stage__body--flush > .behavior-stage {
+  height: 100%;
+}
+
+.behavior-stage > .technical-initialization,
+.behavior-stage > .technical-error-state {
+  grid-row: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  width: min(640px, calc(100% - 32px));
+}
+
 .behavior-stage__topbar {
   display: flex;
   align-items: center;
@@ -467,6 +479,20 @@
   background: var(--surface-2);
   box-shadow: var(--box-shadow-md);
   text-align: center;
+}
+
+.behavior-completion-stack {
+  grid-row: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  width: min(680px, calc(100% - 32px));
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--spacing-sm);
+}
+
+.behavior-completion-stack .behavior-completion {
+  width: 100%;
 }
 
 .behavior-room-state__bot {
