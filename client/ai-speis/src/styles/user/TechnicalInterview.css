@@ -1061,3 +1061,468 @@
     animation: none;
   }
 }
+
+/* Immersive Technical Interview Room */
+.technical-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.technical-page--room {
+  --technical-transcript-panel-width: clamp(320px, 24vw, 360px);
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: var(--spacing-md);
+  overflow: hidden;
+}
+
+.technical-interview-workspace {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-md);
+  overflow: hidden;
+}
+
+.technical-interview-workspace--transcript-open {
+  grid-template-columns: var(--technical-transcript-panel-width) minmax(0, 1fr);
+}
+
+.technical-transcript-panel,
+.technical-main-stage {
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--box-shadow-sm);
+}
+
+.technical-transcript-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.technical-transcript-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.technical-transcript-panel__header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--heading-3);
+  line-height: var(--heading-3-lh);
+}
+
+.technical-transcript-panel__header p {
+  margin: var(--spacing-xs) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+  line-height: var(--body-sm-lh);
+}
+
+.technical-icon-button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+.technical-icon-button:hover {
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+}
+
+.technical-icon-button:focus-visible,
+.technical-transcript-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--box-shadow-glow);
+}
+
+.technical-transcript-live {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin: var(--spacing-md) var(--spacing-md) 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border-radius: var(--border-radius);
+  font-size: var(--body-sm);
+}
+
+.technical-transcript-live--listening {
+  color: var(--error);
+  background: var(--error-light);
+}
+
+.technical-transcript-live--error {
+  color: var(--error);
+  background: var(--error-light);
+}
+
+.technical-transcript-live--processing {
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+}
+
+.technical-transcript-panel__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--spacing-md);
+  scrollbar-gutter: stable;
+}
+
+.technical-transcript-empty {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--spacing-sm);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.technical-transcript-empty p {
+  margin: 0;
+  font-size: var(--body-sm);
+}
+
+.technical-transcript-item {
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  overflow-wrap: anywhere;
+}
+
+.technical-transcript-item + .technical-transcript-item {
+  margin-top: var(--spacing-sm);
+}
+
+.technical-transcript-item--interviewer {
+  margin-right: var(--spacing-lg);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+
+.technical-transcript-item--candidate {
+  margin-left: var(--spacing-lg);
+  background: var(--primary-xlight);
+  border: 1px solid var(--primary-light);
+}
+
+.technical-transcript-item__speaker {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+}
+
+.technical-transcript-item__speaker strong {
+  color: var(--text-primary);
+  font-size: var(--label-size);
+}
+
+.technical-transcript-item__speaker span {
+  margin-left: auto;
+  color: var(--primary-dark);
+  font-size: var(--badge-size);
+  font-weight: var(--fw-semibold);
+}
+
+.technical-transcript-item p {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--text-primary);
+  font-size: var(--body-md);
+  line-height: var(--body-md-lh);
+  white-space: pre-wrap;
+}
+
+.technical-transcript-panel__editor {
+  flex: 0 0 auto;
+  max-height: 42%;
+  overflow-y: auto;
+  padding: 0 var(--spacing-md) var(--spacing-md);
+  border-top: 1px solid var(--border);
+}
+
+.technical-transcript-panel__editor .technical-transcript textarea {
+  min-height: 104px;
+  max-height: 180px;
+}
+
+.technical-main-stage {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--primary-xlight) 100%);
+}
+
+.technical-page--room .technical-room-header {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-width: 0 0 1px;
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  box-shadow: none;
+}
+
+.technical-page--room .technical-room-header h1 {
+  font-size: var(--heading-3);
+}
+
+.technical-main-stage__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--spacing-lg);
+}
+
+.technical-main-stage__actions {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-md);
+}
+
+.technical-transcript-toggle {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md);
+  color: var(--primary-dark);
+  background: var(--surface-2);
+  border: 1px solid var(--primary-light);
+  border-radius: var(--border-radius-pill);
+  box-shadow: var(--box-shadow-sm);
+  font: inherit;
+  font-size: var(--body-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+
+.technical-transcript-toggle:hover {
+  background: var(--primary-xlight);
+}
+
+.technical-transcript-backdrop {
+  display: none;
+}
+
+.technical-page--room .technical-progress {
+  width: min(100%, 850px);
+  margin: 0 auto var(--spacing-lg);
+  background: var(--surface-2);
+}
+
+.technical-page--room .technical-room-grid {
+  width: min(100%, 850px);
+  min-height: calc(100% - 88px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--spacing-md);
+  margin: 0 auto;
+}
+
+.technical-question-panel--stage,
+.technical-answer-panel--stage {
+  padding: var(--spacing-md);
+  text-align: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.technical-question-panel--stage .technical-question-panel__header {
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.technical-question-panel--stage .technical-question-panel__badges {
+  justify-content: center;
+}
+
+.technical-question-panel--stage .technical-question-panel__content {
+  max-width: 760px;
+  margin: var(--spacing-lg) auto;
+  font-size: var(--heading-2);
+  font-weight: var(--fw-semibold);
+  line-height: var(--heading-2-lh);
+}
+
+.technical-question-panel--stage .technical-question-panel__context,
+.technical-question-panel--stage .technical-audio {
+  max-width: 720px;
+  margin-right: auto;
+  margin-left: auto;
+  text-align: left;
+}
+
+.technical-answer-panel--stage .technical-recorder {
+  flex-direction: column-reverse;
+  justify-content: center;
+  margin: 0;
+  padding: var(--spacing-sm);
+  background: transparent;
+  border: 0;
+}
+
+.technical-answer-panel--stage .technical-recorder__state {
+  justify-content: center;
+  text-align: left;
+}
+
+.technical-answer-panel--stage .technical-recorder-button {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  padding: 0;
+  color: var(--white);
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+  border-radius: 50%;
+  box-shadow: var(--box-shadow-md), var(--box-shadow-glow);
+}
+
+.technical-answer-panel--stage .technical-recorder-button:hover {
+  color: var(--white);
+  background: var(--primary);
+  border-color: var(--primary-dark);
+}
+
+.technical-answer-panel--stage .technical-recorder-button--recording {
+  color: var(--white);
+  background: var(--error);
+  border-color: var(--error);
+}
+
+.technical-answer-panel--stage .technical-recorder-button__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.technical-answer-panel--stage .technical-answer-panel__submit {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--spacing-lg);
+}
+
+.technical-answer-panel--stage .technical-answer-panel__submit > button {
+  width: auto;
+  min-width: 180px;
+}
+
+.technical-page--room .technical-evaluation,
+.technical-page--room .technical-ready,
+.technical-page--room .technical-error-state,
+.technical-page--room .technical-initialization {
+  width: min(100%, 850px);
+  margin: auto;
+}
+
+@media (max-width: 1023px) {
+  .technical-interview-workspace--transcript-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .technical-transcript-panel {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 41;
+    width: min(100%, 380px);
+    border-width: 0 1px 0 0;
+    border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
+    box-shadow: var(--box-shadow-lg);
+  }
+
+  .technical-transcript-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: rgba(31, 45, 61, 0.28);
+    border: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .technical-page--room {
+    padding: var(--spacing-sm);
+  }
+
+  .technical-transcript-panel {
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .technical-main-stage__body {
+    padding: var(--spacing-md);
+  }
+
+  .technical-main-stage__actions {
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+  }
+
+  .technical-page--room .technical-room-header__actions {
+    align-items: stretch;
+  }
+
+  .technical-question-panel--stage .technical-question-panel__content {
+    font-size: var(--heading-3);
+  }
+
+  .technical-answer-panel--stage .technical-recorder-button {
+    width: 84px;
+    height: 84px;
+  }
+
+  .technical-answer-panel--stage .technical-answer-panel__submit > button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .technical-transcript-panel,
+  .technical-main-stage,
+  .technical-recorder-button {
+    transition: none;
+  }
+}
