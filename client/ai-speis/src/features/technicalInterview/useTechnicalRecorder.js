@@ -46,9 +46,11 @@ export default function useTechnicalRecorder(language = 'vi') {
         language === 'en' ? 'en-US' : 'vi-VN',
       );
       if (!mountedRef.current || requestIdRef.current !== requestId) return null;
-      if (response?.transcript?.trim()) {
-        setTranscript(response.transcript);
-      }
+      const finalTranscript = response?.transcript?.trim() || '';
+      if (!finalTranscript) throw new Error('EMPTY_TRANSCRIPT');
+      // Browser SpeechRecognition is only a live preview. The server-side Chirp 3
+      // result is authoritative and must replace it before the answer can be submitted.
+      setTranscript(finalTranscript);
       setAudioId(response?.audioId || null);
       setSttStatus(SttStatus.COMPLETED);
       setRecordingStatus(RecordingStatus.READY);
@@ -72,6 +74,7 @@ export default function useTechnicalRecorder(language = 'vi') {
     startInFlightRef.current = false;
     clearTimer();
     if (recognitionRef.current) {
+      recognitionRef.current.onresult = null;
       try { recognitionRef.current.stop(); } catch { /* Already stopped */ }
       recognitionRef.current = null;
     }
@@ -152,19 +155,6 @@ export default function useTechnicalRecorder(language = 'vi') {
           : null;
         if (blob) setAudioBlob(blob);
 
-        if (currentRealtimeTranscript) {
-          setSttStatus(SttStatus.COMPLETED);
-          setRecordingStatus(RecordingStatus.READY);
-          if (blob) {
-            audioService.checkSpeechToText(blob, language === 'en' ? 'en-US' : 'vi-VN')
-              .then((response) => {
-                if (mountedRef.current && response?.audioId) setAudioId(response.audioId);
-              })
-              .catch(() => {});
-          }
-          return;
-        }
-
         if (blob) {
           try {
             await transcribe(blob, requestId);
@@ -215,6 +205,8 @@ export default function useTechnicalRecorder(language = 'vi') {
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {
+      // Do not allow a late browser result to overwrite the authoritative Chirp 3 result.
+      recognitionRef.current.onresult = null;
       try { recognitionRef.current.stop(); } catch { /* Ignore */ }
       recognitionRef.current = null;
     }

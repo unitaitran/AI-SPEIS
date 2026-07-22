@@ -4,14 +4,16 @@ using Google.Protobuf;
 using Grpc.Core;
 using Microsoft.AspNetCore.Http;
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace ai_speis_be.Services.SpeechToTextService
 {
     public class SpeechToTextService : ISpeechToTextService
     {
+        // Stay safely below Speech-to-Text V2's 15 KB per-message audio limit.
+        private const int StreamingAudioChunkSize = 14 * 1024;
         private readonly ILogger<SpeechToTextService> _logger;
 
         public SpeechToTextService(ILogger<SpeechToTextService> logger)
@@ -44,48 +46,80 @@ namespace ai_speis_be.Services.SpeechToTextService
                 // Format: projects/{project}/locations/{location}/recognizers/_
                 var recognizerName = $"projects/{projectId}/locations/{region}/recognizers/_";
 
-                var request = new RecognizeRequest
+                var recognitionConfig = new RecognitionConfig
                 {
-                    Recognizer = recognizerName,
-                    Config = new RecognitionConfig
+                    Model = "chirp_3",
+                    LanguageCodes = { string.IsNullOrWhiteSpace(languageCode) ? "vi-VN" : languageCode.Trim() },
+                    AutoDecodingConfig = new AutoDetectDecodingConfig(),
+                    Features = new RecognitionFeatures
                     {
-                        // Chirp 3 — Google's latest foundation model for speech recognition.
-                        // Supports 100+ languages including Vietnamese with high accuracy.
-                        Model = "chirp_3",
-
-                        // Language(s) for recognition. V2 uses repeated LanguageCodes (not single LanguageCode).
-                        LanguageCodes = { string.IsNullOrWhiteSpace(languageCode) ? "vi-VN" : languageCode.Trim() },
-
-                        // Let Google auto-detect the audio encoding, sample rate, and channel count.
-                        // This replaces the manual ContentType-to-AudioEncoding mapping from V1.
-                        // Supports: WebM/Opus, OGG/Opus, MP3, WAV/LINEAR16, FLAC, and more.
-                        AutoDecodingConfig = new AutoDetectDecodingConfig(),
-
-                        // Recognition features — replaces top-level config booleans from V1.
-                        Features = new RecognitionFeatures
-                        {
-                            EnableAutomaticPunctuation = true,
-                            EnableWordTimeOffsets = true,
-                        },
+                        EnableAutomaticPunctuation = true,
                     },
-                    // Audio content sent inline (same as V1's RecognitionAudio.FromBytes).
-                    Content = ByteString.CopyFrom(audioBytes),
                 };
 
-                var response = await client.RecognizeAsync(request);
+                // Technical answers may be up to two minutes. RecognizeAsync only accepts
+                // audio shorter than 60 seconds, so send the recorded WebM through the
+                // bidirectional streaming API even though transcription starts after stop.
+                using var stream = client.StreamingRecognize();
+                var finalSegments = new List<string>();
+                string latestInterimTranscript = string.Empty;
 
-                if (response.Results == null || response.Results.Count == 0)
-                    return string.Empty;
+                var responseTask = Task.Run(async () =>
+                {
+                    var responses = stream.GetResponseStream();
+                    while (await responses.MoveNextAsync())
+                    {
+                        foreach (var result in responses.Current.Results)
+                        {
+                            if (result.Alternatives == null || result.Alternatives.Count == 0)
+                                continue;
 
-                return string.Join(" ", response.Results
-                    .Where(r => r.Alternatives != null && r.Alternatives.Count > 0)
-                    .Select(r => r.Alternatives[0].Transcript));
+                            var transcript = result.Alternatives[0].Transcript?.Trim();
+                            if (string.IsNullOrWhiteSpace(transcript))
+                                continue;
+
+                            if (result.IsFinal)
+                                finalSegments.Add(transcript);
+                            else
+                                latestInterimTranscript = transcript;
+                        }
+                    }
+                });
+
+                await stream.WriteAsync(new StreamingRecognizeRequest
+                {
+                    Recognizer = recognizerName,
+                    StreamingConfig = new StreamingRecognitionConfig
+                    {
+                        Config = recognitionConfig,
+                        StreamingFeatures = new StreamingRecognitionFeatures
+                        {
+                            InterimResults = false,
+                        },
+                    },
+                });
+
+                for (var offset = 0; offset < audioBytes.Length; offset += StreamingAudioChunkSize)
+                {
+                    var length = Math.Min(StreamingAudioChunkSize, audioBytes.Length - offset);
+                    await stream.WriteAsync(new StreamingRecognizeRequest
+                    {
+                        Audio = ByteString.CopyFrom(audioBytes, offset, length),
+                    });
+                }
+
+                await stream.WriteCompleteAsync();
+                await responseTask;
+
+                return finalSegments.Count > 0
+                    ? string.Join(" ", finalSegments)
+                    : latestInterimTranscript;
             }
             catch (RpcException ex) when (ex.StatusCode == StatusCode.Unauthenticated)
             {
                 _logger.LogError(ex,
                     "Google Cloud STT authentication failed. " +
-                    "Verify GOOGLE_SPEECH_TO_TEXT_CREDENTIALS points to a valid service account key.");
+                    "Verify GOOGLE_APPLICATION_CREDENTIALS points to a valid service account key.");
                 throw new InvalidOperationException(
                     "Speech-to-Text authentication failed. Check service account credentials.", ex);
             }
@@ -138,7 +172,11 @@ namespace ai_speis_be.Services.SpeechToTextService
         /// </summary>
         private async Task<SpeechClient> CreateClientAsync()
         {
-            var credentialsPath = Environment.GetEnvironmentVariable("GOOGLE_SPEECH_TO_TEXT_CREDENTIALS");
+            // GOOGLE_APPLICATION_CREDENTIALS is the standard Google ADC variable and
+            // is already documented in .env.example. Keep the service-specific name as
+            // a backwards-compatible fallback for existing deployments.
+            var credentialsPath = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS")
+                ?? Environment.GetEnvironmentVariable("GOOGLE_SPEECH_TO_TEXT_CREDENTIALS");
             if (!string.IsNullOrEmpty(credentialsPath) && !Path.IsPathRooted(credentialsPath))
             {
                 credentialsPath = Path.GetFullPath(credentialsPath);
