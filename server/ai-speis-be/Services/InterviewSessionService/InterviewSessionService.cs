@@ -171,6 +171,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                     return (false, "Bạn đã hết lượt phỏng vấn.", null);
                 }
 
+                bool isOnlyCoding = roundTypesToCreate.Count > 0 && roundTypesToCreate.All(r => r == InterviewRoundType.Code);
+
                 var campaign = new InterviewCampaign
                 {
                     UserId = userId,
@@ -179,8 +181,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                     Language = request.Language.Trim().ToLowerInvariant(),
                     Mode = mode,
                     DurationMinutes = request.DurationMinutes,
-                    Status = InterviewCampaignStatus.Pending,
-                    ExpiresAt = now.Add(PendingCampaignLifetime),
+                    Status = isOnlyCoding ? InterviewCampaignStatus.Active : InterviewCampaignStatus.Pending,
+                    StartedAt = isOnlyCoding ? now : null,
+                    ExpiresAt = isOnlyCoding ? now.AddMinutes(request.DurationMinutes) : now.Add(PendingCampaignLifetime),
                     QuotaRefunded = false,
                     CreatedAt = now
                 };
@@ -196,7 +199,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                         InterviewRoundType = roundType,
                         Difficulty = difficulty,
                         QuestionCount = GetQuestionCount(mode, roundType, request.QuestionCounts),
-                        Status = InterviewSessionStatus.Pending,
+                        Status = (isOnlyCoding && roundType == InterviewRoundType.Code) ? InterviewSessionStatus.Active : InterviewSessionStatus.Pending,
                         CreatedAt = now
                     });
                 }
@@ -308,8 +311,15 @@ namespace ai_speis_be.Services.InterviewSessionService
                 var recoveredQuota = await AdvanceCampaignAsync(campaign, now);
                 return (true, null, MapCampaignToResponse(campaign, recoveredQuota));
             }
-            if (session.Status != InterviewSessionStatus.Active)
+            if (session.Status != InterviewSessionStatus.Active && session.Status != InterviewSessionStatus.Pending)
                 return (false, "Chỉ có thể hoàn tất phiên đang hoạt động.", null);
+
+            if (campaign.Status == InterviewCampaignStatus.Pending)
+            {
+                campaign.Status = InterviewCampaignStatus.Active;
+                campaign.StartedAt = now;
+                campaign.ExpiresAt = now.AddMinutes(campaign.DurationMinutes);
+            }
 
             session.Status = InterviewSessionStatus.Completed;
             session.UpdatedAt = now;

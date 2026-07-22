@@ -40,6 +40,9 @@ function AIInterviewRoomPage({ sessionId }) {
           throw new Error('Interview round type is not supported');
         }
         if (nextRoundType === 'Code') {
+          if (session?.status !== 'Active') {
+            interviewSessionService.startSession(resolvedSessionId).catch(() => {});
+          }
           navigate(getCodingInterviewRoomPath(resolvedSessionId), { replace: true });
           return;
         }
