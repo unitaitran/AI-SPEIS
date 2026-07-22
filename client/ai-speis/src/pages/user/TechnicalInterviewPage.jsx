@@ -1,13 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  AlertCircle,
+  Bot,
+  Loader2,
+  Pause,
+  RefreshCw,
+  RotateCcw,
+  Volume2,
+} from 'lucide-react';
+import BehavioralRecorderControls from '../../components/behavioralInterview/BehavioralRecorderControls';
 import EndSessionConfirmDialog from '../../components/technicalInterview/EndSessionConfirmDialog';
 import InterviewInitializationLoading from '../../components/technicalInterview/InterviewInitializationLoading';
-import TechnicalAnswerPanel from '../../components/technicalInterview/TechnicalAnswerPanel';
 import TechnicalEvaluationState from '../../components/technicalInterview/TechnicalEvaluationState';
 import TechnicalInterviewErrorState from '../../components/technicalInterview/TechnicalInterviewErrorState';
-import TechnicalInterviewHeader from '../../components/technicalInterview/TechnicalInterviewHeader';
-import TechnicalInterviewProgress from '../../components/technicalInterview/TechnicalInterviewProgress';
-import TechnicalQuestionPanel from '../../components/technicalInterview/TechnicalQuestionPanel';
 import TechnicalTranscriptPanel from '../../components/technicalInterview/TechnicalTranscriptPanel';
 import InterviewRoomShell from '../../components/interviewRoom/InterviewRoomShell';
 import {
@@ -23,7 +29,9 @@ import {
   SttStatus,
   TechnicalSessionStatus,
 } from '../../features/technicalInterview/technicalInterview.types';
-import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio';
+import useQuestionAudio, {
+  QuestionAudioStatus,
+} from '../../features/technicalInterview/useQuestionAudio';
 import useSubmitTechnicalAnswer from '../../features/technicalInterview/useSubmitTechnicalAnswer';
 import useTechnicalInterviewSession, {
   getTechnicalSessionStatus,
@@ -44,10 +52,39 @@ import {
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
 import '../../styles/user/TechnicalInterview.css';
+import '../../styles/user/BehavioralInterview.css';
 
 const getDefaultTranscriptVisibility = () => (
   typeof window === 'undefined' || window.innerWidth >= 1024
 );
+
+const TECHNICAL_RECORDER_COPY = {
+  answerReady: 'room.recordingReady',
+  answerReview: 'room.answerTitle',
+  audioPreserved: 'room.sttError',
+  audioUnsupported: 'room.audioFallback',
+  microphoneHelp: 'room.microphoneError',
+  microphoneUnavailable: 'room.microphoneError',
+  processingTranscript: 'room.processingTranscript',
+  processingTranscriptDescription: 'room.evaluatingDescription',
+  recordAgain: 'room.startRecording',
+  recording: 'room.recordingNow',
+  recordingControls: 'room.answerTitle',
+  recordingPrivacy: 'room.recordingHint',
+  requestingMicrophone: 'room.transcriptRequestingPermission',
+  retryTranscription: 'common.retry',
+  reviewBeforeSubmit: 'room.transcriptHelper',
+  startRecording: 'room.startRecording',
+  stopRecording: 'room.stopRecording',
+  submitAnswer: 'room.submitAnswer',
+  submitting: 'room.submitting',
+  tapToAnswer: 'room.recordingIdle',
+  transcriptionFailed: 'room.sttError',
+  transcriptHelper: 'room.transcriptHelper',
+  transcriptPlaceholder: 'room.transcriptPlaceholder',
+  tryAgain: 'common.retry',
+  yourTranscript: 'room.transcriptLabel',
+};
 
 function TechnicalInterviewPage({ sessionId }) {
   const activeContext = useMemo(() => getActiveInterviewContext(), []);
@@ -61,6 +98,9 @@ function TechnicalInterviewPage({ sessionId }) {
   const t = useCallback((key, options = {}) => (
     translate(key, { ...options, lng: interviewLanguage })
   ), [interviewLanguage, translate]);
+  const recorderT = useCallback((key, options = {}) => (
+    t(TECHNICAL_RECORDER_COPY[key] || `room.${key}`, options)
+  ), [t]);
   const {
     error: roomLoadError,
     isLoading: isRoomLoading,
@@ -92,7 +132,6 @@ function TechnicalInterviewPage({ sessionId }) {
 
   const status = getTechnicalSessionStatus(room.session);
   const attemptId = room.currentQuestion?.attemptId || null;
-  const transcriptEditable = room.session?.transcriptEditable !== false;
   const processingDraft = status === TechnicalSessionStatus.EVALUATING
     ? readTechnicalInterviewSessionDraft(resolvedSessionId)
     : null;
@@ -294,18 +333,6 @@ function TechnicalInterviewPage({ sessionId }) {
     }
   };
 
-  const header = room.session && (
-    <TechnicalInterviewHeader
-      t={t}
-      jobRole={room.session.jobRole || setupDraft?.jobRole}
-      experienceLevel={room.session.experienceLevel || setupDraft?.experienceLevel}
-      status={status}
-      canCompleteEarly={room.session.canCompleteEarly === true}
-      isCompleting={isCompleting}
-      onComplete={() => setIsEndConfirmOpen(true)}
-    />
-  );
-
   let content;
   if (!resolvedSessionId) {
     content = (
@@ -354,44 +381,154 @@ function TechnicalInterviewPage({ sessionId }) {
         endLabel={isCompleting ? t('room.ending') : t('room.endEarly')}
       />
     );
-  } else if (status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting) {
+  } else if ((status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting)
+    && !room.currentQuestion) {
     content = (
       <TechnicalEvaluationState
         t={t}
       />
     );
   } else if (room.currentQuestion) {
+    const numericCurrent = Number(room.currentQuestion.mainQuestionIndex
+      || ((room.session?.completedMainQuestionCount ?? 0) + 1));
+    const numericTotal = Number(room.currentQuestion.totalMainQuestions
+      || room.session?.lockedMainQuestions?.length
+      || room.session?.targetMainQuestionCount);
+    const hasProgress = Number.isFinite(numericCurrent)
+      && Number.isFinite(numericTotal)
+      && numericTotal > 0;
+    const progressPercentage = hasProgress
+      ? Math.min(100, Math.max(0, (numericCurrent / numericTotal) * 100))
+      : 0;
+    const isEvaluating = status === TechnicalSessionStatus.EVALUATING
+      || submitMutation.isSubmitting;
+    const questionType = room.currentQuestion.questionType;
+    const contextKey = questionType === 'CLARIFICATION'
+      ? 'room.clarificationContext'
+      : questionType === 'FOLLOW_UP'
+        ? 'room.followUpContext'
+        : null;
+
     content = (
-      <>
-        <TechnicalInterviewProgress
-          question={room.currentQuestion}
-          current={room.currentQuestion?.mainQuestionIndex
-            || ((room.session?.completedMainQuestionCount ?? 0) + 1)}
-          total={room.session?.lockedMainQuestions?.length || room.session?.targetMainQuestionCount}
-          t={t}
-        />
-        <div className="technical-room-grid">
-          <TechnicalQuestionPanel
-            question={room.currentQuestion}
-            audio={questionAudio}
-            audioDisabled={recorder.recordingStatus === RecordingStatus.RECORDING
-              || recorder.sttStatus === SttStatus.PROCESSING}
-            stageMode
-            t={t}
-          />
-          <TechnicalAnswerPanel
-            recorder={recorder}
-            transcriptEditable={transcriptEditable}
-            disabled={questionAudio.isPlaying}
-            isSubmitting={submitMutation.isSubmitting}
-            errorMessage={localError ? getErrorMessage(localError) : ''}
-            onSubmit={handleSubmit}
-            showTranscriptEditor={false}
-            stageMode
-            t={t}
-          />
+      <section className="behavior-stage technical-behavior-stage" aria-label={t('room.title')}>
+        <header className="behavior-stage__topbar">
+          <div className="behavior-stage__session">
+            <span>{t('room.title')}</span>
+            <strong>{room.session?.jobRole || setupDraft?.jobRole || 'AI-SPEIS'}</strong>
+          </div>
+          <div className="behavior-stage__top-actions">
+            {room.session?.canCompleteEarly === true ? (
+              <button
+                type="button"
+                className="behavior-stage__end"
+                onClick={() => setIsEndConfirmOpen(true)}
+                disabled={isCompleting}
+              >
+                {isCompleting ? t('room.ending') : t('room.endEarly')}
+              </button>
+            ) : null}
+          </div>
+        </header>
+
+        <div
+          className="behavior-stage__progress"
+          role="progressbar"
+          aria-label={hasProgress
+            ? t('room.questionProgress', { current: numericCurrent, total: numericTotal })
+            : t('room.questionProgressUnknown')}
+          aria-valuemin={0}
+          aria-valuemax={hasProgress ? numericTotal : undefined}
+          aria-valuenow={hasProgress ? numericCurrent : undefined}
+        >
+          <span style={{ width: `${progressPercentage}%` }} />
         </div>
-      </>
+
+        <section className="behavior-question" aria-labelledby="technical-stage-question">
+          <div className="behavior-question__eyebrow">
+            {t(`room.questionTypes.${questionType}`, { defaultValue: t('room.interviewerAsks') })}
+          </div>
+          <h1 id="technical-stage-question" tabIndex={-1}>{room.currentQuestion.content}</h1>
+          {(room.currentQuestion.skill || room.currentQuestion.difficulty) ? (
+            <p className="behavior-question__hint">
+              {[room.currentQuestion.skill, room.currentQuestion.difficulty].filter(Boolean).join(' / ')}
+            </p>
+          ) : null}
+          {contextKey ? (
+            <p className="technical-behavior-stage__context">
+              {t(contextKey, { current: numericCurrent })}
+            </p>
+          ) : null}
+          <div
+            className={`behavior-interviewer ${recorder.recordingStatus === RecordingStatus.RECORDING ? 'behavior-interviewer--listening' : ''}`}
+            aria-hidden="true"
+          >
+            <span className="behavior-interviewer__ring" />
+            <span className="behavior-interviewer__ring" />
+            <span className="behavior-interviewer__core"><Bot size={28} /></span>
+          </div>
+          <div className="behavior-audio-controls" aria-label={t('room.playQuestionAudio')}>
+            {questionAudio.status === QuestionAudioStatus.LOADING
+              || questionAudio.status === QuestionAudioStatus.IDLE ? (
+                <Loader2 size={18} className="behavior-spin" />
+              ) : null}
+            {questionAudio.status === QuestionAudioStatus.READY ? (
+              <>
+                <button
+                  type="button"
+                  onClick={questionAudio.isPlaying ? questionAudio.pause : questionAudio.play}
+                  disabled={recorder.recordingStatus === RecordingStatus.RECORDING
+                    || recorder.sttStatus === SttStatus.PROCESSING}
+                >
+                  {questionAudio.isPlaying ? <Pause size={17} /> : <Volume2 size={17} />}
+                  {questionAudio.isPlaying ? t('room.pauseAudio') : t('room.playAudio')}
+                </button>
+                <button type="button" onClick={questionAudio.replay} aria-label={t('room.replayQuestionAudio')}>
+                  <RotateCcw size={17} />
+                </button>
+              </>
+            ) : null}
+            {questionAudio.status === QuestionAudioStatus.ERROR ? (
+              <button type="button" onClick={questionAudio.retry}>
+                <RefreshCw size={17} />{t('room.retryAudio')}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={questionAudio.toggleAutoPlay}
+              aria-pressed={questionAudio.autoPlay}
+            >
+              {t('room.autoPlayAudio')}: {questionAudio.autoPlay ? t('room.on') : t('room.off')}
+            </button>
+          </div>
+        </section>
+
+        <footer className="behavior-stage__controls">
+          {localError ? (
+            <div className="behavior-inline-error" role="alert">
+              <AlertCircle size={18} />
+              <span>{getErrorMessage(localError)}</span>
+            </div>
+          ) : null}
+          {isEvaluating ? (
+            <div className="behavior-evaluating" role="status" aria-live="polite">
+              <Loader2 size={22} className="behavior-spin" />
+              <div>
+                <strong>{t('room.evaluatingTitle')}</strong>
+                <p>{t('room.evaluatingDescription')}</p>
+              </div>
+            </div>
+          ) : (
+            <BehavioralRecorderControls
+              recorder={recorder}
+              disabled={questionAudio.isPlaying}
+              isSubmitting={submitMutation.isSubmitting}
+              timeLimitSeconds={room.currentQuestion.timeLimitSeconds}
+              onSubmit={handleSubmit}
+              t={recorderT}
+            />
+          )}
+        </footer>
+      </section>
     );
   } else {
     content = (
@@ -415,7 +552,7 @@ function TechnicalInterviewPage({ sessionId }) {
   return (
     <InterviewRoomShell
       language={interviewLanguage}
-      header={header}
+      mainFlush
       isTranscriptOpen={isTranscriptOpen}
       onCloseTranscript={closeTranscript}
       onToggleTranscript={isTranscriptOpen ? closeTranscript : openTranscript}
@@ -427,7 +564,7 @@ function TechnicalInterviewPage({ sessionId }) {
           recorder={recorder}
           currentTranscript={visibleTranscript}
           hasActiveAttempt={Boolean(attemptId || processingDraft?.attemptId)}
-          transcriptEditable={transcriptEditable}
+          transcriptEditable
           disabled={status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting}
           isOpen={isTranscriptOpen}
           onClose={closeTranscript}

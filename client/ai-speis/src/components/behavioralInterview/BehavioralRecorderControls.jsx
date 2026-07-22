@@ -75,7 +75,7 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
     );
   }
 
-  if (permissionDenied || sttFailed) {
+  if ((permissionDenied || sttFailed) && !hasTranscript) {
     return (
       <section className="behavior-recorder behavior-recorder--error" role="alert">
         <TriangleAlert size={22} />
@@ -106,7 +106,7 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
     );
   }
 
-  if (recorder.audioBlob && hasTranscript) {
+  if (hasTranscript) {
     return (
       <section className="behavior-recorder behavior-recorder--review" aria-label={t('answerReview')}>
         <div className="behavior-recorder__review-head">
@@ -117,9 +117,17 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
           <time>{formatDuration(recorder.elapsedSeconds)}</time>
         </div>
         {audioUrl ? <audio controls preload="metadata" src={audioUrl}>{t('audioUnsupported')}</audio> : null}
-        <div className="behavior-recorder__transcript" tabIndex={0}>
-          <span>{t('yourTranscript')}</span>
-          <p>{recorder.transcript}</p>
+        <div className="behavior-recorder__transcript">
+          <label htmlFor="interview-answer-transcript">{t('yourTranscript')}</label>
+          <textarea
+            id="interview-answer-transcript"
+            value={recorder.transcript}
+            onChange={(event) => recorder.setTranscript(event.target.value)}
+            placeholder={t('transcriptPlaceholder')}
+            readOnly={disabled || isSubmitting}
+            aria-readonly={disabled || isSubmitting}
+          />
+          <p>{t('transcriptHelper')}</p>
         </div>
         <div className="behavior-recorder__actions behavior-recorder__actions--review">
           <button type="button" onClick={recorder.reset} disabled={disabled || isSubmitting}>
