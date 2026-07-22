@@ -51,6 +51,7 @@ import {
   getNextOpenSession,
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
+import { useRef } from 'react';
 import '../../styles/user/TechnicalInterview.css';
 import '../../styles/user/BehavioralInterview.css';
 
@@ -294,6 +295,23 @@ function TechnicalInterviewPage({ sessionId }) {
       setLocalError(error);
     }
   };
+
+  const autoSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      recorder.recordingStatus === RecordingStatus.READY
+      && recorder.transcript.trim()
+      && status === TechnicalSessionStatus.IN_PROGRESS
+      && !room.isProcessing
+      && !autoSubmittingRef.current
+    ) {
+      autoSubmittingRef.current = true;
+      handleSubmit().finally(() => {
+        autoSubmittingRef.current = false;
+      });
+    }
+  }, [recorder.recordingStatus, recorder.transcript, status, room.isProcessing]);
 
   const handleCompleteEarly = async () => {
     if (!resolvedSessionId || isCompleting) return;

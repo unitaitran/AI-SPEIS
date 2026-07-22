@@ -200,7 +200,10 @@
     "notReadyForInterview": "The interview cannot start until all required checks pass.",
     "privacyTitle": "Note",
     "privacyDescription": "AI-SPEIS does not upload or save audio during the device check.",
-    "starting": "Starting"
+    "starting": "Starting",
+    "setupModalTitle": "Setting Up Interview Room",
+    "setupModalDescription": "Please wait a moment. The system is setting up the environment and initializing AI interview questions...",
+    "setupModalTip": "Synthesizing data from CV & JD to create an optimized interview plan."
   },
   "room": {
     "title": "Technical interview",

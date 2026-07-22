@@ -29,6 +29,12 @@ export default function useTechnicalRecorder(language = 'vi') {
   const mountedRef = useRef(true);
   const startInFlightRef = useRef(false);
   const requestIdRef = useRef(0);
+  const recognitionRef = useRef(null);
+  const transcriptRef = useRef('');
+
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
   const transcribe = useCallback(async (blob, requestId = requestIdRef.current) => {
     setSttError(null);
@@ -40,7 +46,9 @@ export default function useTechnicalRecorder(language = 'vi') {
         language === 'en' ? 'en-US' : 'vi-VN',
       );
       if (!mountedRef.current || requestIdRef.current !== requestId) return null;
-      setTranscript(response?.transcript || '');
+      if (response?.transcript?.trim()) {
+        setTranscript(response.transcript);
+      }
       setAudioId(response?.audioId || null);
       setSttStatus(SttStatus.COMPLETED);
       setRecordingStatus(RecordingStatus.READY);
@@ -63,6 +71,10 @@ export default function useTechnicalRecorder(language = 'vi') {
     requestIdRef.current += 1;
     startInFlightRef.current = false;
     clearTimer();
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch { /* Already stopped */ }
+      recognitionRef.current = null;
+    }
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
       recorder.ondataavailable = null;
@@ -126,18 +138,38 @@ export default function useTechnicalRecorder(language = 'vi') {
         recorderRef.current = null;
         if (!mountedRef.current) return;
 
-        if (!chunksRef.current.length) {
+        const currentRealtimeTranscript = transcriptRef.current?.trim() || '';
+
+        if (!chunksRef.current.length && !currentRealtimeTranscript) {
           setRecordingStatus(RecordingStatus.ERROR);
           setSttStatus(SttStatus.FAILED);
           setSttError(new Error('NO_AUDIO_DATA'));
           return;
         }
 
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-        setAudioBlob(blob);
-        try {
-          await transcribe(blob, requestId);
-        } catch { /* The retained audio can be transcribed again. */ }
+        const blob = chunksRef.current.length
+          ? new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+          : null;
+        if (blob) setAudioBlob(blob);
+
+        if (currentRealtimeTranscript) {
+          setSttStatus(SttStatus.COMPLETED);
+          setRecordingStatus(RecordingStatus.READY);
+          if (blob) {
+            audioService.checkSpeechToText(blob, language === 'en' ? 'en-US' : 'vi-VN')
+              .then((response) => {
+                if (mountedRef.current && response?.audioId) setAudioId(response.audioId);
+              })
+              .catch(() => {});
+          }
+          return;
+        }
+
+        if (blob) {
+          try {
+            await transcribe(blob, requestId);
+          } catch { /* The retained audio can be transcribed again. */ }
+        }
       };
 
       recorder.start(250);
@@ -145,6 +177,32 @@ export default function useTechnicalRecorder(language = 'vi') {
       timerRef.current = window.setInterval(() => {
         setElapsedSeconds((seconds) => seconds + 1);
       }, 1000);
+
+      const SpeechRecognition = typeof window !== 'undefined'
+        && (window.SpeechRecognition || window.webkitSpeechRecognition);
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = language === 'en' ? 'en-US' : 'vi-VN';
+
+          recognition.onresult = (event) => {
+            let fullText = '';
+            for (let i = 0; i < event.results.length; i += 1) {
+              fullText += event.results[i][0].transcript;
+            }
+            if (mountedRef.current && fullText.trim()) {
+              setTranscript(fullText.trim());
+            }
+          };
+
+          recognition.start();
+          recognitionRef.current = recognition;
+        } catch {
+          // Ignore SpeechRecognition start errors
+        }
+      }
     } catch (error) {
       stopStream(streamRef.current);
       streamRef.current = null;
@@ -153,9 +211,13 @@ export default function useTechnicalRecorder(language = 'vi') {
     } finally {
       startInFlightRef.current = false;
     }
-  }, [cleanupMedia, clearTimer, transcribe]);
+  }, [cleanupMedia, clearTimer, language, transcribe]);
 
   const stopRecording = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch { /* Ignore */ }
+      recognitionRef.current = null;
+    }
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === 'inactive') return;
     setRecordingStatus(RecordingStatus.PROCESSING);

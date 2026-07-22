@@ -21,7 +21,7 @@ namespace ai_speis_be.BehaviouralInterviews.Rubrics
 
             var rubricFiles = searchDirectories
                 .Where(Directory.Exists)
-                .SelectMany(directory => Directory.GetFiles(directory, "behaviour-rubric-*.json"))
+                .SelectMany(directory => Directory.GetFiles(directory, "*rubric-*.json"))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 

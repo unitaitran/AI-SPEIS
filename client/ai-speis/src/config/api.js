@@ -4,6 +4,7 @@ export const API_BASE_URL = 'http://localhost:5274';
 
 export const ENDPOINTS = {
   LOGIN: `${API_BASE_URL}/api/auth/login`,
+  REFRESH_TOKEN: `${API_BASE_URL}/api/auth/refresh`,
   REGISTER: `${API_BASE_URL}/api/auth/register`,
   GOOGLE_LOGIN: `${API_BASE_URL}/api/auth/oauth/google`,
   FORGOT_PASSWORD: `${API_BASE_URL}/api/auth/forgot-password`,
