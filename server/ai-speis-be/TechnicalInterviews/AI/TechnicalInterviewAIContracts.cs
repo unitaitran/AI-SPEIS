@@ -4,7 +4,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
 {
     public static class TechnicalPromptVersions
     {
-        public const string Evaluation = "technical-evaluation-rubric-v6";
+        public const string Evaluation = "technical-evaluation-rubric-v7";
         public const string Feedback = "technical-feedback-v2";
         public const string Summary = "technical-summary-v1";
     }

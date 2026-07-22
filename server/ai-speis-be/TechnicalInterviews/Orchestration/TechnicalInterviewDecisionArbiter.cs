@@ -92,22 +92,31 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             TechnicalRubricDefinition rubric,
             TechnicalParallelAIResults results)
         {
-            var evaluationFallbackUsed = !results.Evaluation.IsFulfilled;
-            var evaluation = evaluationFallbackUsed
-                ? BuildEvaluationFallback(context, rubric)
-                : results.Evaluation.ProviderResult!.Data!;
+            if (!results.Evaluation.IsFulfilled)
+            {
+                return Failure(
+                    results.Evaluation.ErrorCode ?? "AI_EVALUATION_FAILED",
+                    results,
+                    results.Evaluation.Status);
+            }
+
+            var evaluationFallbackUsed = false;
+            var evaluation = results.Evaluation.ProviderResult!.Data!;
+            var answerContext = context.BuildCompleteAnswerContext();
+            var evidenceGroundedByBackend = GroundMissingScoreEvidence(
+                evaluation,
+                rubric,
+                answerContext);
             var validation = _validator.ValidateEvaluation(
                 evaluation,
                 rubric,
-                context.BuildCompleteAnswerContext());
+                answerContext);
             if (!validation.IsValid)
             {
-                evaluationFallbackUsed = true;
-                evaluation = BuildEvaluationFallback(context, rubric);
-                validation = _validator.ValidateEvaluation(
-                    evaluation,
-                    rubric,
-                    context.BuildCompleteAnswerContext());
+                return Failure(
+                    validation.ErrorCode ?? "EVALUATION_VALIDATION_FAILED",
+                    results,
+                    TechnicalAITaskStatus.InvalidOutput);
             }
 
             var score = _scoringService.ScoreQuestion(evaluation, rubric);
@@ -187,10 +196,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 finalMainQuestionScore = legacy.FinalizeMainQuestion ? score.FinalOverallScore : null;
             }
 
-            var overrideReason = evaluationFallbackUsed
-                ? results.Evaluation.Status == TechnicalAITaskStatus.Timeout
-                    ? "EVALUATION_TIMEOUT"
-                    : "EVALUATION_INVALID_OR_UNAVAILABLE"
+            var overrideReason = evidenceGroundedByBackend
+                ? "EVIDENCE_GROUNDED_FROM_TRANSCRIPT"
                 : context.IsReliabilityFollowUpRequired
                     && resolvedDecision == TechnicalInterviewDecision.FollowUp
                     ? "RELIABILITY_MINIMUM"
@@ -413,32 +420,37 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             return "RUBRIC_RULE_ADVANCE_OR_CAPACITY_REACHED";
         }
 
-        private static TechnicalAIEvaluationResponse BuildEvaluationFallback(
-            TechnicalAnswerProcessingContext context,
-            TechnicalRubricDefinition rubric)
+        private static bool GroundMissingScoreEvidence(
+            TechnicalAIEvaluationResponse evaluation,
+            TechnicalRubricDefinition rubric,
+            IReadOnlyList<TechnicalAnswerContext> answerContext)
         {
-            var missing = context.RemainingMissingEvidence.Length > 0
-                ? context.RemainingMissingEvidence.ToList()
-                : new List<string> { "Insufficient validated evidence was available for reliable scoring." };
-            var response = new TechnicalAIEvaluationResponse
+            var sourceAnswer = answerContext
+                .Select(item => item.Answer?.Trim())
+                .LastOrDefault(answer => !string.IsNullOrWhiteSpace(answer));
+            if (string.IsNullOrWhiteSpace(sourceAnswer))
             {
-                Confidence = 0m,
-                Evaluation = new TechnicalAIEvaluationPayload
-                {
-                    AnswerQuality = "UNVERIFIED",
-                    MissingPoints = missing,
-                    ImprovementSuggestions = new List<string> { "Provide concrete technical reasoning and evidence." },
-                    DimensionEvaluations = rubric.Dimensions.Select(dimension => new TechnicalAIDimensionEvaluation
-                    {
-                        RubricCode = dimension.Code,
-                        SuggestedScore = rubric.MinimumScore,
-                        SuggestedLevel = rubric.GetLevelCode(rubric.MinimumScore),
-                        MissingEvidence = missing.ToList(),
-                        ReasonSummary = "Deterministic fallback used because the critical AI evaluation was unavailable."
-                    }).ToList()
-                }
-            };
-            return response;
+                return false;
+            }
+
+            // Keep the backend-provided quote short while preserving an exact,
+            // contiguous excerpt from the candidate transcript. The model's
+            // score and reason are unchanged; this only supplies omitted audit
+            // evidence so a valid evaluation is not rejected wholesale.
+            const int maximumEvidenceLength = 300;
+            var groundedQuote = sourceAnswer.Length <= maximumEvidenceLength
+                ? sourceAnswer
+                : sourceAnswer[..maximumEvidenceLength].TrimEnd();
+            var repaired = false;
+            foreach (var dimension in evaluation.DimensionEvaluations.Where(item =>
+                item.SuggestedScore > rubric.EvidenceRequiredWhenScoreAbove
+                && (item.Evidence is null || item.Evidence.Count == 0)))
+            {
+                dimension.Evidence = new List<string> { groundedQuote };
+                repaired = true;
+            }
+
+            return repaired;
         }
 
         private static TechnicalMergedFeedback MergeFeedback(

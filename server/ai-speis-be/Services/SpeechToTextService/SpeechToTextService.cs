@@ -1,4 +1,5 @@
 using Google.Apis.Auth.OAuth2;
+using Google.Api.Gax.Grpc;
 using Google.Cloud.Speech.V2;
 using Google.Protobuf;
 using Grpc.Core;
@@ -7,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace ai_speis_be.Services.SpeechToTextService
 {
@@ -21,13 +23,16 @@ namespace ai_speis_be.Services.SpeechToTextService
             _logger = logger;
         }
 
-        public async Task<string> RecognizeSpeechAsync(IFormFile audioFile, string languageCode = "vi-VN")
+        public async Task<string> RecognizeSpeechAsync(
+            IFormFile audioFile,
+            string languageCode = "vi-VN",
+            CancellationToken cancellationToken = default)
         {
             if (audioFile == null || audioFile.Length == 0)
                 return string.Empty;
 
             using var memoryStream = new MemoryStream();
-            await audioFile.CopyToAsync(memoryStream);
+            await audioFile.CopyToAsync(memoryStream, cancellationToken);
             var audioBytes = memoryStream.ToArray();
 
             try
@@ -60,7 +65,8 @@ namespace ai_speis_be.Services.SpeechToTextService
                 // Technical answers may be up to two minutes. RecognizeAsync only accepts
                 // audio shorter than 60 seconds, so send the recorded WebM through the
                 // bidirectional streaming API even though transcription starts after stop.
-                using var stream = client.StreamingRecognize();
+                using var stream = client.StreamingRecognize(
+                    callSettings: CallSettings.FromCancellationToken(cancellationToken));
                 var finalSegments = new List<string>();
                 string latestInterimTranscript = string.Empty;
 

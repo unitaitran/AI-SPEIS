@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using System.Globalization;
+using System.Text;
 using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Rubrics;
 
@@ -59,7 +61,7 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 return Invalid("INVALID_ANSWER_QUALITY");
             }
 
-            var transcript = Normalize(string.Join(" ", answerContext.Select(item => item.Answer)));
+            var transcript = NormalizeEvidence(string.Join(" ", answerContext.Select(item => item.Answer)));
             foreach (var dimension in evaluation.DimensionEvaluations)
             {
                 if (dimension.SuggestedScore < rubric.MinimumScore
@@ -82,10 +84,7 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                     return Invalid("MISSING_SCORE_EVIDENCE");
                 }
 
-                if (dimension.Evidence.Any(evidence =>
-                    string.IsNullOrWhiteSpace(evidence)
-                    || evidence.Length > 1_000
-                    || !transcript.Contains(Normalize(evidence), StringComparison.Ordinal)))
+                if (dimension.Evidence.Any(evidence => !IsGroundedEvidence(evidence, transcript)))
                 {
                     return Invalid("EVIDENCE_NOT_IN_ANSWER");
                 }
@@ -107,9 +106,51 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 errorCode);
         }
 
-        private static string Normalize(string value)
+        private static bool IsGroundedEvidence(string evidence, string normalizedTranscript)
         {
-            return Regex.Replace(value.Trim().ToLowerInvariant(), @"\s+", " ");
+            if (string.IsNullOrWhiteSpace(evidence) || evidence.Length > 1_000)
+            {
+                return false;
+            }
+
+            var normalizedEvidence = NormalizeEvidence(evidence);
+            return normalizedEvidence.Length > 0
+                && normalizedTranscript.Contains(normalizedEvidence, StringComparison.Ordinal);
+        }
+
+        private static string NormalizeEvidence(string value)
+        {
+            // AI providers and speech-to-text engines may return canonically
+            // equivalent Unicode, omit Vietnamese diacritics, or change only
+            // punctuation around an otherwise verbatim quote. Ground evidence
+            // against the candidate transcript after removing those formatting
+            // differences; word order and content must still be a contiguous
+            // match, so invented or paraphrased evidence remains invalid.
+            var decomposed = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder(decomposed.Length);
+            var previousWasSeparator = true;
+
+            foreach (var character in decomposed)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+                {
+                    continue;
+                }
+
+                var normalizedCharacter = character is 'đ' or 'Đ' ? 'd' : character;
+                if (char.IsLetterOrDigit(normalizedCharacter))
+                {
+                    builder.Append(normalizedCharacter);
+                    previousWasSeparator = false;
+                }
+                else if (!previousWasSeparator)
+                {
+                    builder.Append(' ');
+                    previousWasSeparator = true;
+                }
+            }
+
+            return Regex.Replace(builder.ToString().Trim(), @"\s+", " ");
         }
     }
 }

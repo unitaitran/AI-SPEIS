@@ -17,6 +17,7 @@ import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
   getNextOpenSession,
+  resolveInterviewLanguage,
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
 import '../../styles/user/TechnicalInterview.css';
@@ -27,7 +28,7 @@ function TechnicalInterviewResultPage({ sessionId }) {
   const resolvedSessionId = sessionId || activeContext?.activeSessionId || null;
   const [campaign, setCampaign] = useState(activeContext?.campaign || null);
   const [campaignError, setCampaignError] = useState('');
-  const interviewLanguage = (campaign?.language || setupDraft?.language) === 'en' ? 'en' : 'vi';
+  const interviewLanguage = resolveInterviewLanguage(campaign?.language, setupDraft?.language);
   const { t: translate } = useTranslation('interview');
   const t = useCallback((key, options = {}) => (
     translate(key, { ...options, lng: interviewLanguage })
@@ -101,7 +102,7 @@ function TechnicalInterviewResultPage({ sessionId }) {
   } else if (result) {
     content = (
       <div className="technical-result-stack">
-        <TechnicalResultSummary result={result} t={t} />
+        <TechnicalResultSummary result={result} t={t} language={interviewLanguage} />
         {result.dimensionResults?.length > 0 && (
           <TechnicalRubricBreakdown dimensions={result.dimensionResults} t={t} />
         )}

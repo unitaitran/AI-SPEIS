@@ -1,9 +1,10 @@
 import React from 'react';
 import { Award, CheckCircle2, XCircle } from 'lucide-react';
+import { getPerformanceBandLabel } from '../../features/campaignResult/campaignResult';
 import { getScorePercentage } from '../../features/technicalInterview/technicalInterviewResult';
 import TechnicalResultFeedbackList from './TechnicalResultFeedbackList';
 
-function TechnicalResultSummary({ result, t }) {
+function TechnicalResultSummary({ result, t, language = 'vi' }) {
   const percentage = getScorePercentage(result?.technicalScore, result?.maxScore);
   const hasScore = result?.technicalScore != null;
   const hasPassStatus = typeof result?.passed === 'boolean';
@@ -42,7 +43,10 @@ function TechnicalResultSummary({ result, t }) {
       <div className="technical-summary-details">
         <div className="technical-summary-badges">
           {result?.performanceBand && (
-            <span className="technical-result-badge"><Award size={17} aria-hidden="true" />{result.performanceBand}</span>
+            <span className="technical-result-badge">
+              <Award size={17} aria-hidden="true" />
+              {getPerformanceBandLabel(result.performanceBand, language)}
+            </span>
           )}
           {hasPassStatus && (
             <span className={`technical-result-badge technical-result-badge--${result.passed ? 'passed' : 'failed'}`}>

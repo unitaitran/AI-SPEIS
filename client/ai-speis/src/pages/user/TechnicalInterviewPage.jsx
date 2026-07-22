@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
@@ -294,23 +294,6 @@ function TechnicalInterviewPage({ sessionId }) {
       setLocalError(error);
     }
   };
-
-  const autoSubmittingRef = useRef(false);
-
-  useEffect(() => {
-    if (
-      recorder.recordingStatus === RecordingStatus.READY
-      && recorder.transcript.trim()
-      && status === TechnicalSessionStatus.IN_PROGRESS
-      && !room.isProcessing
-      && !autoSubmittingRef.current
-    ) {
-      autoSubmittingRef.current = true;
-      handleSubmit().finally(() => {
-        autoSubmittingRef.current = false;
-      });
-    }
-  }, [recorder.recordingStatus, recorder.transcript, status, room.isProcessing]);
 
   const handleCompleteEarly = async () => {
     if (!resolvedSessionId || isCompleting) return;

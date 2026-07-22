@@ -10,6 +10,9 @@ const t = (key) => ({
   transcriptPlaceholder: 'Edit your answer',
   transcriptHelper: 'Transcript can be edited',
   recordAgain: 'Record again',
+  retryTranscription: 'Retry transcription',
+  transcriptionFailed: 'Transcription failed',
+  audioPreserved: 'Audio preserved',
   submitAnswer: 'Submit answer',
 }[key] || key);
 
@@ -45,4 +48,30 @@ test('allows a restored speech transcript to be edited without an audio blob', (
 
   fireEvent.click(screen.getByRole('button', { name: 'Submit answer' }));
   expect(onSubmit).toHaveBeenCalledTimes(1);
+});
+
+test('shows a recoverable STT error instead of an endless submitting state when a preview exists', () => {
+  render(
+    <BehavioralRecorderControls
+      recorder={{
+        audioBlob: null,
+        elapsedSeconds: 12,
+        permissionError: null,
+        recordingStatus: 'ERROR',
+        reset: jest.fn(),
+        setTranscript: jest.fn(),
+        startRecording: jest.fn(),
+        sttStatus: 'FAILED',
+        transcript: 'Unverified browser preview',
+      }}
+      disabled={false}
+      isSubmitting={false}
+      onSubmit={jest.fn()}
+      t={t}
+    />,
+  );
+
+  expect(screen.getByRole('alert')).toHaveTextContent('Transcription failed');
+  expect(screen.queryByText('submitting')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Submit answer' })).not.toBeInTheDocument();
 });
