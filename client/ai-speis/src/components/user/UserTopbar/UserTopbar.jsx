@@ -151,7 +151,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
         <button
           className="p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-md hover:bg-surface-3 transition-colors"
           onClick={onMenuClick}
-          aria-label="Open menu"
+          aria-label={t('topbar.open_menu')}
         >
           <Menu size={24} />
         </button>
@@ -175,7 +175,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
           {planName === 'Premium' ? (
             <div className="flex items-center space-x-1">
               <Crown size={14} className="text-[#FFD700]" />
-              <span className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-transparent bg-clip-text">Premium</span>
+              <span className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-transparent bg-clip-text">{t('topbar.premium_badge')}</span>
             </div>
           ) : (
             planName
@@ -184,23 +184,33 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
 
         {isLastAttempt && (
           <div className="hidden md:flex items-center rounded-full border border-warning bg-warning-light px-3 py-1 text-xs font-semibold text-warning">
-            1 attempt remaining
+            {t('topbar.one_attempt_remaining')}
           </div>
         )}
 
         {/* Processing Indicator */}
         {isProcessingBg && (
-          <div className="hidden sm:flex items-center text-primary-dark bg-primary-xlight/50 px-3 py-1.5 rounded-full border border-primary-light/50 shadow-sm animate-pulse" title="AI đang phân tích tài liệu">
+          <div className="hidden sm:flex items-center text-primary-dark bg-primary-xlight/50 px-3 py-1.5 rounded-full border border-primary-light/50 shadow-sm animate-pulse" title={t('topbar.processing_documents')}>
             <Loader2 size={16} className="animate-spin mr-2" />
-            <span className="text-xs font-medium">Đang phân tích</span>
+            <span className="text-xs font-medium">{t('topbar.analyzing')}</span>
           </div>
         )}
 
         {/* Notification */}
-        <button className="relative p-2 text-text-secondary hover:text-primary-dark hover:bg-primary-xlight rounded-full transition-colors" aria-label="Notifications">
+        <button className="relative p-2 text-text-secondary hover:text-primary-dark hover:bg-primary-xlight rounded-full transition-colors" aria-label={t('topbar.notifications')}>
           <Bell size={20} />
           {/* Notification Badge */}
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border border-surface-2 shadow-sm"></span>
+        </button>
+
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-1 px-3 py-2 text-xs font-semibold text-text-secondary transition-colors hover:text-primary-dark hover:border-primary-light hover:bg-primary-xlight"
+          onClick={toggleLanguage}
+          aria-label={t('topbar.toggle_language')}
+        >
+          <Globe size={14} />
+          <span>EN | VI</span>
         </button>
 
         <div className="w-px h-6 bg-border mx-1"></div>
@@ -252,7 +262,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
                 onClick={toggleLanguage}
               >
                 <Globe size={16} className="mr-3" />
-                {i18n.language.startsWith('vi') ? 'English (EN)' : 'Tiếng Việt (VI)'}
+                {i18n.language.startsWith('vi') ? t('topbar.switch_to_english') : t('topbar.switch_to_vietnamese')}
               </button>
 
               <button

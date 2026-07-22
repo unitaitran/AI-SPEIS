@@ -36,7 +36,7 @@ function InterviewModePage() {
     <UserLayout>
       <div className="interview-mode-page animate-pageEntrance">
         <header className="interview-mode-header">
-          <span>AI Mock Interview</span>
+          <span>{t('mode.eyebrow')}</span>
           <h1>{t('mode.title')}</h1>
           <p>{t('mode.subtitle')}</p>
         </header>

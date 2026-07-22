@@ -53,7 +53,7 @@ function AdminDashboardPage() {
       </div>
 
       <div className="flex flex-col gap-8">
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 min-[1100px]:grid-cols-4" aria-label="Platform summary">
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 min-[1100px]:grid-cols-4" aria-label={t('platformSummaryAria', 'Platform summary')}>
           {metrics.map(({ label, value, change, icon: Icon }, index) => (
             <article
               className="metric-card flex flex-col rounded-xl border border-border/60 bg-surface-2 p-6 shadow-[0_2px_4px_rgba(31,45,61,0.05)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_8px_24px_rgba(31,45,61,0.10)]"

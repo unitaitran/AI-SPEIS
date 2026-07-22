@@ -13,7 +13,7 @@ function TechnicalInterviewHeader({
   return (
     <header className="technical-room-header technical-card">
       <div>
-        <p className="technical-room-header__eyebrow">AI-SPEIS</p>
+        <p className="technical-room-header__eyebrow">{t('result.eyebrow')}</p>
         <h1>{t('room.title')}</h1>
         <div className="technical-room-header__meta">
           {jobRole && (

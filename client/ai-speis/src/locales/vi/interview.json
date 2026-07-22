@@ -27,6 +27,7 @@
     "Code": "Coding"
   },
   "mode": {
+    "eyebrow": "AI Mock Interview",
     "title": "Chọn chế độ phỏng vấn",
     "subtitle": "Chế độ đã chọn sẽ quyết định mức hỗ trợ và cách cấu hình các vòng ở bước tiếp theo.",
     "question": "Bạn muốn luyện tập theo cách nào?",
@@ -39,6 +40,7 @@
     "required": "Vui lòng chọn một chế độ phỏng vấn trước khi tiếp tục."
   },
   "setup": {
+    "eyebrow": "AI Mock Interview",
     "title": "Thiết lập buổi phỏng vấn",
     "subtitle": "Kiểm tra thông tin và chọn cấu hình phù hợp trước khi bắt đầu.",
     "loadingTitle": "Đang tải cấu hình",
@@ -49,6 +51,8 @@
     "basicTitle": "Thông tin cơ bản",
     "basicDescription": "Dữ liệu vị trí được lấy từ Job Description đã phân tích.",
     "sourceAria": "Hồ sơ sử dụng",
+    "cvLabel": "CV:",
+    "jdLabel": "JD:",
     "noCv": "Chưa có CV phù hợp",
     "noJd": "Chưa có JD phù hợp",
     "position": "Vị trí ứng tuyển",
@@ -323,6 +327,7 @@
     }
   },
   "result": {
+    "eyebrow": "AI-SPEIS",
     "title": "Kết quả phỏng vấn kỹ thuật",
     "subtitle": "Điểm số, xếp loại và khuyến nghị dưới đây được trả trực tiếp từ hệ thống đánh giá.",
     "loadFailedTitle": "Không thể tải kết quả phỏng vấn",
@@ -370,7 +375,8 @@
     "suggestions": "Gợi ý cải thiện",
     "areasForImprovement": "Nội dung cần cải thiện",
     "nextStepsEyebrow": "Bước tiếp theo",
-    "recommendations": "Khuyến nghị"
+    "recommendations": "Khuyến nghị",
+    "viewCampaignResult": "Xem kết quả campaign cuối cùng"
   },
   "behavioralRoom": {
     "behavioralInterview": "Phỏng vấn hành vi",
@@ -491,6 +497,36 @@
       "TRANSCRIPT_REQUIRED": "Hãy ghi câu trả lời và chờ transcript trước khi gửi.",
       "UNKNOWN_ERROR": "Đã xảy ra lỗi. Câu trả lời hiện tại của bạn chưa bị xóa."
     }
+  },
+  "coding": {
+    "loadFailed": "Không thể tải dữ liệu vòng Coding.",
+    "writeCodePrompt": "Vui lòng viết mã {{language}} tại đây",
+    "submitSuccess": "Nộp code thành công",
+    "submitFailed": "Nộp code thất bại",
+    "completeFailed": "Không thể hoàn tất vòng Coding",
+    "loading": "Đang tải vòng phỏng vấn...",
+    "title": "Phỏng vấn Coding",
+    "previousQuestion": "Câu trước",
+    "nextQuestion": "Câu tiếp theo",
+    "finalizing": "Đang hoàn tất...",
+    "finishRound": "Hoàn tất vòng Coding",
+    "problemStatement": "Đề bài",
+    "inputDescription": "Mô tả đầu vào",
+    "outputDescription": "Mô tả đầu ra",
+    "constraints": "Ràng buộc",
+    "examples": "Ví dụ",
+    "running": "Đang chạy...",
+    "runAndSubmit": "Chạy và nộp",
+    "submissionResults": "Kết quả nộp bài",
+    "passed": "Đạt: {{passed}}/{{total}}",
+    "time": "Thời gian: {{value}}ms",
+    "memory": "Bộ nhớ: {{value}}KB",
+    "testCase": "Test case {{index}}",
+    "error": "Lỗi:",
+    "status": "Trạng thái:",
+    "timeLabel": "Thời gian:",
+    "memoryLabel": "Bộ nhớ:",
+    "compilationOutput": "Kết quả biên dịch"
   },
   "errors": {
     "SESSION_NOT_FOUND": "Không tìm thấy phiên phỏng vấn.",

@@ -6,9 +6,11 @@ import { navigate } from '../../../routes/navigation';
 import { getCampaignResultPath, getInterviewRoomPath } from '../../../routes/routePaths';
 import { getActiveInterviewContext, getNextOpenSession, saveActiveInterviewContext } from '../../../utils/interviewContext';
 import notify from '../../../utils/notification';
+import { useTranslation } from 'react-i18next';
 import '../../../styles/user/CodingInterviewPage.css';
 
 const CodingInterviewPage = ({ sessionId }) => {
+  const { t } = useTranslation('interview');
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [languages, setLanguages] = useState([]);
@@ -48,7 +50,7 @@ const CodingInterviewPage = ({ sessionId }) => {
           }
         }
       } catch (err) {
-        notify.error('Failed to load coding interview data');
+        notify.error(t('coding.loadFailed'));
         console.error(err);
       }
     };
@@ -67,10 +69,10 @@ const CodingInterviewPage = ({ sessionId }) => {
       if (template) {
         setCode(template.templateCode);
       } else {
-        setCode(`// Please write your ${selectedLanguage.name} code here\n`);
+        setCode(`// ${t('coding.writeCodePrompt', { language: selectedLanguage.name })}\n`);
       }
     }
-  }, [currentQuestion, selectedLanguage]);
+  }, [currentQuestion, selectedLanguage, t]);
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -97,9 +99,9 @@ const CodingInterviewPage = ({ sessionId }) => {
       const res = await codingService.submitCode(payload);
       setSubmissionResult(res);
       setSubmittedQuestionIds((previous) => new Set(previous).add(getQuestionId(currentQuestion)));
-      notify.success('Code submitted successfully');
+      notify.success(t('coding.submitSuccess'));
     } catch (err) {
-      notify.error(err.message || 'Failed to submit code');
+      notify.error(err.message || t('coding.submitFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -121,14 +123,14 @@ const CodingInterviewPage = ({ sessionId }) => {
         ? getInterviewRoomPath(nextSession.interviewSessionId)
         : getCampaignResultPath(campaign.interviewCampaignId), { replace: true });
     } catch (err) {
-      notify.error(err.message || 'Failed to complete coding round');
+      notify.error(err.message || t('coding.completeFailed'));
     } finally {
       setIsCompleting(false);
     }
   };
 
   if (!questions.length) {
-    return <div className="coding-interview-loading">Loading interview...</div>;
+    return <div className="coding-interview-loading">{t('coding.loading')}</div>;
   }
 
   // Monaco editor expects language name in lowercase (e.g., 'javascript', 'python', 'java', 'csharp', 'cpp')
@@ -152,7 +154,7 @@ const CodingInterviewPage = ({ sessionId }) => {
   return (
     <div className="coding-interview-container">
       <div className="coding-header">
-        <h2>Coding Interview</h2>
+        <h2>{t('coding.title')}</h2>
         <div className="coding-header-actions">
           {questions.length > 1 && (
             <div className="question-nav">
@@ -160,14 +162,14 @@ const CodingInterviewPage = ({ sessionId }) => {
                 disabled={currentQuestionIndex === 0}
                 onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
               >
-                Prev Question
+                {t('coding.previousQuestion')}
               </button>
               <span>{currentQuestionIndex + 1} / {questions.length}</span>
               <button 
                 disabled={currentQuestionIndex === questions.length - 1}
                 onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
               >
-                Next Question
+                {t('coding.nextQuestion')}
               </button>
             </div>
           )}
@@ -177,7 +179,7 @@ const CodingInterviewPage = ({ sessionId }) => {
             disabled={!canComplete || isCompleting}
             onClick={handleCompleteRound}
           >
-            {isCompleting ? 'Finalizing...' : 'Finish coding round'}
+            {isCompleting ? t('coding.finalizing') : t('coding.finishRound')}
           </button>
         </div>
       </div>
@@ -197,33 +199,33 @@ const CodingInterviewPage = ({ sessionId }) => {
             </div>
 
             <div className="markdown-content">
-              <h4>Problem Statement</h4>
+              <h4>{t('coding.problemStatement')}</h4>
               <p>{currentQuestion.description}</p>
               
               {currentQuestion.inputDescription && (
                 <>
-                  <h4>Input Description</h4>
+                  <h4>{t('coding.inputDescription')}</h4>
                   <p>{currentQuestion.inputDescription}</p>
                 </>
               )}
               
               {currentQuestion.outputDescription && (
                 <>
-                  <h4>Output Description</h4>
+                  <h4>{t('coding.outputDescription')}</h4>
                   <p>{currentQuestion.outputDescription}</p>
                 </>
               )}
 
               {currentQuestion.constraints && (
                 <>
-                  <h4>Constraints</h4>
+                  <h4>{t('coding.constraints')}</h4>
                   <pre>{currentQuestion.constraints}</pre>
                 </>
               )}
 
               {currentQuestion.examples && (
                 <>
-                  <h4>Examples</h4>
+                  <h4>{t('coding.examples')}</h4>
                   <pre>{currentQuestion.examples}</pre>
                 </>
               )}
@@ -244,7 +246,7 @@ const CodingInterviewPage = ({ sessionId }) => {
               onClick={handleSubmit}
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Running...' : 'Run & Submit'}
+              {isSubmitting ? t('coding.running') : t('coding.runAndSubmit')}
             </button>
           </div>
           
@@ -266,14 +268,14 @@ const CodingInterviewPage = ({ sessionId }) => {
 
           {submissionResult && (
             <div className="submission-result-panel">
-              <h4>Submission Results</h4>
+              <h4>{t('coding.submissionResults')}</h4>
               <div className="result-stats">
                 <span className={submissionResult.status === 'Accepted' ? 'status-accepted' : 'status-error'}>
-                  {submissionResult.status || 'Unknown'}
+                  {submissionResult.status || t('common.unknown')}
                 </span>
-                <span>Passed: {submissionResult.passedTestCases}/{submissionResult.totalTestCases}</span>
-                <span>Time: {submissionResult.maxTimeMs}ms</span>
-                <span>Memory: {submissionResult.maxMemoryKb}KB</span>
+                <span>{t('coding.passed', { passed: submissionResult.passedTestCases, total: submissionResult.totalTestCases })}</span>
+                <span>{t('coding.time', { value: submissionResult.maxTimeMs })}</span>
+                <span>{t('coding.memory', { value: submissionResult.maxMemoryKb })}</span>
               </div>
               
               <div className="test-cases-results">
@@ -281,16 +283,16 @@ const CodingInterviewPage = ({ sessionId }) => {
                   const passed = tc.status === 'Accepted';
                   return (
                   <div key={tc.testCaseId || idx} className={`test-case-card ${passed ? 'passed' : 'failed'}`}>
-                    <h5>Test Case {idx + 1} {passed ? '✓' : '✕'}</h5>
+                    <h5>{t('coding.testCase', { index: idx + 1 })} {passed ? '✓' : '✕'}</h5>
                     {tc.stderr || tc.compileOutput ? (
                       <div className="error-output">
-                        <strong>Error:</strong> <pre>{tc.stderr || tc.compileOutput}</pre>
+                        <strong>{t('coding.error')}</strong> <pre>{tc.stderr || tc.compileOutput}</pre>
                       </div>
                     ) : (
                       <div className="execution-details">
-                        <p><strong>Status:</strong> {tc.status}</p>
-                        <p><strong>Time:</strong> {tc.timeMs}ms</p>
-                        <p><strong>Memory:</strong> {tc.memoryKb}KB</p>
+                        <p><strong>{t('coding.status')}</strong> {tc.status}</p>
+                        <p><strong>{t('coding.timeLabel')}</strong> {tc.timeMs}ms</p>
+                        <p><strong>{t('coding.memoryLabel')}</strong> {tc.memoryKb}KB</p>
                       </div>
                     )}
                   </div>
@@ -299,7 +301,7 @@ const CodingInterviewPage = ({ sessionId }) => {
               
               {submissionResult.compileOutput && (
                 <div className="compile-output">
-                  <h5>Compilation Output</h5>
+                  <h5>{t('coding.compilationOutput')}</h5>
                   <pre>{submissionResult.compileOutput}</pre>
                 </div>
               )}

@@ -87,6 +87,7 @@
   "save": "Save",
   "roleUpdatedSuccess": "User role updated successfully",
   "statusUpdatedSuccess": "User status updated successfully",
+  "genericError": "Something went wrong",
   "confirmChangeRole": "Are you sure you want to change the role of \"{{userName}}\" to \"{{newRoleLabel}}\"?",
   "emailVerification": "Email Verification",
   "breadcrumbAdmin": "Admin"

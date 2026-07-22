@@ -10,6 +10,8 @@
   "login_button": "Đăng nhập",
   "or": "HOẶC",
   "continue_with_google": "Tiếp tục với Google",
+  "language_vi_en": "VI / EN",
+  "language_en_vi": "EN / VI",
   "no_account": "Chưa có tài khoản?",
   "sign_up": "Đăng ký",
   "footer_text": "AI-SPEIS sử dụng hồ sơ, CV và lịch sử luyện tập để cá nhân hóa câu hỏi phỏng vấn.",
@@ -56,5 +58,14 @@
   "profile_type_regular": "Tài khoản thường (Email & Mật khẩu)",
   "profile_type_google": "Đăng nhập bằng Google",
   "profile_create_pwd_title": "Tạo mật khẩu",
-  "profile_create_pwd_btn": "Tạo mật khẩu"
+  "profile_create_pwd_btn": "Tạo mật khẩu",
+  "profile_title": "Hồ sơ cá nhân",
+  "close_modal": "Đóng hộp thoại",
+  "go_back": "Quay lại",
+  "profile_avatar_edit": "CHỈNH SỬA",
+  "profile_upload_photo": "Tải ảnh",
+  "profile_save_label": "Lưu thay đổi",
+  "profile_email_invalid": "Email chưa đúng định dạng."
+  ,"language_english": "English"
+  ,"language_vietnamese": "Tiếng Việt"
 }

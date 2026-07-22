@@ -225,7 +225,7 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail.trim())) {
-      setError('Email chưa đúng định dạng.');
+      setError(t('profile_email_invalid', 'Email chưa đúng định dạng.'));
       return;
     }
 
@@ -259,7 +259,7 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
       setInterviewLanguage(interviewLanguage);
       setOriginalInterviewLanguage(interviewLanguage);
       setIsPhoneEditable(false);
-      setSuccessMsg('Đã lưu thay đổi hồ sơ');
+      setSuccessMsg(t('profile_success_msg', 'Đã lưu thay đổi hồ sơ cá nhân.'));
       setTimeout(() => setSuccessMsg(''), 3000);
       setLoading(false);
       return;
@@ -319,7 +319,7 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
         }
       }
 
-      setSuccessMsg('Đã lưu thay đổi hồ sơ');
+      setSuccessMsg(t('profile_success_msg', 'Đã lưu thay đổi hồ sơ cá nhân.'));
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       setError(err.message);
@@ -404,21 +404,21 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
                   setIsChangePasswordMode(false);
                 }}
                 className="text-text-secondary hover:text-text-primary hover:bg-surface-3 p-1.5 rounded-full transition-colors focus:outline-none cursor-pointer flex items-center justify-center"
-                aria-label="Go back"
+                aria-label={t('go_back', 'Quay lại')}
               >
                 <ArrowLeft size={18} />
               </button>
             )}
             <h3 className="text-lg font-bold text-text-primary">
               {isChangePasswordMode
-                ? (hasPassword ? 'Đổi mật khẩu' : 'Tạo mật khẩu')
-                : 'Hồ sơ cá nhân'}
+                ? (hasPassword ? t('profile_change_pwd_title', 'Đổi mật khẩu') : t('profile_create_pwd_title', 'Tạo mật khẩu'))
+                : t('profile_title', 'Hồ sơ cá nhân')}
             </h3>
           </div>
           <button 
             onClick={onClose}
             className="text-text-secondary hover:text-text-primary hover:bg-surface-3 p-1.5 rounded-full transition-colors focus:outline-none cursor-pointer"
-            aria-label="Close modal"
+            aria-label={t('close_modal', 'Đóng hộp thoại')}
           >
             <X size={18} />
           </button>
@@ -460,7 +460,7 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
                     className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-semibold gap-1 cursor-pointer"
                   >
                     <Camera size={16} />
-                    CHỈNH SỬA
+                    {t('profile_avatar_edit', 'CHỈNH SỬA')}
                   </button>
                 </div>
                 
@@ -477,7 +477,7 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
                   onClick={() => fileInputRef.current?.click()}
                   className="text-xs font-bold text-text-primary tracking-wide border border-border px-3 py-1.5 rounded-lg hover:bg-surface-3 transition-colors uppercase mt-1 cursor-pointer"
                 >
-                  Upload Photo
+                  {t('profile_upload_photo', 'Upload Photo')}
                 </button>
               </div>
 
@@ -522,8 +522,8 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
                     }}
                     disabled={loading}
                   >
-                    <option value="en">English</option>
-                    <option value="vi">Tiếng Việt</option>
+                    <option value="en">{t('language_english', 'English')}</option>
+                    <option value="vi">{t('language_vietnamese', 'Tiếng Việt')}</option>
                   </select>
                 </div>
 
@@ -536,7 +536,7 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
                     setEmail(e.target.value);
                   }}
                   disabled={loading}
-                  placeholder="Email"
+                  placeholder={t('email_label', 'Email')}
                 />
 
                 <Input
@@ -604,14 +604,14 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
                 }}
                 className="px-5 py-2 text-sm cursor-pointer"
               >
-                Hủy
+                {t('profile_cancel', 'Hủy')}
               </Button>
               <Button
                 type="submit"
                 disabled={loading || !isDirty}
                 className="px-5 py-2 text-sm cursor-pointer"
               >
-                Lưu thay đổi
+                {t('profile_save_label', 'Lưu thay đổi')}
               </Button>
             </div>
           </form>

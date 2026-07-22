@@ -1,7 +1,9 @@
 import React from 'react';
 import * as LucideIcons from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 function AdminMenuItem({ item, isActive, onClick }) {
+  const { t } = useTranslation('admin-dashboard');
   const IconComponent = LucideIcons[item.icon] || LucideIcons.Circle;
 
   return (
@@ -22,7 +24,7 @@ function AdminMenuItem({ item, isActive, onClick }) {
       {item.hasBadge && (
         <span
           className="absolute right-3 top-1/2 h-2 w-2 -translate-y-1/2 animate-pulse rounded-full bg-error shadow-[0_0_6px_rgba(231,111,111,0.5)]"
-          aria-label="Requires attention"
+          aria-label={t('requiresAttention', 'Requires attention')}
         />
       )}
     </a>

@@ -20,7 +20,7 @@ function AdminSidebar({ isOpen, pathname, onNavigate }) {
       className={`fixed left-0 top-0 z-[120] flex h-screen w-[240px] flex-col overflow-y-auto overflow-x-hidden border-r border-border/60 bg-gradient-to-b from-surface-3 to-surface-1 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] md:translate-x-0 ${
         isOpen ? 'translate-x-0 shadow-[0_16px_48px_rgba(31,45,61,0.14)]' : '-translate-x-full'
       }`}
-      aria-label="Admin navigation"
+      aria-label={t('adminNavigationAria', 'Admin navigation')}
     >
       <div className="flex h-[85px] shrink-0 items-center justify-center border-b border-border/50 px-6">
         <img
@@ -51,7 +51,7 @@ function AdminSidebar({ isOpen, pathname, onNavigate }) {
         >
           <div className="flex items-center gap-2.5">
             <Globe size={20} className="shrink-0" />
-            <span>{i18n.language === 'vi' ? 'Tiếng Việt' : 'English'}</span>
+            <span>{i18n.language === 'vi' ? t('languageVietnamese', 'Tiếng Việt') : t('languageEnglish', 'English')}</span>
           </div>
           <span className="text-xs font-bold uppercase opacity-60 bg-black/5 px-2 py-1 rounded-md">{i18n.language === 'vi' ? 'VI' : 'EN'}</span>
         </button>

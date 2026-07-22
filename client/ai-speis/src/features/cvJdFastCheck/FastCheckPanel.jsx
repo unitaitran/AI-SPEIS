@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   Briefcase,
@@ -26,28 +27,9 @@ const STATUS_INT_MAP = {
   6: 'Archived',
 };
 
-const STATUS_LABELS = {
-  Pending: 'Chờ phân tích',
-  Processing: 'Đang phân tích',
-  ConfirmationRequired: 'Đã trích xuất',
-  Confirmed: 'Đã xác nhận',
-  Failed: 'Tải lên thất bại',
-  AnalysisFailed: 'Phân tích thất bại',
-  Archived: 'Đã lưu trữ',
-};
-
-const PHASE_CONTENT = {
-  'uploading-cv': ['Đang tải CV lên máy chủ', 'Tệp PDF đang được gửi an toàn để chuẩn bị phân tích.'],
-  'parsing-cv': ['AI đang đọc CV', 'Đang trích xuất kỹ năng, kinh nghiệm và thông tin liên quan.'],
-  'parsing-jd': ['AI đang đọc Job Description', 'Đang nhận diện yêu cầu bắt buộc và kỹ năng ưu tiên.'],
-  matching: ['Đang đối chiếu CV với JD', 'Backend đang tạo kết quả Fast Check từ dữ liệu đã trích xuất.'],
-};
-
 const normalizeStatus = (status) => (
   typeof status === 'number' ? STATUS_INT_MAP[status] || String(status) : String(status || '')
 );
-
-const getStatusLabel = (status) => STATUS_LABELS[normalizeStatus(status)] || 'Chưa xác định';
 
 const formatFileSize = (bytes) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return '';
@@ -62,6 +44,7 @@ function FastCheckPanel({
   onCvUploaded,
   onSourcesChanged,
 }) {
+  const { t } = useTranslation('cvjd');
   const {
     activeCv,
     clearPendingCvFile,
@@ -78,9 +61,28 @@ function FastCheckPanel({
     submit,
   } = useCvJdFastCheck({ currentCv, jds, onCvUploaded, onSourcesChanged });
 
+  const statusLabels = {
+    Pending: t('fastCheckPanel.status.pending'),
+    Processing: t('fastCheckPanel.status.processing'),
+    ConfirmationRequired: t('fastCheckPanel.status.extracted'),
+    Confirmed: t('fastCheckPanel.status.confirmed'),
+    Failed: t('fastCheckPanel.status.uploadFailed'),
+    AnalysisFailed: t('fastCheckPanel.status.analysisFailed'),
+    Archived: t('fastCheckPanel.status.archived'),
+  };
+
+  const phaseContent = {
+    'uploading-cv': [t('fastCheckPanel.phase.uploadingCvTitle'), t('fastCheckPanel.phase.uploadingCvDesc')],
+    'parsing-cv': [t('fastCheckPanel.phase.parsingCvTitle'), t('fastCheckPanel.phase.parsingCvDesc')],
+    'parsing-jd': [t('fastCheckPanel.phase.parsingJdTitle'), t('fastCheckPanel.phase.parsingJdDesc')],
+    matching: [t('fastCheckPanel.phase.matchingTitle'), t('fastCheckPanel.phase.matchingDesc')],
+  };
+
+  const getStatusLabel = (status) => statusLabels[normalizeStatus(status)] || t('notSpecified');
+
   const hasCvInput = Boolean(pendingCvFile || activeCv?.cvFileId);
   const canSubmit = hasCvInput && Boolean(selectedJdId) && !cvFileError && !isBusy && !loadingSources;
-  const loadingContent = PHASE_CONTENT[phase];
+  const loadingContent = phaseContent[phase];
 
   return (
     <section id="cv-jd-fast-check" className="fast-check" aria-labelledby="fast-check-title">
@@ -89,9 +91,9 @@ function FastCheckPanel({
           <Sparkles size={24} />
         </div>
         <div>
-          <p className="fast-check__eyebrow">KIỂM TRA NHANH TRƯỚC PHỎNG VẤN</p>
-          <h2 id="fast-check-title">CV-JD Fast Check</h2>
-          <p>Chọn CV và Job Description để AI đánh giá mức độ phù hợp dựa trên kết quả từ backend.</p>
+          <p className="fast-check__eyebrow">{t('fastCheckPanel.eyebrow')}</p>
+          <h2 id="fast-check-title">{t('fastCheckPanel.title')}</h2>
+          <p>{t('fastCheckPanel.subtitle')}</p>
         </div>
       </div>
 
@@ -100,8 +102,8 @@ function FastCheckPanel({
           <div className="fast-check__input-heading">
             <div className="fast-check__step">1</div>
             <div>
-              <h3>Curriculum Vitae</h3>
-              <p>PDF từ 1 KB đến 5 MB</p>
+              <h3>{t('fastCheckPanel.cvTitle')}</h3>
+              <p>{t('fastCheckPanel.cvHint')}</p>
             </div>
           </div>
 
@@ -110,14 +112,14 @@ function FastCheckPanel({
               <div className="fast-check__file-icon"><FileText size={20} /></div>
               <div className="fast-check__file-copy">
                 <strong title={pendingCvFile.name}>{pendingCvFile.name}</strong>
-                <span>{formatFileSize(pendingCvFile.size)} · Sẵn sàng tải lên</span>
+                <span>{formatFileSize(pendingCvFile.size)} · {t('fastCheckPanel.readyToUpload')}</span>
               </div>
               <button
                 type="button"
                 className="fast-check__icon-button"
                 onClick={clearPendingCvFile}
                 disabled={isBusy}
-                aria-label="Bỏ tệp CV đã chọn"
+                aria-label={t('fastCheckPanel.removeSelectedCv')}
               >
                 <X size={18} />
               </button>
@@ -127,19 +129,19 @@ function FastCheckPanel({
               <div className="fast-check__file-icon fast-check__file-icon--success"><CheckCircle2 size={20} /></div>
               <div className="fast-check__file-copy">
                 <strong title={activeCv.fileName}>{activeCv.fileName}</strong>
-                <span>CV hiện tại · {getStatusLabel(activeCv.status)}</span>
+                <span>{t('fastCheckPanel.currentCv')} · {getStatusLabel(activeCv.status)}</span>
               </div>
             </div>
           ) : (
             <div className="fast-check__empty-input">
               <FileText size={24} />
-              <span>Bạn chưa có CV để Fast Check.</span>
+              <span>{t('fastCheckPanel.noCv')}</span>
             </div>
           )}
 
           <label className={`fast-check__secondary-button ${isBusy ? 'fast-check__secondary-button--disabled' : ''}`}>
             <Upload size={16} />
-            {hasCvInput ? 'Chọn CV khác' : 'Chọn CV PDF'}
+            {hasCvInput ? t('fastCheckPanel.chooseAnotherCv') : t('fastCheckPanel.choosePdfCv')}
             <input
               type="file"
               accept="application/pdf,.pdf"
@@ -155,7 +157,7 @@ function FastCheckPanel({
             <div className="fast-check__field-error">
               <CircleAlert size={14} />
               <span>{cvFileError}</span>
-              <button type="button" onClick={clearPendingCvFile}>Bỏ qua</button>
+              <button type="button" onClick={clearPendingCvFile}>{t('fastCheckPanel.skip')}</button>
             </div>
           )}
         </div>
@@ -164,12 +166,12 @@ function FastCheckPanel({
           <div className="fast-check__input-heading">
             <div className="fast-check__step">2</div>
             <div>
-              <h3>Job Description</h3>
-              <p>Chọn JD từ flow quản lý hiện có</p>
+              <h3>{t('fastCheckPanel.jdTitle')}</h3>
+              <p>{t('fastCheckPanel.jdHint')}</p>
             </div>
           </div>
 
-          <label className="fast-check__select-label" htmlFor="fast-check-jd">Job Description</label>
+          <label className="fast-check__select-label" htmlFor="fast-check-jd">{t('fastCheckPanel.jdSelectLabel')}</label>
           <div className="fast-check__select-wrap">
             <Briefcase size={18} aria-hidden="true" />
             <select
@@ -178,10 +180,10 @@ function FastCheckPanel({
               onChange={(event) => setSelectedJdId(event.target.value)}
               disabled={isBusy || loadingSources}
             >
-              <option value="">{loadingSources ? 'Đang tải danh sách JD...' : 'Chọn một Job Description'}</option>
+              <option value="">{loadingSources ? t('fastCheckPanel.loadingJds') : t('fastCheckPanel.chooseJd')}</option>
               {jds.map((jd) => (
                 <option key={jd.jdFileId} value={jd.jdFileId}>
-                  {jd.fileName || 'JD nhập bằng văn bản'} · {getStatusLabel(jd.status)}
+                  {jd.fileName || t('fastCheckPanel.textJd')} · {getStatusLabel(jd.status)}
                 </option>
               ))}
             </select>
@@ -191,12 +193,12 @@ function FastCheckPanel({
             <div className="fast-check__selection-note">
               <CheckCircle2 size={16} />
               <span>
-                <strong>{selectedJd.fileName || 'JD nhập bằng văn bản'}</strong>
-                Backend sẽ tự phân tích JD này trước nếu chưa sẵn sàng.
+                <strong>{selectedJd.fileName || t('fastCheckPanel.textJd')}</strong>
+                {t('fastCheckPanel.jdAutoAnalyze')}
               </span>
             </div>
           ) : (
-            <p className="fast-check__helper">Cần chọn JD trước khi có thể thực hiện Fast Check.</p>
+            <p className="fast-check__helper">{t('fastCheckPanel.jdRequiredHint')}</p>
           )}
 
           <button
@@ -205,7 +207,7 @@ function FastCheckPanel({
             onClick={onAddJd}
             disabled={isBusy || jds.length >= 5}
           >
-            <Plus size={16} /> {jds.length >= 5 ? 'Đã đạt giới hạn 5 JD' : 'Thêm JD mới'}
+            <Plus size={16} /> {jds.length >= 5 ? t('fastCheckPanel.jdLimitReached') : t('fastCheckPanel.addNewJd')}
           </button>
         </div>
       </div>
@@ -213,15 +215,15 @@ function FastCheckPanel({
       <div className="fast-check__action-row">
         <div className="fast-check__privacy-note">
           <CheckCircle2 size={16} />
-          Chỉ sử dụng dữ liệu CV/JD thuộc tài khoản đang đăng nhập.
+          {t('fastCheckPanel.privacyNote')}
         </div>
         <button type="button" className="fast-check__submit" onClick={submit} disabled={!canSubmit}>
           {isBusy ? <Loader2 size={18} className="fast-check__spinner" /> : <Sparkles size={18} />}
-          {isBusy ? 'Đang xử lý...' : 'Fast Check'}
+          {isBusy ? t('fastCheckPanel.processing') : t('fastCheckPanel.submit')}
         </button>
       </div>
 
-      {!hasCvInput && <p className="fast-check__required-hint">Vui lòng cung cấp CV để bật nút Fast Check.</p>}
+      {!hasCvInput && <p className="fast-check__required-hint">{t('fastCheckPanel.enableHint')}</p>}
 
       {loadingContent && (
         <div className="fast-check__loading" role="status" aria-live="polite">
@@ -238,11 +240,11 @@ function FastCheckPanel({
         <div className="fast-check__error" role="alert">
           <AlertCircle size={20} />
           <div>
-            <strong>Chưa thể hoàn tất Fast Check</strong>
+            <strong>{t('fastCheckPanel.errorTitle')}</strong>
             <p>{error}</p>
           </div>
           <button type="button" onClick={submit} disabled={!canSubmit}>
-            <RefreshCw size={15} /> Thử lại
+            <RefreshCw size={15} /> {t('fastCheckPanel.retry')}
           </button>
         </div>
       )}

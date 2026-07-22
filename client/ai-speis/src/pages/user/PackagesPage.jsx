@@ -24,19 +24,19 @@ import { USER_ROUTES } from '../../routes/routePaths';
 import { API_BASE_URL } from '../../config/api';
 import '../../styles/user/PackagesPage.css';
 
-function formatVnd(amount) {
-  if (amount === 0) return 'Miễn phí';
-  return `${amount.toLocaleString('vi-VN')} VND`;
+function formatVnd(amount, locale, t) {
+  if (amount === 0) return t('freePrice', 'Miễn phí');
+  return `${amount.toLocaleString(locale)} VND`;
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr, locale) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function getNextResetDate(lastResetStr, expireStr) {
+function getNextResetDate(lastResetStr, expireStr, locale) {
   let baseDate = lastResetStr ? new Date(lastResetStr) : new Date();
   if (isNaN(baseDate.getTime())) baseDate = new Date();
 
@@ -46,15 +46,16 @@ function getNextResetDate(lastResetStr, expireStr) {
   if (expireStr) {
     const expireDate = new Date(expireStr);
     if (!isNaN(expireDate.getTime()) && nextReset > expireDate) {
-      return formatDate(expireDate);
+      return formatDate(expireDate, locale);
     }
   }
 
-  return formatDate(nextReset);
+  return formatDate(nextReset, locale);
 }
 
 function PackagesPage() {
-  const { t } = useTranslation('packages');
+  const { t, i18n } = useTranslation('packages');
+  const locale = i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US';
   const [isCreating, setIsCreating] = useState(false);
   const [loadingPackageId, setLoadingPackageId] = useState(null);
   const [error, setError] = useState('');
@@ -118,7 +119,7 @@ function PackagesPage() {
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('app:navigate', handleUrlChange);
     };
-  }, []);
+  }, [t]);
 
   const fetchSubscriptionInfo = async () => {
     try {
@@ -148,7 +149,7 @@ function PackagesPage() {
 
   useEffect(() => {
     fetchSubscriptionInfo();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -177,8 +178,8 @@ function PackagesPage() {
       window.history.replaceState({}, document.title, window.location.pathname);
 
       if (resultCode && resultCode !== '0') {
-        setError(momoMessage || `${t('paymentError', 'Thanh toán không thành công')} hoặc đã bị hủy.`);
-        notify.error(momoMessage || 'Thanh toán không thành công.', { title: 'Thanh toán thất bại' });
+        setError(momoMessage || t('paymentErrorCancelled', 'Thanh toán không thành công hoặc đã bị hủy.'));
+        notify.error(momoMessage || t('paymentErrorMessage', 'Thanh toán không thành công.'), { title: t('paymentFailed', 'Thanh toán thất bại') });
         setIsVerifying(false);
         return;
       }
@@ -189,25 +190,25 @@ function PackagesPage() {
         if (data.success || data.Success) {
           setIsPremiumUser(true);
           setShowSuccessModal(true);
-          notify.success('Nâng cấp gói Premium thành công! Hóa đơn đã được gửi qua email.', { title: 'Thành công 🎉' });
+          notify.success(t('upgradeSuccessMessage', 'Nâng cấp gói Premium thành công! Hóa đơn đã được gửi qua email.'), { title: t('successTitle', 'Thành công 🎉') });
           // Dispatch window event so UserTopbar updates state dynamically to Premium & 15 quota
           window.dispatchEvent(new CustomEvent('interview:quota-changed', {
             detail: { remainingInterviewQuota: 15, maxInterviewQuota: 15, planName: 'Premium' }
           }));
         } else {
-          setError(data.message || data.Message || 'Xác minh giao dịch thất bại.');
-          notify.error(data.message || data.Message || 'Xác minh giao dịch thất bại.', { title: 'Lỗi' });
+          setError(data.message || data.Message || t('verifyFailed', 'Xác minh giao dịch thất bại.'));
+          notify.error(data.message || data.Message || t('verifyFailed', 'Xác minh giao dịch thất bại.'), { title: t('errorTitle', 'Lỗi') });
         }
       } catch (err) {
-        setError(err.message || 'Lỗi khi kiểm tra kết quả thanh toán.');
-        notify.error(err.message || 'Lỗi khi kiểm tra kết quả thanh toán.');
+        setError(err.message || t('verifyResultFailed', 'Lỗi khi kiểm tra kết quả thanh toán.'));
+        notify.error(err.message || t('verifyResultFailed', 'Lỗi khi kiểm tra kết quả thanh toán.'));
       } finally {
         setIsVerifying(false);
       }
     };
 
     processPaymentCallback();
-  }, []);
+  }, [t]);
 
   const handleMomoPayment = useCallback(async (packageId) => {
     setError('');
@@ -219,15 +220,15 @@ function PackagesPage() {
       if (response && response.payUrl) {
         window.location.href = response.payUrl;
       } else {
-        throw new Error('URL thanh toán MoMo không hợp lệ.');
+        throw new Error(t('invalidPayUrl', 'URL thanh toán MoMo không hợp lệ.'));
       }
     } catch (apiError) {
-      setError(apiError.message || 'Không thể tạo phiên thanh toán.');
-      notify.error(apiError.message || 'Không thể tạo phiên thanh toán.', { title: 'Lỗi thanh toán' });
+      setError(apiError.message || t('createPaymentFailed', 'Không thể tạo phiên thanh toán.'));
+      notify.error(apiError.message || t('createPaymentFailed', 'Không thể tạo phiên thanh toán.'), { title: t('paymentErrorTitle', 'Lỗi thanh toán') });
       setIsCreating(false);
       setLoadingPackageId(null);
     }
-  }, []);
+  }, [t]);
 
   return (
     <UserLayout>
@@ -280,7 +281,7 @@ function PackagesPage() {
                 </div>
                 <div>
                   <div className="text-3xl font-extrabold text-text-primary mb-1">
-                    {profileData?.remainingInterviewQuota ?? (isPremiumUser ? 15 : 5)} <span className="text-base font-medium text-text-secondary">/ {isPremiumUser ? 15 : 5} lượt</span>
+                    {profileData?.remainingInterviewQuota ?? (isPremiumUser ? 15 : 5)} <span className="text-base font-medium text-text-secondary">{t('quotaUnit', { max: isPremiumUser ? 15 : 5 })}</span>
                   </div>
                   <div className="w-full bg-surface-2 h-2.5 rounded-full overflow-hidden mt-3">
                     <div
@@ -302,7 +303,7 @@ function PackagesPage() {
                 </div>
                 <div>
                   <div className="text-2xl font-extrabold text-text-primary mb-1">
-                    {getNextResetDate(profileData?.lastQuotaResetAt, profileData?.premiumExpireAt)}
+                    {getNextResetDate(profileData?.lastQuotaResetAt, profileData?.premiumExpireAt, locale)}
                   </div>
                   <p className="text-xs text-text-secondary mt-2">{t('autoResetDesc', 'Hệ thống sẽ tự động làm mới 15 lượt vào ngày này.')}</p>
                 </div>
@@ -318,7 +319,7 @@ function PackagesPage() {
                 </div>
                 <div>
                   <div className="text-2xl font-extrabold text-text-primary mb-1">
-                    {formatDate(profileData?.premiumExpireAt)}
+                    {formatDate(profileData?.premiumExpireAt, locale)}
                   </div>
                   <p className="text-xs text-text-secondary mt-2">{t('expireDesc', 'Thời gian hết hạn sử dụng các đặc quyền Premium.')}</p>
                 </div>
@@ -367,6 +368,13 @@ function PackagesPage() {
         ) : (
           /* Package Purchase Selection Grid */
           <>
+            {isVerifying && (
+              <div className="rounded-xl border border-primary-light bg-primary-xlight p-4 text-center max-w-2xl mx-auto">
+                <p className="text-sm font-semibold text-primary-dark">{t('paymentProcessing')}</p>
+                <p className="text-xs text-text-secondary mt-1">{t('paymentProcessingDesc')}</p>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -399,7 +407,7 @@ function PackagesPage() {
               <div className="rounded-xl border border-error bg-error-light p-4 text-center max-w-2xl mx-auto">
                 <div className="flex items-center justify-center gap-2">
                   <AlertTriangle size={24} className="text-error" />
-                  <h3 className="text-base font-bold text-error">Thanh toán không thành công</h3>
+                  <h3 className="text-base font-bold text-error">{t('paymentError')}</h3>
                 </div>
                 <p className="mt-1 text-sm text-text-secondary">{error}</p>
               </div>
@@ -437,7 +445,7 @@ function PackagesPage() {
                     <div className={`rounded-xl border p-4 mb-6 ${isFree ? 'border-border bg-surface-2' : 'border-primary-light bg-primary-xlight/55'}`}>
                       <p className={`text-xs uppercase tracking-wide ${isFree ? 'text-text-secondary' : 'text-primary-dark'}`}>{t('cost', 'Chi phí')}</p>
                       <p className={`mt-1 text-3xl font-extrabold ${isFree ? 'text-text-primary' : 'text-primary-dark'}`}>
-                        {formatVnd(pkg.amount)}
+                        {formatVnd(pkg.amount, locale, t)}
                       </p>
                       {!isFree && <p className="text-xs mt-1 text-primary-dark/70 opacity-80">{pkg.id === 1 ? t('perMonth', '/ tháng') : t('perYear', '/ năm')}</p>}
                     </div>
@@ -472,7 +480,7 @@ function PackagesPage() {
                         type="button"
                         className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-primary-dark hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                         onClick={() => handleMomoPayment(pkg.id)}
-                        disabled={isCreating}
+                        disabled={isCreating || isVerifying}
                       >
                         {isLoadingThis && <RefreshCw size={18} className="animate-spin" />}
                         {t('renewUpgrade', 'Gia hạn / Nâng cấp')}
@@ -503,7 +511,7 @@ function PackagesPage() {
                 </div>
 
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
-                  <Crown size={14} /> Gói Premium Đã Kích Hoạt
+                  <Crown size={14} /> {t('premiumActivated', 'Gói Premium Đã Kích Hoạt')}
                 </div>
 
                 <h2 className="text-2xl font-extrabold text-text-primary mb-2">
@@ -511,7 +519,7 @@ function PackagesPage() {
                 </h2>
 
                 <p className="text-sm text-text-secondary mb-6 leading-relaxed">
-                  Cảm ơn bạn đã nâng cấp dịch vụ! Tài khoản của bạn đã được kích hoạt tính năng <strong className="text-text-primary">Premium</strong>. Email xác nhận và hóa đơn chi tiết đã được gửi tới hộp thư của bạn.
+                  {t('successDescriptionPrefix', 'Cảm ơn bạn đã nâng cấp dịch vụ! Tài khoản của bạn đã được kích hoạt tính năng')} <strong className="text-text-primary">{t('premiumLabel', 'Premium')}</strong>. {t('successDescriptionSuffix', 'Email xác nhận và hóa đơn chi tiết đã được gửi tới hộp thư của bạn.')}
                 </p>
 
                 <div className="flex flex-col w-full gap-2.5">

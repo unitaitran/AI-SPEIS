@@ -523,7 +523,7 @@ function MyCVPage() {
           <button 
             className="md:absolute md:right-[100%] md:mr-4 w-10 h-10 flex-shrink-0 flex items-center justify-center bg-surface-1 text-text-secondary hover:text-primary rounded-xl border border-border shadow-sm transition-colors mt-0 mb-4 md:mb-0 z-10"
             onClick={() => navigate(USER_ROUTES.CV)}
-            title="Quay lại"
+            title={t('mycv.back_title', 'Quay lại')}
           >
             <ArrowLeft size={20} />
           </button>
@@ -850,7 +850,7 @@ function MyCVPage() {
                                 className="mycv-edit-input mycv-edit-input--sm"
                               />
                               <div className="mycv-edit-row-pair">
-                                <input type="text" value={edu.gpa || ''} placeholder="GPA"
+                                <input type="text" value={edu.gpa || ''} placeholder={t('mycv.gpa', 'GPA')}
                                   onChange={(e) => { const u = [...editData.education]; u[idx] = { ...u[idx], gpa: e.target.value }; setEditData({ ...editData, education: u }); }}
                                   className="mycv-edit-input mycv-edit-input--sm"
                                 />
@@ -873,7 +873,7 @@ function MyCVPage() {
                               <h4>{edu.school}</h4>
                               <p className="mycv-edu-major">{edu.major}</p>
                               <div className="mycv-edu-meta">
-                                {edu.gpa && <span>GPA: {edu.gpa}</span>}
+                                {edu.gpa && <span>{t('mycv.gpa_label', { gpa: edu.gpa })}</span>}
                                 {edu.graduationYear && <span>{edu.graduationYear}</span>}
                               </div>
                             </div>

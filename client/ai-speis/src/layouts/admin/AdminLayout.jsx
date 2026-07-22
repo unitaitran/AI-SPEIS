@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import AdminSidebar from '../../components/admin/AdminSidebar/AdminSidebar';
 import AdminTopbar from '../../components/admin/AdminTopbar/AdminTopbar';
 
 function AdminLayout({ children, pathname }) {
+  const { t } = useTranslation('admin-dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const closeSidebar = () => setIsSidebarOpen(false);
@@ -19,7 +21,7 @@ function AdminLayout({ children, pathname }) {
           isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         type="button"
-        aria-label="Close navigation"
+        aria-label={t('closeNavigation', 'Close navigation')}
         onClick={closeSidebar}
       />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col md:ml-[240px]">

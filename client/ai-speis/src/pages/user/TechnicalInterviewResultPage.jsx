@@ -126,7 +126,7 @@ function TechnicalInterviewResultPage({ sessionId }) {
       <div className="technical-page technical-page--result animate-pageEntrance" lang={interviewLanguage}>
         <div className="technical-result-heading">
           <div>
-            <p className="technical-room-header__eyebrow">AI-SPEIS</p>
+            <p className="technical-room-header__eyebrow">{t('result.eyebrow')}</p>
             <h1>{t('result.title')}</h1>
             <p>{t('result.subtitle')}</p>
           </div>

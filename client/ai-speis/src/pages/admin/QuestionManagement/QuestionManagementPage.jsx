@@ -152,7 +152,7 @@ function QuestionManagementPage() {
       closeDeleteModal();
       fetchQuestions();
     } catch (err) {
-      notify.error(err.message || 'Failed to delete question');
+      notify.error(err.message || t('deleteFailed', 'Failed to delete question'));
     }
   };
 
@@ -173,7 +173,7 @@ function QuestionManagementPage() {
       closeEditModal();
       fetchQuestions();
     } catch (err) {
-      notify.error(err.message || 'Failed to update question');
+      notify.error(err.message || t('updateFailed', 'Failed to update question'));
     }
   };
 
@@ -199,7 +199,7 @@ function QuestionManagementPage() {
       closeAddModal();
       fetchQuestions();
     } catch (err) {
-      notify.error(err.message || 'Failed to add question');
+      notify.error(err.message || t('addFailed', 'Failed to add question'));
     }
   };
 
@@ -235,7 +235,7 @@ function QuestionManagementPage() {
       closeImportModal();
       fetchQuestions();
     } catch (err) {
-      notify.error(err.message || 'Failed to import questions');
+      notify.error(err.message || t('importFailed', 'Failed to import questions'));
     } finally {
       setImporting(false);
     }
@@ -249,7 +249,7 @@ function QuestionManagementPage() {
       notify.success(t('importSuccess', 'Imported coding questions successfully!'));
       closeImportCodingModal();
     } catch (err) {
-      notify.error(err.message || 'Failed to import coding questions');
+      notify.error(err.message || t('importCodingFailed', 'Failed to import coding questions'));
     } finally {
       setImporting(false);
     }

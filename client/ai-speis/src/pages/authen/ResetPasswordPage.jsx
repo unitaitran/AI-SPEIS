@@ -108,7 +108,7 @@ const ResetPasswordPage = () => {
               label={t('new_password_label')}
               id="newPassword"
               type="password"
-              placeholder="••••••••"
+              placeholder={t('password_placeholder')}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
@@ -118,7 +118,7 @@ const ResetPasswordPage = () => {
               label={t('confirm_password_label')}
               id="confirmPassword"
               type="password"
-              placeholder="••••••••"
+              placeholder={t('password_placeholder')}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required

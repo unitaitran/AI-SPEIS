@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, ArrowLeft, Loader2, LogOut, RefreshCw, Sparkles } from 'lucide-react';
 
 function InterviewRoomState({
@@ -14,6 +15,7 @@ function InterviewRoomState({
   title,
   variant = 'loading',
 }) {
+  const { t } = useTranslation('interview');
   if (variant === 'error') {
     return (
       <section className="technical-error-state technical-card" role="alert">
@@ -47,7 +49,7 @@ function InterviewRoomState({
         {isGenerating ? <Sparkles size={30} /> : <Loader2 size={30} className="animate-spin" />}
       </div>
       <div>
-        <p className="technical-section__eyebrow">AI-SPEIS</p>
+        <p className="technical-section__eyebrow">{t('result.eyebrow')}</p>
         <h2>{title}</h2>
         <p>{description}</p>
         {hint ? <span>{hint}</span> : null}

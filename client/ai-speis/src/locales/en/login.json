@@ -10,6 +10,8 @@
   "login_button": "Login",
   "or": "OR",
   "continue_with_google": "Continue with Google",
+  "language_vi_en": "VI / EN",
+  "language_en_vi": "EN / VI",
   "no_account": "Don't have an account?",
   "sign_up": "Sign up",
   "footer_text": "AI-SPEIS uses your profile, CV, and practice history to personalize interview questions.",
@@ -56,5 +58,14 @@
   "profile_type_regular": "Regular Account (Email & Password)",
   "profile_type_google": "Google Sign-In",
   "profile_create_pwd_title": "Create Password",
-  "profile_create_pwd_btn": "Create Password"
+  "profile_create_pwd_btn": "Create Password",
+  "profile_title": "Profile",
+  "close_modal": "Close modal",
+  "go_back": "Go back",
+  "profile_avatar_edit": "EDIT",
+  "profile_upload_photo": "Upload Photo",
+  "profile_save_label": "Save changes",
+  "profile_email_invalid": "Email format is invalid."
+  ,"language_english": "English"
+  ,"language_vietnamese": "Vietnamese"
 }

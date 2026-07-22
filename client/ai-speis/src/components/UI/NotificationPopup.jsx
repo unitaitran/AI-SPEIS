@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, CircleAlert, Info, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { NOTIFICATION_EVENT } from '../../utils/notification';
 import './NotificationPopup.css';
 
 const TYPE_CONFIG = {
-  success: { icon: CheckCircle2, defaultTitle: 'Thành công' },
-  info: { icon: Info, defaultTitle: 'Thông tin' },
-  warning: { icon: AlertTriangle, defaultTitle: 'Lưu ý' },
-  error: { icon: CircleAlert, defaultTitle: 'Có lỗi xảy ra' },
+  success: { icon: CheckCircle2, defaultTitleKey: 'notification.success_title' },
+  info: { icon: Info, defaultTitleKey: 'notification.info_title' },
+  warning: { icon: AlertTriangle, defaultTitleKey: 'notification.warning_title' },
+  error: { icon: CircleAlert, defaultTitleKey: 'notification.error_title' },
 };
 
 function NotificationPopup() {
+  const { t } = useTranslation('dashboard');
   const [notifications, setNotifications] = useState([]);
   const timersRef = useRef(new Map());
 
@@ -60,14 +62,14 @@ function NotificationPopup() {
           >
             <div className="notification-popup__icon" aria-hidden="true"><Icon size={20} /></div>
             <div className="notification-popup__content">
-              <strong>{notification.title || config.defaultTitle}</strong>
+              <strong>{notification.title || t(config.defaultTitleKey)}</strong>
               <p>{notification.message}</p>
             </div>
             <button
               type="button"
               className="notification-popup__close"
               onClick={() => dismiss(notification.id)}
-              aria-label="Đóng thông báo"
+              aria-label={t('notification.close')}
             >
               <X size={17} />
             </button>

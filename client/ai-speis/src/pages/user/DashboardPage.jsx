@@ -95,9 +95,9 @@ function DashboardPage() {
 
         {/* Page Header */}
         <section>
-          <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">{t('page_title')}</h1>
           <p className="text-base text-text-secondary">
-            {t('greeting_prefix', 'Chào buổi sáng,')} <span className="font-semibold text-primary-dark">{user ? user.fullName : 'User'}</span> 👋
+            {t('greeting_prefix', 'Chào buổi sáng,')} <span className="font-semibold text-primary-dark">{user ? user.fullName : t('guest_name')}</span> 👋
           </p>
         </section>
 
@@ -158,18 +158,18 @@ function DashboardPage() {
 
             {quotaExhausted && (
               <p className="relative z-10 mt-3 text-xs text-white/90 max-w-[320px]">
-                You have used all your interview attempts. Upgrade to Premium to get 15 interview attempts.
+                {t('quota_exhausted_message')}
               </p>
             )}
 
             {oneAttemptLeft && (
               <p className="relative z-10 mt-3 text-xs font-semibold text-warning-light max-w-[320px]">
-                Warning: You only have 1 interview attempt left.
+                {t('one_attempt_left_message')}
               </p>
             )}
 
             <p className="relative z-10 mt-2 text-[11px] uppercase tracking-wide text-white/75">
-              Current Plan: {planName}
+              {t('current_plan', { planName })}
             </p>
           </div>
 

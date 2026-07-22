@@ -1,5 +1,10 @@
 {
   "greeting_prefix": "Good morning,",
+  "page_title": "Dashboard",
+  "guest_name": "User",
+  "quota_exhausted_message": "You have used all your interview attempts. Upgrade to Premium to get 15 interview attempts.",
+  "one_attempt_left_message": "Warning: You only have 1 interview attempt left.",
+  "current_plan": "Current Plan: {{planName}}",
   "stats": {
     "interviews": "INTERVIEWS PRACTICED",
     "avg_score": "AVERAGE SCORE",
@@ -44,7 +49,16 @@
     "quota_remaining": "interviews remaining",
     "profile_info": "Personal Profile",
     "logout": "Logout",
-    "language": "Language"
+    "language": "Language",
+    "open_menu": "Open menu",
+    "premium_badge": "Premium",
+    "one_attempt_remaining": "1 attempt remaining",
+    "processing_documents": "AI is analyzing documents",
+    "analyzing": "Analyzing",
+    "notifications": "Notifications",
+    "toggle_language": "Toggle language",
+    "switch_to_english": "English (EN)",
+    "switch_to_vietnamese": "Tiếng Việt (VI)"
   },
   "sidebar": {
     "group_main": "MAIN",
@@ -61,7 +75,20 @@
     "upgrade_pro": "Upgrade to Pro",
     "unlock_desc": "Unlock unlimited AI interview sessions.",
     "upgrade_now": "UPGRADE NOW",
-    "start_interview": "Start Interview"
+    "start_interview": "Start Interview",
+    "user_navigation": "User navigation"
+  },
+  "notification": {
+    "success_title": "Success",
+    "info_title": "Information",
+    "warning_title": "Warning",
+    "error_title": "Something went wrong",
+    "close": "Close notification"
+  },
+  "session": {
+    "expired_title": "Session expired",
+    "expired_message": "Please sign in again to continue using the system.",
+    "login_again": "Sign in again"
   },
   "questions": {
     "title": "Question Bank",
@@ -90,6 +117,7 @@
   "mycv": {
     "title": "My CV",
     "subtitle": "Manage your CV for AI to analyze skills, projects, and generate personalized interview questions.",
+    "back_title": "Go back",
     "loading": "Loading your CV information...",
     "error_pdf_only": "Only PDF file format is supported",
     "error_upload": "Failed to upload CV. Please try again.",
@@ -145,6 +173,8 @@
     "school": "School",
     "major": "Major",
     "grad_year": "Graduation Year",
+    "gpa": "GPA",
+    "gpa_label": "GPA: {{gpa}}",
     "project_name": "Project Name",
     "role_desc": "Role",
     "project_summary": "Project Description",

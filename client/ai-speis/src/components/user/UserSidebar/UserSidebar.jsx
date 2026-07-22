@@ -122,7 +122,7 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
   };
 
   return (
-    <aside className={`fixed top-0 left-0 h-full w-[240px] ${compact ? 'lg:w-[72px]' : 'lg:w-[240px]'} bg-surface-2 border-r border-border flex flex-col z-20 transition-all duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} aria-label="User navigation">
+    <aside className={`fixed top-0 left-0 h-full w-[240px] ${compact ? 'lg:w-[72px]' : 'lg:w-[240px]'} bg-surface-2 border-r border-border flex flex-col z-20 transition-all duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} aria-label={t('sidebar.user_navigation')}>
       {/* Logo Area */}
       <div className={`h-[85px] flex items-center border-b border-border shrink-0 justify-center ${compact ? 'lg:px-2 px-6' : 'px-6'}`}>
         <img
@@ -204,10 +204,10 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
       <div className={`shrink-0 bg-surface-2 border-t border-border ${compact ? 'p-2 lg:p-3' : 'p-4'}`}>
         <button
           className={`w-full bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-sm font-semibold py-3 rounded transition-all shadow-sm cursor-pointer flex items-center justify-center ${compact ? 'lg:px-0 px-4' : 'px-4'}`}
-            onClick={() => {
-              if (onBeforeNavigate?.(USER_ROUTES.INTERVIEW_MODE) === false) return;
-              beginNewInterviewCampaign();
-              navigate(USER_ROUTES.INTERVIEW_MODE);
+          onClick={() => {
+            if (onBeforeNavigate?.(USER_ROUTES.INTERVIEW_MODE) === false) return;
+            beginNewInterviewCampaign();
+            navigate(USER_ROUTES.INTERVIEW_MODE);
             if (onNavigate) onNavigate();
           }}
         >

@@ -27,6 +27,7 @@
     "Code": "Coding"
   },
   "mode": {
+    "eyebrow": "AI Mock Interview",
     "title": "Choose interview mode",
     "subtitle": "Your choice determines the level of support and how rounds are configured in the next step.",
     "question": "How would you like to practice?",
@@ -39,6 +40,9 @@
     "required": "Please choose an interview mode before continuing."
   },
   "setup": {
+    "eyebrow": "AI Mock Interview",
+    "cvLabel": "CV:",
+    "jdLabel": "JD:",
     "title": "Interview setup",
     "subtitle": "Review your information and choose the right configuration before starting.",
     "loadingTitle": "Loading configuration",
@@ -323,6 +327,7 @@
     }
   },
   "result": {
+    "eyebrow": "AI-SPEIS",
     "title": "Technical interview result",
     "subtitle": "The scores, performance band, and recommendations below come directly from the evaluation service.",
     "loadFailedTitle": "Unable to load the interview result",
@@ -370,7 +375,8 @@
     "suggestions": "Improvement suggestions",
     "areasForImprovement": "Areas for improvement",
     "nextStepsEyebrow": "Next steps",
-    "recommendations": "Recommendations"
+    "recommendations": "Recommendations",
+    "viewCampaignResult": "View final campaign result"
   },
   "behavioralRoom": {
     "behavioralInterview": "Behavioral interview",
@@ -491,6 +497,36 @@
       "TRANSCRIPT_REQUIRED": "Record an answer and wait for a transcript before submitting.",
       "UNKNOWN_ERROR": "Something went wrong. Your current answer has not been discarded."
     }
+  },
+  "coding": {
+    "loadFailed": "Unable to load coding round data.",
+    "writeCodePrompt": "Please write your {{language}} code here",
+    "submitSuccess": "Code submitted successfully",
+    "submitFailed": "Failed to submit code",
+    "completeFailed": "Failed to complete coding round",
+    "loading": "Loading interview...",
+    "title": "Coding Interview",
+    "previousQuestion": "Prev Question",
+    "nextQuestion": "Next Question",
+    "finalizing": "Finalizing...",
+    "finishRound": "Finish coding round",
+    "problemStatement": "Problem Statement",
+    "inputDescription": "Input Description",
+    "outputDescription": "Output Description",
+    "constraints": "Constraints",
+    "examples": "Examples",
+    "running": "Running...",
+    "runAndSubmit": "Run & Submit",
+    "submissionResults": "Submission Results",
+    "passed": "Passed: {{passed}}/{{total}}",
+    "time": "Time: {{value}}ms",
+    "memory": "Memory: {{value}}KB",
+    "testCase": "Test Case {{index}}",
+    "error": "Error:",
+    "status": "Status:",
+    "timeLabel": "Time:",
+    "memoryLabel": "Memory:",
+    "compilationOutput": "Compilation Output"
   },
   "errors": {
     "SESSION_NOT_FOUND": "The interview session was not found.",

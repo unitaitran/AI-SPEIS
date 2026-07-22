@@ -30,6 +30,7 @@ function AdminRoutePlaceholder({ title }) {
 }
 
 function AdminRoutes({ pathname }) {
+  const { t } = useTranslation('admin-dashboard');
   const isAdminRoot = pathname === '/admin' || pathname === '/admin/';
   const activePathname = isAdminRoot ? ADMIN_ROUTES.DASHBOARD : pathname;
 
@@ -50,7 +51,7 @@ function AdminRoutes({ pathname }) {
   content = <QuestionManagementPage  />;
 }
    else {
-    content = <AdminRoutePlaceholder title={currentMenuItem?.label || 'Page not found'} />;
+    content = <AdminRoutePlaceholder title={currentMenuItem?.label || t('pageNotFound', 'Page not found')} />;
   }
 
   return (

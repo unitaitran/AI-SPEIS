@@ -555,7 +555,7 @@ function InterviewSetupPage() {
       <div className="setup-page animate-pageEntrance">
         <header className="setup-page-header">
           <div>
-            <span className="setup-eyebrow">AI Mock Interview</span>
+            <span className="setup-eyebrow">{t('setup.eyebrow')}</span>
             <h1>{t('setup.title')}</h1>
             <p>{t('setup.subtitle')}</p>
           </div>
@@ -611,14 +611,14 @@ function InterviewSetupPage() {
                   <span className="setup-source-item">
                     <FileText size={16} />
                     <span className="setup-source-content">
-                      <strong>CV:</strong>
+                      <strong>{t('setup.cvLabel')}</strong>
                       <span className="setup-source-name">{activeCv?.fileName || t('setup.noCv')}</span>
                     </span>
                   </span>
                   <span className="setup-source-item">
                     <BriefcaseBusiness size={16} />
                     <span className="setup-source-content">
-                      <strong>JD:</strong>
+                      <strong>{t('setup.jdLabel')}</strong>
                       <span className="setup-source-name">{selectedJd?.file?.fileName || t('setup.noJd')}</span>
                     </span>
                   </span>

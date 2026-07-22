@@ -41,6 +41,7 @@ const COPY = {
     retry: 'Thử lại',
     loading: 'Đang tổng hợp kết quả campaign...',
     errorTitle: 'Chưa thể tải kết quả cuối cùng',
+    campaignMissing: 'Không tìm thấy mã campaign.',
     codingDetails: 'Chi tiết bài Coding',
     passed: 'test case đạt',
   },
@@ -63,6 +64,7 @@ const COPY = {
     retry: 'Retry',
     loading: 'Combining campaign results...',
     errorTitle: 'The final result could not be loaded',
+    campaignMissing: 'Campaign ID is missing.',
     codingDetails: 'Coding problem details',
     passed: 'test cases passed',
   },
@@ -90,7 +92,7 @@ function CampaignInterviewResultPage({ campaignId }) {
 
   const load = async () => {
     if (!resolvedCampaignId) {
-      setError(new Error('Campaign ID is missing.'));
+      setError(new Error(copy.campaignMissing));
       setIsLoading(false);
       return;
     }

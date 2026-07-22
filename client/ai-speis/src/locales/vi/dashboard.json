@@ -1,5 +1,10 @@
 {
   "greeting_prefix": "Chào buổi sáng,",
+  "page_title": "Dashboard",
+  "guest_name": "Người dùng",
+  "quota_exhausted_message": "Bạn đã dùng hết lượt phỏng vấn. Hãy nâng cấp Premium để nhận 15 lượt phỏng vấn.",
+  "one_attempt_left_message": "Cảnh báo: Bạn chỉ còn 1 lượt phỏng vấn.",
+  "current_plan": "Gói hiện tại: {{planName}}",
   "stats": {
     "interviews": "BUỔI PHỎNG VẤN ĐÃ LUYỆN",
     "avg_score": "ĐIỂM TRUNG BÌNH",
@@ -44,7 +49,16 @@
     "quota_remaining": "lượt phỏng vấn",
     "profile_info": "Thông tin cá nhân",
     "logout": "Đăng xuất",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "open_menu": "Mở menu",
+    "premium_badge": "Premium",
+    "one_attempt_remaining": "Còn 1 lượt",
+    "processing_documents": "AI đang phân tích tài liệu",
+    "analyzing": "Đang phân tích",
+    "notifications": "Thông báo",
+    "toggle_language": "Chuyển ngôn ngữ",
+    "switch_to_english": "English (EN)",
+    "switch_to_vietnamese": "Tiếng Việt (VI)"
   },
   "sidebar": {
     "group_main": "CHÍNH",
@@ -61,7 +75,20 @@
     "upgrade_pro": "Nâng cấp Pro",
     "unlock_desc": "Mở khóa không giới hạn lượt phỏng vấn AI.",
     "upgrade_now": "NÂNG CẤP NGAY",
-    "start_interview": "Bắt đầu phỏng vấn"
+    "start_interview": "Bắt đầu phỏng vấn",
+    "user_navigation": "Điều hướng người dùng"
+  },
+  "notification": {
+    "success_title": "Thành công",
+    "info_title": "Thông tin",
+    "warning_title": "Lưu ý",
+    "error_title": "Có lỗi xảy ra",
+    "close": "Đóng thông báo"
+  },
+  "session": {
+    "expired_title": "Phiên đăng nhập hết hạn",
+    "expired_message": "Vui lòng đăng nhập lại để tiếp tục sử dụng hệ thống.",
+    "login_again": "Đăng nhập lại"
   },
   "questions": {
     "title": "Ngân hàng câu hỏi",
@@ -90,6 +117,7 @@
   "mycv": {
     "title": "CV của tôi",
     "subtitle": "Quản lý CV để AI phân tích kỹ năng, dự án và tạo câu hỏi phỏng vấn cá nhân hóa.",
+    "back_title": "Quay lại",
     "loading": "Đang tải thông tin CV của bạn...",
     "error_pdf_only": "Chỉ hỗ trợ tệp tin định dạng PDF",
     "error_upload": "Không thể tải lên file CV. Vui lòng thử lại.",
@@ -145,6 +173,8 @@
     "school": "Trường",
     "major": "Chuyên ngành",
     "grad_year": "Năm tốt nghiệp",
+    "gpa": "GPA",
+    "gpa_label": "GPA: {{gpa}}",
     "project_name": "Tên dự án",
     "role_desc": "Vai trò",
     "project_summary": "Mô tả dự án",

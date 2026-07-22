@@ -108,12 +108,12 @@ function App() {
         <div className="homepage-popup-overlay" onClick={handleGoToDashboard}>
           <div className="homepage-popup" onClick={(e) => e.stopPropagation()}>
             <div className="homepage-popup__bar" />
-            <button onClick={handleGoToDashboard} className="homepage-popup__close" aria-label="Close">
+            <button onClick={handleGoToDashboard} className="homepage-popup__close" aria-label={t('popup.close')}>
               <X size={18} />
             </button>
             <div className="homepage-popup__image-wrap">
               <div className="homepage-popup__image-glow" />
-              <img src="/confuse.png" alt="Confused mascot" className="homepage-popup__image" />
+              <img src="/confuse.png" alt={t('popup.imageAlt')} className="homepage-popup__image" />
             </div>
             <h3>{t('popup.title')}</h3>
             <p>{t('popup.message', { count: countdown })}</p>

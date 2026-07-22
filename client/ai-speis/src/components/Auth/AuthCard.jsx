@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Globe } from 'lucide-react';
 
 const AuthCard = ({ children, footerText, mascotText }) => {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation('login');
 
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
@@ -18,7 +18,7 @@ const AuthCard = ({ children, footerText, mascotText }) => {
         className="absolute bottom-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-full shadow-md text-text-secondary hover:text-primary hover:border-primary transition-all text-sm font-semibold"
       >
         <Globe size={18} />
-        <span>{i18n.language === 'vi' ? 'VI / EN' : 'EN / VI'}</span>
+        <span>{i18n.language === 'vi' ? t('language_vi_en') : t('language_en_vi')}</span>
       </button>
       
       {/* Left Column - Mascot (Hidden on mobile) */}
@@ -30,7 +30,7 @@ const AuthCard = ({ children, footerText, mascotText }) => {
         {/* Speech Bubble & Mascot */}
         <div className="relative animate-in slide-in-from-bottom-8 fade-in duration-700 delay-300 z-10 flex flex-col items-center">
           <div className="bg-white px-6 py-4 rounded-2xl rounded-br-none shadow-[0_8px_30px_rgb(0,0,0,0.08)] mb-4 text-primary-dark font-bold text-lg relative animate-bounce-slight">
-            {mascotText || 'Chào bạn! Cùng đăng nhập nhé ⭐'}
+            {mascotText || t('mascot_greeting')}
             <div className="absolute bottom-[-10px] right-[30px] w-0 h-0 border-l-[10px] border-l-transparent border-t-[12px] border-t-white border-r-[10px] border-r-transparent"></div>
           </div>
           <img 
