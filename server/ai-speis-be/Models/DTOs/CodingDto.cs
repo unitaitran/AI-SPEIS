@@ -24,6 +24,8 @@ namespace ai_speis_be.Models.DTOs
 
         [Required]
         public int LanguageId { get; set; }
+
+        public bool IsTestRun { get; set; } = false;
     }
 
     // =============================================
@@ -42,6 +44,8 @@ namespace ai_speis_be.Models.DTOs
         public int PassedTestCases { get; set; }
         public double MaxTimeMs { get; set; }
         public int MaxMemoryKb { get; set; }
+        public string? CompileOutput { get; set; }
+        public string? Stderr { get; set; }
         public DateTime CreatedAt { get; set; }
         public List<TestCaseResultDto> TestCaseResults { get; set; } = new();
     }
@@ -55,6 +59,7 @@ namespace ai_speis_be.Models.DTOs
         public int TestCaseId { get; set; }
         public bool IsSample { get; set; }
         public string Status { get; set; } = null!;
+        public string? Input { get; set; }
         public string? ActualOutput { get; set; }
         public string? ExpectedOutput { get; set; }
         public string? Stderr { get; set; }
@@ -74,6 +79,23 @@ namespace ai_speis_be.Models.DTOs
         public string Description { get; set; } = null!;
         public double TimeLimit { get; set; }
         public int MemoryLimit { get; set; }
+
+        public string? JobRole { get; set; }
+        public string? Skill { get; set; }
+        public string? Subskill { get; set; }
+        public string? Difficulty { get; set; }
+        public string? InputDescription { get; set; }
+        public string? OutputDescription { get; set; }
+        public string? Constraints { get; set; }
+        public string? Examples { get; set; }
+        public string? FunctionName { get; set; }
+        public string? FunctionParameters { get; set; }
+        public string? ReturnType { get; set; }
+        public string? FunctionSignature { get; set; }
+        public string? SupportedProgrammingLanguages { get; set; }
+        public string? ExpectedTimeComplexity { get; set; }
+        public string? ExpectedSpaceComplexity { get; set; }
+
         public List<CodingQuestionTemplateDto> Templates { get; set; } = new();
         public List<SampleTestCaseDto> SampleTestCases { get; set; } = new();
     }
@@ -130,6 +152,22 @@ namespace ai_speis_be.Models.DTOs
     public class Judge0BatchRequest
     {
         public List<Judge0SubmissionRequest> submissions { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Response từ Judge0 POST batch submission (chứa token).
+    /// </summary>
+    public class Judge0TokenResponse
+    {
+        public string token { get; set; } = null!;
+    }
+
+    /// <summary>
+    /// Response từ Judge0 GET batch submission (chứa danh sách kết quả submissions).
+    /// </summary>
+    public class Judge0BatchResponse
+    {
+        public List<Judge0SubmissionResponse> submissions { get; set; } = new();
     }
 
     /// <summary>

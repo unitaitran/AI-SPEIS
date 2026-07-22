@@ -18,7 +18,7 @@ import {
 import InterviewProgressStepper from '../../components/user/InterviewProgressStepper/InterviewProgressStepper';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { getCodingInterviewRoomPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import audioService from '../../services/AudioService';
 import behavioralInterviewApi from '../../services/behavioralInterviewApi';
 import interviewSessionService from '../../services/InterviewSessionService';
@@ -260,6 +260,22 @@ function DeviceReadinessCheckPage() {
   const activeAudioContextRef = useRef(null);
   const voiceActivityFrameRef = useRef(null);
   const runIdRef = useRef(0);
+
+  useEffect(() => {
+    const sessions = interviewContext?.campaign?.sessions || [];
+    const isOnlyCoding = sessions.length > 0 && sessions.every((s) => s.interviewRoundType === 'Code');
+    if (isOnlyCoding) {
+      const codingSession = sessions.find((s) => s.interviewRoundType === 'Code') || sessions[0];
+      if (codingSession) {
+        saveActiveInterviewContext({
+          campaign: interviewContext.campaign,
+          activeSessionId: codingSession.interviewSessionId,
+          configurationKey: interviewContext.configurationKey,
+        });
+        navigate(getCodingInterviewRoomPath(codingSession.interviewSessionId), { replace: true });
+      }
+    }
+  }, [interviewContext]);
 
   const cleanupActiveMedia = useCallback(() => {
     if (speechRecognitionRef.current) {

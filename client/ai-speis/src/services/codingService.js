@@ -43,10 +43,7 @@ export const codingService = {
     const headers = getAuthHeaders();
     delete headers['Content-Type'];
 
-    // Construct the endpoint directly if not in api.js
-    const endpoint = ENDPOINTS.API_URL ? `${ENDPOINTS.API_URL}/coding/admin/import` : '/api/coding/admin/import';
-
-    const response = await fetch(endpoint, {
+    const response = await fetch(ENDPOINTS.CODING_ADMIN_IMPORT, {
       method: 'POST',
       headers: headers,
       body: formData,
@@ -56,8 +53,7 @@ export const codingService = {
   },
   
   getQuestions: async (sessionId) => {
-    const endpoint = ENDPOINTS.API_URL ? `${ENDPOINTS.API_URL}/coding/questions/${sessionId}` : `/api/coding/questions/${sessionId}`;
-    const response = await fetch(endpoint, {
+    const response = await fetch(ENDPOINTS.CODING_GET_QUESTIONS(sessionId), {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -65,8 +61,7 @@ export const codingService = {
   },
 
   submitCode: async (requestData) => {
-    const endpoint = ENDPOINTS.API_URL ? `${ENDPOINTS.API_URL}/coding/submit` : '/api/coding/submit';
-    const response = await fetch(endpoint, {
+    const response = await fetch(ENDPOINTS.CODING_SUBMIT, {
       method: 'POST',
       headers: getAuthHeaders(true),
       body: JSON.stringify(requestData)
@@ -75,10 +70,7 @@ export const codingService = {
   },
 
   getSubmissionHistory: async (sessionId, questionId) => {
-    const endpoint = ENDPOINTS.API_URL
-      ? `${ENDPOINTS.API_URL}/coding/submissions/${sessionId}/${questionId}`
-      : `/api/coding/submissions/${sessionId}/${questionId}`;
-    const response = await fetch(endpoint, {
+    const response = await fetch(ENDPOINTS.CODING_SUBMISSION_HISTORY(sessionId, questionId), {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -86,8 +78,7 @@ export const codingService = {
   },
   
   getLanguages: async () => {
-    const endpoint = ENDPOINTS.API_URL ? `${ENDPOINTS.API_URL}/coding/languages` : '/api/coding/languages';
-    const response = await fetch(endpoint, {
+    const response = await fetch(ENDPOINTS.CODING_LANGUAGES, {
       method: 'GET',
       headers: getAuthHeaders(),
     });

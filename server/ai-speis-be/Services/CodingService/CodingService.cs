@@ -12,23 +12,28 @@ using ai_speis_be.Services.Judge0Service;
 using Microsoft.EntityFrameworkCore;
 using ai_speis_be.Services.CodingService.Helpers;
 using System.Text.Json;
+using ai_speis_be.Services.CodingService.Selection;
+
 namespace ai_speis_be.Services.CodingService
 {
     public class CodingService : ICodingService
     {
         private readonly ICodingRepository _repository;
         private readonly IJudge0Service _judge0Service;
+        private readonly ICodingQuestionSelectionService _selectionService;
         private readonly ApplicationDbContext _context;
         private readonly ILogger<CodingService> _logger;
 
         public CodingService(
             ICodingRepository repository,
             IJudge0Service judge0Service,
+            ICodingQuestionSelectionService selectionService,
             ApplicationDbContext context,
             ILogger<CodingService> logger)
         {
             _repository = repository;
             _judge0Service = judge0Service;
+            _selectionService = selectionService;
             _context = context;
             _logger = logger;
         }
@@ -56,6 +61,8 @@ namespace ai_speis_be.Services.CodingService
                     return (false, "Phiên phỏng vấn chưa bắt đầu hoặc đã kết thúc.", null);
             }
 
+            bool isTestRun = request.IsTestRun || request.InterviewSessionId <= 0;
+
             // 2. Lấy câu hỏi + test cases
             var question = await _repository.GetCodingQuestionWithTestCasesAsync(
                 request.CodingQuestionId, cancellationToken);
@@ -63,17 +70,25 @@ namespace ai_speis_be.Services.CodingService
             if (question == null)
                 return (false, "Không tìm thấy câu hỏi coding.", null);
 
-            // if (question.InterviewSessionId != request.InterviewSessionId)
-            //    return (false, "Câu hỏi không thuộc phiên phỏng vấn này.", null);
+            var testCases = isTestRun
+                ? question.TestCases.Where(tc => tc.IsSample).ToList()
+                : question.TestCases.ToList();
 
-            var testCases = question.TestCases.ToList();
+            if (testCases.Count == 0 && isTestRun)
+            {
+                // Fallback to all test cases if no sample test cases defined
+                testCases = question.TestCases.ToList();
+            }
+
             if (testCases.Count == 0)
                 return (false, "Câu hỏi chưa có test case nào.", null);
+
+            string wrappedSourceCode = WrapCodeWithHarness(request.SourceCode, request.LanguageId, question);
 
             // 3. Tạo batch submissions gửi đến Judge0
             var judge0Requests = testCases.Select(tc => new Judge0SubmissionRequest
             {
-                source_code = request.SourceCode,
+                source_code = wrappedSourceCode,
                 language_id = request.LanguageId,
                 stdin = tc.Input ?? "",
                 cpu_time_limit = question.TimeLimit,
@@ -142,8 +157,8 @@ namespace ai_speis_be.Services.CodingService
                 string tcStatus;
                 if (result.status?.id == 3) // Accepted từ Judge0
                 {
-                    // Judge0 nói Accepted, nhưng cần kiểm tra output có đúng không
-                    tcStatus = string.Equals(actualOutput, expectedOutput, StringComparison.Ordinal)
+                    // Judge0 nói Accepted, kiểm tra output thông minh (JSON / String)
+                    tcStatus = CompareOutputs(actualOutput, expectedOutput)
                         ? "Accepted"
                         : "Wrong Answer";
                 }
@@ -190,8 +205,8 @@ namespace ai_speis_be.Services.CodingService
             submission.Status = overallStatus;
             submission.SubmissionTestCaseResults = testCaseResults;
 
-            // 5. Lưu vào database (bỏ qua nếu là test mode - sessionId = 0)
-            if (request.InterviewSessionId > 0)
+            // 5. Lưu vào database (bỏ qua nếu là test mode hoặc isTestRun)
+            if (request.InterviewSessionId > 0 && !isTestRun)
             {
                 await _repository.CreateSubmissionAsync(submission, cancellationToken);
                 _logger.LogInformation(
@@ -201,10 +216,10 @@ namespace ai_speis_be.Services.CodingService
             }
             else
             {
-                // Dummy ID cho test mode
+                // Dummy ID cho test mode / Run Code
                 submission.CodingSubmissionId = 9999;
                 _logger.LogInformation(
-                    "Test Mode Submission cho câu hỏi {QuestionId}: {Passed}/{Total} passed — {Status}",
+                    "Test Mode / Run Code cho câu hỏi {QuestionId}: {Passed}/{Total} passed — {Status}",
                     request.CodingQuestionId, passedCount, testCases.Count, overallStatus);
             }
 
@@ -226,6 +241,10 @@ namespace ai_speis_be.Services.CodingService
                 // Validate session thuộc về user
                 var session = await _context.InterviewSessions
                     .Include(s => s.InterviewCampaign)
+                        .ThenInclude(c => c.CVExtractedProfile)
+                            .ThenInclude(p => p.Skills)
+                    .Include(s => s.InterviewCampaign)
+                        .ThenInclude(c => c.JDExtractedProfile)
                     .FirstOrDefaultAsync(
                         s => s.InterviewSessionId == sessionId,
                         cancellationToken);
@@ -236,28 +255,16 @@ namespace ai_speis_be.Services.CodingService
                 if (session.InterviewCampaign.UserId != userId)
                     return (false, "Bạn không có quyền truy cập phiên phỏng vấn này.", null);
 
-                // Get skills from JD or CV
-                var skills = new List<string>();
-                if (session.InterviewCampaign.CVExtractedProfileId > 0)
-                {
-                    var cvSkills = await _context.CVSkills
-                        .Where(s => s.ExtractedProfileId == session.InterviewCampaign.CVExtractedProfileId)
-                        .Select(s => s.SkillName)
-                        .ToListAsync(cancellationToken);
-                    skills.AddRange(cvSkills);
-                }
-
-                questions = await _repository.GetCodingQuestionsBySkillsAsync(
-                    skills, cancellationToken);
+                questions = await _selectionService.SelectCodingQuestionsAsync(session, cancellationToken);
             }
             else
             {
-                // TEST MODE: SessionId = 0 -> Bypass check, load random questions
+                // TEST MODE: SessionId = 0 -> Bypass check, load active questions
                 questions = await _context.CodingQuestions
-                    .Where(q => q.IsActive)
+                    .Where(q => q.IsActive && !q.IsDeleted)
                     .Include(q => q.CodingQuestionTemplates)
                     .Include(q => q.TestCases)
-                    .Take(5)
+                    .Take(3)
                     .ToListAsync(cancellationToken);
             }
 
@@ -268,6 +275,21 @@ namespace ai_speis_be.Services.CodingService
                 Description = q.Description,
                 TimeLimit = q.TimeLimit,
                 MemoryLimit = q.MemoryLimit,
+                JobRole = q.JobRole,
+                Skill = q.Skill,
+                Subskill = q.Subskill,
+                Difficulty = q.Difficulty,
+                InputDescription = q.InputDescription,
+                OutputDescription = q.OutputDescription,
+                Constraints = q.Constraints,
+                Examples = q.Examples,
+                FunctionName = q.FunctionName,
+                FunctionParameters = q.FunctionParameters,
+                ReturnType = q.ReturnType,
+                FunctionSignature = q.FunctionSignature,
+                SupportedProgrammingLanguages = q.SupportedProgrammingLanguages,
+                ExpectedTimeComplexity = q.ExpectedTimeComplexity,
+                ExpectedSpaceComplexity = q.ExpectedSpaceComplexity,
                 Templates = q.CodingQuestionTemplates.Select(t => new CodingQuestionTemplateDto
                 {
                     TemplateId = t.TemplateId,
@@ -369,6 +391,11 @@ namespace ai_speis_be.Services.CodingService
         {
             var testCaseLookup = testCases.ToDictionary(tc => tc.TestCaseId);
 
+            string? firstCompileOutput = submission.SubmissionTestCaseResults
+                .FirstOrDefault(r => !string.IsNullOrEmpty(r.CompileOutput))?.CompileOutput;
+            string? firstStderr = submission.SubmissionTestCaseResults
+                .FirstOrDefault(r => !string.IsNullOrEmpty(r.Stderr))?.Stderr;
+
             return new SubmissionResponseDto
             {
                 CodingSubmissionId = submission.CodingSubmissionId,
@@ -378,6 +405,8 @@ namespace ai_speis_be.Services.CodingService
                 PassedTestCases = submission.PassedTestCases,
                 MaxTimeMs = submission.MaxTimeMs,
                 MaxMemoryKb = submission.MaxMemoryKb,
+                CompileOutput = firstCompileOutput,
+                Stderr = firstStderr,
                 CreatedAt = submission.CreatedAt,
                 TestCaseResults = submission.SubmissionTestCaseResults.Select(r =>
                 {
@@ -389,7 +418,7 @@ namespace ai_speis_be.Services.CodingService
                         TestCaseId = r.TestCaseId,
                         IsSample = isSample,
                         Status = r.Status,
-                        // Chỉ trả output cho sample test cases
+                        Input = isSample && tc != null ? tc.Input : null,
                         ActualOutput = isSample ? r.ActualOutput : null,
                         ExpectedOutput = isSample && tc != null ? tc.ExpectedOutput : null,
                         Stderr = r.Stderr,
@@ -399,6 +428,117 @@ namespace ai_speis_be.Services.CodingService
                     };
                 }).ToList()
             };
+        }
+
+        /// <summary>
+        /// Tự động bọc (wrap) code của thí sinh bằng Test Harness Driver tương ứng với ngôn ngữ.
+        /// Đảm bảo hàm tự động đọc JSON stdin, gọi fnName(...) và in kết quả stdout.
+        /// </summary>
+        private static string WrapCodeWithHarness(string sourceCode, int languageId, CodingQuestion question)
+        {
+            if (string.IsNullOrWhiteSpace(sourceCode) || question == null)
+                return sourceCode;
+
+            string fnName = question.FunctionName ?? "solution";
+
+            // Python (71)
+            if (languageId == 71)
+            {
+                if (sourceCode.Contains("__main__") || sourceCode.Contains("sys.stdin.read"))
+                    return sourceCode;
+
+                var harness = $@"
+
+# --- AUTOMATIC TEST HARNESS ---
+if __name__ == '__main__':
+    import sys, json
+    __raw_input = sys.stdin.read().strip()
+    if __raw_input:
+        try:
+            __data = json.loads(__raw_input)
+            if isinstance(__data, dict):
+                __res = {fnName}(**__data)
+            elif isinstance(__data, list):
+                __res = {fnName}(*__data)
+            else:
+                __res = {fnName}(__raw_input)
+            
+            if isinstance(__res, (dict, list)):
+                print(json.dumps(__res, separators=(',', ':')))
+            else:
+                print(__res)
+        except Exception as __e:
+            import traceback
+            sys.stderr.write(str(__e) + '\n' + traceback.format_exc())
+";
+                return sourceCode + harness;
+            }
+
+            // JavaScript / Node.js (63)
+            if (languageId == 63)
+            {
+                if (sourceCode.Contains("process.stdin") || sourceCode.Contains("readFileSync"))
+                    return sourceCode;
+
+                var harness = $@"
+
+// --- AUTOMATIC TEST HARNESS ---
+if (typeof process !== 'undefined') {{
+  try {{
+    const fs = require('fs');
+    const inputStr = fs.readFileSync(0, 'utf-8').trim();
+    if (inputStr) {{
+      const data = JSON.parse(inputStr);
+      let res;
+      if (typeof data === 'object' && !Array.isArray(data) && data !== null) {{
+        res = {fnName}(...Object.values(data));
+      }} else if (Array.isArray(data)) {{
+        res = {fnName}(...data);
+      }} else {{
+        res = {fnName}(data);
+      }}
+      console.log(typeof res === 'object' ? JSON.stringify(res) : res);
+    }}
+  }} catch (err) {{
+    console.error(err);
+  }}
+}}
+";
+                return sourceCode + harness;
+            }
+
+            return sourceCode;
+        }
+
+        /// <summary>
+        /// So sánh kết quả thực tế (actual) và kết quả kỳ vọng (expected) một cách thông minh:
+        /// Hỗ trợ cả string thô, JSON DeepEquals (bỏ qua khoảng trắng), và loại bỏ xuống dòng thừa.
+        /// </summary>
+        private static bool CompareOutputs(string actual, string expected)
+        {
+            if (actual == null && expected == null) return true;
+            if (actual == null || expected == null) return false;
+
+            string normActual = actual.Trim();
+            string normExpected = expected.Trim();
+
+            if (string.Equals(normActual, normExpected, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Thử so sánh JSON DeepEquals
+            try
+            {
+                using var docActual = JsonDocument.Parse(normActual);
+                using var docExpected = JsonDocument.Parse(normExpected);
+                return JsonElement.DeepEquals(docActual.RootElement, docExpected.RootElement);
+            }
+            catch
+            {
+                // Không phải JSON, so sánh chuỗi đã chuẩn hóa khoảng trắng
+                var cleanActual = string.Join(" ", normActual.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+                var cleanExpected = string.Join(" ", normExpected.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+                return string.Equals(cleanActual, cleanExpected, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         public async Task<(bool Success, string? ErrorMessage, int ImportedCount)> ImportAdminCodingQuestionsAsync(
@@ -493,52 +633,18 @@ namespace ai_speis_be.Services.CodingService
                     CreatedAt = DateTime.UtcNow
                 };
 
-                // Try parse test cases
-                try {
-                    if (!string.IsNullOrWhiteSpace(q.PublicTestCases)) {
-                        var publicTcList = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(q.PublicTestCases);
-                        if (publicTcList != null) {
-                            foreach (var tc in publicTcList) {
-                                q.TestCases.Add(new TestCase {
-                                    Input = tc.GetValueOrDefault("input", ""),
-                                    ExpectedOutput = tc.GetValueOrDefault("expectedOutput", ""),
-                                    IsSample = true,
-                                    IsHidden = false
-                                });
-                            }
-                        }
-                    }
-                    if (!string.IsNullOrWhiteSpace(q.HiddenTestCases)) {
-                        var hiddenTcList = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(q.HiddenTestCases);
-                        if (hiddenTcList != null) {
-                            foreach (var tc in hiddenTcList) {
-                                q.TestCases.Add(new TestCase {
-                                    Input = tc.GetValueOrDefault("input", ""),
-                                    ExpectedOutput = tc.GetValueOrDefault("expectedOutput", ""),
-                                    IsSample = false,
-                                    IsHidden = true
-                                });
-                            }
-                        }
-                    }
-                } catch { /* Ignored parsing errors */ }
-
-                // Try parse starter code
-                try {
-                    if (!string.IsNullOrWhiteSpace(q.StarterCode)) {
-                        var templates = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(q.StarterCode);
-                        if (templates != null) {
-                            foreach (var t in templates) {
-                                if (int.TryParse(t.GetValueOrDefault("languageId"), out var langId)) {
-                                    q.CodingQuestionTemplates.Add(new CodingQuestionTemplate {
-                                        LanguageId = langId,
-                                        TemplateCode = t.GetValueOrDefault("templateCode", "")
-                                    });
-                                }
-                            }
-                        }
-                    }
-                } catch { /* Ignored parsing errors */ }
+                if (!string.IsNullOrWhiteSpace(q.PublicTestCases))
+                {
+                    ParseAndAddTestCases(q, q.PublicTestCases, isSample: true, isHidden: false, logger: _logger);
+                }
+                if (!string.IsNullOrWhiteSpace(q.HiddenTestCases))
+                {
+                    ParseAndAddTestCases(q, q.HiddenTestCases, isSample: false, isHidden: true, logger: _logger);
+                }
+                if (!string.IsNullOrWhiteSpace(q.StarterCode))
+                {
+                    ParseAndAddTemplates(q, q.StarterCode, logger: _logger);
+                }
 
                 newQuestions.Add(q);
             }
@@ -551,6 +657,118 @@ namespace ai_speis_be.Services.CodingService
             }
 
             return (true, null, importedCount);
+        }
+
+        private static void ParseAndAddTestCases(CodingQuestion q, string jsonText, bool isSample, bool isHidden, ILogger logger)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonText);
+                if (doc.RootElement.ValueKind != JsonValueKind.Array) return;
+
+                foreach (var item in doc.RootElement.EnumerateArray())
+                {
+                    string inputStr = "";
+                    string expectedOutputStr = "";
+
+                    if (item.TryGetProperty("input", out var inputProp))
+                    {
+                        inputStr = ExtractJsonString(inputProp);
+                    }
+
+                    if (item.TryGetProperty("expected_output", out var expProp) ||
+                        item.TryGetProperty("expectedOutput", out expProp))
+                    {
+                        expectedOutputStr = ExtractJsonString(expProp);
+                    }
+
+                    q.TestCases.Add(new TestCase
+                    {
+                        Input = inputStr,
+                        ExpectedOutput = expectedOutputStr,
+                        IsSample = isSample,
+                        IsHidden = isHidden
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Không thể parse test cases JSON cho câu hỏi {Title}", q.Title);
+            }
+        }
+
+        private static void ParseAndAddTemplates(CodingQuestion q, string jsonText, ILogger logger)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonText);
+                var langMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "python", 71 }, { "python3", 71 }, { "py", 71 },
+                    { "javascript", 63 }, { "js", 63 }, { "nodejs", 63 },
+                    { "java", 62 },
+                    { "cpp", 54 }, { "c++", 54 }, { "c", 54 },
+                    { "csharp", 51 }, { "c#", 51 }, { "cs", 51 }
+                };
+
+                if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in doc.RootElement.EnumerateObject())
+                    {
+                        if (langMap.TryGetValue(prop.Name, out var langId) || int.TryParse(prop.Name, out langId))
+                        {
+                            q.CodingQuestionTemplates.Add(new CodingQuestionTemplate
+                            {
+                                LanguageId = langId,
+                                TemplateCode = ExtractJsonString(prop.Value)
+                            });
+                        }
+                    }
+                }
+                else if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in doc.RootElement.EnumerateArray())
+                    {
+                        int langId = 0;
+                        string templateCode = "";
+
+                        if (item.TryGetProperty("languageId", out var lIdProp) && lIdProp.TryGetInt32(out var parsedLId))
+                            langId = parsedLId;
+                        else if (item.TryGetProperty("language", out var lProp) && langMap.TryGetValue(lProp.GetString() ?? "", out var mappedId))
+                            langId = mappedId;
+
+                        if (item.TryGetProperty("templateCode", out var tcProp) ||
+                            item.TryGetProperty("code", out tcProp) ||
+                            item.TryGetProperty("starter_code", out tcProp))
+                        {
+                            templateCode = ExtractJsonString(tcProp);
+                        }
+
+                        if (langId > 0 && !string.IsNullOrWhiteSpace(templateCode))
+                        {
+                            q.CodingQuestionTemplates.Add(new CodingQuestionTemplate
+                            {
+                                LanguageId = langId,
+                                TemplateCode = templateCode
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Không thể parse starter code JSON cho câu hỏi {Title}", q.Title);
+            }
+        }
+
+        private static string ExtractJsonString(JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString() ?? "",
+                JsonValueKind.Null or JsonValueKind.Undefined => "",
+                _ => element.GetRawText()
+            };
         }
     }
 }
