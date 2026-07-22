@@ -153,6 +153,7 @@ builder.Services.AddHostedService<CvParsingBackgroundService>();
 // Background Worker for JD Parsing
 builder.Services.AddSingleton<IJdParseQueue, JdParseQueue>();
 builder.Services.AddHostedService<JdParsingBackgroundService>();
+builder.Services.AddHostedService<PremiumQuotaResetBackgroundService>();
 
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ai_speis_be.Models;
 
@@ -11,9 +12,11 @@ using ai_speis_be.Models;
 namespace ai_speis_be.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260721164248_AddIsPremiumToUser")]
+    partial class AddIsPremiumToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -968,14 +971,6 @@ namespace ai_speis_be.Migrations
                     b.Property<string>("TechnicalSummaryJson")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("TechnicalReliabilityFailureReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("TechnicalLegacyUpgradeFailureReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -1382,10 +1377,6 @@ namespace ai_speis_be.Migrations
                     b.Property<int?>("AiSuggestedAction")
                         .HasColumnType("int");
 
-                    b.Property<string>("AdaptiveRuleVersion")
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
                     b.Property<decimal>("AiSuggestedOverallScore")
                         .HasColumnType("decimal(5,2)");
 
@@ -1404,18 +1395,11 @@ namespace ai_speis_be.Migrations
                     b.Property<int>("Decision")
                         .HasColumnType("int");
 
-                    b.Property<string>("DecisionReason")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
                     b.Property<string>("DimensionEvaluationsJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("FeedbackFallbackUsed")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("FallbackUsed")
                         .HasColumnType("bit");
 
                     b.Property<string>("FeedbackModelName")
@@ -1482,10 +1466,6 @@ namespace ai_speis_be.Migrations
                         .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("StrengthsJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TargetRubricCodesJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -1671,14 +1651,6 @@ namespace ai_speis_be.Migrations
 
                     b.HasIndex("InterviewSessionId", "SequenceNumber")
                         .IsUnique();
-
-                    b.HasIndex("InterviewSessionId", "MainQuestionIndex")
-                        .IsUnique()
-                        .HasFilter("[QuestionType] = 0");
-
-                    b.HasIndex("InterviewSessionId", "QuestionId")
-                        .IsUnique()
-                        .HasFilter("[QuestionType] = 0 AND [QuestionId] IS NOT NULL");
 
                     b.HasIndex("InterviewSessionId", "Status")
                         .IsUnique()

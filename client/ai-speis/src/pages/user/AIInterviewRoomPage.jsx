@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Loader2, LogOut, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import UserLayout from '../../layouts/user/UserLayout';
 import interviewSessionService from '../../services/InterviewSessionService';
 import { getActiveInterviewContext } from '../../utils/interviewContext';
@@ -9,6 +10,7 @@ import { navigate } from '../../routes/navigation';
 import { getCodingInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 
 function AIInterviewRoomPage({ sessionId }) {
+  const { t } = useTranslation('interview');
   const storedSession = useMemo(() => {
     const context = getActiveInterviewContext();
     const targetId = sessionId || context?.activeSessionId;
@@ -75,7 +77,7 @@ function AIInterviewRoomPage({ sessionId }) {
         <div>
           {!error && isLoading ? <Loader2 className="mx-auto mb-4 animate-spin text-primary-dark" size={32} /> : null}
           <h1 className="text-xl font-semibold text-text-primary">
-            {error ? 'Unable to open the interview room' : 'Preparing your interview room...'}
+            {error ? t('room.unableToOpen', 'Unable to open the interview room') : t('room.preparing', 'Preparing your interview room...')}
           </h1>
           {error ? (
             <>

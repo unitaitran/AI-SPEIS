@@ -267,7 +267,24 @@ namespace ai_speis_be.Services.JDService
 
             if (cvFile == null || jdFile == null) return null;
 
-            // 2. Fetch Parsed Profiles
+            // 2. Check if a cached result already exists
+            var existing = await _context.FastCheckResults
+                .FirstOrDefaultAsync(fc => fc.UserId == userId && fc.CVFileId == cvId && fc.JDFileId == jdId);
+
+            if (existing != null)
+            {
+                return new CvJdMatchResultResponse
+                {
+                    Success = true,
+                    MatchScore = existing.MatchScore,
+                    SuitabilityLevel = existing.SuitabilityLevel,
+                    MatchingSkills = DeserializeJsonList(existing.MatchingSkillsJson),
+                    MissingSkills = DeserializeJsonList(existing.MissingSkillsJson),
+                    Advice = existing.Advice
+                };
+            }
+
+            // 3. Fetch Parsed Profiles
             var cvProfile = await _context.CVExtractedProfiles
                 .Include(p => p.Skills)
                 .Include(p => p.Projects)
@@ -277,7 +294,7 @@ namespace ai_speis_be.Services.JDService
 
             if (cvProfile == null || jdProfile == null) return null;
 
-            // 3. Serialize into JSON for AI Context
+            // 4. Serialize into JSON for AI Context
             var cvJson = System.Text.Json.JsonSerializer.Serialize(new
             {
                 cvProfile.RoleTarget,
@@ -300,7 +317,7 @@ namespace ai_speis_be.Services.JDService
                 jdProfile.CompanyCharacteristics
             });
 
-            // 4. Call AI Matching
+            // 5. Call AI Matching
             var (success, result, raw, error) = await _aiParsingService.EvaluateCvAgainstJdAsync(cvJson, jdJson);
             
             if (!success || result == null)
@@ -312,7 +329,59 @@ namespace ai_speis_be.Services.JDService
                 };
             }
 
+            // 6. Save result to database
+            var fastCheckEntity = new FastCheckResult
+            {
+                UserId = userId,
+                CVFileId = cvId,
+                JDFileId = jdId,
+                MatchScore = result.MatchScore,
+                SuitabilityLevel = result.SuitabilityLevel,
+                MatchingSkillsJson = System.Text.Json.JsonSerializer.Serialize(result.MatchingSkills),
+                MissingSkillsJson = System.Text.Json.JsonSerializer.Serialize(result.MissingSkills),
+                Advice = result.Advice,
+                RawAiResponseJson = raw,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.FastCheckResults.Add(fastCheckEntity);
+            await _context.SaveChangesAsync();
+
             return result;
+        }
+
+        public async Task<List<FastCheckResultDto>> GetFastCheckResultsAsync(int userId)
+        {
+            var results = await _context.FastCheckResults
+                .Where(fc => fc.UserId == userId)
+                .OrderByDescending(fc => fc.CreatedAt)
+                .ToListAsync();
+
+            return results.Select(fc => new FastCheckResultDto
+            {
+                FastCheckResultId = fc.FastCheckResultId,
+                CVFileId = fc.CVFileId,
+                JDFileId = fc.JDFileId,
+                MatchScore = fc.MatchScore,
+                SuitabilityLevel = fc.SuitabilityLevel,
+                MatchingSkills = DeserializeJsonList(fc.MatchingSkillsJson),
+                MissingSkills = DeserializeJsonList(fc.MissingSkillsJson),
+                Advice = fc.Advice,
+                CreatedAt = fc.CreatedAt,
+                Success = true
+            }).ToList();
+        }
+
+        private static List<string> DeserializeJsonList(string json)
+        {
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
         }
     }
 }
