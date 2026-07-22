@@ -107,9 +107,10 @@ namespace ai_speis_be.Models.Enums
 
     public enum TechnicalQuestionGenerationReason
     {
-        QuestionPlan,
-        AdaptiveScoreRule,
-        ReliabilityMinimum,
-        DeterministicFallback
+        QuestionPlan = 0,
+        AdaptiveScoreRule = 1,
+        ReliabilityMinimum = 2,
+        DeterministicFallback = 3,
+        AIRecommendation = 4
     }
 }

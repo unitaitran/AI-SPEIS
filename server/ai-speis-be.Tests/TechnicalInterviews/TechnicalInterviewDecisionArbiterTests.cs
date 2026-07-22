@@ -12,180 +12,138 @@ public sealed class TechnicalInterviewDecisionArbiterTests
     private static readonly TechnicalInterviewOptions Options = new()
     {
         ClarificationRecoveryFactor = 0.75m,
-        AdaptiveRuleVersion = "technical-adaptive-v1",
-        BonusCalculationVersion = "technical-follow-up-bonus-v1",
-        ReliabilityFollowUpEnabled = true,
         ReliabilityMinimumQuestionCount = 5,
-        ReliabilityFollowUpLimit = 1
+        ReliabilityFollowUpLimit = 2
     };
 
     private readonly TechnicalInterviewDecisionArbiter _arbiter = new(
         new TechnicalAIResponseValidator(),
         new TechnicalRubricScoringService(),
         new TechnicalFollowUpDecisionEngine(),
-        new TechnicalAdaptiveRuleEngine(Options),
         new TechnicalFollowUpBonusCalculator(Options),
         Options);
 
     [Fact]
-    public void Resolve_ScoreBelowThreeCreatesExactlyOneClarification()
+    public void Resolve_UsesRubricRuleForAmbiguousVeryWeakAnswer()
     {
-        var evaluation = TechnicalParallelTestData.CreateEvaluation("NEXT_QUESTION", 2m);
+        var result = Resolve(
+            TechnicalParallelTestData.CreateContext(),
+            TechnicalParallelTestData.CreateEvaluation(2m, "AMBIGUOUS"));
 
-        var result = Resolve(TechnicalParallelTestData.CreateContext(), evaluation);
-
-        Assert.True(result.IsSuccess);
         Assert.Equal(TechnicalInterviewDecision.Clarification, result.Decision);
         Assert.Equal(TechnicalAttemptType.Clarification, result.NextQuestion!.AttemptType);
-        Assert.Equal(1, result.RequiredClarificationCount);
-        Assert.Equal(0, result.RequiredFollowUpCount);
-        Assert.Equal("BACKEND_ADAPTIVE_RULE_OVERRIDE", result.OverrideReason);
-    }
-
-    [Theory]
-    [InlineData(3, 2)]
-    [InlineData(4.99, 2)]
-    [InlineData(5, 1)]
-    [InlineData(7.99, 1)]
-    public void Resolve_MainScoreBoundariesCreateRequiredFollowUps(double rawScore, int requiredCount)
-    {
-        var evaluation = TechnicalParallelTestData.CreateEvaluation("END_INTERVIEW", (decimal)rawScore);
-
-        var result = Resolve(TechnicalParallelTestData.CreateContext(), evaluation);
-
-        Assert.Equal(TechnicalInterviewDecision.FollowUp, result.Decision);
-        Assert.Equal(requiredCount, result.RequiredFollowUpCount);
-        Assert.False(result.FinalizeMainQuestion);
-    }
-
-    [Theory]
-    [InlineData(8)]
-    [InlineData(10)]
-    public void Resolve_ScoreAtLeastEightMovesToNextMain(double rawScore)
-    {
-        var evaluation = TechnicalParallelTestData.CreateEvaluation("CLARIFICATION", (decimal)rawScore);
-
-        var result = Resolve(TechnicalParallelTestData.CreateContext(), evaluation);
-
-        Assert.True(result.FinalizeMainQuestion);
-        Assert.Equal(TechnicalInterviewDecision.NextQuestion, result.Decision);
-        Assert.Equal((decimal)rawScore, result.FinalMainQuestionScore);
-        Assert.Equal(10, result.NextQuestion!.SelectedMainQuestionId);
+        Assert.Null(result.AiSuggestedAction);
+        Assert.Equal("RUBRIC_RULE_LOW_SCORE_AMBIGUOUS_ANSWER", result.DecisionReason);
+        Assert.Null(result.OverrideReason);
     }
 
     [Fact]
-    public void Resolve_Fu2IsGeneratedOnlyAfterFu1Answer()
+    public void Resolve_ClarificationAnswerCanContinueWithRubricFollowUp()
     {
         var context = TechnicalParallelTestData.CreateContext(
-            attemptType: TechnicalAttemptType.FollowUp,
-            initialMainScore: 4m,
-            requiredFollowUpCount: 2,
-            followUpCount: 0);
+            clarificationCount: 0,
+            attemptType: TechnicalAttemptType.Clarification,
+            initialMainScore: 2m);
 
-        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(score: 7m));
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(6m));
 
         Assert.False(result.FinalizeMainQuestion);
         Assert.Equal(TechnicalInterviewDecision.FollowUp, result.Decision);
-        Assert.Equal(2, result.RequiredFollowUpCount);
     }
 
     [Fact]
-    public void Resolve_FollowUpUsesBonusInsteadOfAddingRawScore()
-    {
-        var context = TechnicalParallelTestData.CreateContext(
-            attemptType: TechnicalAttemptType.FollowUp,
-            initialMainScore: 6m,
-            requiredFollowUpCount: 1,
-            followUpCount: 0);
-
-        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(score: 10m));
-
-        Assert.True(result.FinalizeMainQuestion);
-        Assert.Equal(10m, result.RawScore);
-        Assert.Equal(1m, result.AppliedBonus);
-        Assert.Equal(7m, result.FinalMainQuestionScore);
-    }
-
-    [Fact]
-    public void Resolve_CapsCumulativeFollowUpBonusAtTwoAndFinalScoreAtTen()
-    {
-        var context = TechnicalParallelTestData.CreateContext(
-            attemptType: TechnicalAttemptType.FollowUp,
-            initialMainScore: 9m,
-            requiredFollowUpCount: 1,
-            cumulativeFollowUpBonus: 1.5m);
-
-        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(score: 10m));
-
-        Assert.Equal(1m, result.AppliedBonus);
-        Assert.Equal(2m, result.CumulativeFollowUpBonus);
-        Assert.Equal(10m, result.FinalMainQuestionScore);
-    }
-
-    [Fact]
-    public void Resolve_ClarificationFinalScoreIsSeventyFivePercent()
+    public void Resolve_ClarificationScoreUsesSeventyFivePercentBaseWhenChainEnds()
     {
         var context = TechnicalParallelTestData.CreateContext(
             attemptType: TechnicalAttemptType.Clarification,
             initialMainScore: 2m);
 
-        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(score: 8m));
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(8m));
 
         Assert.True(result.FinalizeMainQuestion);
         Assert.Equal(6m, result.FinalMainQuestionScore);
     }
 
     [Fact]
-    public void Resolve_LastMainAddsOneReliabilityFollowUpWhenCountIsBelowFive()
+    public void Resolve_NeverAllowsSecondClarification()
+    {
+        var context = TechnicalParallelTestData.CreateContext(
+            clarificationCount: 1,
+            attemptType: TechnicalAttemptType.FollowUp,
+            initialMainScore: 3m);
+
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(2m, "AMBIGUOUS"));
+
+        Assert.NotEqual(TechnicalInterviewDecision.Clarification, result.Decision);
+        Assert.Null(result.AiSuggestedAction);
+    }
+
+    [Fact]
+    public void Resolve_EnforcesTwoFollowUpAndThreeSubQuestionBudgets()
+    {
+        var context = TechnicalParallelTestData.CreateContext(
+            clarificationCount: 1,
+            followUpCount: 1,
+            attemptType: TechnicalAttemptType.FollowUp,
+            initialMainScore: 3m);
+
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(4m));
+
+        Assert.True(result.FinalizeMainQuestion);
+        Assert.True(result.Decision is TechnicalInterviewDecision.NextQuestion or TechnicalInterviewDecision.EndInterview);
+    }
+
+    [Fact]
+    public void Resolve_OverridesNextMainForReliabilityMinimum()
     {
         var context = TechnicalParallelTestData.CreateContext(
             completedMainQuestions: 2,
             targetMainQuestions: 3,
             reliabilityRequired: true);
 
-        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(score: 9m));
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(9m));
 
-        Assert.False(result.FinalizeMainQuestion);
+        Assert.Equal(TechnicalInterviewDecision.FollowUp, result.Decision);
+        Assert.Equal(TechnicalQuestionGenerationReason.ReliabilityMinimum, result.NextQuestion!.GenerationReason);
+        Assert.Equal("RELIABILITY_MINIMUM", result.OverrideReason);
+    }
+
+    [Fact]
+    public void Resolve_ClarificationDoesNotCountTowardReliabilityMinimum()
+    {
+        var context = TechnicalParallelTestData.CreateContext(
+            clarificationCount: 1,
+            completedMainQuestions: 2,
+            targetMainQuestions: 3,
+            reliabilityRequired: true);
+
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(9m));
+
         Assert.Equal(TechnicalInterviewDecision.FollowUp, result.Decision);
         Assert.Equal(TechnicalQuestionGenerationReason.ReliabilityMinimum, result.NextQuestion!.GenerationReason);
     }
 
-    [Fact]
-    public void Resolve_ReliabilityFollowUpFinalizesWithoutRepeating()
-    {
-        var context = TechnicalParallelTestData.CreateContext(
-            completedMainQuestions: 2,
-            targetMainQuestions: 3,
-            attemptType: TechnicalAttemptType.FollowUp,
-            initialMainScore: 9m,
-            reliabilityRequired: false,
-            generationReason: TechnicalQuestionGenerationReason.ReliabilityMinimum);
-
-        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(score: 10m));
-
-        Assert.True(result.FinalizeMainQuestion);
-        Assert.Equal(TechnicalInterviewDecision.EndInterview, result.Decision);
-        Assert.Equal(10m, result.FinalMainQuestionScore);
-    }
-
-    [Fact]
-    public void Resolve_InvalidSpeculativeCandidateUsesStableBackendFallback()
+    [Theory]
+    [InlineData(TechnicalAITaskStatus.Timeout, "TIMEOUT")]
+    [InlineData(TechnicalAITaskStatus.InvalidOutput, "MALFORMED_JSON")]
+    public void Resolve_CriticalAiFailureUsesValidatedDeterministicFallback(
+        TechnicalAITaskStatus status,
+        string errorCode)
     {
         var result = _arbiter.Resolve(
             TechnicalParallelTestData.CreateContext(),
             TechnicalTestRubric.Create(),
             TechnicalParallelTestData.Results(
-                bundle: TechnicalParallelTestData.Fulfilled(
-                    TechnicalParallelTestData.CreateBundle(999))),
-            new HashSet<int> { 10, 20 });
+                evaluation: TechnicalParallelTestData.Failed<TechnicalAIEvaluationResponse>(status, errorCode)));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(10, result.NextQuestion!.SelectedMainQuestionId);
-        Assert.True(result.QuestionFallbackUsed);
+        Assert.True(result.EvaluationFallbackUsed);
+        Assert.NotNull(result.Score);
+        Assert.NotNull(result.NextQuestion);
     }
 
     [Fact]
-    public void Resolve_FeedbackFailureDoesNotBlockNextQuestion()
+    public void Resolve_FeedbackTimeoutDoesNotLoseEvaluationOrTransition()
     {
         var result = _arbiter.Resolve(
             TechnicalParallelTestData.CreateContext(),
@@ -193,53 +151,19 @@ public sealed class TechnicalInterviewDecisionArbiterTests
             TechnicalParallelTestData.Results(
                 feedback: TechnicalParallelTestData.Failed<TechnicalAIFeedbackDraftResponse>(
                     TechnicalAITaskStatus.Timeout,
-                    "TIMEOUT")),
-            new HashSet<int> { 10, 20 });
+                    "TIMEOUT")));
 
         Assert.True(result.IsSuccess);
         Assert.True(result.FeedbackFallbackUsed);
-        Assert.NotNull(result.NextQuestion);
-    }
-
-    [Fact]
-    public void Resolve_EvaluationFailureRejectsAllSpeculativeResults()
-    {
-        var result = _arbiter.Resolve(
-            TechnicalParallelTestData.CreateContext(),
-            TechnicalTestRubric.Create(),
-            TechnicalParallelTestData.Results(
-                evaluation: TechnicalParallelTestData.Failed<TechnicalAIEvaluationResponse>(
-                    TechnicalAITaskStatus.Rejected,
-                    "GEMINI_QUOTA_EXCEEDED")),
-            new HashSet<int> { 10, 20 });
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Score);
-        Assert.Null(result.NextQuestion);
-    }
-
-    [Fact]
-    public void Resolve_InvalidAiActionCannotOverrideBackendRule()
-    {
-        var evaluation = TechnicalParallelTestData.CreateEvaluation("DO_WHATEVER", 2m);
-
-        var result = Resolve(TechnicalParallelTestData.CreateContext(), evaluation);
-
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.AiSuggestedAction);
-        Assert.Equal(TechnicalInterviewDecision.Clarification, result.Decision);
-        Assert.Equal("AI_SUGGESTED_ACTION_INVALID_OR_MISSING", result.OverrideReason);
+        Assert.NotNull(result.Score);
     }
 
     private TechnicalDecisionArbiterResult Resolve(
         TechnicalAnswerProcessingContext context,
-        TechnicalAIEvaluationResponse evaluation)
-    {
-        return _arbiter.Resolve(
+        TechnicalAIEvaluationResponse evaluation) =>
+        _arbiter.Resolve(
             context,
             TechnicalTestRubric.Create(),
             TechnicalParallelTestData.Results(
-                evaluation: TechnicalParallelTestData.Fulfilled(evaluation)),
-            new HashSet<int> { 10, 20 });
-    }
+                evaluation: TechnicalParallelTestData.Fulfilled(evaluation)));
 }

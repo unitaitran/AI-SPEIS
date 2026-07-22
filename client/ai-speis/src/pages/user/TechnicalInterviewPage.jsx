@@ -365,6 +365,9 @@ function TechnicalInterviewPage({ sessionId }) {
       <>
         <TechnicalInterviewProgress
           question={room.currentQuestion}
+          current={room.currentQuestion?.mainQuestionIndex
+            || ((room.session?.completedMainQuestionCount ?? 0) + 1)}
+          total={room.session?.lockedMainQuestions?.length || room.session?.targetMainQuestionCount}
           t={t}
         />
         <div className="technical-room-grid">

@@ -6,7 +6,7 @@ namespace ai_speis_be.Tests.TechnicalInterviews;
 public sealed class TechnicalParallelOptionsTests
 {
     [Fact]
-    public void FromConfiguration_ReadsIndependentParallelTimeoutAndRetryBudgets()
+    public void FromConfiguration_EnforcesParallelPairAndReadsIndependentTimeoutRetryBudgets()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -16,23 +16,19 @@ public sealed class TechnicalParallelOptionsTests
                 ["TECHNICAL_AI_GLOBAL_CONCURRENCY_LIMIT"] = "7",
                 ["TECHNICAL_AI_EVALUATION_TIMEOUT_MS"] = "16000",
                 ["TECHNICAL_AI_FEEDBACK_TIMEOUT_MS"] = "9000",
-                ["TECHNICAL_AI_QUESTION_TIMEOUT_MS"] = "11000",
                 ["TECHNICAL_AI_EVALUATION_MAX_RETRIES"] = "1",
                 ["TECHNICAL_AI_FEEDBACK_MAX_RETRIES"] = "0",
-                ["TECHNICAL_AI_QUESTION_MAX_RETRIES"] = "2"
             })
             .Build();
 
         var options = TechnicalInterviewOptions.FromConfiguration(configuration);
 
-        Assert.False(options.ParallelProcessingEnabled);
+        Assert.True(options.ParallelProcessingEnabled);
         Assert.Equal(2, options.MaxParallelTasksPerSession);
         Assert.Equal(7, options.GlobalConcurrencyLimit);
         Assert.Equal(16_000, options.EvaluationTimeoutMs);
         Assert.Equal(9_000, options.FeedbackTimeoutMs);
-        Assert.Equal(11_000, options.QuestionTimeoutMs);
         Assert.Equal(1, options.EvaluationMaxRetries);
         Assert.Equal(0, options.FeedbackMaxRetries);
-        Assert.Equal(2, options.QuestionMaxRetries);
     }
 }

@@ -35,19 +35,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
 
         public string ProviderName => "external";
 
-        public Task<AIProviderResult<TechnicalAISelectionResponse>> SelectQuestionAsync(
-            TechnicalAISelectionRequest request,
-            CancellationToken cancellationToken)
-        {
-            var prompt = TechnicalPromptFactory.Selection(request);
-            return CallAsync<TechnicalAISelectionResponse>(
-                prompt.System,
-                prompt.User,
-                _options.TimeoutSeconds * 1_000,
-                _options.MaxRetries,
-                cancellationToken);
-        }
-
         public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken)
@@ -71,19 +58,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 prompt.User,
                 _options.FeedbackTimeoutMs,
                 _options.FeedbackMaxRetries,
-                cancellationToken);
-        }
-
-        public Task<AIProviderResult<TechnicalAIQuestionBundleResponse>> GenerateQuestionBundleAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken)
-        {
-            var prompt = TechnicalPromptFactory.QuestionBundle(context);
-            return CallAsync<TechnicalAIQuestionBundleResponse>(
-                prompt.System,
-                prompt.User,
-                _options.QuestionTimeoutMs,
-                _options.QuestionMaxRetries,
                 cancellationToken);
         }
 

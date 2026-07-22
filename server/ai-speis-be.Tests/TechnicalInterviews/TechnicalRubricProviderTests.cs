@@ -1,4 +1,3 @@
-using ai_speis_be.Models.Enums;
 using ai_speis_be.TechnicalInterviews.Rubrics;
 using Microsoft.AspNetCore.Hosting;
 using Moq;
@@ -20,6 +19,11 @@ public sealed class TechnicalRubricProviderTests
         Assert.Equal(1m, rubric.Dimensions.Sum(item => item.Weight));
         Assert.Equal("Xuất sắc", rubric.GetPerformanceBand(4.50m).Name);
         Assert.Equal("Kém", rubric.GetPerformanceBand(1.49m).Name);
+        Assert.Equal("EXCELLENT", rubric.GetPerformanceBandCode(5m));
+        Assert.Equal("GOOD", rubric.GetPerformanceBandCode(4m));
+        Assert.Equal("FAIR", rubric.GetPerformanceBandCode(3m));
+        Assert.Equal("WEAK", rubric.GetPerformanceBandCode(2m));
+        Assert.Equal("POOR", rubric.GetPerformanceBandCode(1m));
     }
 
     [Fact]
@@ -41,11 +45,11 @@ public sealed class TechnicalRubricProviderTests
         Assert.Equal("MINIMUM_REQUIREMENT_MET", rubric.GetPerformanceBand(5m).Code);
         Assert.Equal("WEAK", rubric.GetPerformanceBand(3m).Code);
         Assert.Equal("VERY_WEAK", rubric.GetPerformanceBand(2.99m).Code);
-        Assert.Equal(TechnicalPerformanceBandCode.EXCELLENT, rubric.GetPerformanceBandCode(10m));
-        Assert.Equal(TechnicalPerformanceBandCode.VERY_GOOD, rubric.GetPerformanceBandCode(8.99m));
-        Assert.Equal(TechnicalPerformanceBandCode.GOOD, rubric.GetPerformanceBandCode(7m));
-        Assert.Equal(TechnicalPerformanceBandCode.MINIMUM_REQUIREMENT_MET, rubric.GetPerformanceBandCode(5m));
-        Assert.Equal(TechnicalPerformanceBandCode.WEAK, rubric.GetPerformanceBandCode(3m));
-        Assert.Equal(TechnicalPerformanceBandCode.VERY_WEAK, rubric.GetPerformanceBandCode(0m));
+        Assert.Equal("EXCELLENT", rubric.GetPerformanceBandCode(10m));
+        Assert.Equal("VERY_GOOD", rubric.GetPerformanceBandCode(8.99m));
+        Assert.Equal("GOOD", rubric.GetPerformanceBandCode(7m));
+        Assert.Equal("MINIMUM_REQUIREMENT_MET", rubric.GetPerformanceBandCode(5m));
+        Assert.Equal("WEAK", rubric.GetPerformanceBandCode(3m));
+        Assert.Equal("VERY_WEAK", rubric.GetPerformanceBandCode(0m));
     }
 }

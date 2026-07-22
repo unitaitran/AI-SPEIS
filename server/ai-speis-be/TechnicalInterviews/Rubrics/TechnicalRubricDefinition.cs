@@ -1,5 +1,3 @@
-using ai_speis_be.Models.Enums;
-
 namespace ai_speis_be.TechnicalInterviews.Rubrics
 {
     public sealed class TechnicalRubricDefinition
@@ -32,13 +30,13 @@ namespace ai_speis_be.TechnicalInterviews.Rubrics
                 $"Rubric {Version} does not contain a performance band for score {score}.");
         }
 
-        public TechnicalPerformanceBandCode GetPerformanceBandCode(decimal score)
+        public string GetPerformanceBandCode(decimal score)
         {
-            var code = GetPerformanceBand(score).Code;
-            return Enum.TryParse<TechnicalPerformanceBandCode>(code, ignoreCase: true, out var parsed)
-                ? parsed
+            var code = GetPerformanceBand(score).Code?.Trim();
+            return !string.IsNullOrWhiteSpace(code)
+                ? code.ToUpperInvariant()
                 : throw new InvalidOperationException(
-                    $"Rubric {Version} contains unsupported performance band code '{code}'.");
+                    $"Rubric {Version} contains an empty performance band code.");
         }
     }
 

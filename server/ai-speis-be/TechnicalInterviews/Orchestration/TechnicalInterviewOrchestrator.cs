@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Collections.Immutable;
+using System.Data;
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
@@ -74,6 +75,9 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             InitializeTechnicalInterviewRequest request,
             CancellationToken cancellationToken)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
             var session = await GetOwnedSessionAsync(userId, request.InterviewSessionId, cancellationToken);
             if (session is null)
                 return NotFound<TechnicalInterviewSessionDto>();
@@ -82,7 +86,51 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             if (IsLifecycleClosed(session) && session.TechnicalState != TechnicalInterviewState.Completed)
                 return Conflict<TechnicalInterviewSessionDto>("SESSION_ALREADY_ENDED", "The interview session is no longer active.");
             if (session.TechnicalState.HasValue)
+            {
+                if (session.TechnicalState == TechnicalInterviewState.Completed)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return TechnicalOperationResult<TechnicalInterviewSessionDto>.Ok(MapSession(session));
+                }
+                var upgraded = await EnsureLockedPlanAsync(session, cancellationToken);
+                if (!upgraded.IsSuccess)
+                {
+                    if (string.Equals(upgraded.ErrorCode, "LEGACY_PLAN_UPGRADE_CONFLICT", StringComparison.Ordinal))
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return Conflict<TechnicalInterviewSessionDto>(upgraded.ErrorCode, upgraded.Message!);
+                    }
+                    await RecordLegacyUpgradeFailureAsync(session, upgraded, cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+                    return Conflict<TechnicalInterviewSessionDto>(
+                        upgraded.ErrorCode ?? "LEGACY_PLAN_UPGRADE_FAILED",
+                        upgraded.Message ?? "The legacy Technical session could not be upgraded safely.");
+                }
+                await transaction.CommitAsync(cancellationToken);
                 return TechnicalOperationResult<TechnicalInterviewSessionDto>.Ok(MapSession(session));
+            }
+
+            if (session.InterviewCampaign.Status is InterviewCampaignStatus.Completed
+                or InterviewCampaignStatus.Cancelled
+                or InterviewCampaignStatus.Expired
+                || (session.InterviewCampaign.ExpiresAt.HasValue
+                    && session.InterviewCampaign.ExpiresAt.Value <= DateTime.UtcNow))
+            {
+                return Conflict<TechnicalInterviewSessionDto>("CAMPAIGN_NOT_ACTIVE", "The interview campaign is no longer available.");
+            }
+            if (session.InterviewCampaign.InterviewSessions.Any(item =>
+                item.InterviewSessionId != session.InterviewSessionId
+                && item.Status == InterviewSessionStatus.Active))
+            {
+                return Conflict<TechnicalInterviewSessionDto>("ANOTHER_ROUND_ACTIVE", "Another interview round is already active.");
+            }
+            if (!session.InterviewCampaign.CVExtractedProfile.IsConfirmed
+                || !IsJdReadyForInterview(session.InterviewCampaign.JDExtractedProfile))
+            {
+                return Conflict<TechnicalInterviewSessionDto>(
+                    "CV_JD_NOT_READY",
+                    "The CV must be confirmed and the JD must be parsed or confirmed before Technical initialization.");
+            }
 
             var jd = session.InterviewCampaign.JDExtractedProfile;
             var roleTargets = TechnicalQuestionMetadata.ResolveRoleAliases(jd.RoleTarget, jd.JobTitle);
@@ -90,12 +138,37 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 return BadRequest<TechnicalInterviewSessionDto>("UNSUPPORTED_JOB_ROLE", "The JD role cannot be mapped to the Technical Question Bank.");
 
             var language = session.InterviewCampaign.Language.Trim().ToLowerInvariant();
-            var availableSkills = await _questionRepository.GetTechnicalSkillsAsync(
-                language,
-                roleTargets,
-                cancellationToken);
+            var availableSkills = session.InterviewCampaign.Mode == InterviewMode.Practice
+                ? (await _questionRepository.GetTechnicalCandidatesAsync(
+                        new TechnicalQuestionCandidateQuery
+                        {
+                            Language = language,
+                            RoleTargets = roleTargets,
+                            // Experience labels are advisory. Practice configuration
+                            // requires an exact difficulty, so build the plan only from
+                            // skills that really have a candidate at that difficulty.
+                            ExperienceLevels = Array.Empty<string>(),
+                            Difficulty = session.Difficulty,
+                            MaximumResults = 500
+                        },
+                        cancellationToken))
+                    .Where(question => !string.IsNullOrWhiteSpace(question.Skill))
+                    .Select(question => question.Skill!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(skill => skill, StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+                : await _questionRepository.GetTechnicalSkillsAsync(
+                    language,
+                    roleTargets,
+                    cancellationToken);
             if (availableSkills.Count == 0)
-                return BadRequest<TechnicalInterviewSessionDto>("NO_TECHNICAL_CANDIDATE", "No active Technical question matches the session language and role.");
+            {
+                return BadRequest<TechnicalInterviewSessionDto>(
+                    "NO_TECHNICAL_CANDIDATE",
+                    session.InterviewCampaign.Mode == InterviewMode.Practice
+                        ? $"No active Technical question matches language '{language}', role '{roleTargets[0]}' and difficulty '{session.Difficulty}'."
+                        : "No active Technical question matches the session language and role.");
+            }
 
             var selectedSkillsResult = ResolveSelectedSkills(session, request.SelectedSkills, availableSkills);
             if (selectedSkillsResult.Count == 0)
@@ -105,21 +178,28 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var rubric = _rubricProvider.GetRequired(
                 useAdaptiveFramework ? _options.RubricVersion : _options.PracticeRubricVersion);
 
+            TechnicalQuestionPlan plan;
             if (useAdaptiveFramework)
             {
-                var matchResult = await _jdService.MatchCvToJdAsync(
-                    userId,
-                    jd.JDFileId,
-                    session.InterviewCampaign.CVExtractedProfile.CVFileId);
-                if (matchResult is null || !matchResult.Success)
+                var matchScore = session.InterviewCampaign.CvJdMatchScore;
+                if (!matchScore.HasValue)
                 {
-                    return ExternalFailure<TechnicalInterviewSessionDto>(
-                        "CV_JD_MATCH_UNAVAILABLE",
-                        matchResult?.ErrorMessage ?? "CV-JD Match Score could not be calculated for the Technical Question Plan.");
+                    var matchResult = await _jdService.MatchCvToJdAsync(
+                        userId,
+                        jd.JDFileId,
+                        session.InterviewCampaign.CVExtractedProfile.CVFileId);
+                    if (matchResult is null || !matchResult.Success)
+                    {
+                        return ExternalFailure<TechnicalInterviewSessionDto>(
+                            "CV_JD_MATCH_UNAVAILABLE",
+                            matchResult?.ErrorMessage ?? "CV-JD Match Score could not be calculated for the Technical Question Plan.");
+                    }
+                    matchScore = matchResult.MatchScore;
+                    session.InterviewCampaign.CvJdMatchScore = matchScore;
                 }
 
                 var planResult = _questionPlanBuilder.Build(new TechnicalQuestionPlanRequest(
-                    matchResult.MatchScore,
+                    matchScore.Value,
                     session.InterviewCampaign.CVExtractedProfile.Skills.Select(item => item.SkillName).ToList(),
                     TechnicalQuestionMetadata.ParseStringArray(jd.RequiredSkills),
                     TechnicalQuestionMetadata.ParseStringArray(jd.NiceToHaveSkills),
@@ -132,13 +212,19 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         planResult.Message ?? "Technical Question Plan could not be created.");
                 }
 
-                var plan = planResult.Plan!;
+                plan = planResult.Plan!;
                 session.QuestionCount = _options.StandardMainQuestionCount;
                 session.TechnicalMatchScoreSnapshot = plan.MatchScore;
                 session.TechnicalMatchBand = plan.MatchBand;
                 session.TechnicalPlannedCvQuestionCount = plan.PlannedCvQuestionCount;
                 session.TechnicalPlannedJdQuestionCount = plan.PlannedJdQuestionCount;
-                session.TechnicalQuestionPlanJson = TechnicalQuestionPlanSerializer.Serialize(plan);
+                session.TechnicalQuestionPlanVersion = plan.Version;
+                session.TechnicalAdaptiveRuleVersion = _options.AdaptiveRuleVersion;
+                session.TechnicalBonusCalculationVersion = _options.BonusCalculationVersion;
+            }
+            else
+            {
+                plan = BuildPracticePlan(session, selectedSkillsResult);
                 session.TechnicalQuestionPlanVersion = plan.Version;
                 session.TechnicalAdaptiveRuleVersion = _options.AdaptiveRuleVersion;
                 session.TechnicalBonusCalculationVersion = _options.BonusCalculationVersion;
@@ -153,17 +239,46 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             session.TechnicalLanguage = language;
             session.TechnicalSelectedSkillsJson = JsonSerializer.Serialize(selectedSkillsResult, JsonOptions);
             session.TechnicalCompletedMainQuestionCount = 0;
+
+            var lockResult = await LockQuestionPlanAsync(
+                session,
+                plan,
+                rubric,
+                preserveLegacyAttempts: false,
+                cancellationToken);
+            if (!lockResult.IsSuccess)
+            {
+                return Conflict<TechnicalInterviewSessionDto>(
+                    lockResult.ErrorCode ?? "QUESTION_PLAN_LOCK_FAILED",
+                    lockResult.Message ?? "All main questions could not be locked atomically.");
+            }
+            session.TechnicalQuestionPlanJson = TechnicalQuestionPlanSerializer.Serialize(lockResult.Plan!);
             session.TechnicalConcurrencyVersion++;
             session.UpdatedAt = DateTime.UtcNow;
 
             try
             {
                 await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
                 return TechnicalOperationResult<TechnicalInterviewSessionDto>.Created(MapSession(session));
             }
             catch (DbUpdateConcurrencyException)
             {
+                await transaction.RollbackAsync(cancellationToken);
+                _context.ChangeTracker.Clear();
+                var current = await GetOwnedSessionAsync(userId, request.InterviewSessionId, cancellationToken);
+                if (current is not null && GetQuestionPlan(current)?.Slots.All(slot => slot.IsLocked) == true)
+                    return TechnicalOperationResult<TechnicalInterviewSessionDto>.Ok(MapSession(current));
                 return Conflict<TechnicalInterviewSessionDto>("SESSION_CONCURRENCY_CONFLICT", "The session changed concurrently.");
+            }
+            catch (DbUpdateException)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                _context.ChangeTracker.Clear();
+                var current = await GetOwnedSessionAsync(userId, request.InterviewSessionId, cancellationToken);
+                if (current is not null && GetQuestionPlan(current)?.Slots.All(slot => slot.IsLocked) == true)
+                    return TechnicalOperationResult<TechnicalInterviewSessionDto>.Ok(MapSession(current));
+                return Conflict<TechnicalInterviewSessionDto>("INITIALIZE_CONCURRENCY_CONFLICT", "Another request initialized the session concurrently.");
             }
         }
 
@@ -182,9 +297,18 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             if (IsLifecycleClosed(session))
                 return Conflict<TechnicalCurrentQuestionDto>("SESSION_ALREADY_ENDED", "The interview session was ended outside the Technical Interview flow.");
 
+            var lockedPlan = await EnsureLockedPlanAsync(session, cancellationToken);
+            if (!lockedPlan.IsSuccess)
+            {
+                await RecordLegacyUpgradeFailureAsync(session, lockedPlan, cancellationToken);
+                return Conflict<TechnicalCurrentQuestionDto>(lockedPlan.ErrorCode!, lockedPlan.Message!);
+            }
+
             var existingCurrent = GetReadyAttempt(session);
             if (existingCurrent is not null)
                 return TechnicalOperationResult<TechnicalCurrentQuestionDto>.Ok(MapCurrentQuestion(session, existingCurrent));
+            if (session.TechnicalState == TechnicalInterviewState.Evaluating)
+                return Conflict<TechnicalCurrentQuestionDto>("ANSWER_PROCESSING", "The current answer is already being evaluated.");
 
             if (session.Status == InterviewSessionStatus.Pending)
             {
@@ -198,7 +322,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             }
 
             session.TechnicalStartedAt ??= DateTime.UtcNow;
-            return await SelectNextMainQuestionAsync(session, cancellationToken);
+            return await ActivateLockedMainQuestionAsync(session, cancellationToken);
         }
 
         public async Task<TechnicalOperationResult<TechnicalInterviewSessionDto>> GetSessionAsync(
@@ -211,6 +335,16 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 return NotFound<TechnicalInterviewSessionDto>();
             if (IsLifecycleClosed(session) && session.TechnicalState != TechnicalInterviewState.Completed)
                 return Conflict<TechnicalInterviewSessionDto>("SESSION_ALREADY_ENDED", "The interview session was ended in another flow or browser tab.");
+            if (session.TechnicalState.HasValue && session.TechnicalState != TechnicalInterviewState.Completed)
+            {
+                var lockedPlan = await EnsureLockedPlanAsync(session, cancellationToken);
+                if (!lockedPlan.IsSuccess)
+                {
+                    await RecordLegacyUpgradeFailureAsync(session, lockedPlan, cancellationToken);
+                    return Conflict<TechnicalInterviewSessionDto>(lockedPlan.ErrorCode!, lockedPlan.Message!);
+                }
+            }
+            await RecoverExpiredEvaluationAsync(session, cancellationToken);
             return TechnicalOperationResult<TechnicalInterviewSessionDto>.Ok(MapSession(session));
         }
 
@@ -224,6 +358,18 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 return NotFound<TechnicalCurrentQuestionDto>();
             if (IsLifecycleClosed(session) && session.TechnicalState != TechnicalInterviewState.Completed)
                 return Conflict<TechnicalCurrentQuestionDto>("SESSION_ALREADY_ENDED", "The interview session was ended in another flow or browser tab.");
+
+            if (session.TechnicalState.HasValue && session.TechnicalState != TechnicalInterviewState.Completed)
+            {
+                var lockedPlan = await EnsureLockedPlanAsync(session, cancellationToken);
+                if (!lockedPlan.IsSuccess)
+                {
+                    await RecordLegacyUpgradeFailureAsync(session, lockedPlan, cancellationToken);
+                    return Conflict<TechnicalCurrentQuestionDto>(lockedPlan.ErrorCode!, lockedPlan.Message!);
+                }
+            }
+
+            await RecoverExpiredEvaluationAsync(session, cancellationToken);
 
             var attempt = GetReadyAttempt(session);
             return attempt is null
@@ -251,6 +397,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             if (IsLifecycleClosed(session))
                 return Conflict<TechnicalSubmitAnswerResponseDto>("SESSION_ALREADY_ENDED", "The interview session is no longer active.");
 
+            var lockedPlan = await EnsureLockedPlanAsync(session, cancellationToken);
+            if (!lockedPlan.IsSuccess)
+            {
+                await RecordLegacyUpgradeFailureAsync(session, lockedPlan, cancellationToken);
+                return Conflict<TechnicalSubmitAnswerResponseDto>(lockedPlan.ErrorCode!, lockedPlan.Message!);
+            }
+
             var attempt = session.TechnicalQuestionAttempts.FirstOrDefault(item => item.AttemptId == request.AttemptId);
             if (attempt is null)
                 return BadRequest<TechnicalSubmitAnswerResponseDto>("ATTEMPT_NOT_IN_SESSION", "Attempt does not belong to this session.");
@@ -261,6 +414,31 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             {
                 return TechnicalOperationResult<TechnicalSubmitAnswerResponseDto>.Ok(
                     BuildSubmitResponse(session, attempt, existingEvaluation.Decision));
+            }
+            if (attempt.Status == TechnicalAttemptStatus.Evaluating)
+            {
+                var isSameRequest = string.Equals(
+                        attempt.SubmissionIdempotencyKey,
+                        idempotencyKey,
+                        StringComparison.Ordinal)
+                    && string.Equals(attempt.AnswerTranscript, transcript, StringComparison.Ordinal);
+                if (!IsEvaluationLeaseExpired(attempt))
+                {
+                    return isSameRequest
+                        ? TechnicalOperationResult<TechnicalSubmitAnswerResponseDto>.Ok(
+                            BuildSubmitResponse(session, attempt, TechnicalInterviewDecision.NextQuestion))
+                        : Conflict<TechnicalSubmitAnswerResponseDto>(
+                            "ANSWER_PROCESSING",
+                            "This attempt is currently being evaluated by another request.");
+                }
+
+                // The previous request ended after persisting the processing state
+                // but before persisting an evaluation. Reclaim the stale attempt;
+                // the session concurrency token still permits only one recovery
+                // request to commit, including after a browser refresh creates a
+                // new idempotency key.
+                attempt.Status = TechnicalAttemptStatus.Ready;
+                session.TechnicalState = TechnicalInterviewState.QuestionReady;
             }
 
             if (session.TechnicalState != TechnicalInterviewState.QuestionReady
@@ -283,7 +461,10 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             attempt.Status = TechnicalAttemptStatus.Evaluating;
             attempt.EvaluationTaskStatus = TechnicalAITaskStatus.Processing;
             attempt.FeedbackTaskStatus = TechnicalAITaskStatus.Processing;
-            attempt.QuestionGenerationTaskStatus = TechnicalAITaskStatus.Processing;
+            // Backward-compatible derived status only. The backend selects any
+            // sub-question from the locked Question Bank snapshot after scoring;
+            // there is no question-generation AI operation.
+            attempt.QuestionGenerationTaskStatus = TechnicalAITaskStatus.NotStarted;
             attempt.EvaluationFallbackUsed = false;
             attempt.FeedbackFallbackUsed = false;
             attempt.QuestionFallbackUsed = false;
@@ -315,18 +496,12 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var children = session.TechnicalQuestionAttempts
                 .Where(item => item.RootMainAttemptId == root.AttemptId && item.AttemptId != root.AttemptId)
                 .ToList();
-            var pool = session.TechnicalCompletedMainQuestionCount + 1 < GetTargetMainQuestionCount(session)
-                ? await _selectionService.PreparePoolAsync(
-                    BuildSelectionContext(session, root.MainQuestionIndex + 1),
-                    cancellationToken)
-                : new TechnicalQuestionPoolResult();
             var processingContext = BuildProcessingContext(
                 session,
                 attempt,
                 root,
                 children,
-                rubric,
-                pool);
+                rubric);
             var parallelResults = await _parallelProcessor.ProcessAsync(
                 processingContext,
                 cancellationToken);
@@ -338,15 +513,34 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     "The interview session ended while the answer was being processed.");
             }
 
-            var activeQuestions = await _questionRepository.GetActiveTechnicalQuestionsByIdsAsync(
-                processingContext.CandidateQuestionPool.Select(item => item.QuestionId).ToArray(),
-                cancellationToken);
-            var activeCandidateIds = activeQuestions.Select(item => item.QuestionId).ToHashSet();
             var arbiterResult = _decisionArbiter.Resolve(
                 processingContext,
                 rubric,
-                parallelResults,
-                activeCandidateIds);
+                parallelResults);
+
+            TechnicalBankSubQuestionResult? bankSubQuestion = null;
+            if (arbiterResult.IsSuccess && !arbiterResult.FinalizeMainQuestion)
+            {
+                var requestedType = arbiterResult.NextQuestion?.AttemptType;
+                if (requestedType is TechnicalAttemptType.Clarification or TechnicalAttemptType.FollowUp)
+                {
+                    var followUpNumber = processingContext.CompletedFollowUpCount
+                        + (attempt.QuestionType == TechnicalAttemptType.FollowUp ? 1 : 0)
+                        + 1;
+                    bankSubQuestion = await _selectionService.SelectBankSubQuestionAsync(
+                        processingContext.LockedMainQuestion!,
+                        requestedType.Value,
+                        followUpNumber,
+                        cancellationToken);
+                    arbiterResult = bankSubQuestion.IsSuccess
+                        ? arbiterResult with { QuestionStatus = TechnicalAITaskStatus.Fulfilled }
+                        : FinalizeWithoutBankSubQuestion(
+                            arbiterResult,
+                            processingContext,
+                            rubric,
+                            bankSubQuestion.ErrorCode);
+                }
+            }
 
             ApplyProcessingOutcome(attempt, parallelResults, arbiterResult);
             AddParallelInteractionLogs(session, attempt.AttemptId, parallelResults, arbiterResult);
@@ -374,8 +568,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     "Answer evaluation failed backend validation. The same attempt can be submitted again.");
             }
 
-            var evaluationResult = parallelResults.Evaluation.ProviderResult!;
-            var evaluationData = evaluationResult.Data!;
+            var evaluationResult = parallelResults.Evaluation.ProviderResult;
+            var evaluationData = arbiterResult.EffectiveEvaluation!;
             var score = arbiterResult.Score!;
             var feedback = arbiterResult.Feedback!;
 
@@ -411,6 +605,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var evaluation = new TechnicalAnswerEvaluation
             {
                 AttemptId = attempt.AttemptId,
+                Attempt = attempt,
                 RootMainAttemptId = root.AttemptId,
                 RubricVersion = rubric.Version,
                 ScoringPolicyVersion = rubric.ScoringPolicyVersion,
@@ -424,20 +619,30 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 ImprovementSuggestionsJson = SerializeList(feedback.ImprovementSuggestions),
                 FeedbackSummary = feedback.Summary,
                 FeedbackPromptVersion = TechnicalPromptVersions.Feedback,
-                FeedbackModelName = parallelResults.Feedback.ProviderResult?.Model ?? evaluationResult.Model,
+                FeedbackModelName = parallelResults.Feedback.ProviderResult?.Model
+                    ?? evaluationResult?.Model
+                    ?? session.TechnicalAiModel
+                    ?? _options.Model,
                 FeedbackFallbackUsed = feedback.FallbackUsed,
                 Decision = arbiterResult.Decision,
                 AiSuggestedAction = arbiterResult.AiSuggestedAction,
                 BackendResolvedAction = arbiterResult.Decision,
+                DecisionReason = arbiterResult.DecisionReason,
+                TargetRubricCodesJson = JsonSerializer.Serialize(
+                    arbiterResult.NextQuestion?.TargetRubricCodes
+                        ?? Array.Empty<string>(),
+                    JsonOptions),
+                AdaptiveRuleVersion = session.TechnicalAdaptiveRuleVersion,
                 OverrideReason = arbiterResult.OverrideReason,
+                FallbackUsed = arbiterResult.EvaluationFallbackUsed
+                    || arbiterResult.QuestionFallbackUsed,
                 Confidence = evaluationData.Confidence,
                 PromptVersion = TechnicalPromptVersions.Evaluation,
-                ModelName = evaluationResult.Model,
+                ModelName = evaluationResult?.Model ?? session.TechnicalAiModel ?? _options.Model,
                 IsFinalForMainQuestion = arbiterResult.FinalizeMainQuestion,
                 CreatedAt = DateTime.UtcNow
             };
             _context.TechnicalAnswerEvaluations.Add(evaluation);
-            attempt.Evaluations.Add(evaluation);
 
             attempt.Status = TechnicalAttemptStatus.Completed;
             attempt.CompletedAt = DateTime.UtcNow;
@@ -448,11 +653,11 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     attempt,
                     root,
                     arbiterResult.NextQuestion!.AttemptType!.Value,
-                    arbiterResult.NextQuestion.Content!,
+                    bankSubQuestion!.SourceQuestionId,
+                    bankSubQuestion.Content!,
                     arbiterResult.NextQuestion.GenerationReason
                         ?? TechnicalQuestionGenerationReason.AdaptiveScoreRule);
                 _context.TechnicalQuestionAttempts.Add(nextAttempt);
-                session.TechnicalQuestionAttempts.Add(nextAttempt);
                 session.TechnicalState = TechnicalInterviewState.QuestionReady;
                 session.TechnicalConcurrencyVersion++;
                 session.UpdatedAt = DateTime.UtcNow;
@@ -474,6 +679,21 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             session.TechnicalCompletedMainQuestionCount++;
             if (arbiterResult.Decision == TechnicalInterviewDecision.EndInterview)
             {
+                if (session.InterviewCampaign.Mode == InterviewMode.RealTest
+                    && processingContext.ReliabilityCount < _options.ReliabilityMinimumQuestionCount)
+                {
+                    session.TechnicalReliabilityFailureReason = "RELIABILITY_MINIMUM_CAPACITY_EXHAUSTED";
+                    session.TechnicalState = TechnicalInterviewState.Failed;
+                    session.TechnicalConcurrencyVersion++;
+                    session.UpdatedAt = DateTime.UtcNow;
+                    if (!await TrySaveAnswerOutcomeAsync(cancellationToken))
+                        return Conflict<TechnicalSubmitAnswerResponseDto>(
+                            "SESSION_CONCURRENCY_CONFLICT",
+                            "The session changed while reliability failure state was being persisted.");
+                    return Conflict<TechnicalSubmitAnswerResponseDto>(
+                        "RELIABILITY_MINIMUM_UNREACHABLE",
+                        "The round exhausted valid sub-question capacity before reaching the reliability minimum.");
+                }
                 var finalResult = await FinalizeSessionAsync(
                     session,
                     userId,
@@ -489,9 +709,10 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     BuildSubmitResponse(session, attempt, arbiterResult.Decision));
             }
 
-            var nextQuestionId = arbiterResult.NextQuestion?.SelectedMainQuestionId;
-            var nextQuestion = activeQuestions.FirstOrDefault(item => item.QuestionId == nextQuestionId);
-            if (nextQuestion is null)
+            var nextMainIndex = root.MainQuestionIndex + 1;
+            var nextSlot = GetQuestionPlan(session)?.Slots.FirstOrDefault(item =>
+                item.MainQuestionIndex == nextMainIndex);
+            if (nextSlot?.LockedQuestion is null)
             {
                 attempt.Status = TechnicalAttemptStatus.Failed;
                 session.TechnicalState = TechnicalInterviewState.Failed;
@@ -502,17 +723,12 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         "SESSION_CONCURRENCY_CONFLICT",
                         "The session changed while the parallel answer result was being persisted.");
                 return Conflict<TechnicalSubmitAnswerResponseDto>(
-                    "NEXT_QUESTION_BECAME_INACTIVE",
-                    "The selected next question is no longer active.");
+                    "LOCKED_MAIN_QUESTION_MISSING",
+                    "The next locked Main question is unavailable.");
             }
 
-            var nextMainAttempt = CreateMainQuestionAttempt(
-                session,
-                nextQuestion,
-                arbiterResult.NextQuestion?.PlanDeviation ?? false,
-                arbiterResult.NextQuestion?.PlanDeviationReason);
+            var nextMainAttempt = CreateMainQuestionAttempt(session, nextSlot);
             _context.TechnicalQuestionAttempts.Add(nextMainAttempt);
-            session.TechnicalQuestionAttempts.Add(nextMainAttempt);
             session.TechnicalState = TechnicalInterviewState.QuestionReady;
             session.TechnicalConcurrencyVersion++;
             session.UpdatedAt = DateTime.UtcNow;
@@ -523,6 +739,60 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
             return TechnicalOperationResult<TechnicalSubmitAnswerResponseDto>.Ok(
                 BuildSubmitResponse(session, attempt, arbiterResult.Decision));
+        }
+
+        private bool IsEvaluationLeaseExpired(TechnicalQuestionAttempt attempt)
+        {
+            if (!attempt.ProcessingStartedAt.HasValue)
+            {
+                return true;
+            }
+
+            var maximumTaskDurationMs = Math.Max(
+                _options.EvaluationTimeoutMs,
+                _options.FeedbackTimeoutMs);
+            var leaseDuration = TimeSpan.FromMilliseconds(maximumTaskDurationMs + 10_000);
+            return attempt.ProcessingStartedAt.Value <= DateTime.UtcNow - leaseDuration;
+        }
+
+        private async Task<bool> RecoverExpiredEvaluationAsync(
+            InterviewSession session,
+            CancellationToken cancellationToken)
+        {
+            var expired = session.TechnicalQuestionAttempts
+                .Where(item =>
+                    item.Status == TechnicalAttemptStatus.Evaluating
+                    && item.Evaluations.Count == 0
+                    && IsEvaluationLeaseExpired(item))
+                .OrderByDescending(item => item.SequenceNumber)
+                .FirstOrDefault();
+            if (expired is null)
+            {
+                return false;
+            }
+
+            expired.Status = TechnicalAttemptStatus.Ready;
+            expired.AnswerTranscript = null;
+            expired.AudioId = null;
+            expired.SubmissionIdempotencyKey = null;
+            expired.AnsweredAt = null;
+            expired.EvaluationTaskStatus = TechnicalAITaskStatus.NotStarted;
+            expired.FeedbackTaskStatus = TechnicalAITaskStatus.NotStarted;
+            expired.QuestionGenerationTaskStatus = TechnicalAITaskStatus.NotStarted;
+            expired.ProcessingStartedAt = null;
+            expired.ProcessingCompletedAt = null;
+            session.TechnicalState = TechnicalInterviewState.QuestionReady;
+            session.TechnicalConcurrencyVersion++;
+            session.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+                return true;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return false;
+            }
         }
 
         public async Task<TechnicalOperationResult<TechnicalInterviewResultDto>> CompleteAsync(
@@ -543,10 +813,22 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             }
             if (IsLifecycleClosed(session))
                 return Conflict<TechnicalInterviewResultDto>("SESSION_ALREADY_ENDED", "The interview session is no longer active.");
+            if (!string.IsNullOrWhiteSpace(session.TechnicalReliabilityFailureReason))
+                return Conflict<TechnicalInterviewResultDto>(
+                    "RELIABILITY_MINIMUM_UNREACHABLE",
+                    session.TechnicalReliabilityFailureReason);
             if (session.TechnicalCompletedMainQuestionCount < GetTargetMainQuestionCount(session))
                 return Conflict<TechnicalInterviewResultDto>("MAIN_QUESTION_TARGET_NOT_REACHED", "The required main questions are not completed.");
             if (session.TechnicalQuestionAttempts.Any(item => item.Status == TechnicalAttemptStatus.Ready))
                 return Conflict<TechnicalInterviewResultDto>("QUESTION_STILL_PENDING", "The current question must be answered before completion.");
+            if (session.TechnicalQuestionAttempts.Any(item => item.Status == TechnicalAttemptStatus.Evaluating))
+                return Conflict<TechnicalInterviewResultDto>("EVALUATION_STILL_PROCESSING", "An answer evaluation is still processing.");
+            var lockedPlan = GetQuestionPlan(session);
+            if (lockedPlan is null
+                || lockedPlan.Slots.Count(slot => slot.IsLocked) != GetTargetMainQuestionCount(session))
+            {
+                return Conflict<TechnicalInterviewResultDto>("LOCKED_MAIN_SET_INCOMPLETE", "Completion requires the complete locked Main-question set.");
+            }
 
             return await FinalizeSessionAsync(session, userId, cancellationToken);
         }
@@ -572,65 +854,28 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             return TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session));
         }
 
-        private async Task<TechnicalOperationResult<TechnicalCurrentQuestionDto>> SelectNextMainQuestionAsync(
+        private async Task<TechnicalOperationResult<TechnicalCurrentQuestionDto>> ActivateLockedMainQuestionAsync(
             InterviewSession session,
             CancellationToken cancellationToken)
         {
-            session.TechnicalState = TechnicalInterviewState.SelectingQuestion;
-            session.TechnicalConcurrencyVersion++;
-            try
-            {
-                await _context.SaveChangesAsync(cancellationToken);
-            }
-            catch (DbUpdateConcurrencyException)
+            var plan = GetQuestionPlan(session);
+            var nextIndex = session.TechnicalCompletedMainQuestionCount + 1;
+            var slot = plan?.Slots.FirstOrDefault(item => item.MainQuestionIndex == nextIndex);
+            if (slot?.LockedQuestion is null)
             {
                 return Conflict<TechnicalCurrentQuestionDto>(
-                    "SESSION_CONCURRENCY_CONFLICT",
-                    "Another request is already selecting a question for this session.");
+                    "LOCKED_MAIN_QUESTION_MISSING",
+                    $"Locked Main question {nextIndex} is unavailable.");
             }
 
-            var selection = await _selectionService.SelectAsync(
-                BuildSelectionContext(session),
-                cancellationToken);
+            var existing = session.TechnicalQuestionAttempts.FirstOrDefault(item =>
+                item.QuestionType == TechnicalAttemptType.Main
+                && item.MainQuestionIndex == nextIndex);
+            if (existing is not null)
+                return TechnicalOperationResult<TechnicalCurrentQuestionDto>.Ok(MapCurrentQuestion(session, existing));
 
-            if (await IsLifecycleClosedInDatabaseAsync(session.InterviewSessionId, cancellationToken))
-            {
-                return Conflict<TechnicalCurrentQuestionDto>(
-                    "SESSION_ALREADY_ENDED",
-                    "The interview session ended while the question was being selected.");
-            }
-
-            if (selection.AIResult is not null)
-            {
-                AddInteractionLog(
-                    session,
-                    null,
-                    AIInteractionOperationType.QuestionSelection,
-                    TechnicalPromptVersions.Selection,
-                    selection.AIResult,
-                    selection.FallbackUsed,
-                    selection.AIResult.ErrorCode);
-            }
-
-            if (selection.Question is null)
-            {
-                session.TechnicalState = TechnicalInterviewState.Failed;
-                session.TechnicalConcurrencyVersion++;
-                await _context.SaveChangesAsync(cancellationToken);
-                return TechnicalOperationResult<TechnicalCurrentQuestionDto>.Failure(
-                    TechnicalOperationStatus.Conflict,
-                    selection.ErrorCode ?? "NO_TECHNICAL_CANDIDATE",
-                    "No Technical question is available for the remaining session constraints.");
-            }
-
-            var question = selection.Question;
-            var attempt = CreateMainQuestionAttempt(
-                session,
-                question,
-                selection.PlanDeviation,
-                selection.PlanDeviationReason);
+            var attempt = CreateMainQuestionAttempt(session, slot);
             _context.TechnicalQuestionAttempts.Add(attempt);
-            session.TechnicalQuestionAttempts.Add(attempt);
             session.TechnicalState = TechnicalInterviewState.QuestionReady;
             session.TechnicalConcurrencyVersion++;
             session.UpdatedAt = DateTime.UtcNow;
@@ -644,61 +889,15 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     "SESSION_CONCURRENCY_CONFLICT",
                     "The session changed while the selected question was being persisted.");
             }
+            catch (DbUpdateException)
+            {
+                return Conflict<TechnicalCurrentQuestionDto>(
+                    "DUPLICATE_START",
+                    "The locked Main question was already activated by another request.");
+            }
 
             return TechnicalOperationResult<TechnicalCurrentQuestionDto>.Created(
                 MapCurrentQuestion(session, attempt));
-        }
-
-        private static TechnicalSelectionContext BuildSelectionContext(
-            InterviewSession session,
-            int? mainQuestionIndex = null)
-        {
-            var mainAttempts = session.TechnicalQuestionAttempts
-                .Where(item => item.QuestionType == TechnicalAttemptType.Main)
-                .ToList();
-            var plan = GetQuestionPlan(session);
-            var nextMainIndex = mainQuestionIndex
-                ?? session.TechnicalCompletedMainQuestionCount + 1;
-            var planSlot = plan?.Slots.FirstOrDefault(slot => slot.MainQuestionIndex == nextMainIndex);
-            var cvSkills = session.InterviewCampaign.CVExtractedProfile.Skills
-                .Select(item => item.SkillName)
-                .Where(item => !string.IsNullOrWhiteSpace(item))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            var requiredJdSkills = TechnicalQuestionMetadata.ParseStringArray(
-                session.InterviewCampaign.JDExtractedProfile.RequiredSkills);
-            var jdSkills = requiredJdSkills
-                .Concat(TechnicalQuestionMetadata.ParseStringArray(
-                    session.InterviewCampaign.JDExtractedProfile.NiceToHaveSkills))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            return new TechnicalSelectionContext
-            {
-                Language = session.TechnicalLanguage!,
-                JobRole = session.TechnicalJobRole!,
-                ExperienceLevel = session.TechnicalExperienceLevel ?? string.Empty,
-                Difficulty = session.Difficulty,
-                SelectedSkills = DeserializeList(session.TechnicalSelectedSkillsJson),
-                AskedQuestionIds = mainAttempts
-                    .Where(item => item.QuestionId.HasValue)
-                    .Select(item => item.QuestionId!.Value)
-                    .ToHashSet(),
-                SkillUsage = mainAttempts
-                    .Where(item => !string.IsNullOrWhiteSpace(item.SkillSnapshot))
-                    .GroupBy(item => item.SkillSnapshot!, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase),
-                AskedSubskills = mainAttempts
-                    .Where(item => !string.IsNullOrWhiteSpace(item.SubskillSnapshot))
-                    .Select(item => item.SubskillSnapshot!)
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase),
-                PlanSlot = planSlot,
-                CvSkills = cvSkills,
-                JdSkills = jdSkills,
-                RequiredJdSkills = requiredJdSkills,
-                AllowedDifficulties = plan is null
-                    ? Array.Empty<QuestionDifficultyEnum>()
-                    : GetAllowedDifficulties(plan.MatchBand)
-            };
         }
 
         private TechnicalAnswerProcessingContext BuildProcessingContext(
@@ -706,11 +905,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             TechnicalQuestionAttempt attempt,
             TechnicalQuestionAttempt root,
             IReadOnlyList<TechnicalQuestionAttempt> children,
-            TechnicalRubricDefinition rubric,
-            TechnicalQuestionPoolResult pool)
+            TechnicalRubricDefinition rubric)
         {
-            var question = root.Question
-                ?? throw new InvalidOperationException("Main Technical attempt is missing its Question reference.");
             var campaign = session.InterviewCampaign;
             var cvSkills = campaign.CVExtractedProfile.Skills.Select(item => item.SkillName).ToList();
             var mainAttempts = session.TechnicalQuestionAttempts
@@ -719,8 +915,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var plan = GetQuestionPlan(session);
             var currentPlanSlot = plan?.Slots.FirstOrDefault(slot =>
                 slot.MainQuestionIndex == root.MainQuestionIndex);
-            var nextPlanSlot = plan?.Slots.FirstOrDefault(slot =>
-                slot.MainQuestionIndex == root.MainQuestionIndex + 1);
+            var lockedMain = currentPlanSlot?.LockedQuestion
+                ?? throw new InvalidOperationException("Technical processing requires a locked Main question snapshot.");
             var completedFollowUps = session.TechnicalQuestionAttempts.Count(item =>
                 item.QuestionType == TechnicalAttemptType.FollowUp
                 && item.Status == TechnicalAttemptStatus.Completed);
@@ -729,18 +925,24 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 && item.Status == TechnicalAttemptStatus.Completed);
             var projectedFollowUps = completedFollowUps
                 + (attempt.QuestionType == TechnicalAttemptType.FollowUp ? 1 : 0);
-            var completedReliabilityFollowUps = session.TechnicalQuestionAttempts.Count(item =>
-                item.GenerationReason == TechnicalQuestionGenerationReason.ReliabilityMinimum
-                && item.Status == TechnicalAttemptStatus.Completed);
-            var projectedReliabilityFollowUps = completedReliabilityFollowUps
-                + (attempt.GenerationReason == TechnicalQuestionGenerationReason.ReliabilityMinimum ? 1 : 0);
             var useAdaptiveFramework = plan is not null
-                && session.InterviewCampaign.Mode != InterviewMode.Practice;
+                && plan.Slots.All(slot => slot.IsLocked);
             var targetMainQuestionCount = GetTargetMainQuestionCount(session);
+            var effectiveReliabilityLimit = Math.Max(
+                _options.ReliabilityFollowUpLimit,
+                Math.Max(0, _options.ReliabilityMinimumQuestionCount - targetMainQuestionCount));
+            var reliabilityCount = targetMainQuestionCount + projectedFollowUps;
+            var rootProjectedClarifications = root.CompletedClarificationCount
+                + (attempt.QuestionType == TechnicalAttemptType.Clarification ? 1 : 0);
+            var rootProjectedFollowUps = root.CompletedFollowUpCount
+                + (attempt.QuestionType == TechnicalAttemptType.FollowUp ? 1 : 0);
+            var rootHasFollowUpCapacity = rootProjectedFollowUps < rubric.Limits.MaxFollowUpsPerMainQuestion
+                && rootProjectedClarifications + rootProjectedFollowUps < rubric.Limits.MaxTotalSubQuestionsPerMainQuestion;
             var reliabilityRequired = useAdaptiveFramework
                 && root.MainQuestionIndex == targetMainQuestionCount
-                && projectedReliabilityFollowUps < _options.ReliabilityFollowUpLimit
-                && mainAttempts.Count + projectedFollowUps < _options.ReliabilityMinimumQuestionCount;
+                && projectedFollowUps < effectiveReliabilityLimit
+                && reliabilityCount < _options.ReliabilityMinimumQuestionCount
+                && rootHasFollowUpCapacity;
             var clarificationScore = children
                 .Where(item => item.QuestionType == TechnicalAttemptType.Clarification && item.RawScore.HasValue)
                 .OrderByDescending(item => item.SequenceWithinMain)
@@ -784,21 +986,41 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     .Select(item => item.Trim())
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToImmutableArray();
+            var collectedEvidence = session.TechnicalQuestionAttempts
+                .Where(item => item.RootMainAttemptId == root.AttemptId && item.AttemptId != attempt.AttemptId)
+                .SelectMany(item => item.Evaluations)
+                .SelectMany(item => Deserialize<TechnicalAIDimensionEvaluation>(item.DimensionEvaluationsJson))
+                .SelectMany(item => item.Evidence)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToImmutableArray();
+            var priorIncorrectClaims = session.TechnicalQuestionAttempts
+                .Where(item => item.RootMainAttemptId == root.AttemptId && item.AttemptId != attempt.AttemptId)
+                .SelectMany(item => item.Evaluations)
+                .SelectMany(item => DeserializeList(item.IncorrectClaimsJson))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToImmutableArray();
+            var previousScores = session.TechnicalQuestionAttempts
+                .Where(item => item.RootMainAttemptId == root.AttemptId
+                    && item.AttemptId != attempt.AttemptId
+                    && item.RawScore.HasValue)
+                .OrderBy(item => item.SequenceWithinMain)
+                .Select(item => item.RawScore!.Value)
+                .ToImmutableArray();
 
             return new TechnicalAnswerProcessingContext
             {
                 SessionId = session.InterviewSessionId,
                 AttemptId = attempt.AttemptId,
                 RootMainAttemptId = root.AttemptId,
-                QuestionId = root.QuestionId
-                    ?? throw new InvalidOperationException("Main Technical attempt has no Question id."),
+                QuestionId = lockedMain.SelectedQuestionId,
                 QuestionType = ToApi(attempt.QuestionType),
                 AttemptType = attempt.QuestionType,
                 QuestionContent = attempt.QuestionContentSnapshot,
                 MainQuestionContent = root.QuestionContentSnapshot,
-                ExpectedAnswer = question.SuggestedAnswer,
-                KeyPoints = question.ExpectedKeyPoints ?? string.Empty,
-                QuestionSpecificRubric = question.ScoringRubric ?? string.Empty,
+                ExpectedAnswer = lockedMain.ExpectedAnswer,
+                KeyPoints = lockedMain.ExpectedKeyPoints,
+                QuestionSpecificRubric = lockedMain.QuestionSpecificRubric,
                 GlobalRubricVersion = rubric.Version,
                 Rubric = new TechnicalRubricPromptSnapshot(
                     rubric.MinimumScore,
@@ -817,6 +1039,9 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     ?? throw new InvalidOperationException("Attempt answer was not persisted before processing."),
                 PreviousAnswers = previousAnswers,
                 RemainingMissingEvidence = remainingMissingEvidence,
+                CollectedEvidence = collectedEvidence,
+                PreviousIncorrectClaims = priorIncorrectClaims,
+                PreviousAttemptScores = previousScores,
                 JobRole = session.TechnicalJobRole ?? string.Empty,
                 ExperienceLevel = session.TechnicalExperienceLevel ?? string.Empty,
                 Language = session.TechnicalLanguage ?? string.Empty,
@@ -837,41 +1062,11 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 CompletedMainQuestionCount = session.TechnicalCompletedMainQuestionCount,
                 MainQuestionIndex = root.MainQuestionIndex,
                 TargetMainQuestionCount = targetMainQuestionCount,
-                AskedQuestionIds = mainAttempts
-                    .Where(item => item.QuestionId.HasValue)
-                    .Select(item => item.QuestionId!.Value)
-                    .ToImmutableHashSet(),
-                CandidateQuestionPool = pool.Candidates.Select(item => new TechnicalAIQuestionCandidate(
-                    item.QuestionId,
-                    item.QuestionContent,
-                    item.Skill ?? string.Empty,
-                    TechnicalQuestionMetadata.GetSubskill(item.QdrantPayloadJson),
-                    item.Difficulty.ToString(),
-                    item.ExperienceLevel ?? string.Empty)).ToImmutableArray(),
-                SkillCoverage = mainAttempts
-                    .Where(item => !string.IsNullOrWhiteSpace(item.SkillSnapshot))
-                    .GroupBy(item => item.SkillSnapshot!, StringComparer.OrdinalIgnoreCase)
-                    .ToImmutableDictionary(
-                        group => group.Key,
-                        group => group.Count(),
-                        StringComparer.OrdinalIgnoreCase),
-                DifficultyCoverage = mainAttempts
-                    .Where(item => item.DifficultySnapshot.HasValue)
-                    .GroupBy(item => item.DifficultySnapshot!.Value.ToString(), StringComparer.OrdinalIgnoreCase)
-                    .ToImmutableDictionary(
-                        group => group.Key,
-                        group => group.Count(),
-                        StringComparer.OrdinalIgnoreCase),
                 PromptVersions = new TechnicalPromptVersionSnapshot(
                     TechnicalPromptVersions.Evaluation,
-                    TechnicalPromptVersions.Feedback,
-                    TechnicalPromptVersions.QuestionBundle),
+                    TechnicalPromptVersions.Feedback),
                 UseAdaptiveRubricFramework = useAdaptiveFramework,
-                MatchScore = session.TechnicalMatchScoreSnapshot,
-                MatchBand = session.TechnicalMatchBand,
-                QuestionPlan = plan,
                 CurrentPlanSlot = currentPlanSlot,
-                NextPlanSlot = nextPlanSlot,
                 SourceType = root.SourceType ?? currentPlanSlot?.SourceType,
                 TargetSkill = root.TargetSkillSnapshot ?? currentPlanSlot?.TargetSkill,
                 TargetSubskill = root.TargetSubskillSnapshot ?? currentPlanSlot?.TargetSubskill,
@@ -883,16 +1078,18 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 RequiredFollowUpCount = root.RequiredFollowUpCount,
                 CompletedFollowUpCount = root.CompletedFollowUpCount,
                 CumulativeFollowUpBonus = root.CumulativeFollowUpBonus,
-                TotalMainCount = mainAttempts.Count,
-                TotalFollowUpCount = completedFollowUps,
-                TotalClarificationCount = completedClarifications,
+                RemainingSubQuestionBudget = Math.Max(
+                    0,
+                    rubric.Limits.MaxTotalSubQuestionsPerMainQuestion
+                        - rootProjectedClarifications
+                        - rootProjectedFollowUps),
+                ReliabilityCount = reliabilityCount,
+                ReliabilityMinimumQuestionCount = _options.ReliabilityMinimumQuestionCount,
                 IsReliabilityFollowUpRequired = reliabilityRequired,
-                CurrentGenerationReason = attempt.GenerationReason,
                 ScoringPolicyVersion = session.TechnicalScoringPolicyVersion ?? rubric.ScoringPolicyVersion,
-                AdaptiveRuleVersion = session.TechnicalAdaptiveRuleVersion ?? "legacy-ai-decision-v1",
+                AdaptiveRuleVersion = session.TechnicalAdaptiveRuleVersion ?? "legacy-rubric-rule-v1",
                 BonusCalculationVersion = session.TechnicalBonusCalculationVersion ?? string.Empty,
-                NextPlanDeviation = pool.PlanDeviation,
-                NextPlanDeviationReason = pool.PlanDeviationReason
+                LockedMainQuestion = lockedMain
             };
         }
 
@@ -903,9 +1100,19 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             bool generateNaturalSummary = true)
         {
             var rubric = _rubricProvider.GetRequired(session.TechnicalRubricVersion!);
+            var lockedPlan = GetQuestionPlan(session);
+            var targetMainQuestionCount = GetTargetMainQuestionCount(session);
+            if (lockedPlan is null
+                || lockedPlan.Slots.Count(slot => slot.IsLocked) != targetMainQuestionCount
+                || session.TechnicalQuestionAttempts.Any(item => item.Status is
+                    TechnicalAttemptStatus.Ready or TechnicalAttemptStatus.Evaluating))
+            {
+                return Conflict<TechnicalInterviewResultDto>(
+                    "TECHNICAL_COMPLETION_INVARIANT_FAILED",
+                    "Locked questions, final scores and processing state are not ready for completion.");
+            }
             var useAdaptiveFramework = GetQuestionPlan(session) is not null
                 && session.InterviewCampaign.Mode != InterviewMode.Practice;
-            var targetMainQuestionCount = GetTargetMainQuestionCount(session);
             IReadOnlyList<decimal> finalMainScores;
             if (useAdaptiveFramework)
             {
@@ -942,8 +1149,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 finalMainScores,
                 rubric,
                 targetMainQuestionCount);
-            var band = rubric.GetPerformanceBandCode(finalScore);
-            var bandCode = band.ToString();
+            var bandCode = rubric.GetPerformanceBandCode(finalScore);
             session.TechnicalFinalScore = finalScore;
             session.TechnicalPerformanceBand = bandCode;
 
@@ -1041,7 +1247,10 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 mainResults.Add(new TechnicalMainQuestionResultDto
                 {
                     AttemptId = root.AttemptId,
-                    QuestionId = root.QuestionId,
+                    QuestionId = GetQuestionPlan(session)?.Slots
+                        .FirstOrDefault(slot => slot.MainQuestionIndex == root.MainQuestionIndex)
+                        ?.SelectedQuestionId
+                        ?? root.QuestionId,
                     MainQuestionIndex = root.MainQuestionIndex,
                     Question = root.QuestionContentSnapshot,
                     AnswerTranscript = root.AnswerTranscript,
@@ -1173,41 +1382,37 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
         private TechnicalQuestionAttempt CreateMainQuestionAttempt(
             InterviewSession session,
-            Question question,
-            bool planDeviation = false,
-            string? planDeviationReason = null)
+            TechnicalQuestionPlanSlot planSlot)
         {
+            var snapshot = planSlot.LockedQuestion
+                ?? throw new InvalidOperationException("Cannot activate an unlocked Main question slot.");
             var attemptId = Guid.NewGuid();
-            var mainQuestionIndex = session.TechnicalCompletedMainQuestionCount + 1;
-            var planSlot = GetQuestionPlan(session)?.Slots.FirstOrDefault(slot =>
-                slot.MainQuestionIndex == mainQuestionIndex);
-            var targetMismatch = planSlot is not null
-                && !TechnicalQuestionMetadata.FuzzyMatches(
-                    question.Skill ?? string.Empty,
-                    planSlot.TargetSkill);
             return new TechnicalQuestionAttempt
             {
                 AttemptId = attemptId,
                 InterviewSessionId = session.InterviewSessionId,
-                QuestionId = question.QuestionId,
+                InterviewSession = session,
+                // The immutable plan owns the historical QuestionId. Avoid a live FK
+                // dependency so a bank hard-delete after initialization cannot prevent
+                // this already-locked question from being activated.
+                QuestionId = null,
                 RootMainAttemptId = attemptId,
                 QuestionType = TechnicalAttemptType.Main,
-                QuestionContentSnapshot = question.QuestionContent,
+                QuestionContentSnapshot = snapshot.Content,
                 SequenceNumber = NextSequenceNumber(session),
-                MainQuestionIndex = mainQuestionIndex,
+                MainQuestionIndex = planSlot.MainQuestionIndex,
                 SequenceWithinMain = 0,
-                SourceType = planSlot?.SourceType,
-                TargetSkillSnapshot = planSlot?.TargetSkill,
-                TargetSubskillSnapshot = planSlot?.TargetSubskill,
-                EvaluationObjective = planSlot?.EvaluationObjective,
-                SkillSnapshot = question.Skill,
-                SubskillSnapshot = TechnicalQuestionMetadata.GetSubskill(question.QdrantPayloadJson),
-                DifficultySnapshot = question.Difficulty,
-                AdaptiveStage = planSlot is null ? null : TechnicalAdaptiveStage.MainQuestion,
+                SourceType = snapshot.SourceType,
+                TargetSkillSnapshot = planSlot.TargetSkill,
+                TargetSubskillSnapshot = planSlot.TargetSubskill,
+                EvaluationObjective = snapshot.EvaluationObjective,
+                SkillSnapshot = snapshot.Skill,
+                SubskillSnapshot = snapshot.Subskill,
+                DifficultySnapshot = snapshot.Difficulty,
+                AdaptiveStage = TechnicalAdaptiveStage.MainQuestion,
                 GenerationReason = TechnicalQuestionGenerationReason.QuestionPlan,
-                PlanDeviation = planDeviation || targetMismatch,
-                PlanDeviationReason = planDeviationReason
-                    ?? (targetMismatch ? "SELECTED_SKILL_DIFFERS_FROM_PLAN_TARGET" : null),
+                PlanDeviation = false,
+                PlanDeviationReason = null,
                 Status = TechnicalAttemptStatus.Ready,
                 CreatedAt = DateTime.UtcNow
             };
@@ -1218,6 +1423,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             TechnicalQuestionAttempt parent,
             TechnicalQuestionAttempt root,
             TechnicalAttemptType type,
+            int sourceQuestionId,
             string content,
             TechnicalQuestionGenerationReason generationReason)
         {
@@ -1225,11 +1431,12 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             {
                 AttemptId = Guid.NewGuid(),
                 InterviewSessionId = session.InterviewSessionId,
-                QuestionId = null,
+                InterviewSession = session,
+                QuestionId = sourceQuestionId,
                 ParentAttemptId = parent.AttemptId,
                 RootMainAttemptId = root.AttemptId,
                 QuestionType = type,
-                QuestionContentSnapshot = content.Trim(),
+                QuestionContentSnapshot = content,
                 SequenceNumber = NextSequenceNumber(session),
                 MainQuestionIndex = root.MainQuestionIndex,
                 SequenceWithinMain = session.TechnicalQuestionAttempts
@@ -1247,6 +1454,49 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 GenerationReason = generationReason,
                 Status = TechnicalAttemptStatus.Ready,
                 CreatedAt = DateTime.UtcNow
+            };
+        }
+
+        private TechnicalDecisionArbiterResult FinalizeWithoutBankSubQuestion(
+            TechnicalDecisionArbiterResult result,
+            TechnicalAnswerProcessingContext context,
+            TechnicalRubricDefinition rubric,
+            string? selectionErrorCode)
+        {
+            var baseScore = context.AttemptType switch
+            {
+                TechnicalAttemptType.Main => result.RawScore,
+                TechnicalAttemptType.Clarification => _scoringService.ApplyClarificationRecovery(
+                    result.RawScore,
+                    _options.ClarificationRecoveryFactor,
+                    rubric),
+                _ => context.CurrentMainBaseScore
+            };
+            var finalScore = _scoringService.Normalize(
+                baseScore + result.CumulativeFollowUpBonus,
+                rubric);
+            var finalDecision = context.CompletedMainQuestionCount + 1 >= context.TargetMainQuestionCount
+                ? TechnicalInterviewDecision.EndInterview
+                : TechnicalInterviewDecision.NextQuestion;
+
+            return result with
+            {
+                Decision = finalDecision,
+                FinalizeMainQuestion = true,
+                NextQuestion = finalDecision == TechnicalInterviewDecision.NextQuestion
+                    ? new TechnicalArbiterNextQuestion(
+                        TechnicalAttemptType.Main,
+                        Array.Empty<string>(),
+                        TechnicalQuestionGenerationReason.QuestionPlan)
+                    : null,
+                QuestionStatus = TechnicalAITaskStatus.FallbackUsed,
+                QuestionFallbackUsed = true,
+                DecisionReason = "QUESTION_BANK_SUBQUESTION_UNAVAILABLE",
+                OverrideReason = selectionErrorCode ?? "QUESTION_BANK_SUBQUESTION_UNAVAILABLE",
+                FinalMainQuestionScore = finalScore,
+                RequiredClarificationCount = context.RequiredClarificationCount,
+                RequiredFollowUpCount = context.RequiredFollowUpCount,
+                AdaptiveStage = TechnicalAdaptiveStage.Finalized
             };
         }
 
@@ -1269,6 +1519,9 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         .ThenInclude(profile => profile.Skills)
                 .Include(session => session.InterviewCampaign)
                     .ThenInclude(campaign => campaign.JDExtractedProfile)
+                        .ThenInclude(profile => profile.JDFile)
+                .Include(session => session.InterviewCampaign)
+                    .ThenInclude(campaign => campaign.InterviewSessions.Where(item => !item.IsDeleted))
                 .Include(session => session.TechnicalQuestionAttempts)
                     .ThenInclude(attempt => attempt.Question)
                 .Include(session => session.TechnicalQuestionAttempts)
@@ -1277,6 +1530,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     session.InterviewSessionId == sessionId
                     && session.InterviewCampaign.UserId == userId,
                     cancellationToken);
+        }
+
+        private static bool IsJdReadyForInterview(JDExtractedProfile profile)
+        {
+            return profile.IsConfirmed
+                || profile.JDFile.Status is JDFileStatus.ConfirmationRequired
+                    or JDFileStatus.Confirmed;
         }
 
         private static List<string> ResolveSelectedSkills(
@@ -1323,11 +1583,28 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 : TechnicalQuestionPlanSerializer.DeserializeRequired(session.TechnicalQuestionPlanJson);
         }
 
+        private static TechnicalQuestionPlan? TryGetQuestionPlan(InterviewSession session)
+        {
+            try
+            {
+                return GetQuestionPlan(session);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
+        }
+
         private static int GetTargetMainQuestionCount(InterviewSession session)
         {
-            return session.InterviewCampaign.Mode == InterviewMode.Practice
-                ? session.QuestionCount
-                : TechnicalQuestionPlan.RequiredSlotCount;
+            return TryGetQuestionPlan(session)?.TargetMainQuestionCount
+                ?? (session.InterviewCampaign.Mode == InterviewMode.Practice
+                    ? session.QuestionCount
+                    : TechnicalQuestionPlan.RequiredSlotCount);
         }
 
         private static IReadOnlyList<QuestionDifficultyEnum> GetAllowedDifficulties(
@@ -1344,13 +1621,19 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         private static TechnicalInterviewSessionDto MapSession(InterviewSession session)
         {
             var ready = GetReadyAttempt(session);
-            var root = ready is null
+            var processing = session.TechnicalQuestionAttempts
+                .Where(item => item.Status == TechnicalAttemptStatus.Evaluating)
+                .OrderByDescending(item => item.SequenceNumber)
+                .FirstOrDefault();
+            var current = ready ?? processing;
+            var root = current is null
                 ? null
                 : session.TechnicalQuestionAttempts.FirstOrDefault(item =>
-                    item.AttemptId == ready.RootMainAttemptId);
+                    item.AttemptId == current.RootMainAttemptId);
             var sessionStatus = session.TechnicalState.HasValue
                 ? ToApi(session.TechnicalState.Value)
                 : "NOT_INITIALIZED";
+            var plan = TryGetQuestionPlan(session);
             return new TechnicalInterviewSessionDto
             {
                 SessionId = session.InterviewSessionId,
@@ -1372,18 +1655,467 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 MatchBand = session.TechnicalMatchBand?.ToString().ToUpperInvariant(),
                 QuestionPlanVersion = session.TechnicalQuestionPlanVersion,
                 AdaptiveRuleVersion = session.TechnicalAdaptiveRuleVersion,
-                MainQuestionIndex = ready?.MainQuestionIndex,
+                LockedMainQuestions = plan?.Slots
+                    .Where(slot => slot.LockedQuestion is not null)
+                    .OrderBy(slot => slot.MainQuestionIndex)
+                    .Select(slot => MapLockedQuestion(slot.MainQuestionIndex, slot.LockedQuestion!))
+                    .ToList() ?? new List<TechnicalLockedMainQuestionDto>(),
+                AdaptiveStage = root?.AdaptiveStage?.ToString().ToUpperInvariant(),
+                RecoverableFailureReason = session.TechnicalLegacyUpgradeFailureReason
+                    ?? session.TechnicalReliabilityFailureReason,
+                MainQuestionIndex = current?.MainQuestionIndex,
                 TotalMainQuestions = GetTargetMainQuestionCount(session),
-                QuestionType = ready is null ? null : ToApi(ready.QuestionType),
-                SubQuestionIndex = ready?.QuestionType == TechnicalAttemptType.Main
+                QuestionType = current is null ? null : ToApi(current.QuestionType),
+                SubQuestionIndex = current?.QuestionType == TechnicalAttemptType.Main
                     ? null
-                    : ready?.SequenceWithinMain,
+                    : current?.SequenceWithinMain,
                 RequiredFollowUpCount = root?.RequiredFollowUpCount ?? 0,
                 CompletedFollowUpCount = root?.CompletedFollowUpCount ?? 0,
-                ProcessingStatus = sessionStatus,
+                ProcessingStatus = processing is null
+                    ? sessionStatus
+                    : ToApi(processing.EvaluationTaskStatus),
+                ProcessingStatuses = processing is null
+                    ? null
+                    : new TechnicalProcessingStatusDto
+                    {
+                        Evaluation = ToApi(processing.EvaluationTaskStatus),
+                        Feedback = ToApi(processing.FeedbackTaskStatus),
+                        QuestionGeneration = ToApi(processing.QuestionGenerationTaskStatus)
+                    },
                 SessionStatus = sessionStatus,
                 Transcript = BuildTranscript(session.TechnicalQuestionAttempts)
             };
+        }
+
+        private sealed record TechnicalPlanLockResult(
+            TechnicalQuestionPlan? Plan,
+            string? ErrorCode,
+            string? Message)
+        {
+            public bool IsSuccess => Plan is not null;
+        }
+
+        private async Task<TechnicalPlanLockResult> EnsureLockedPlanAsync(
+            InterviewSession session,
+            CancellationToken cancellationToken)
+        {
+            if (_context.Database.CurrentTransaction is not null)
+                return await EnsureLockedPlanCoreAsync(session, cancellationToken);
+
+            await using var transaction = await _context.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+            var result = await EnsureLockedPlanCoreAsync(session, cancellationToken);
+            if (result.IsSuccess)
+                await transaction.CommitAsync(cancellationToken);
+            else
+                await transaction.RollbackAsync(cancellationToken);
+            return result;
+        }
+
+        private async Task<TechnicalPlanLockResult> EnsureLockedPlanCoreAsync(
+            InterviewSession session,
+            CancellationToken cancellationToken)
+        {
+            TechnicalQuestionPlan? existing;
+            try
+            {
+                existing = GetQuestionPlan(session);
+            }
+            catch (JsonException)
+            {
+                return new TechnicalPlanLockResult(
+                    null,
+                    "LEGACY_PLAN_INVALID",
+                    "The legacy Technical plan is invalid and was left unchanged.");
+            }
+            catch (InvalidOperationException)
+            {
+                return new TechnicalPlanLockResult(
+                    null,
+                    "LEGACY_PLAN_INVALID",
+                    "The legacy Technical plan is incomplete and was left unchanged.");
+            }
+            if (existing is not null && existing.Slots.All(slot => slot.IsLocked))
+            {
+                var complete = existing.Slots.All(slot =>
+                    slot.LockedQuestion is not null
+                    && IsCompleteLockedSnapshot(slot.LockedQuestion)
+                    && SnapshotMatchesSlot(slot.LockedQuestion, slot, existing.Version));
+                return complete
+                    ? new TechnicalPlanLockResult(existing, null, null)
+                    : new TechnicalPlanLockResult(
+                        null,
+                        "LEGACY_PLAN_INVALID",
+                        "The locked Technical plan contains an incomplete or mismatched Main snapshot and was left unchanged.");
+            }
+            if (session.TechnicalState == TechnicalInterviewState.Completed)
+            {
+                return new TechnicalPlanLockResult(
+                    null,
+                    "COMPLETED_LEGACY_SESSION_NOT_UPGRADED",
+                    "Completed legacy sessions are preserved and are never re-scored.");
+            }
+
+            var selectedSkills = DeserializeList(session.TechnicalSelectedSkillsJson);
+            if (selectedSkills.Count == 0)
+            {
+                return new TechnicalPlanLockResult(
+                    null,
+                    "LEGACY_SELECTED_SKILLS_UNAVAILABLE",
+                    "The legacy session does not contain enough information to lock remaining Main questions.");
+            }
+
+            TechnicalQuestionPlan plan;
+            if (existing is not null)
+            {
+                plan = existing;
+            }
+            else if (session.InterviewCampaign.Mode == InterviewMode.Practice)
+            {
+                plan = BuildPracticePlan(session, selectedSkills);
+            }
+            else
+            {
+                var build = _questionPlanBuilder.Build(new TechnicalQuestionPlanRequest(
+                    session.TechnicalMatchScoreSnapshot ?? session.InterviewCampaign.CvJdMatchScore ?? 0,
+                    session.InterviewCampaign.CVExtractedProfile.Skills.Select(item => item.SkillName).ToList(),
+                    TechnicalQuestionMetadata.ParseStringArray(session.InterviewCampaign.JDExtractedProfile.RequiredSkills),
+                    TechnicalQuestionMetadata.ParseStringArray(session.InterviewCampaign.JDExtractedProfile.NiceToHaveSkills),
+                    selectedSkills,
+                    session.TechnicalQuestionPlanVersion ?? _options.QuestionPlanVersion));
+                if (!build.IsSuccess)
+                {
+                    return new TechnicalPlanLockResult(null, build.ErrorCode, build.Message);
+                }
+                plan = build.Plan!;
+            }
+
+            var rubric = _rubricProvider.GetRequired(session.TechnicalRubricVersion
+                ?? (session.InterviewCampaign.Mode == InterviewMode.Practice
+                    ? _options.PracticeRubricVersion
+                    : _options.RubricVersion));
+            var locked = await LockQuestionPlanAsync(
+                session,
+                plan,
+                rubric,
+                preserveLegacyAttempts: true,
+                cancellationToken);
+            if (!locked.IsSuccess)
+                return locked;
+
+            session.TechnicalQuestionPlanJson = TechnicalQuestionPlanSerializer.Serialize(locked.Plan!);
+            session.TechnicalQuestionPlanVersion = locked.Plan!.Version;
+            session.TechnicalLegacyUpgradeFailureReason = null;
+            session.TechnicalConcurrencyVersion++;
+            session.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+                return locked;
+            }
+            catch (DbUpdateException)
+            {
+                _context.ChangeTracker.Clear();
+                return new TechnicalPlanLockResult(
+                    null,
+                    "LEGACY_PLAN_UPGRADE_CONFLICT",
+                    "The legacy session changed while its locked plan was being persisted.");
+            }
+        }
+
+        private async Task RecordLegacyUpgradeFailureAsync(
+            InterviewSession session,
+            TechnicalPlanLockResult failure,
+            CancellationToken cancellationToken)
+        {
+            if (string.Equals(failure.ErrorCode, "LEGACY_PLAN_UPGRADE_CONFLICT", StringComparison.Ordinal))
+                return;
+            var value = $"{failure.ErrorCode ?? "LEGACY_PLAN_UPGRADE_FAILED"}: {failure.Message}";
+            session.TechnicalLegacyUpgradeFailureReason = value.Length <= 500
+                ? value
+                : value[..500];
+            session.TechnicalConcurrencyVersion++;
+            session.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                // The recoverable error is still returned to the caller. Never mutate
+                // plan/attempt history merely to force audit metadata through a conflict.
+            }
+        }
+
+        private TechnicalQuestionPlan BuildPracticePlan(
+            InterviewSession session,
+            IReadOnlyList<string> selectedSkills)
+        {
+            var cvSkills = session.InterviewCampaign.CVExtractedProfile.Skills
+                .Select(item => item.SkillName)
+                .ToList();
+            var slots = Enumerable.Range(1, session.QuestionCount)
+                .Select(index =>
+                {
+                    var skill = selectedSkills[(index - 1) % selectedSkills.Count];
+                    var source = cvSkills.Any(item => TechnicalQuestionMetadata.FuzzyMatches(item, skill))
+                        ? TechnicalQuestionSourceType.CV
+                        : TechnicalQuestionSourceType.JD;
+                    return new TechnicalQuestionPlanSlot(
+                        index,
+                        source,
+                        skill,
+                        null,
+                        session.Difficulty,
+                        source == TechnicalQuestionSourceType.CV
+                            ? TechnicalEvaluationObjective.CvSkillVerification
+                            : TechnicalEvaluationObjective.JdCoreKnowledge);
+                })
+                .ToImmutableArray();
+            return new TechnicalQuestionPlan(
+                session.InterviewCampaign.CvJdMatchScore ?? 0,
+                TechnicalMatchBand.Medium,
+                slots.Count(item => item.SourceType == TechnicalQuestionSourceType.CV),
+                slots.Count(item => item.SourceType == TechnicalQuestionSourceType.JD),
+                $"{_options.QuestionPlanVersion}-practice",
+                slots,
+                session.QuestionCount);
+        }
+
+        private async Task<TechnicalPlanLockResult> LockQuestionPlanAsync(
+            InterviewSession session,
+            TechnicalQuestionPlan plan,
+            TechnicalRubricDefinition rubric,
+            bool preserveLegacyAttempts,
+            CancellationToken cancellationToken)
+        {
+            var lockedAt = DateTime.UtcNow;
+            var locked = new List<TechnicalQuestionPlanSlot>(plan.TargetMainQuestionCount);
+            var usedQuestionIds = new HashSet<int>();
+            var usedLegacyAttemptIds = new HashSet<Guid>();
+            var legacyIndexAssignments = new Dictionary<TechnicalQuestionAttempt, int>();
+            var reservedQuestionIds = plan.Slots
+                .Where(item => item.SelectedQuestionId.HasValue)
+                .Select(item => item.SelectedQuestionId!.Value)
+                .ToHashSet();
+            var legacyMains = session.TechnicalQuestionAttempts
+                .Where(item => item.QuestionType == TechnicalAttemptType.Main)
+                .OrderBy(item => item.MainQuestionIndex)
+                .ThenBy(item => item.SequenceNumber)
+                .ToList();
+            foreach (var reserved in reservedQuestionIds)
+            {
+                var matchingAttempt = legacyMains.FirstOrDefault(item => item.QuestionId == reserved);
+                if (matchingAttempt is not null)
+                    usedLegacyAttemptIds.Add(matchingAttempt.AttemptId);
+            }
+
+            foreach (var slot in plan.Slots.OrderBy(item => item.MainQuestionIndex))
+            {
+                TechnicalLockedMainQuestionSnapshot? snapshot = slot.LockedQuestion;
+                var legacyAttempt = preserveLegacyAttempts
+                    ? legacyMains.FirstOrDefault(item =>
+                        item.MainQuestionIndex == slot.MainQuestionIndex
+                        && !usedLegacyAttemptIds.Contains(item.AttemptId))
+                        ?? legacyMains.FirstOrDefault(item => !usedLegacyAttemptIds.Contains(item.AttemptId))
+                    : null;
+                if (snapshot is null && legacyAttempt is not null)
+                {
+                    usedLegacyAttemptIds.Add(legacyAttempt.AttemptId);
+                    legacyIndexAssignments[legacyAttempt] = slot.MainQuestionIndex;
+                    var question = legacyAttempt.Question;
+                    if (question is null)
+                    {
+                        return new TechnicalPlanLockResult(
+                            null,
+                            "LEGACY_SNAPSHOT_METADATA_UNAVAILABLE",
+                            $"Main question {slot.MainQuestionIndex} has no recoverable scoring metadata.");
+                    }
+                    snapshot = CreateLockedSnapshot(
+                        slot,
+                        question,
+                        rubric,
+                        lockedAt,
+                        session.TechnicalLanguage ?? session.InterviewCampaign.Language,
+                        plan.Version,
+                        legacyAttempt.QuestionContentSnapshot);
+                }
+
+                if (snapshot is null)
+                {
+                    var selectionContext = BuildLockedSelectionContext(session, plan, slot, locked);
+                    var pool = await _selectionService.PreparePoolAsync(selectionContext, cancellationToken);
+                    var question = pool.Candidates.FirstOrDefault(item =>
+                        !usedQuestionIds.Contains(item.QuestionId)
+                        && !reservedQuestionIds.Contains(item.QuestionId));
+                    if (question is null)
+                    {
+                        return new TechnicalPlanLockResult(
+                            null,
+                            pool.ErrorCode ?? "NO_PLAN_SLOT_CANDIDATE",
+                            $"No unique Technical question can be locked for Main slot {slot.MainQuestionIndex} "
+                            + $"(source={slot.SourceType}, skill={slot.TargetSkill}, difficulty={slot.PlannedDifficulty}, "
+                            + $"role={session.TechnicalJobRole}, experience={session.TechnicalExperienceLevel}, "
+                            + $"language={session.TechnicalLanguage}, relaxation={pool.Relaxation}).");
+                    }
+
+                    if (!TechnicalQuestionMetadata.FuzzyMatches(question.Skill ?? string.Empty, slot.TargetSkill)
+                        || question.Difficulty != slot.PlannedDifficulty)
+                    {
+                        return new TechnicalPlanLockResult(
+                            null,
+                            "LOCKED_QUESTION_PLAN_MISMATCH",
+                            $"The candidate for Main slot {slot.MainQuestionIndex} does not satisfy its locked skill and difficulty.");
+                    }
+                    snapshot = CreateLockedSnapshot(
+                        slot,
+                        question,
+                        rubric,
+                        lockedAt,
+                        session.TechnicalLanguage ?? session.InterviewCampaign.Language,
+                        plan.Version);
+                }
+
+                if (!IsCompleteLockedSnapshot(snapshot)
+                    || !SnapshotMatchesSlot(snapshot, slot, plan.Version)
+                    || !usedQuestionIds.Add(snapshot.SelectedQuestionId))
+                {
+                    return new TechnicalPlanLockResult(
+                        null,
+                        "INVALID_LOCKED_QUESTION_SET",
+                        "Locked main questions must be unique and contain complete content and scoring metadata.");
+                }
+                locked.Add(slot with { LockedQuestion = snapshot });
+            }
+
+            if (locked.Count != plan.TargetMainQuestionCount
+                || locked.Select(item => item.MainQuestionIndex).Distinct().Count() != plan.TargetMainQuestionCount
+                || usedQuestionIds.Count != plan.TargetMainQuestionCount)
+            {
+                return new TechnicalPlanLockResult(null, "INVALID_LOCKED_QUESTION_SET", "The complete locked main-question set is invalid.");
+            }
+
+            foreach (var assignment in legacyIndexAssignments)
+                assignment.Key.MainQuestionIndex = assignment.Value;
+
+            return new TechnicalPlanLockResult(
+                plan with { Slots = locked.ToImmutableArray() },
+                null,
+                null);
+        }
+
+        private TechnicalSelectionContext BuildLockedSelectionContext(
+            InterviewSession session,
+            TechnicalQuestionPlan plan,
+            TechnicalQuestionPlanSlot slot,
+            IReadOnlyList<TechnicalQuestionPlanSlot> locked)
+        {
+            var cvSkills = session.InterviewCampaign.CVExtractedProfile.Skills
+                .Select(item => item.SkillName)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .ToList();
+            var requiredJdSkills = TechnicalQuestionMetadata.ParseStringArray(
+                session.InterviewCampaign.JDExtractedProfile.RequiredSkills);
+            var jdSkills = requiredJdSkills.Concat(TechnicalQuestionMetadata.ParseStringArray(
+                    session.InterviewCampaign.JDExtractedProfile.NiceToHaveSkills))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return new TechnicalSelectionContext
+            {
+                Language = session.TechnicalLanguage ?? session.InterviewCampaign.Language,
+                JobRole = session.TechnicalJobRole ?? session.InterviewCampaign.JDExtractedProfile.RoleTarget ?? string.Empty,
+                ExperienceLevel = session.TechnicalExperienceLevel ?? string.Empty,
+                Difficulty = slot.PlannedDifficulty,
+                SelectedSkills = DeserializeList(session.TechnicalSelectedSkillsJson),
+                AskedQuestionIds = locked.Where(item => item.SelectedQuestionId.HasValue)
+                    .Select(item => item.SelectedQuestionId!.Value)
+                    .ToHashSet(),
+                SkillUsage = session.InterviewCampaign.Mode == InterviewMode.Practice
+                    ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                    : locked.Where(item => item.LockedQuestion is not null)
+                        .GroupBy(item => item.LockedQuestion!.Skill, StringComparer.OrdinalIgnoreCase)
+                        .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase),
+                AskedSubskills = locked.Where(item => !string.IsNullOrWhiteSpace(item.LockedQuestion?.Subskill))
+                    .Select(item => item.LockedQuestion!.Subskill!)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase),
+                PlanSlot = slot,
+                CvSkills = cvSkills,
+                JdSkills = jdSkills,
+                RequiredJdSkills = requiredJdSkills,
+                AllowedDifficulties = session.InterviewCampaign.Mode == InterviewMode.RealTest
+                    ? new[] { slot.PlannedDifficulty }
+                    : GetAllowedDifficulties(plan.MatchBand)
+            };
+        }
+
+        private TechnicalLockedMainQuestionSnapshot CreateLockedSnapshot(
+            TechnicalQuestionPlanSlot slot,
+            Question question,
+            TechnicalRubricDefinition rubric,
+            DateTime lockedAt,
+            string language,
+            string questionPlanVersion,
+            string? contentOverride = null)
+        {
+            return new TechnicalLockedMainQuestionSnapshot(
+                question.QuestionId,
+                contentOverride ?? question.QuestionContent,
+                question.SuggestedAnswer,
+                question.ExpectedKeyPoints ?? string.Empty,
+                question.ScoringRubric ?? string.Empty,
+                JsonSerializer.Serialize(new
+                {
+                    rubric.Version,
+                    rubric.Dimensions,
+                    rubric.Levels,
+                    rubric.Limits
+                }, JsonOptions),
+                JsonSerializer.Serialize(new
+                {
+                    rubric.ScoringPolicyVersion,
+                    question.TimeLimitSeconds
+                }, JsonOptions),
+                question.Skill ?? slot.TargetSkill,
+                TechnicalQuestionMetadata.GetSubskill(question.QdrantPayloadJson) ?? slot.TargetSubskill,
+                question.Difficulty,
+                slot.SourceType,
+                slot.EvaluationObjective,
+                question.Language ?? language,
+                questionPlanVersion,
+                (question.UpdatedAt ?? question.CreatedAt).ToUniversalTime().ToString("O"),
+                lockedAt,
+                question.ClarificationQuestion,
+                question.FollowUp1,
+                question.FollowUp2);
+        }
+
+        private static bool IsCompleteLockedSnapshot(TechnicalLockedMainQuestionSnapshot snapshot)
+        {
+            return snapshot.SelectedQuestionId > 0
+                && !string.IsNullOrWhiteSpace(snapshot.Content)
+                && !string.IsNullOrWhiteSpace(snapshot.ExpectedAnswer)
+                && !string.IsNullOrWhiteSpace(snapshot.ExpectedKeyPoints)
+                && !string.IsNullOrWhiteSpace(snapshot.QuestionSpecificRubric)
+                && !string.IsNullOrWhiteSpace(snapshot.RubricMetadataJson)
+                && !string.IsNullOrWhiteSpace(snapshot.ScoringMetadataJson)
+                && !string.IsNullOrWhiteSpace(snapshot.Skill)
+                && !string.IsNullOrWhiteSpace(snapshot.Language)
+                && !string.IsNullOrWhiteSpace(snapshot.QuestionPlanVersion);
+        }
+
+        private static bool SnapshotMatchesSlot(
+            TechnicalLockedMainQuestionSnapshot snapshot,
+            TechnicalQuestionPlanSlot slot,
+            string planVersion)
+        {
+            return snapshot.SourceType == slot.SourceType
+                && snapshot.EvaluationObjective == slot.EvaluationObjective
+                && snapshot.Difficulty == slot.PlannedDifficulty
+                && string.Equals(snapshot.QuestionPlanVersion, planVersion, StringComparison.Ordinal)
+                && TechnicalQuestionMetadata.FuzzyMatches(snapshot.Skill, slot.TargetSkill)
+                && (string.IsNullOrWhiteSpace(slot.TargetSubskill)
+                    || TechnicalQuestionMetadata.FuzzyMatches(snapshot.Subskill ?? string.Empty, slot.TargetSubskill));
         }
 
         private static List<TechnicalTranscriptEntryDto> BuildTranscript(
@@ -1486,6 +2218,12 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var root = session.TechnicalQuestionAttempts.FirstOrDefault(item =>
                 item.AttemptId == attempt.RootMainAttemptId) ?? attempt;
             var requiredSubQuestions = root.RequiredClarificationCount + root.RequiredFollowUpCount;
+            var lockedQuestionId = GetQuestionPlan(session)?.Slots
+                .FirstOrDefault(slot => slot.MainQuestionIndex == root.MainQuestionIndex)
+                ?.SelectedQuestionId
+                ?? root.QuestionId;
+            var lockedSlot = TryGetQuestionPlan(session)?.Slots.FirstOrDefault(slot =>
+                slot.MainQuestionIndex == root.MainQuestionIndex);
             if (attempt.GenerationReason == TechnicalQuestionGenerationReason.ReliabilityMinimum)
             {
                 requiredSubQuestions++;
@@ -1493,7 +2231,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             return new TechnicalCurrentQuestionDto
             {
                 AttemptId = attempt.AttemptId,
-                QuestionId = attempt.QuestionId,
+                QuestionId = attempt.QuestionType == TechnicalAttemptType.Main
+                    ? lockedQuestionId
+                    : attempt.QuestionId,
+                SelectedQuestionId = lockedQuestionId,
+                LockedQuestionSnapshot = lockedSlot?.LockedQuestion is null
+                    ? null
+                    : MapLockedQuestion(root.MainQuestionIndex, lockedSlot.LockedQuestion),
                 QuestionType = ToApi(attempt.QuestionType),
                 Content = attempt.QuestionContentSnapshot,
                 Skill = attempt.SkillSnapshot,
@@ -1522,9 +2266,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var progressAttempt = next ?? attempt;
             var progressRoot = session.TechnicalQuestionAttempts.FirstOrDefault(item =>
                 item.AttemptId == progressAttempt.RootMainAttemptId) ?? progressAttempt;
-            var resolvedAction = GetQuestionPlan(session) is null
-                ? ToLegacyApi(decision)
-                : ToApi(decision);
+            var storedEvaluation = attempt.Evaluations.SingleOrDefault();
+            var resolvedAction = storedEvaluation is null
+                && attempt.Status == TechnicalAttemptStatus.Evaluating
+                ? "PROCESSING"
+                : GetQuestionPlan(session) is null
+                    ? ToLegacyApi(decision)
+                    : ToApi(decision);
             return new TechnicalSubmitAnswerResponseDto
             {
                 AttemptId = attempt.AttemptId,
@@ -1549,6 +2297,15 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     QuestionFallbackUsed = attempt.QuestionFallbackUsed
                 },
                 ResolvedAction = resolvedAction,
+                AiSuggestedAction = storedEvaluation?.AiSuggestedAction is { } aiAction
+                    ? ToApi(aiAction)
+                    : null,
+                BackendResolvedAction = resolvedAction,
+                OverrideReason = storedEvaluation?.OverrideReason,
+                AdaptiveStage = progressRoot.AdaptiveStage?.ToString().ToUpperInvariant(),
+                FallbackUsed = attempt.EvaluationFallbackUsed
+                    || attempt.FeedbackFallbackUsed
+                    || attempt.QuestionFallbackUsed,
                 Progress = new TechnicalInterviewProgressDto
                 {
                     MainQuestionIndex = progressAttempt.MainQuestionIndex,
@@ -1562,6 +2319,26 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     RequiredFollowUpCount = progressRoot.RequiredFollowUpCount,
                     CompletedFollowUpCount = progressRoot.CompletedFollowUpCount
                 }
+            };
+        }
+
+        private static TechnicalLockedMainQuestionDto MapLockedQuestion(
+            int mainQuestionIndex,
+            TechnicalLockedMainQuestionSnapshot snapshot)
+        {
+            return new TechnicalLockedMainQuestionDto
+            {
+                MainQuestionIndex = mainQuestionIndex,
+                SelectedQuestionId = snapshot.SelectedQuestionId,
+                Skill = snapshot.Skill,
+                Subskill = snapshot.Subskill,
+                Difficulty = snapshot.Difficulty.ToString().ToUpperInvariant(),
+                SourceType = snapshot.SourceType.ToString().ToUpperInvariant(),
+                EvaluationObjective = snapshot.EvaluationObjective.ToString().ToUpperInvariant(),
+                Language = snapshot.Language,
+                QuestionPlanVersion = snapshot.QuestionPlanVersion,
+                QuestionBankVersion = snapshot.QuestionBankVersion,
+                LockedAt = snapshot.LockedAt
             };
         }
 
@@ -1607,14 +2384,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 results.Feedback,
                 arbiterResult.FeedbackStatus,
                 arbiterResult.FeedbackFallbackUsed);
-            AddTaskInteractionLog(
-                session,
-                attemptId,
-                AIInteractionOperationType.QuestionBundleGeneration,
-                TechnicalPromptVersions.QuestionBundle,
-                results.QuestionBundle,
-                arbiterResult.QuestionStatus,
-                arbiterResult.QuestionFallbackUsed);
         }
 
         private void AddTaskInteractionLog<T>(
@@ -1640,9 +2409,12 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 OutputTokenCount = result?.OutputTokens,
                 EstimatedCost = null,
                 Status = ToLogStatus(finalStatus),
-                ErrorCode = outcome.ErrorCode ?? (finalStatus == TechnicalAITaskStatus.InvalidOutput
-                    ? "INVALID_OUTPUT"
-                    : null),
+                ErrorCode = outcome.ErrorCode
+                    ?? (finalStatus == TechnicalAITaskStatus.InvalidOutput
+                        ? "INVALID_OUTPUT"
+                        : fallbackUsed
+                            ? "FALLBACK_VALIDATION_OR_PROVIDER_FAILURE"
+                            : null),
                 FallbackUsed = fallbackUsed,
                 InterviewSessionId = session.InterviewSessionId,
                 AttemptId = attemptId,

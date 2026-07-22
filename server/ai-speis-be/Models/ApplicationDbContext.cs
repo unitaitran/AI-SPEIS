@@ -216,6 +216,16 @@ namespace ai_speis_be.Models
                 .HasIndex(a => new { a.RootMainAttemptId, a.QuestionType, a.SequenceWithinMain })
                 .IsUnique();
 
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasIndex(a => new { a.InterviewSessionId, a.MainQuestionIndex })
+                .IsUnique()
+                .HasFilter("[QuestionType] = 0");
+
+            modelBuilder.Entity<TechnicalQuestionAttempt>()
+                .HasIndex(a => new { a.InterviewSessionId, a.QuestionId })
+                .IsUnique()
+                .HasFilter("[QuestionType] = 0 AND [QuestionId] IS NOT NULL");
+
             modelBuilder.Entity<TechnicalAnswerEvaluation>()
                 .HasOne(e => e.Attempt)
                 .WithMany(a => a.Evaluations)

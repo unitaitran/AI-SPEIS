@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using ai_speis_be.Models.Enums;
 using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Rubrics;
 
@@ -7,7 +6,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
 {
     public sealed record TechnicalEvaluationValidationResult(
         bool IsValid,
-        TechnicalInterviewDecision? AiSuggestedDecision,
         string? ErrorCode);
 
     public interface ITechnicalAIResponseValidator
@@ -22,6 +20,10 @@ namespace ai_speis_be.TechnicalInterviews.Validation
 
     public sealed class TechnicalAIResponseValidator : ITechnicalAIResponseValidator
     {
+        private static readonly HashSet<string> AnswerQualities = new(
+            new[] { "COMPLETE", "PARTIAL", "AMBIGUOUS", "NON_RESPONSIVE", "INCORRECT", "UNVERIFIED" },
+            StringComparer.OrdinalIgnoreCase);
+
         public bool IsValidSelection(int selectedQuestionId, IReadOnlySet<int> candidateIds)
         {
             return selectedQuestionId > 0 && candidateIds.Contains(selectedQuestionId);
@@ -32,10 +34,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             TechnicalRubricDefinition rubric,
             IReadOnlyList<TechnicalAnswerContext> answerContext)
         {
-            var aiSuggestedDecision = TryParseDecision(evaluation.Decision, out var parsedDecision)
-                ? parsedDecision
-                : (TechnicalInterviewDecision?)null;
-
             if (evaluation.Confidence is < 0m or > 1m)
             {
                 return Invalid("INVALID_CONFIDENCE");
@@ -53,6 +51,12 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 || actualCodes.Any(code => !expectedCodes.Contains(code)))
             {
                 return Invalid("INVALID_RUBRIC_CODES");
+            }
+
+            if (string.IsNullOrWhiteSpace(evaluation.Evaluation.AnswerQuality)
+                || !AnswerQualities.Contains(evaluation.Evaluation.AnswerQuality.Trim()))
+            {
+                return Invalid("INVALID_ANSWER_QUALITY");
             }
 
             var transcript = Normalize(string.Join(" ", answerContext.Select(item => item.Answer)));
@@ -93,21 +97,13 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 }
             }
 
-            return new TechnicalEvaluationValidationResult(true, aiSuggestedDecision, null);
-        }
-
-        private static bool TryParseDecision(string value, out TechnicalInterviewDecision decision)
-        {
-            var normalized = value?.Trim().Replace("_", string.Empty, StringComparison.Ordinal) ?? string.Empty;
-            return Enum.TryParse(normalized, true, out decision)
-                && Enum.IsDefined(decision);
+            return new TechnicalEvaluationValidationResult(true, null);
         }
 
         private static TechnicalEvaluationValidationResult Invalid(string errorCode)
         {
             return new TechnicalEvaluationValidationResult(
                 false,
-                null,
                 errorCode);
         }
 

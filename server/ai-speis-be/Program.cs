@@ -207,7 +207,6 @@ builder.Services.AddScoped<ITechnicalAIResponseValidator, TechnicalAIResponseVal
 builder.Services.AddScoped<ITechnicalRubricScoringService, TechnicalRubricScoringService>();
 builder.Services.AddScoped<ITechnicalFollowUpBonusCalculator, TechnicalFollowUpBonusCalculator>();
 builder.Services.AddScoped<ITechnicalFollowUpDecisionEngine, TechnicalFollowUpDecisionEngine>();
-builder.Services.AddScoped<ITechnicalAdaptiveRuleEngine, TechnicalAdaptiveRuleEngine>();
 builder.Services.AddScoped<ITechnicalQuestionPlanBuilder, TechnicalQuestionPlanBuilder>();
 builder.Services.AddScoped<ITechnicalAnswerParallelProcessor, TechnicalAnswerParallelProcessor>();
 builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();

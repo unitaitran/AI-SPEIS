@@ -22,6 +22,11 @@ describe('useTechnicalInterviewSession', () => {
     technicalInterviewApi.getSession.mockResolvedValue({
       sessionId: 'session-1',
       sessionStatus: 'QUESTION_READY',
+      lockedMainQuestions: [
+        { mainQuestionIndex: 1, selectedQuestionId: 101 },
+        { mainQuestionIndex: 2, selectedQuestionId: 102 },
+        { mainQuestionIndex: 3, selectedQuestionId: 103 },
+      ],
     });
     technicalInterviewApi.getCurrentQuestion.mockResolvedValue({
       attemptId: 'attempt-2',
@@ -48,6 +53,8 @@ describe('useTechnicalInterviewSession', () => {
       mainQuestionIndex: 2,
       completedSubQuestionCount: 0,
     });
+    expect(result.current.session.lockedMainQuestions.map((item) => item.selectedQuestionId))
+      .toEqual([101, 102, 103]);
   });
 
   test('does not request another question after backend marks the session completed', async () => {

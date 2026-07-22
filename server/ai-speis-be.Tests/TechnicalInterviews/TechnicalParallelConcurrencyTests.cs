@@ -45,6 +45,22 @@ public sealed class TechnicalParallelConcurrencyTests
         Assert.Contains(attempt.GetIndexes(), index =>
             index.IsUnique
             && index.GetFilter() == "[Status] = 0");
+        Assert.Contains(attempt.GetIndexes(), index =>
+            index.IsUnique
+            && index.GetFilter() == "[QuestionType] = 0"
+            && index.Properties.Select(property => property.Name).SequenceEqual(new[]
+            {
+                nameof(TechnicalQuestionAttempt.InterviewSessionId),
+                nameof(TechnicalQuestionAttempt.MainQuestionIndex)
+            }));
+        Assert.Contains(attempt.GetIndexes(), index =>
+            index.IsUnique
+            && index.GetFilter() == "[QuestionType] = 0 AND [QuestionId] IS NOT NULL"
+            && index.Properties.Select(property => property.Name).SequenceEqual(new[]
+            {
+                nameof(TechnicalQuestionAttempt.InterviewSessionId),
+                nameof(TechnicalQuestionAttempt.QuestionId)
+            }));
         Assert.Contains(evaluation.GetIndexes(), index =>
             index.IsUnique
             && index.GetFilter() == "[IsFinalForMainQuestion] = 1");

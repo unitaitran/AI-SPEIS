@@ -44,6 +44,9 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public string? MatchBand { get; set; }
         public string? QuestionPlanVersion { get; set; }
         public string? AdaptiveRuleVersion { get; set; }
+        public List<TechnicalLockedMainQuestionDto> LockedMainQuestions { get; set; } = new();
+        public string? AdaptiveStage { get; set; }
+        public string? RecoverableFailureReason { get; set; }
         public int? MainQuestionIndex { get; set; }
         public int TotalMainQuestions { get; set; }
         public string? QuestionType { get; set; }
@@ -51,8 +54,24 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public int RequiredFollowUpCount { get; set; }
         public int CompletedFollowUpCount { get; set; }
         public string ProcessingStatus { get; set; } = string.Empty;
+        public TechnicalProcessingStatusDto? ProcessingStatuses { get; set; }
         public string SessionStatus { get; set; } = string.Empty;
         public List<TechnicalTranscriptEntryDto> Transcript { get; set; } = new();
+    }
+
+    public sealed class TechnicalLockedMainQuestionDto
+    {
+        public int MainQuestionIndex { get; set; }
+        public int SelectedQuestionId { get; set; }
+        public string Skill { get; set; } = string.Empty;
+        public string? Subskill { get; set; }
+        public string Difficulty { get; set; } = string.Empty;
+        public string SourceType { get; set; } = string.Empty;
+        public string EvaluationObjective { get; set; } = string.Empty;
+        public string Language { get; set; } = string.Empty;
+        public string QuestionPlanVersion { get; set; } = string.Empty;
+        public string? QuestionBankVersion { get; set; }
+        public DateTime LockedAt { get; set; }
     }
 
     public sealed class TechnicalTranscriptEntryDto
@@ -70,6 +89,8 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
     {
         public Guid AttemptId { get; set; }
         public int? QuestionId { get; set; }
+        public int? SelectedQuestionId { get; set; }
+        public TechnicalLockedMainQuestionDto? LockedQuestionSnapshot { get; set; }
         public string QuestionType { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public string? Skill { get; set; }
@@ -94,6 +115,11 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public string SessionStatus { get; set; } = string.Empty;
         public TechnicalFallbackStatusDto Fallbacks { get; set; } = new();
         public string ResolvedAction { get; set; } = string.Empty;
+        public string? AiSuggestedAction { get; set; }
+        public string BackendResolvedAction { get; set; } = string.Empty;
+        public string? OverrideReason { get; set; }
+        public string? AdaptiveStage { get; set; }
+        public bool FallbackUsed { get; set; }
         public TechnicalInterviewProgressDto Progress { get; set; } = new();
     }
 
@@ -111,6 +137,8 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
     {
         public string Evaluation { get; set; } = string.Empty;
         public string Feedback { get; set; } = string.Empty;
+        // Retained for old clients; this is now a derived validation/fallback status,
+        // not a separate AI task.
         public string QuestionGeneration { get; set; } = string.Empty;
     }
 

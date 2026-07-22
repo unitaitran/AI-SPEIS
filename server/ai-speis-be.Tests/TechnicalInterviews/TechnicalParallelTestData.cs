@@ -16,7 +16,6 @@ internal static class TechnicalParallelTestData
         decimal initialMainScore = 9m,
         int requiredFollowUpCount = 0,
         bool reliabilityRequired = false,
-        TechnicalQuestionGenerationReason? generationReason = null,
         decimal cumulativeFollowUpBonus = 0m)
     {
         var rubric = TechnicalTestRubric.Create();
@@ -62,19 +61,10 @@ internal static class TechnicalParallelTestData
             CompletedMainQuestionCount = completedMainQuestions,
             MainQuestionIndex = completedMainQuestions + 1,
             TargetMainQuestionCount = targetMainQuestions,
-            AskedQuestionIds = ImmutableHashSet.Create(1),
-            CandidateQuestionPool = ImmutableArray.Create(
-                new TechnicalAIQuestionCandidate(10, "Question 10", "ASP.NET Core", null, "Medium", "Junior"),
-                new TechnicalAIQuestionCandidate(20, "Question 20", "Database", null, "Medium", "Junior")),
-            SkillCoverage = ImmutableDictionary<string, int>.Empty.Add("ASP.NET Core", 1),
-            DifficultyCoverage = ImmutableDictionary<string, int>.Empty.Add("Medium", 1),
             PromptVersions = new TechnicalPromptVersionSnapshot(
                 TechnicalPromptVersions.Evaluation,
-                TechnicalPromptVersions.Feedback,
-                TechnicalPromptVersions.QuestionBundle),
+                TechnicalPromptVersions.Feedback),
             UseAdaptiveRubricFramework = true,
-            MatchScore = 75,
-            MatchBand = TechnicalMatchBand.High,
             InitialMainScore = attemptType == TechnicalAttemptType.Main ? null : initialMainScore,
             CurrentMainBaseScore = initialMainScore,
             RequiredClarificationCount = clarificationCount,
@@ -82,23 +72,19 @@ internal static class TechnicalParallelTestData
             RequiredFollowUpCount = requiredFollowUpCount,
             CompletedFollowUpCount = followUpCount,
             CumulativeFollowUpBonus = cumulativeFollowUpBonus,
-            TotalMainCount = completedMainQuestions + 1,
-            TotalFollowUpCount = followUpCount,
-            TotalClarificationCount = clarificationCount,
             IsReliabilityFollowUpRequired = reliabilityRequired,
-            CurrentGenerationReason = generationReason,
             ScoringPolicyVersion = rubric.ScoringPolicyVersion,
-            AdaptiveRuleVersion = "technical-adaptive-v1",
+            AdaptiveRuleVersion = "technical-rubric-bank-v2",
             BonusCalculationVersion = "technical-follow-up-bonus-v1"
         };
     }
 
     public static TechnicalAIEvaluationResponse CreateEvaluation(
-        string decision = "NEXT_QUESTION",
-        decimal score = 9m)
+        decimal score = 9m,
+        string answerQuality = "PARTIAL")
     {
         var evaluation = TechnicalTestRubric.CreateEvaluation(score, score, score, score, score);
-        evaluation.Decision = decision;
+        evaluation.Evaluation.AnswerQuality = answerQuality;
         evaluation.Strengths = new List<string> { "Clear dependency injection explanation" };
         evaluation.MissingPoints = new List<string> { "Needs a concrete lifetime example" };
         evaluation.ImprovementSuggestions = new List<string> { "Add a practical lifetime example" };
@@ -114,29 +100,6 @@ internal static class TechnicalParallelTestData
             Strengths = new List<string> { "Clear explanation" },
             MissingPoints = new List<string> { "Missing lifetime example" },
             ImprovementSuggestions = new List<string> { "Add a concrete lifetime example" }
-        };
-    }
-
-    public static TechnicalAIQuestionBundleResponse CreateBundle(int selectedQuestionId = 10)
-    {
-        return new TechnicalAIQuestionBundleResponse
-        {
-            ClarificationCandidate = new TechnicalAISubQuestionCandidate
-            {
-                Content = "Could you clarify how you reached that conclusion?",
-                Purpose = "Clarify the reasoning",
-                TargetRubricCodes = new List<string> { "REASONING" }
-            },
-            FollowUpCandidate = new TechnicalAISubQuestionCandidate
-            {
-                Content = "Could you add a concrete practical example?",
-                Purpose = "Collect missing practical evidence",
-                TargetRubricCodes = new List<string> { "TECHNICAL_DEPTH" }
-            },
-            NextMainQuestionCandidate = new TechnicalAINextMainQuestionCandidate
-            {
-                SelectedQuestionId = selectedQuestionId
-            }
         };
     }
 
@@ -185,13 +148,11 @@ internal static class TechnicalParallelTestData
 
     public static TechnicalParallelAIResults Results(
         TechnicalAITaskOutcome<TechnicalAIEvaluationResponse>? evaluation = null,
-        TechnicalAITaskOutcome<TechnicalAIFeedbackDraftResponse>? feedback = null,
-        TechnicalAITaskOutcome<TechnicalAIQuestionBundleResponse>? bundle = null)
+        TechnicalAITaskOutcome<TechnicalAIFeedbackDraftResponse>? feedback = null)
     {
         return new TechnicalParallelAIResults(
             evaluation ?? Fulfilled(CreateEvaluation()),
             feedback ?? Fulfilled(CreateFeedback()),
-            bundle ?? Fulfilled(CreateBundle()),
-            new TechnicalParallelProcessingMetrics(25, 60, 35));
+            new TechnicalParallelProcessingMetrics(25, 40, 15));
     }
 }

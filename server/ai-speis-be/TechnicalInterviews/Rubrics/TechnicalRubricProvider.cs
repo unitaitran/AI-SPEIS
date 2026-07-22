@@ -70,6 +70,36 @@ namespace ai_speis_be.TechnicalInterviews.Rubrics
                 throw new InvalidOperationException($"Technical rubric file {file} weights must total 1.0.");
             }
 
+            if (rubric.RoundingPrecision is < 0 or > 4
+                || rubric.PerformanceBands.Count == 0
+                || rubric.PerformanceBands.Any(item =>
+                    string.IsNullOrWhiteSpace(item.Code)
+                    || item.Minimum < rubric.MinimumScore
+                    || item.Maximum > rubric.MaximumScore
+                    || item.Minimum > item.Maximum)
+                || rubric.PerformanceBands.Select(item => item.Code.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase).Count() != rubric.PerformanceBands.Count)
+            {
+                throw new InvalidOperationException($"Technical rubric file {file} has invalid performance bands.");
+            }
+
+            var scoreStep = 1m;
+            for (var index = 0; index < rubric.RoundingPrecision; index++)
+            {
+                scoreStep /= 10m;
+            }
+            for (var score = rubric.MinimumScore; score <= rubric.MaximumScore; score += scoreStep)
+            {
+                var matchingBandCount = rubric.PerformanceBands.Count(item =>
+                    score >= item.Minimum
+                    && (item.MaximumExclusive ? score < item.Maximum : score <= item.Maximum));
+                if (matchingBandCount != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Technical rubric file {file} must map rounded score {score} to exactly one performance band.");
+                }
+            }
+
             var expectedLevels = Enumerable.Range(
                 (int)rubric.MinimumScore,
                 (int)(rubric.MaximumScore - rubric.MinimumScore) + 1);

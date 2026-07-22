@@ -52,8 +52,8 @@ public sealed class TechnicalParallelPublicContractSecurityTests
         Assert.Contains("TechnicalScore", resultProperties);
         Assert.Contains("MainQuestionResults", resultProperties);
         Assert.DoesNotContain(
-            typeof(TechnicalAIQuestionBundleResponse).GetProperties(),
-            property => string.Equals(property.Name, "FollowUp2Candidate", StringComparison.OrdinalIgnoreCase));
+            typeof(TechnicalAIEvaluationResponse).GetProperties(),
+            property => string.Equals(property.Name, "SelectedQuestionId", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

@@ -1,7 +1,6 @@
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
-using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Configuration;
 using ai_speis_be.TechnicalInterviews.Planning;
 using ai_speis_be.TechnicalInterviews.Validation;
@@ -25,17 +24,6 @@ namespace ai_speis_be.TechnicalInterviews.Selection
         public IReadOnlyList<QuestionDifficultyEnum> AllowedDifficulties { get; init; } = Array.Empty<QuestionDifficultyEnum>();
     }
 
-    public sealed class TechnicalQuestionSelectionResult
-    {
-        public Question? Question { get; init; }
-        public AIProviderResult<TechnicalAISelectionResponse>? AIResult { get; init; }
-        public bool FallbackUsed { get; init; }
-        public string? ErrorCode { get; init; }
-        public string Relaxation { get; init; } = "none";
-        public bool PlanDeviation { get; init; }
-        public string? PlanDeviationReason { get; init; }
-    }
-
     public sealed class TechnicalQuestionPoolResult
     {
         public IReadOnlyList<Question> Candidates { get; init; } = Array.Empty<Question>();
@@ -45,102 +33,36 @@ namespace ai_speis_be.TechnicalInterviews.Selection
         public string? PlanDeviationReason { get; init; }
     }
 
+    public sealed record TechnicalBankSubQuestionResult(
+        bool IsSuccess,
+        int SourceQuestionId,
+        string? Content,
+        string? ErrorCode);
+
     public interface ITechnicalQuestionSelectionService
     {
-        Task<TechnicalQuestionSelectionResult> SelectAsync(
+        Task<TechnicalQuestionPoolResult> PreparePoolAsync(
             TechnicalSelectionContext context,
             CancellationToken cancellationToken);
 
-        Task<TechnicalQuestionPoolResult> PreparePoolAsync(
-            TechnicalSelectionContext context,
+        Task<TechnicalBankSubQuestionResult> SelectBankSubQuestionAsync(
+            TechnicalLockedMainQuestionSnapshot lockedMain,
+            TechnicalAttemptType attemptType,
+            int followUpNumber,
             CancellationToken cancellationToken);
     }
 
     public sealed class TechnicalQuestionSelectionService : ITechnicalQuestionSelectionService
     {
         private readonly IQuestionRepoitory _questionRepository;
-        private readonly ITechnicalInterviewAIProviderResolver _providerResolver;
-        private readonly ITechnicalAIResponseValidator _validator;
         private readonly TechnicalInterviewOptions _options;
 
         public TechnicalQuestionSelectionService(
             IQuestionRepoitory questionRepository,
-            ITechnicalInterviewAIProviderResolver providerResolver,
-            ITechnicalAIResponseValidator validator,
             TechnicalInterviewOptions options)
         {
             _questionRepository = questionRepository;
-            _providerResolver = providerResolver;
-            _validator = validator;
             _options = options;
-        }
-
-        public async Task<TechnicalQuestionSelectionResult> SelectAsync(
-            TechnicalSelectionContext context,
-            CancellationToken cancellationToken)
-        {
-            var pool = await PreparePoolAsync(context, cancellationToken);
-            if (pool.Candidates.Count == 0)
-            {
-                return new TechnicalQuestionSelectionResult
-                {
-                    ErrorCode = pool.ErrorCode ?? "NO_TECHNICAL_CANDIDATE",
-                    Relaxation = pool.Relaxation
-                };
-            }
-
-            var ranked = pool.Candidates;
-            var aiRequest = new TechnicalAISelectionRequest
-            {
-                Language = context.Language,
-                JobRole = context.JobRole,
-                ExperienceLevel = context.ExperienceLevel,
-                SelectedSkills = context.SelectedSkills,
-                AskedSkills = context.SkillUsage.Keys.ToList(),
-                PlannedSourceType = context.PlanSlot?.SourceType.ToString().ToUpperInvariant(),
-                TargetSkill = context.PlanSlot?.TargetSkill,
-                TargetSubskill = context.PlanSlot?.TargetSubskill,
-                PlannedDifficulty = context.PlanSlot?.PlannedDifficulty.ToString(),
-                EvaluationObjective = context.PlanSlot?.EvaluationObjective.ToString().ToUpperInvariant(),
-                Candidates = ranked.Select(question => new TechnicalAIQuestionCandidate(
-                    question.QuestionId,
-                    question.QuestionContent,
-                    question.Skill ?? string.Empty,
-                    TechnicalQuestionMetadata.GetSubskill(question.QdrantPayloadJson),
-                    question.Difficulty.ToString(),
-                    question.ExperienceLevel ?? string.Empty)).ToList()
-            };
-
-            var aiResult = await _providerResolver.Resolve()
-                .SelectQuestionAsync(aiRequest, cancellationToken);
-            var candidateIds = ranked.Select(question => question.QuestionId).ToHashSet();
-            var validAiSelection = aiResult.Success
-                && aiResult.Data is not null
-                && _validator.IsValidSelection(aiResult.Data.SelectedQuestionId, candidateIds);
-            var selectedId = validAiSelection
-                ? aiResult.Data!.SelectedQuestionId
-                : ranked[0].QuestionId;
-            var fallbackUsed = !validAiSelection;
-
-            var selected = await _questionRepository.GetQuestionByIdAsync(selectedId, cancellationToken);
-            if (selected is null
-                || selected.IsDeleted
-                || !string.Equals(selected.QuestionType, "Technical", StringComparison.OrdinalIgnoreCase)
-                || !candidateIds.Contains(selected.QuestionId))
-            {
-                selected = ranked[0];
-                fallbackUsed = true;
-            }
-
-            return new TechnicalQuestionSelectionResult
-            {
-                Question = selected,
-                AIResult = aiResult,
-                FallbackUsed = fallbackUsed,
-                Relaxation = pool.Relaxation,
-                PlanDeviation = pool.PlanDeviation,
-                PlanDeviationReason = pool.PlanDeviationReason
-            };
         }
 
         public async Task<TechnicalQuestionPoolResult> PreparePoolAsync(
@@ -228,6 +150,80 @@ namespace ai_speis_be.TechnicalInterviews.Selection
             };
         }
 
+        public async Task<TechnicalBankSubQuestionResult> SelectBankSubQuestionAsync(
+            TechnicalLockedMainQuestionSnapshot lockedMain,
+            TechnicalAttemptType attemptType,
+            int followUpNumber,
+            CancellationToken cancellationToken)
+        {
+            if (attemptType is not TechnicalAttemptType.Clarification
+                and not TechnicalAttemptType.FollowUp)
+            {
+                return new TechnicalBankSubQuestionResult(
+                    false,
+                    lockedMain.SelectedQuestionId,
+                    null,
+                    "INVALID_SUBQUESTION_TYPE");
+            }
+
+            var content = ResolveSubQuestion(
+                lockedMain.ClarificationQuestion,
+                lockedMain.FollowUp1,
+                lockedMain.FollowUp2,
+                attemptType,
+                followUpNumber);
+
+            // Legacy locked plans did not snapshot the pre-written probes. Read the
+            // same source row from Question Bank; never synthesize replacement text.
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                var source = await _questionRepository.GetQuestionByIdAsync(
+                    lockedMain.SelectedQuestionId,
+                    cancellationToken);
+                if (source is not null)
+                {
+                    content = ResolveSubQuestion(
+                        source.ClarificationQuestion,
+                        source.FollowUp1,
+                        source.FollowUp2,
+                        attemptType,
+                        followUpNumber);
+                }
+            }
+
+            return string.IsNullOrWhiteSpace(content)
+                ? new TechnicalBankSubQuestionResult(
+                    false,
+                    lockedMain.SelectedQuestionId,
+                    null,
+                    "QUESTION_BANK_SUBQUESTION_UNAVAILABLE")
+                : new TechnicalBankSubQuestionResult(
+                    true,
+                    lockedMain.SelectedQuestionId,
+                    content,
+                    null);
+        }
+
+        private static string? ResolveSubQuestion(
+            string? clarification,
+            string? followUp1,
+            string? followUp2,
+            TechnicalAttemptType attemptType,
+            int followUpNumber)
+        {
+            if (attemptType == TechnicalAttemptType.Clarification)
+            {
+                return clarification;
+            }
+
+            return followUpNumber switch
+            {
+                <= 1 => followUp1,
+                2 => followUp2,
+                _ => null
+            };
+        }
+
         private async Task<TechnicalQuestionPoolResult> PreparePlannedPoolAsync(
             TechnicalSelectionContext context,
             CancellationToken cancellationToken)
@@ -264,6 +260,38 @@ namespace ai_speis_be.TechnicalInterviews.Selection
                 relaxation = "subskill";
                 planDeviation = candidates.Count > 0;
                 deviationReason = candidates.Count > 0 ? "RELAX_SUBSKILL" : null;
+            }
+
+            // Question-bank experience labels are advisory metadata and do not form
+            // part of the immutable Main plan. If aliases do not match, relax only
+            // that filter while preserving role, language, skill and exact difficulty.
+            if (candidates.Count == 0 && experienceLevels.Count > 0)
+            {
+                var experienceRelaxedCandidates = await QueryAsync(
+                    context,
+                    roleTargets,
+                    Array.Empty<string>(),
+                    Array.Empty<string>(),
+                    slot.PlannedDifficulty,
+                    cancellationToken);
+                var experienceRelaxedExactSkill = ExcludeUsedSkills(context, experienceRelaxedCandidates)
+                    .Where(question => SkillMatches(question, slot.TargetSkill))
+                    .ToList();
+                candidates = experienceRelaxedExactSkill
+                    .Where(question => SubskillMatches(question, slot.TargetSubskill))
+                    .ToList();
+                if (candidates.Count > 0)
+                {
+                    relaxation = "experience";
+                }
+                else if (!string.IsNullOrWhiteSpace(slot.TargetSubskill)
+                    && experienceRelaxedExactSkill.Count > 0)
+                {
+                    candidates = experienceRelaxedExactSkill;
+                    relaxation = "experience,subskill";
+                    planDeviation = true;
+                    deviationReason = "RELAX_SUBSKILL";
+                }
             }
 
             if (candidates.Count == 0)

@@ -18,12 +18,17 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
     public sealed record TechnicalArbiterNextQuestion(
         TechnicalAttemptType? AttemptType,
-        string? Content,
         IReadOnlyList<string> TargetRubricCodes,
-        int? SelectedMainQuestionId,
-        TechnicalQuestionGenerationReason? GenerationReason = null,
-        bool PlanDeviation = false,
-        string? PlanDeviationReason = null);
+        TechnicalQuestionGenerationReason? GenerationReason = null);
+
+    internal sealed record TechnicalAdaptiveRuleOutcome(
+        TechnicalInterviewDecision Decision,
+        bool FinalizeMainQuestion,
+        TechnicalAttemptType? NextAttemptType,
+        TechnicalQuestionGenerationReason? NextGenerationReason,
+        int RequiredClarificationCount,
+        int RequiredFollowUpCount,
+        TechnicalAdaptiveStage Stage);
 
     public sealed record TechnicalDecisionArbiterResult(
         bool IsSuccess,
@@ -41,6 +46,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         bool QuestionFallbackUsed,
         long CriticalPathLatencyMs,
         TechnicalInterviewDecision? AiSuggestedAction,
+        string DecisionReason,
         string? OverrideReason,
         decimal RawScore,
         decimal AppliedBonus,
@@ -48,15 +54,15 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         decimal? FinalMainQuestionScore,
         int RequiredClarificationCount,
         int RequiredFollowUpCount,
-        TechnicalAdaptiveStage AdaptiveStage);
+        TechnicalAdaptiveStage AdaptiveStage,
+        TechnicalAIEvaluationResponse? EffectiveEvaluation);
 
     public interface ITechnicalInterviewDecisionArbiter
     {
         TechnicalDecisionArbiterResult Resolve(
             TechnicalAnswerProcessingContext context,
             TechnicalRubricDefinition rubric,
-            TechnicalParallelAIResults results,
-            IReadOnlySet<int> activeCandidateQuestionIds);
+            TechnicalParallelAIResults results);
     }
 
     public sealed class TechnicalInterviewDecisionArbiter : ITechnicalInterviewDecisionArbiter
@@ -64,7 +70,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         private readonly ITechnicalAIResponseValidator _validator;
         private readonly ITechnicalRubricScoringService _scoringService;
         private readonly ITechnicalFollowUpDecisionEngine _decisionEngine;
-        private readonly ITechnicalAdaptiveRuleEngine _adaptiveRuleEngine;
         private readonly ITechnicalFollowUpBonusCalculator _bonusCalculator;
         private readonly TechnicalInterviewOptions _options;
 
@@ -72,14 +77,12 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             ITechnicalAIResponseValidator validator,
             ITechnicalRubricScoringService scoringService,
             ITechnicalFollowUpDecisionEngine decisionEngine,
-            ITechnicalAdaptiveRuleEngine adaptiveRuleEngine,
             ITechnicalFollowUpBonusCalculator bonusCalculator,
             TechnicalInterviewOptions options)
         {
             _validator = validator;
             _scoringService = scoringService;
             _decisionEngine = decisionEngine;
-            _adaptiveRuleEngine = adaptiveRuleEngine;
             _bonusCalculator = bonusCalculator;
             _options = options;
         }
@@ -87,32 +90,27 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         public TechnicalDecisionArbiterResult Resolve(
             TechnicalAnswerProcessingContext context,
             TechnicalRubricDefinition rubric,
-            TechnicalParallelAIResults results,
-            IReadOnlySet<int> activeCandidateQuestionIds)
+            TechnicalParallelAIResults results)
         {
-            if (!results.Evaluation.IsFulfilled)
-            {
-                return Failure(
-                    results.Evaluation.ErrorCode ?? "AI_EVALUATION_FAILED",
-                    results,
-                    results.Evaluation.Status);
-            }
-
-            var evaluation = results.Evaluation.ProviderResult!.Data!;
+            var evaluationFallbackUsed = !results.Evaluation.IsFulfilled;
+            var evaluation = evaluationFallbackUsed
+                ? BuildEvaluationFallback(context, rubric)
+                : results.Evaluation.ProviderResult!.Data!;
             var validation = _validator.ValidateEvaluation(
                 evaluation,
                 rubric,
                 context.BuildCompleteAnswerContext());
             if (!validation.IsValid)
             {
-                return Failure(
-                    validation.ErrorCode ?? "INVALID_AI_EVALUATION",
-                    results,
-                    TechnicalAITaskStatus.InvalidOutput);
+                evaluationFallbackUsed = true;
+                evaluation = BuildEvaluationFallback(context, rubric);
+                validation = _validator.ValidateEvaluation(
+                    evaluation,
+                    rubric,
+                    context.BuildCompleteAnswerContext());
             }
 
             var score = _scoringService.ScoreQuestion(evaluation, rubric);
-            var aiSuggestedAction = validation.AiSuggestedDecision;
             var appliedBonus = 0m;
             var cumulativeBonus = context.CumulativeFollowUpBonus;
             if (context.UseAdaptiveRubricFramework
@@ -134,21 +132,11 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
             if (context.UseAdaptiveRubricFramework)
             {
-                var initialMainScore = context.AttemptType == TechnicalAttemptType.Main
-                    ? score.FinalOverallScore
-                    : context.InitialMainScore
-                        ?? throw new InvalidOperationException("Adaptive sub-question context is missing the initial Main score.");
-                var adaptive = _adaptiveRuleEngine.Resolve(new TechnicalAdaptiveRuleInput(
-                    context.AttemptType,
-                    initialMainScore,
-                    context.RequiredClarificationCount,
-                    context.CompletedClarificationCount,
-                    context.RequiredFollowUpCount,
-                    context.CompletedFollowUpCount,
-                    context.CompletedMainQuestionCount,
-                    context.TargetMainQuestionCount,
-                    context.IsReliabilityFollowUpRequired,
-                    context.CurrentGenerationReason == TechnicalQuestionGenerationReason.ReliabilityMinimum));
+                var adaptive = ResolveAdaptiveRule(
+                    context,
+                    rubric,
+                    evaluation,
+                    score.FinalOverallScore);
                 resolvedDecision = adaptive.Decision;
                 finalizeMainQuestion = adaptive.FinalizeMainQuestion;
                 nextAttemptType = adaptive.NextAttemptType;
@@ -174,7 +162,11 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             else
             {
                 var legacy = _decisionEngine.Resolve(
-                    aiSuggestedAction ?? TechnicalInterviewDecision.NextQuestion,
+                    ResolveRubricAction(
+                        evaluation,
+                        score.FinalOverallScore,
+                        canClarify: true,
+                        canFollowUp: true),
                     context.ClarificationCount,
                     context.FollowUpCount,
                     context.CompletedMainQuestionCount,
@@ -195,97 +187,47 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 finalMainQuestionScore = legacy.FinalizeMainQuestion ? score.FinalOverallScore : null;
             }
 
-            var overrideReason = aiSuggestedAction.HasValue
-                ? aiSuggestedAction.Value == resolvedDecision
-                    ? null
-                    : "BACKEND_ADAPTIVE_RULE_OVERRIDE"
-                : "AI_SUGGESTED_ACTION_INVALID_OR_MISSING";
+            var overrideReason = evaluationFallbackUsed
+                ? results.Evaluation.Status == TechnicalAITaskStatus.Timeout
+                    ? "EVALUATION_TIMEOUT"
+                    : "EVALUATION_INVALID_OR_UNAVAILABLE"
+                : context.IsReliabilityFollowUpRequired
+                    && resolvedDecision == TechnicalInterviewDecision.FollowUp
+                    ? "RELIABILITY_MINIMUM"
+                : null;
+            var decisionReason = ResolveDecisionReason(
+                context,
+                evaluation,
+                score.FinalOverallScore,
+                resolvedDecision,
+                evaluationFallbackUsed);
 
             var feedback = MergeFeedback(context, evaluation, results.Feedback);
             var feedbackStatus = feedback.FallbackUsed
                 ? TechnicalAITaskStatus.FallbackUsed
                 : results.Feedback.Status;
-            var questionStatus = results.QuestionBundle.Status;
+            var questionStatus = TechnicalAITaskStatus.NotStarted;
             var questionFallbackUsed = false;
             TechnicalArbiterNextQuestion? nextQuestion = null;
 
             if (!finalizeMainQuestion)
             {
-                var bundleCandidate = nextAttemptType == TechnicalAttemptType.Clarification
-                    ? results.QuestionBundle.ProviderResult?.Data?.ClarificationCandidate
-                    : results.QuestionBundle.ProviderResult?.Data?.FollowUpCandidate;
-                var candidateValid = results.QuestionBundle.IsFulfilled
-                    && IsValidSubQuestion(bundleCandidate, nextAttemptType!.Value, evaluation, rubric, context);
-
-                if (candidateValid)
-                {
-                    nextQuestion = new TechnicalArbiterNextQuestion(
-                        nextAttemptType,
-                        bundleCandidate!.Content.Trim(),
-                        CleanCodes(bundleCandidate.TargetRubricCodes),
-                        null,
-                        nextGenerationReason);
-                }
-                else
-                {
-                    questionFallbackUsed = true;
-                    questionStatus = TechnicalAITaskStatus.FallbackUsed;
-                    var targetCodes = ResolveFallbackTargetCodes(evaluation, rubric);
-                    nextQuestion = new TechnicalArbiterNextQuestion(
-                        nextAttemptType,
-                        BuildSubQuestionFallback(context.Language, nextAttemptType!.Value),
-                        targetCodes,
-                        null,
-                        nextGenerationReason);
-                }
+                nextQuestion = new TechnicalArbiterNextQuestion(
+                    nextAttemptType,
+                    ResolveTargetRubricCodes(evaluation, rubric),
+                    nextGenerationReason);
             }
             else if (resolvedDecision == TechnicalInterviewDecision.NextQuestion)
             {
-                var selectedId = results.QuestionBundle.IsFulfilled
-                    ? results.QuestionBundle.ProviderResult?.Data?.NextMainQuestionCandidate?.SelectedQuestionId
-                    : null;
-                var validSelectedId = selectedId.HasValue
-                    && activeCandidateQuestionIds.Contains(selectedId.Value)
-                    && context.CandidateQuestionPool.Any(item => item.QuestionId == selectedId.Value)
-                    && !context.AskedQuestionIds.Contains(selectedId.Value);
-
-                if (!validSelectedId)
-                {
-                    selectedId = context.CandidateQuestionPool
-                        .Select(item => item.QuestionId)
-                        .FirstOrDefault(id =>
-                            activeCandidateQuestionIds.Contains(id)
-                            && !context.AskedQuestionIds.Contains(id));
-                    questionFallbackUsed = true;
-                    questionStatus = TechnicalAITaskStatus.FallbackUsed;
-                }
-
-                if (!selectedId.HasValue || selectedId.Value <= 0)
-                {
-                    return Failure(
-                        "NO_ACTIVE_NEXT_QUESTION",
-                        results,
-                        TechnicalAITaskStatus.Fulfilled,
-                        feedback,
-                        score,
-                        resolvedDecision);
-                }
-
                 nextQuestion = new TechnicalArbiterNextQuestion(
                     TechnicalAttemptType.Main,
-                    null,
                     Array.Empty<string>(),
-                    selectedId.Value,
-                    TechnicalQuestionGenerationReason.QuestionPlan,
-                    context.NextPlanDeviation,
-                    context.NextPlanDeviationReason);
+                    TechnicalQuestionGenerationReason.QuestionPlan);
             }
 
             var criticalPath = Math.Max(
                 results.Evaluation.LatencyMs,
-                resolvedDecision == TechnicalInterviewDecision.EndInterview
-                    ? 0
-                    : results.QuestionBundle.LatencyMs);
+                0);
 
             return new TechnicalDecisionArbiterResult(
                 true,
@@ -295,14 +237,17 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 score,
                 feedback,
                 nextQuestion,
-                results.Evaluation.Status,
+                evaluationFallbackUsed
+                    ? TechnicalAITaskStatus.FallbackUsed
+                    : results.Evaluation.Status,
                 feedbackStatus,
                 questionStatus,
-                false,
+                evaluationFallbackUsed,
                 feedback.FallbackUsed,
                 questionFallbackUsed,
                 criticalPath,
-                aiSuggestedAction,
+                null,
+                decisionReason,
                 overrideReason,
                 score.FinalOverallScore,
                 appliedBonus,
@@ -310,7 +255,190 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 finalMainQuestionScore,
                 requiredClarificationCount,
                 requiredFollowUpCount,
-                adaptiveStage);
+                adaptiveStage,
+                evaluation);
+        }
+
+        private TechnicalAdaptiveRuleOutcome ResolveAdaptiveRule(
+            TechnicalAnswerProcessingContext context,
+            TechnicalRubricDefinition rubric,
+            TechnicalAIEvaluationResponse evaluation,
+            decimal currentScore)
+        {
+            var projectedClarifications = context.CompletedClarificationCount
+                + (context.AttemptType == TechnicalAttemptType.Clarification ? 1 : 0);
+            var projectedFollowUps = context.CompletedFollowUpCount
+                + (context.AttemptType == TechnicalAttemptType.FollowUp ? 1 : 0);
+            var totalSubQuestions = projectedClarifications + projectedFollowUps;
+            var canClarify = projectedClarifications < rubric.Limits.MaxClarificationsPerMainQuestion
+                && totalSubQuestions < rubric.Limits.MaxTotalSubQuestionsPerMainQuestion;
+            var canFollowUp = projectedFollowUps < rubric.Limits.MaxFollowUpsPerMainQuestion
+                && totalSubQuestions < rubric.Limits.MaxTotalSubQuestionsPerMainQuestion;
+
+            var action = ResolveRubricAction(
+                evaluation,
+                currentScore,
+                canClarify,
+                canFollowUp);
+            var generationReason = TechnicalQuestionGenerationReason.AdaptiveScoreRule;
+
+            // Reliability is a hard completion constraint. It may only force a
+            // content-grounded follow-up while capacity remains.
+            if (context.IsReliabilityFollowUpRequired && canFollowUp)
+            {
+                action = TechnicalInterviewDecision.FollowUp;
+                generationReason = TechnicalQuestionGenerationReason.ReliabilityMinimum;
+            }
+
+            if (action == TechnicalInterviewDecision.NextQuestion
+                && HasInsufficientEvidenceToFinalize(evaluation))
+            {
+                action = canClarify
+                    && evaluation.Evaluation.AnswerQuality.Contains("AMBIG", StringComparison.OrdinalIgnoreCase)
+                    ? TechnicalInterviewDecision.Clarification
+                    : canFollowUp
+                        ? TechnicalInterviewDecision.FollowUp
+                        : action;
+            }
+
+            if (action == TechnicalInterviewDecision.Clarification
+                && (!canClarify || context.AttemptType == TechnicalAttemptType.Clarification))
+            {
+                action = canFollowUp
+                    ? TechnicalInterviewDecision.FollowUp
+                    : TechnicalInterviewDecision.NextQuestion;
+            }
+            if (action == TechnicalInterviewDecision.FollowUp && !canFollowUp)
+            {
+                action = TechnicalInterviewDecision.NextQuestion;
+            }
+
+            if (action == TechnicalInterviewDecision.Clarification)
+            {
+                return new TechnicalAdaptiveRuleOutcome(
+                    action,
+                    false,
+                    TechnicalAttemptType.Clarification,
+                    generationReason,
+                    Math.Max(context.RequiredClarificationCount, projectedClarifications + 1),
+                    context.RequiredFollowUpCount,
+                    TechnicalAdaptiveStage.AwaitingClarification);
+            }
+            if (action == TechnicalInterviewDecision.FollowUp)
+            {
+                return new TechnicalAdaptiveRuleOutcome(
+                    action,
+                    false,
+                    TechnicalAttemptType.FollowUp,
+                    generationReason,
+                    context.RequiredClarificationCount,
+                    Math.Max(context.RequiredFollowUpCount, projectedFollowUps + 1),
+                    generationReason == TechnicalQuestionGenerationReason.ReliabilityMinimum
+                        ? TechnicalAdaptiveStage.AwaitingReliabilityFollowUp
+                        : TechnicalAdaptiveStage.AwaitingFollowUp);
+            }
+
+            var finalDecision = context.CompletedMainQuestionCount + 1 >= context.TargetMainQuestionCount
+                ? TechnicalInterviewDecision.EndInterview
+                : TechnicalInterviewDecision.NextQuestion;
+            return new TechnicalAdaptiveRuleOutcome(
+                finalDecision,
+                true,
+                null,
+                null,
+                context.RequiredClarificationCount,
+                context.RequiredFollowUpCount,
+                TechnicalAdaptiveStage.Finalized);
+        }
+
+        private static TechnicalInterviewDecision ResolveRubricAction(
+            TechnicalAIEvaluationResponse evaluation,
+            decimal score,
+            bool canClarify,
+            bool canFollowUp)
+        {
+            var ambiguous = evaluation.Evaluation.AnswerQuality.Contains("AMBIG", StringComparison.OrdinalIgnoreCase)
+                || evaluation.Evaluation.AnswerQuality.Contains("UNCLEAR", StringComparison.OrdinalIgnoreCase)
+                || evaluation.Evaluation.AnswerQuality.Contains("NON_RESPONSIVE", StringComparison.OrdinalIgnoreCase)
+                || evaluation.Evaluation.AnswerQuality.Contains("UNVERIFIED", StringComparison.OrdinalIgnoreCase);
+            if (score < 3m && ambiguous && canClarify)
+                return TechnicalInterviewDecision.Clarification;
+            if (score < 5m && canFollowUp)
+                return TechnicalInterviewDecision.FollowUp;
+            if (score < 8m
+                && canFollowUp
+                && (evaluation.MissingPoints.Count > 0 || evaluation.IncorrectClaims.Count > 0))
+            {
+                return TechnicalInterviewDecision.FollowUp;
+            }
+            return TechnicalInterviewDecision.NextQuestion;
+        }
+
+        private static bool HasInsufficientEvidenceToFinalize(TechnicalAIEvaluationResponse evaluation)
+        {
+            return evaluation.Confidence < 0.35m
+                || (evaluation.Evaluation.MissingPoints.Count > 0
+                    && evaluation.DimensionEvaluations.All(item => item.Evidence.Count == 0));
+        }
+
+        private static string ResolveDecisionReason(
+            TechnicalAnswerProcessingContext context,
+            TechnicalAIEvaluationResponse evaluation,
+            decimal score,
+            TechnicalInterviewDecision decision,
+            bool evaluationFallbackUsed)
+        {
+            if (context.IsReliabilityFollowUpRequired
+                && decision == TechnicalInterviewDecision.FollowUp)
+            {
+                return "RUBRIC_RULE_RELIABILITY_MINIMUM";
+            }
+            if (decision == TechnicalInterviewDecision.Clarification)
+            {
+                return evaluationFallbackUsed
+                    ? "RUBRIC_RULE_UNVERIFIED_ANSWER_CLARIFICATION"
+                    : "RUBRIC_RULE_LOW_SCORE_AMBIGUOUS_ANSWER";
+            }
+            if (decision == TechnicalInterviewDecision.FollowUp)
+            {
+                if (score < 3m)
+                    return "RUBRIC_RULE_LOW_SCORE_FOLLOW_UP";
+                if (score < 5m)
+                    return "RUBRIC_RULE_PARTIAL_ANSWER_FOLLOW_UP";
+                return HasInsufficientEvidenceToFinalize(evaluation)
+                    ? "RUBRIC_RULE_INSUFFICIENT_EVIDENCE_FOLLOW_UP"
+                    : "RUBRIC_RULE_MISSING_OR_INCORRECT_POINT_FOLLOW_UP";
+            }
+
+            return "RUBRIC_RULE_ADVANCE_OR_CAPACITY_REACHED";
+        }
+
+        private static TechnicalAIEvaluationResponse BuildEvaluationFallback(
+            TechnicalAnswerProcessingContext context,
+            TechnicalRubricDefinition rubric)
+        {
+            var missing = context.RemainingMissingEvidence.Length > 0
+                ? context.RemainingMissingEvidence.ToList()
+                : new List<string> { "Insufficient validated evidence was available for reliable scoring." };
+            var response = new TechnicalAIEvaluationResponse
+            {
+                Confidence = 0m,
+                Evaluation = new TechnicalAIEvaluationPayload
+                {
+                    AnswerQuality = "UNVERIFIED",
+                    MissingPoints = missing,
+                    ImprovementSuggestions = new List<string> { "Provide concrete technical reasoning and evidence." },
+                    DimensionEvaluations = rubric.Dimensions.Select(dimension => new TechnicalAIDimensionEvaluation
+                    {
+                        RubricCode = dimension.Code,
+                        SuggestedScore = rubric.MinimumScore,
+                        SuggestedLevel = rubric.GetLevelCode(rubric.MinimumScore),
+                        MissingEvidence = missing.ToList(),
+                        ReasonSummary = "Deterministic fallback used because the critical AI evaluation was unavailable."
+                    }).ToList()
+                }
+            };
+            return response;
         }
 
         private static TechnicalMergedFeedback MergeFeedback(
@@ -388,44 +516,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     !string.IsNullOrWhiteSpace(item) && item.Length <= 1_000));
         }
 
-        private static bool IsValidSubQuestion(
-            TechnicalAISubQuestionCandidate? candidate,
-            TechnicalAttemptType type,
-            TechnicalAIEvaluationResponse evaluation,
-            TechnicalRubricDefinition rubric,
-            TechnicalAnswerProcessingContext context)
-        {
-            if (candidate is null
-                || string.IsNullOrWhiteSpace(candidate.Content)
-                || candidate.Content.Length > 2_000
-                || string.IsNullOrWhiteSpace(candidate.Purpose)
-                || candidate.Purpose.Length > 500
-                || !IsSafeFeedbackText(candidate.Content, context))
-            {
-                return false;
-            }
-
-            var rubricCodes = rubric.Dimensions.Select(item => item.Code)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var targetCodes = CleanCodes(candidate.TargetRubricCodes);
-            if (targetCodes.Count == 0 || targetCodes.Any(code => !rubricCodes.Contains(code)))
-            {
-                return false;
-            }
-
-            if (type != TechnicalAttemptType.FollowUp)
-            {
-                return true;
-            }
-
-            var missingCodes = evaluation.DimensionEvaluations
-                .Where(item => item.MissingEvidence.Count > 0)
-                .Select(item => item.RubricCode)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            return missingCodes.Count == 0 || targetCodes.Any(missingCodes.Contains);
-        }
-
-        private static IReadOnlyList<string> ResolveFallbackTargetCodes(
+        private static IReadOnlyList<string> ResolveTargetRubricCodes(
             TechnicalAIEvaluationResponse evaluation,
             TechnicalRubricDefinition rubric)
         {
@@ -448,18 +539,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     string.Equals(dimension.Code, code, StringComparison.OrdinalIgnoreCase)))
                 .Take(1)
                 .ToList();
-        }
-
-        private static string BuildSubQuestionFallback(string language, TechnicalAttemptType type)
-        {
-            var vietnamese = string.Equals(language, "vi", StringComparison.OrdinalIgnoreCase);
-            return type == TechnicalAttemptType.Clarification
-                ? vietnamese
-                    ? "Bạn có thể làm rõ cách bạn đi đến kết luận vừa nêu không?"
-                    : "Could you clarify how you reached the conclusion in your answer?"
-                : vietnamese
-                    ? "Bạn có thể bổ sung một ví dụ thực tế hoặc phân tích trade-off cho câu trả lời vừa rồi không?"
-                    : "Could you add a practical example or discuss a relevant trade-off for your answer?";
         }
 
         private static bool IsSafeFeedbackText(string value, TechnicalAnswerProcessingContext context)
@@ -538,11 +617,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 .ToList();
         }
 
-        private static List<string> CleanCodes(IEnumerable<string>? values)
-        {
-            return CleanList(values).Select(item => item.ToUpperInvariant()).ToList();
-        }
-
         private static TechnicalDecisionArbiterResult Failure(
             string errorCode,
             TechnicalParallelAIResults results,
@@ -563,12 +637,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 feedback?.FallbackUsed == true
                     ? TechnicalAITaskStatus.FallbackUsed
                     : results.Feedback.Status,
-                results.QuestionBundle.Status,
+                TechnicalAITaskStatus.NotStarted,
                 false,
                 feedback?.FallbackUsed == true,
                 false,
                 results.Evaluation.LatencyMs,
                 null,
+                "RUBRIC_RULE_RESOLUTION_FAILED",
                 null,
                 score?.FinalOverallScore ?? 0m,
                 0m,
@@ -576,7 +651,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 null,
                 0,
                 0,
-                TechnicalAdaptiveStage.MainQuestion);
+                TechnicalAdaptiveStage.MainQuestion,
+                null);
         }
     }
 }
