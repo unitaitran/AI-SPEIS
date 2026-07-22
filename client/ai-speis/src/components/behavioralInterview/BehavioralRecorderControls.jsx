@@ -106,13 +106,55 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
     );
   }
 
-  if (hasTranscript || isSubmitting) {
+  if (isSubmitting) {
     return (
       <section className="behavior-recorder behavior-recorder--processing" role="status" aria-live="polite">
         <Loader2 size={24} className="behavior-spin" />
         <div>
           <strong>{t('submitting', { defaultValue: 'Đang gửi câu trả lời...' })}</strong>
           <p>{t('processingTranscriptDescription', { defaultValue: 'Hệ thống đang xử lý và chuẩn bị câu hỏi tiếp theo...' })}</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (hasTranscript) {
+    return (
+      <section className="behavior-recorder behavior-recorder--review" aria-label={t('answerReview')}>
+        <div className="behavior-recorder__review-head">
+          <div>
+            <strong>{t('answerReady')}</strong>
+            <p>{t('reviewBeforeSubmit')}</p>
+          </div>
+          <time>{formatDuration(recorder.elapsedSeconds)}</time>
+        </div>
+        {audioUrl ? <audio controls preload="metadata" src={audioUrl}>{t('audioUnsupported')}</audio> : null}
+        <div className="behavior-recorder__transcript">
+          <label htmlFor="interview-answer-transcript">{t('yourTranscript')}</label>
+          <textarea
+            id="interview-answer-transcript"
+            value={recorder.transcript}
+            onChange={(event) => recorder.setTranscript(event.target.value)}
+            placeholder={t('transcriptPlaceholder')}
+            readOnly={disabled}
+            aria-readonly={disabled}
+          />
+          <p>{t('transcriptHelper')}</p>
+        </div>
+        <div className="behavior-recorder__actions behavior-recorder__actions--review">
+          <button type="button" onClick={recorder.reset} disabled={disabled}>
+            <RotateCcw size={17} />
+            {t('recordAgain')}
+          </button>
+          <button
+            type="button"
+            className="behavior-recorder__submit"
+            onClick={onSubmit}
+            disabled={disabled || !hasTranscript}
+          >
+            <Send size={18} />
+            {t('submitAnswer')}
+          </button>
         </div>
       </section>
     );

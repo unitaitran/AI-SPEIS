@@ -12,9 +12,6 @@ public sealed class TechnicalParallelPublicContractSecurityTests
         var publicPropertyNames = typeof(TechnicalSubmitAnswerResponseDto)
             .GetProperties()
             .Select(property => property.Name)
-            .Concat(typeof(TechnicalFeedbackAcknowledgementDto)
-                .GetProperties()
-                .Select(property => property.Name))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.DoesNotContain("ExpectedAnswer", publicPropertyNames);
@@ -22,12 +19,12 @@ public sealed class TechnicalParallelPublicContractSecurityTests
         Assert.DoesNotContain("RubricInternalRules", publicPropertyNames);
         Assert.DoesNotContain("RawGeminiResponse", publicPropertyNames);
         Assert.DoesNotContain("RawPrompt", publicPropertyNames);
-        Assert.DoesNotContain("Summary", typeof(TechnicalFeedbackAcknowledgementDto)
-            .GetProperties().Select(property => property.Name));
+        Assert.DoesNotContain("Feedback", publicPropertyNames);
+        Assert.DoesNotContain("Summary", publicPropertyNames);
     }
 
     [Fact]
-    public void SubmitAndResultContractsExposeAdaptiveProgressWithoutLiveScores()
+    public void SubmitAndResultContractsExposeMinimalScoreAndAdaptiveProgress()
     {
         var submitProperties = typeof(TechnicalSubmitAnswerResponseDto)
             .GetProperties()
@@ -44,7 +41,8 @@ public sealed class TechnicalParallelPublicContractSecurityTests
 
         Assert.Contains("ResolvedAction", submitProperties);
         Assert.Contains("Progress", submitProperties);
-        Assert.DoesNotContain("Score", submitProperties);
+        Assert.Contains("QuestionScore", submitProperties);
+        Assert.DoesNotContain("CriterionScores", submitProperties);
         Assert.Contains("MainQuestionIndex", progressProperties);
         Assert.Contains("TotalMainQuestions", progressProperties);
         Assert.Contains("RequiredFollowUpCount", progressProperties);

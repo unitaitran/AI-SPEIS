@@ -25,6 +25,7 @@ import {
 } from '../../features/technicalInterview/technicalInterviewDraft';
 import { getTechnicalInterviewErrorKey } from '../../features/technicalInterview/technicalInterviewErrors';
 import {
+  canSubmitTechnicalAnswer,
   RecordingStatus,
   SttStatus,
   TechnicalSessionStatus,
@@ -331,7 +332,7 @@ function TechnicalInterviewPage({ sessionId }) {
     if (
       recorder.recordingStatus === RecordingStatus.READY
       && recorder.transcript.trim()
-      && status === TechnicalSessionStatus.IN_PROGRESS
+      && canSubmitTechnicalAnswer(status)
       && !room.isProcessing
       && !autoSubmittingRef.current
     ) {

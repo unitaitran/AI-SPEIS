@@ -10,29 +10,30 @@ namespace ai_speis_be.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "AiErrorCode",
-                table: "BehaviourAnswer",
-                type: "nvarchar(max)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "EvaluationStatus",
-                table: "BehaviourAnswer",
-                type: "nvarchar(max)",
-                nullable: true);
+            // This migration can be applied after the interview-flow migration in
+            // environments that upgraded the feature branch before merging dev.
+            // Conditional DDL keeps both migration histories safe.
+            migrationBuilder.Sql("""
+                IF COL_LENGTH('dbo.BehaviourAnswer', 'AiErrorCode') IS NULL
+                    ALTER TABLE [BehaviourAnswer] ADD [AiErrorCode] nvarchar(max) NULL;
+                """);
+            migrationBuilder.Sql("""
+                IF COL_LENGTH('dbo.BehaviourAnswer', 'EvaluationStatus') IS NULL
+                    ALTER TABLE [BehaviourAnswer] ADD [EvaluationStatus] nvarchar(max) NULL;
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "AiErrorCode",
-                table: "BehaviourAnswer");
-
-            migrationBuilder.DropColumn(
-                name: "EvaluationStatus",
-                table: "BehaviourAnswer");
+            migrationBuilder.Sql("""
+                IF COL_LENGTH('dbo.BehaviourAnswer', 'AiErrorCode') IS NOT NULL
+                    ALTER TABLE [BehaviourAnswer] DROP COLUMN [AiErrorCode];
+                """);
+            migrationBuilder.Sql("""
+                IF COL_LENGTH('dbo.BehaviourAnswer', 'EvaluationStatus') IS NOT NULL
+                    ALTER TABLE [BehaviourAnswer] DROP COLUMN [EvaluationStatus];
+                """);
         }
     }
 }

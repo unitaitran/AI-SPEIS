@@ -15,32 +15,45 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
         {
             return new BehaviouralInterviewOptions
             {
-                Provider = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_PROVIDER", "external"),
-                ApiKey = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_API_KEY", string.Empty),
-                BaseUrl = EnsureTrailingSlash(Get(
+                Provider = GetFirst(configuration, "external",
+                    "BEHAVIOURAL_INTERVIEW_AI_PROVIDER", $"{SectionName}:Provider"),
+                ApiKey = GetFirst(configuration, string.Empty,
+                    "BEHAVIOURAL_INTERVIEW_AI_API_KEY", $"{SectionName}:ApiKey", "GeminiAI:ApiKey"),
+                BaseUrl = EnsureTrailingSlash(GetFirst(
                     configuration,
-                    "BEHAVIOURAL_INTERVIEW_AI_BASE_URL",
-                    "https://generativelanguage.googleapis.com/v1beta/openai/")),
-                Model = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_MODEL", "gemini-2.5-flash"),
-                MaxRetries = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_MAX_RETRIES", 3, 0, 5),
-                TimeoutSeconds = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", 30, 5, 180)
+                    "https://generativelanguage.googleapis.com/v1beta/openai/",
+                    "BEHAVIOURAL_INTERVIEW_AI_BASE_URL", $"{SectionName}:BaseUrl")),
+                Model = GetFirst(configuration, "gemini-2.5-flash",
+                    "BEHAVIOURAL_INTERVIEW_AI_MODEL", $"{SectionName}:Model"),
+                MaxRetries = GetInt(configuration, 3, 0, 5,
+                    "BEHAVIOURAL_INTERVIEW_AI_MAX_RETRIES", $"{SectionName}:MaxRetries"),
+                TimeoutSeconds = GetInt(configuration, 30, 5, 180,
+                    "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", $"{SectionName}:TimeoutSeconds")
             };
         }
 
-        private static string Get(IConfiguration configuration, string key, string fallback)
+        private static string GetFirst(
+            IConfiguration configuration,
+            string fallback,
+            params string[] keys)
         {
-            var value = configuration[key];
-            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+            foreach (var key in keys)
+            {
+                var value = configuration[key];
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value.Trim();
+            }
+            return fallback;
         }
 
         private static int GetInt(
             IConfiguration configuration,
-            string key,
             int fallback,
             int minimum,
-            int maximum)
+            int maximum,
+            params string[] keys)
         {
-            return int.TryParse(configuration[key], out var parsed)
+            return int.TryParse(GetFirst(configuration, string.Empty, keys), out var parsed)
                 ? Math.Clamp(parsed, minimum, maximum)
                 : fallback;
         }

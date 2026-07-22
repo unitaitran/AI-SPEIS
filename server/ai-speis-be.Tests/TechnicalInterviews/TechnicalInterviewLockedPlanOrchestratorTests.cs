@@ -352,7 +352,10 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
                 new TechnicalQuestionPoolResult
                 {
                     Candidates = questions.Where(question =>
-                            TechnicalQuestionMetadata.FuzzyMatches(question.Skill!, request.PlanSlot!.TargetSkill)
+                            string.Equals(
+                                question.Skill,
+                                request.PlanSlot!.TargetSkill,
+                                StringComparison.OrdinalIgnoreCase)
                             && question.Difficulty == request.PlanSlot.PlannedDifficulty)
                         .ToList()
                 });
@@ -379,8 +382,8 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
             .Returns(TechnicalTestRubric.Create());
 
         var options = new TechnicalInterviewOptions();
-        var parallel = new Mock<ITechnicalAnswerParallelProcessor>();
-        parallel.Setup(item => item.ProcessAsync(
+        var evaluationService = new Mock<ITechnicalAnswerEvaluationService>();
+        evaluationService.Setup(item => item.EvaluateAsync(
                 It.IsAny<TechnicalAnswerProcessingContext>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(TechnicalParallelTestData.Results(
@@ -401,7 +404,7 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
             Mock.Of<ITechnicalInterviewAIProviderResolver>(),
             rubricProvider.Object,
             new TechnicalRubricScoringService(),
-            parallel.Object,
+            evaluationService.Object,
             arbiter,
             new TechnicalQuestionPlanBuilder(),
             jd.Object,

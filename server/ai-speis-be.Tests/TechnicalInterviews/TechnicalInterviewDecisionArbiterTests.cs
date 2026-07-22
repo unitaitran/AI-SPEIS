@@ -52,7 +52,7 @@ public sealed class TechnicalInterviewDecisionArbiterTests
     }
 
     [Fact]
-    public void Resolve_ClarificationScoreUsesSeventyFivePercentBaseWhenChainEnds()
+    public void Resolve_ClarificationRecoveredIntoFiveToEightBandRequestsOneFollowUp()
     {
         var context = TechnicalParallelTestData.CreateContext(
             attemptType: TechnicalAttemptType.Clarification,
@@ -60,8 +60,9 @@ public sealed class TechnicalInterviewDecisionArbiterTests
 
         var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(8m));
 
-        Assert.True(result.FinalizeMainQuestion);
-        Assert.Equal(6m, result.FinalMainQuestionScore);
+        Assert.False(result.FinalizeMainQuestion);
+        Assert.Equal(TechnicalInterviewDecision.FollowUp, result.Decision);
+        Assert.Equal(1, result.RequiredFollowUpCount);
     }
 
     [Fact]
@@ -143,18 +144,16 @@ public sealed class TechnicalInterviewDecisionArbiterTests
     }
 
     [Fact]
-    public void Resolve_FeedbackTimeoutDoesNotLoseEvaluationOrTransition()
+    public void Resolve_DoesNotCreatePerAnswerFeedbackTask()
     {
         var result = _arbiter.Resolve(
             TechnicalParallelTestData.CreateContext(),
             TechnicalTestRubric.Create(),
-            TechnicalParallelTestData.Results(
-                feedback: TechnicalParallelTestData.Failed<TechnicalAIFeedbackDraftResponse>(
-                    TechnicalAITaskStatus.Timeout,
-                    "TIMEOUT")));
+            TechnicalParallelTestData.Results());
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.FeedbackFallbackUsed);
+        Assert.Equal(TechnicalAITaskStatus.NotStarted, result.FeedbackStatus);
+        Assert.False(result.FeedbackFallbackUsed);
         Assert.NotNull(result.Score);
     }
 

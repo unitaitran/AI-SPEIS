@@ -8,6 +8,11 @@ export const TechnicalSessionStatus = Object.freeze({
   FAILED: 'FAILED',
 });
 
+export const canSubmitTechnicalAnswer = (status) => (
+  status === TechnicalSessionStatus.QUESTION_READY
+  || status === TechnicalSessionStatus.ANSWERING
+);
+
 export const TechnicalQuestionType = Object.freeze({
   MAIN: 'MAIN',
   CLARIFICATION: 'CLARIFICATION',

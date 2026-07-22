@@ -14,7 +14,21 @@ namespace ai_speis_be.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>("SubmissionIdempotencyKey", "BehaviourAnswer", "nvarchar(128)", maxLength: 128, nullable: true);
-            migrationBuilder.AddColumn<string>("EvaluationStatus", "BehaviourAnswer", "nvarchar(30)", maxLength: 30, nullable: false, defaultValue: "NOT_STARTED");
+            migrationBuilder.Sql("""
+                UPDATE [BehaviourAnswer]
+                SET [EvaluationStatus] = 'NOT_STARTED'
+                WHERE [EvaluationStatus] IS NULL OR LTRIM(RTRIM([EvaluationStatus])) = '';
+                """);
+            migrationBuilder.AlterColumn<string>(
+                name: "EvaluationStatus",
+                table: "BehaviourAnswer",
+                type: "nvarchar(30)",
+                maxLength: 30,
+                nullable: false,
+                defaultValue: "NOT_STARTED",
+                oldClrType: typeof(string),
+                oldType: "nvarchar(max)",
+                oldNullable: true);
             migrationBuilder.AddColumn<string>("EvaluationModel", "BehaviourAnswer", "nvarchar(120)", maxLength: 120, nullable: true);
             migrationBuilder.AddColumn<string>("EvaluationPromptVersion", "BehaviourAnswer", "nvarchar(80)", maxLength: 80, nullable: true);
             migrationBuilder.AddColumn<int>("EvaluationInputTokens", "BehaviourAnswer", "int", nullable: true);
@@ -61,10 +75,18 @@ namespace ai_speis_be.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterColumn<string>(
+                name: "EvaluationStatus",
+                table: "BehaviourAnswer",
+                type: "nvarchar(max)",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "nvarchar(30)",
+                oldMaxLength: 30);
             migrationBuilder.DropIndex("IX_BehaviourAnswer_SubmissionIdempotencyKey", "BehaviourAnswer");
             foreach (var column in new[]
             {
-                "SubmissionIdempotencyKey", "EvaluationStatus", "EvaluationModel", "EvaluationPromptVersion",
+                "SubmissionIdempotencyKey", "EvaluationModel", "EvaluationPromptVersion",
                 "EvaluationInputTokens", "EvaluationOutputTokens", "EvaluationLatencyMs", "EvaluationError",
                 "ProcessingStartedAt", "ProcessingCompletedAt"
             }) migrationBuilder.DropColumn(column, "BehaviourAnswer");

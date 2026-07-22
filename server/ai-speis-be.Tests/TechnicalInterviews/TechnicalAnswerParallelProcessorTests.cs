@@ -7,55 +7,42 @@ namespace ai_speis_be.Tests.TechnicalInterviews;
 public sealed class TechnicalAnswerParallelProcessorTests
 {
     [Fact]
-    public async Task ProcessAsync_StartsEvaluationDecisionAndFeedbackBeforeAwaitingEither()
+    public async Task EvaluateAsync_PerformsExactlyOneEvaluationOperation()
     {
         var provider = new BarrierProvider();
-        var processor = CreateProcessor(provider);
+        var service = CreateService(provider);
         var context = TechnicalParallelTestData.CreateContext();
 
-        var processing = processor.ProcessAsync(context, CancellationToken.None);
-        await Task.WhenAll(provider.EvaluationStarted.Task, provider.FeedbackStarted.Task)
-            .WaitAsync(TimeSpan.FromSeconds(1));
+        var processing = service.EvaluateAsync(context, CancellationToken.None);
+        await provider.EvaluationStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.False(processing.IsCompleted);
-        Assert.All(provider.Contexts, item => Assert.Same(context, item));
+        Assert.Equal(1, provider.EvaluationCallCount);
+        Assert.Same(context, provider.Context);
         provider.Release.TrySetResult();
 
-        var results = await processing;
-        Assert.True(results.Evaluation.IsFulfilled);
-        Assert.True(results.Feedback.IsFulfilled);
+        var result = await processing;
+        Assert.True(result.Evaluation.IsFulfilled);
+        Assert.Equal(1, provider.EvaluationCallCount);
     }
 
     [Fact]
-    public async Task ProcessAsync_FeedbackTimeoutDoesNotDiscardCriticalEvaluationDecision()
+    public async Task EvaluateAsync_TimeoutReturnsEvaluationFallbackStatus()
     {
-        var provider = new SlowFeedbackProvider();
-        var processor = new TechnicalAnswerParallelProcessor(
-            new FixedResolver(provider),
-            new TechnicalInterviewOptions
-            {
-                ParallelProcessingEnabled = true,
-                MaxParallelTasksPerSession = 2,
-                EvaluationTimeoutMs = 1_000,
-                FeedbackTimeoutMs = 25
-            });
+        var service = new TechnicalAnswerEvaluationService(
+            new FixedResolver(new SlowEvaluationProvider()),
+            new TechnicalInterviewOptions { EvaluationTimeoutMs = 25 });
 
-        var results = await processor.ProcessAsync(
+        var result = await service.EvaluateAsync(
             TechnicalParallelTestData.CreateContext(),
             CancellationToken.None);
 
-        Assert.True(results.Evaluation.IsFulfilled);
-        Assert.Equal(ai_speis_be.Models.Enums.TechnicalAITaskStatus.Timeout, results.Feedback.Status);
+        Assert.Equal(ai_speis_be.Models.Enums.TechnicalAITaskStatus.Timeout, result.Evaluation.Status);
+        Assert.False(result.Evaluation.IsFulfilled);
     }
 
-    private static TechnicalAnswerParallelProcessor CreateProcessor(ITechnicalInterviewAIProvider provider) =>
-        new(new FixedResolver(provider), new TechnicalInterviewOptions
-        {
-            ParallelProcessingEnabled = true,
-            MaxParallelTasksPerSession = 2,
-            EvaluationTimeoutMs = 2_000,
-            FeedbackTimeoutMs = 2_000
-        });
+    private static TechnicalAnswerEvaluationService CreateService(ITechnicalInterviewAIProvider provider) =>
+        new(new FixedResolver(provider), new TechnicalInterviewOptions { EvaluationTimeoutMs = 2_000 });
 
     private sealed class FixedResolver : ITechnicalInterviewAIProviderResolver
     {
@@ -68,9 +55,6 @@ public sealed class TechnicalAnswerParallelProcessorTests
     {
         public string ProviderName => "fake";
         public abstract Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken);
-        public abstract Task<AIProviderResult<TechnicalAIFeedbackDraftResponse>> GenerateFeedbackDraftAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken);
         public Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
@@ -87,47 +71,33 @@ public sealed class TechnicalAnswerParallelProcessorTests
     private sealed class BarrierProvider : FakeProvider
     {
         public TaskCompletionSource EvaluationStarted { get; } = NewSignal();
-        public TaskCompletionSource FeedbackStarted { get; } = NewSignal();
         public TaskCompletionSource Release { get; } = NewSignal();
-        public List<TechnicalAnswerProcessingContext> Contexts { get; } = new();
+        public int EvaluationCallCount { get; private set; }
+        public TechnicalAnswerProcessingContext? Context { get; private set; }
 
         public override async Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken)
         {
-            Contexts.Add(context);
+            EvaluationCallCount++;
+            Context = context;
             EvaluationStarted.TrySetResult();
             await Release.Task.WaitAsync(cancellationToken);
             return Success(TechnicalParallelTestData.CreateEvaluation());
-        }
-
-        public override async Task<AIProviderResult<TechnicalAIFeedbackDraftResponse>> GenerateFeedbackDraftAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken)
-        {
-            Contexts.Add(context);
-            FeedbackStarted.TrySetResult();
-            await Release.Task.WaitAsync(cancellationToken);
-            return Success(TechnicalParallelTestData.CreateFeedback());
         }
 
         private static TaskCompletionSource NewSignal() =>
             new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    private sealed class SlowFeedbackProvider : FakeProvider
+    private sealed class SlowEvaluationProvider : FakeProvider
     {
-        public override Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken) => Task.FromResult(
-                Success(TechnicalParallelTestData.CreateEvaluation()));
-
-        public override async Task<AIProviderResult<TechnicalAIFeedbackDraftResponse>> GenerateFeedbackDraftAsync(
+        public override async Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken)
         {
             await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-            return Success(TechnicalParallelTestData.CreateFeedback());
+            return Success(TechnicalParallelTestData.CreateEvaluation());
         }
     }
 }
