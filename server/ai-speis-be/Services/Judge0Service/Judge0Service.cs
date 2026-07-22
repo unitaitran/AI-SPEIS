@@ -41,36 +41,75 @@ namespace ai_speis_be.Services.Judge0Service
                 "Gửi batch submission đến Judge0: {Count} test cases",
                 submissions.Count);
 
-            var response = await client.PostAsync(
-                "/submissions/batch?wait=true&base64_encoded=false&fields=stdout,stderr,compile_output,message,time,memory,token,status",
-                content,
-                cancellationToken);
+            // Step 1: POST batch submission -> Nhận danh sách token [{ "token": "..." }]
+            var response = await client.PostAsync("/submissions/batch", content, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
                 _logger.LogError(
-                    "Judge0 batch submission thất bại. Status: {Status}, Body: {Body}",
+                    "Judge0 batch submission POST thất bại. Status: {Status}, Body: {Body}",
                     response.StatusCode, errorBody);
                 throw new HttpRequestException(
                     $"Judge0 trả về lỗi {response.StatusCode}: {errorBody}");
             }
 
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            var results = JsonSerializer.Deserialize<List<Judge0SubmissionResponse>>(
+            var tokenResponses = JsonSerializer.Deserialize<List<Judge0TokenResponse>>(
                 responseBody, JsonOptions);
 
-            if (results == null)
+            if (tokenResponses == null || tokenResponses.Count == 0)
             {
-                _logger.LogError("Judge0 trả về response null hoặc không parse được.");
-                throw new InvalidOperationException("Không thể đọc kết quả từ Judge0.");
+                _logger.LogError("Judge0 không trả về token nào từ batch submission.");
+                throw new InvalidOperationException("Không thể đọc danh sách token từ Judge0.");
             }
 
-            _logger.LogInformation(
-                "Judge0 batch submission thành công: {Count} kết quả",
-                results.Count);
+            var tokenList = string.Join(",", tokenResponses.Select(t => t.token));
+            var getUrl = $"/submissions/batch?tokens={tokenList}&fields=stdout,stderr,compile_output,message,time,memory,token,status";
 
-            return results;
+            // Step 2: Poll GET batch endpoint cho đến khi tất cả các submission hoàn thành (status.id > 2)
+            const int maxAttempts = 30; // max 9 seconds (30 * 300ms)
+            const int delayMs = 300;
+
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                var getResponse = await client.GetAsync(getUrl, cancellationToken);
+                if (!getResponse.IsSuccessStatusCode)
+                {
+                    var errorBody = await getResponse.Content.ReadAsStringAsync(cancellationToken);
+                    _logger.LogError(
+                        "Judge0 batch GET thất bại. Status: {Status}, Body: {Body}",
+                        getResponse.StatusCode, errorBody);
+                    throw new HttpRequestException(
+                        $"Judge0 trả về lỗi {getResponse.StatusCode}: {errorBody}");
+                }
+
+                var getResponseBody = await getResponse.Content.ReadAsStringAsync(cancellationToken);
+                var batchResponse = JsonSerializer.Deserialize<Judge0BatchResponse>(getResponseBody, JsonOptions);
+
+                if (batchResponse?.submissions != null && batchResponse.submissions.Count > 0)
+                {
+                    bool allFinished = batchResponse.submissions.All(s => s.status != null && s.status.id > 2);
+                    if (allFinished || attempt == maxAttempts - 1)
+                    {
+                        _logger.LogInformation(
+                            "Judge0 batch submission hoàn tất sau {Attempt} lượt poll: {Count} kết quả",
+                            attempt + 1, batchResponse.submissions.Count);
+
+                        var dict = batchResponse.submissions
+                            .Where(s => !string.IsNullOrEmpty(s.token))
+                            .ToDictionary(s => s.token!);
+
+                        return tokenResponses
+                            .Select(t => dict.TryGetValue(t.token, out var sub) ? sub : new Judge0SubmissionResponse())
+                            .ToList();
+                    }
+                }
+
+                await Task.Delay(delayMs, cancellationToken);
+            }
+
+            throw new TimeoutException("Thời gian chờ phản hồi từ Judge0 quá lâu.");
         }
 
         public async Task<List<Judge0LanguageDto>> GetLanguagesAsync(

@@ -26,6 +26,7 @@ using ai_speis_be.Services.SpeechToTextService;
 using ai_speis_be.Services.TextToSpeechService;
 using ai_speis_be.Repositories.CodingRepo;
 using ai_speis_be.Services.CodingService;
+using ai_speis_be.Services.CodingService.Selection;
 using ai_speis_be.Services.Judge0Service;
 using ai_speis_be.Repositories.PaymentRepo;
 using ai_speis_be.Services.PaymentService;
@@ -174,8 +175,10 @@ builder.Services.AddHttpClient("Judge0", client =>
     var timeoutSeconds = int.TryParse(builder.Configuration["Judge0:TimeoutSeconds"], out var t) ? t : 30;
     client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
+
 builder.Services.AddScoped<IJudge0Service, Judge0Service>();
 builder.Services.AddScoped<ICodingRepository, CodingRepository>();
+builder.Services.AddScoped<ICodingQuestionSelectionService, CodingQuestionSelectionService>();
 builder.Services.AddScoped<ICodingService, CodingService>();
 // Register Behavioural Interview Components
 var behaviouralOptions = new BehaviouralInterviewOptions();

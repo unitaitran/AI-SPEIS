@@ -205,7 +205,7 @@ namespace ai_speis_be.Models.DTOs
                     var configuredCount = questionCounts
                         .FirstOrDefault(item => string.Equals(item.Key, roundName, StringComparison.OrdinalIgnoreCase));
                     var maxCount = string.Equals(roundName, InterviewRoundType.Code.ToString(), StringComparison.OrdinalIgnoreCase)
-                        ? 3
+                        ? 5
                         : 7;
 
                     if (string.IsNullOrEmpty(configuredCount.Key)
