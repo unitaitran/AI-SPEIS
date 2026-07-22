@@ -16,7 +16,7 @@ import ActiveSessionDialog from '../../components/technicalInterview/ActiveSessi
 import EndSessionConfirmDialog from '../../components/technicalInterview/EndSessionConfirmDialog';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { getCodingInterviewRoomPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
 import jdService from '../../services/JDService';
 import interviewSessionService from '../../services/InterviewSessionService';
@@ -51,7 +51,7 @@ const DEFAULT_QUESTION_COUNTS = Object.freeze({
 const MAX_QUESTION_COUNTS = Object.freeze({
   Behavior: 7,
   Technical: 7,
-  Code: 3,
+  Code: 5,
 });
 
 const normalizeStatus = (status) => (
@@ -140,8 +140,8 @@ function InterviewSetupPage() {
 
     try {
       const [cvHistory, jdHistory] = await Promise.all([
-        cvService.getMyCVHistory(1, 20),
-        jdService.getMyJDHistory(1, 20),
+        cvService.getMyCVHistory(1, 50),
+        jdService.getMyJDHistory(1, 50),
       ]);
 
       const readyCv = (cvHistory?.items || []).find((cv) => (
@@ -320,9 +320,13 @@ function InterviewSetupPage() {
       : '';
 
   const persistCreatedCampaign = (campaign, pendingSetup) => {
+    const sessions = campaign?.sessions || [];
+    const isOnlyCoding = sessions.length > 0 && sessions.every((s) => s.interviewRoundType === 'Code');
+    const firstCodingSession = sessions.find((s) => s.interviewRoundType === 'Code') || sessions[0];
+
     saveActiveInterviewContext({
       campaign,
-      activeSessionId: null,
+      activeSessionId: isOnlyCoding ? (firstCodingSession?.interviewSessionId || null) : null,
       configurationKey: pendingSetup.configurationKey,
     });
     saveInterviewSetupDraft({
@@ -332,7 +336,12 @@ function InterviewSetupPage() {
       previousCampaignId: null,
     });
     notifyInterviewQuotaChanged(campaign);
-    navigate(USER_ROUTES.DEVICE_CHECK);
+
+    if (isOnlyCoding && firstCodingSession) {
+      navigate(getCodingInterviewRoomPath(firstCodingSession.interviewSessionId));
+    } else {
+      navigate(USER_ROUTES.DEVICE_CHECK);
+    }
   };
 
   const createCampaignFromPendingSetup = async (pendingSetup) => {
@@ -451,10 +460,22 @@ function InterviewSetupPage() {
           ? storedContext?.configurationKey || null
           : null,
       });
+      const isCodingSession = latestSession?.interviewRoundType === 'Code';
       notifyInterviewQuotaChanged(latestCampaign);
-      navigate(latestSession?.status === 'Active'
-        ? getInterviewRoomPath(latestSession.interviewSessionId)
-        : USER_ROUTES.DEVICE_CHECK);
+      if (latestSession?.status === 'Active') {
+        navigate(isCodingSession
+          ? getCodingInterviewRoomPath(latestSession.interviewSessionId)
+          : getInterviewRoomPath(latestSession.interviewSessionId));
+      } else {
+        const isOnlyCoding = latestCampaign.sessions?.length > 0
+          && latestCampaign.sessions.every((s) => s.interviewRoundType === 'Code');
+        if (isOnlyCoding) {
+          const firstCoding = latestCampaign.sessions.find((s) => s.interviewRoundType === 'Code');
+          navigate(getCodingInterviewRoomPath(firstCoding?.interviewSessionId));
+        } else {
+          navigate(USER_ROUTES.DEVICE_CHECK);
+        }
+      }
     } catch (error) {
       setSubmitError(error.message || t('activeSession.refreshFailed'));
     } finally {
@@ -626,7 +647,16 @@ function InterviewSetupPage() {
 
                 <div className="setup-fields-grid">
                   <div className="setup-field">
-                    <label htmlFor="setup-job-position">{t('setup.position')}</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label htmlFor="setup-job-position" className="!mb-0">{t('setup.position')}</label>
+                      <button
+                        type="button"
+                        className="text-xs text-primary font-semibold hover:underline bg-transparent border-0 p-0 cursor-pointer"
+                        onClick={() => navigate(USER_ROUTES.CV)}
+                      >
+                        + {t('setup.manageCvJd')}
+                      </button>
+                    </div>
                     <div className="setup-control-wrap">
                       <select
                         id="setup-job-position"
@@ -638,11 +668,15 @@ function InterviewSetupPage() {
                         aria-describedby={jdOptions.length === 0 ? 'setup-job-position-error' : undefined}
                       >
                         {jdOptions.length === 0 && <option value="">{t('setup.noPosition')}</option>}
-                        {jdOptions.map(({ file, parsed, availableTypes }) => (
-                          <option key={file.jdFileId} value={file.jdFileId}>
-                            {parsed?.jobTitle || availableTypes?.roleTarget || file.fileName}
-                          </option>
-                        ))}
+                        {jdOptions.map(({ file, parsed, availableTypes }) => {
+                          const title = parsed?.jobTitle || availableTypes?.roleTarget || file.fileName;
+                          const fileDetail = file.fileName && file.fileName !== title ? ` — [${file.fileName}]` : '';
+                          return (
+                            <option key={file.jdFileId} value={file.jdFileId}>
+                              {title}{fileDetail}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                     {jdOptions.length === 0 && (

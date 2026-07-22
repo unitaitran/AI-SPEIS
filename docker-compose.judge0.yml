@@ -16,6 +16,7 @@ services:
     privileged: true
     restart: always
     environment:
+      ENABLE_CGROUPS: "false"
       REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:?Set JUDGE0_REDIS_PASSWORD in .env}
       POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:?Set JUDGE0_POSTGRES_PASSWORD in .env}
     depends_on:
@@ -25,12 +26,13 @@ services:
 
   worker:
     image: judge0/judge0:1.13.0
-    command: ["./scripts/workers"]
+    command: ["bash", "-c", "mkdir -p /box && ./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     privileged: true
     restart: always
     environment:
+      ENABLE_CGROUPS: "false"
       REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:?Set JUDGE0_REDIS_PASSWORD in .env}
       POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:?Set JUDGE0_POSTGRES_PASSWORD in .env}
     depends_on:
