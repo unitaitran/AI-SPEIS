@@ -181,16 +181,11 @@ builder.Services.AddScoped<ICodingRepository, CodingRepository>();
 builder.Services.AddScoped<ICodingQuestionSelectionService, CodingQuestionSelectionService>();
 builder.Services.AddScoped<ICodingService, CodingService>();
 // Register Behavioural Interview Components
-var behaviouralOptions = new BehaviouralInterviewOptions();
-builder.Configuration.GetSection(BehaviouralInterviewOptions.SectionName).Bind(behaviouralOptions);
-if (string.IsNullOrWhiteSpace(behaviouralOptions.ApiKey))
-{
-    behaviouralOptions.ApiKey = builder.Configuration["GeminiAI:ApiKey"] ?? string.Empty;
-}
+var behaviouralOptions = BehaviouralInterviewOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(behaviouralOptions);
 builder.Services.AddHttpClient("BehaviouralInterviewAI", client =>
 {
-    client.Timeout = TimeSpan.FromSeconds(60);
+    client.Timeout = TimeSpan.FromSeconds(behaviouralOptions.TimeoutSeconds);
 });
 builder.Services.AddScoped<IBehaviouralInterviewAIProvider, ExternalBehaviouralInterviewAIProvider>();
 builder.Services.AddSingleton<IBehaviouralRubricProvider, BehaviouralRubricProvider>();

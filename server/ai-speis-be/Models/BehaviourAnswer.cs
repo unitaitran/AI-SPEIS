@@ -44,6 +44,10 @@ namespace ai_speis_be.Models
         [MaxLength(100)] public string? EvaluationError { get; set; }
         public DateTime? ProcessingStartedAt { get; set; }
         public DateTime? ProcessingCompletedAt { get; set; }
+
+        // Provider error code when EvaluationStatus == PENDING_EVALUATION (e.g. GEMINI_QUOTA_EXCEEDED, HTTP_404)
+        public string? AiErrorCode { get; set; }
+
         [Required] public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual BehaviourSessionQuestion BehaviourSessionQuestion { get; set; } = null!;

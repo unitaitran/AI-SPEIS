@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ai_speis_be.Models;
 
@@ -11,9 +12,11 @@ using ai_speis_be.Models;
 namespace ai_speis_be.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260722112250_AddBehaviourAnswerEvaluationStatus")]
+    partial class AddBehaviourAnswerEvaluationStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -153,16 +156,8 @@ namespace ai_speis_be.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("EvaluationError").HasMaxLength(100).HasColumnType("nvarchar(100)");
-                    b.Property<int?>("EvaluationInputTokens").HasColumnType("int");
-                    b.Property<long?>("EvaluationLatencyMs").HasColumnType("bigint");
-                    b.Property<string>("EvaluationModel").HasMaxLength(120).HasColumnType("nvarchar(120)");
-                    b.Property<int?>("EvaluationOutputTokens").HasColumnType("int");
-                    b.Property<string>("EvaluationPromptVersion").HasMaxLength(80).HasColumnType("nvarchar(80)");
-                    b.Property<string>("EvaluationStatus").IsRequired().HasMaxLength(30).HasColumnType("nvarchar(30)");
-                    b.Property<DateTime?>("ProcessingCompletedAt").HasColumnType("datetime2");
-                    b.Property<DateTime?>("ProcessingStartedAt").HasColumnType("datetime2");
-                    b.Property<string>("SubmissionIdempotencyKey").HasMaxLength(128).HasColumnType("nvarchar(128)");
+                    b.Property<string>("EvaluationStatus")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ResolvedAction")
                         .HasColumnType("nvarchar(max)");
@@ -178,10 +173,6 @@ namespace ai_speis_be.Migrations
 
                     b.HasIndex("BehaviourSessionQuestionId")
                         .IsUnique();
-
-                    b.HasIndex("SubmissionIdempotencyKey")
-                        .IsUnique()
-                        .HasFilter("[SubmissionIdempotencyKey] IS NOT NULL");
 
                     b.ToTable("BehaviourAnswer");
                 });
@@ -258,14 +249,6 @@ namespace ai_speis_be.Migrations
 
                     b.Property<string>("CriteriaAveragesJson")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FeedbackError").HasMaxLength(100).HasColumnType("nvarchar(100)");
-                    b.Property<int?>("FeedbackInputTokens").HasColumnType("int");
-                    b.Property<long?>("FeedbackLatencyMs").HasColumnType("bigint");
-                    b.Property<int?>("FeedbackOutputTokens").HasColumnType("int");
-                    b.Property<string>("FinalFeedbackModel").HasMaxLength(120).HasColumnType("nvarchar(120)");
-                    b.Property<string>("FinalFeedbackPromptVersion").HasMaxLength(80).HasColumnType("nvarchar(80)");
-                    b.Property<int>("FinalFeedbackStatus").HasColumnType("int");
 
                     b.Property<int>("InterviewSessionId")
                         .HasColumnType("int");
@@ -942,14 +925,6 @@ namespace ai_speis_be.Migrations
 
                     b.Property<decimal?>("TechnicalFinalScore")
                         .HasColumnType("decimal(5,2)");
-
-                    b.Property<string>("TechnicalFeedbackError").HasMaxLength(100).HasColumnType("nvarchar(100)");
-                    b.Property<int?>("TechnicalFeedbackInputTokens").HasColumnType("int");
-                    b.Property<long?>("TechnicalFeedbackLatencyMs").HasColumnType("bigint");
-                    b.Property<string>("TechnicalFeedbackModel").HasMaxLength(120).HasColumnType("nvarchar(120)");
-                    b.Property<int?>("TechnicalFeedbackOutputTokens").HasColumnType("int");
-                    b.Property<string>("TechnicalFeedbackPromptVersion").HasMaxLength(80).HasColumnType("nvarchar(80)");
-                    b.Property<int>("TechnicalFeedbackStatus").HasColumnType("int");
 
                     b.Property<string>("TechnicalJobRole")
                         .HasMaxLength(200)

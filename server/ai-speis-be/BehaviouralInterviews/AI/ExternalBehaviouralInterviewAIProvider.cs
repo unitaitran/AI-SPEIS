@@ -65,7 +65,7 @@ namespace ai_speis_be.BehaviouralInterviews.AI
             var stopwatch = Stopwatch.StartNew();
             if (string.IsNullOrWhiteSpace(_options.ApiKey))
             {
-                return Failure<T>(stopwatch, "CONFIGURATION_MISSING", 0);
+                return Failure<T>(stopwatch, startedAt, "CONFIGURATION_MISSING", 0);
             }
 
             var payload = new
@@ -106,7 +106,7 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                         _logger.LogWarning(
                             "Behavioural Interview AI returned HTTP {StatusCode}.",
                             (int)response.StatusCode);
-                        return Failure<T>(stopwatch, $"HTTP_{(int)response.StatusCode}", attempt);
+                        return Failure<T>(stopwatch, startedAt, MapHttpError(response.StatusCode), attempt);
                     }
 
                     var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -114,13 +114,13 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                     var content = envelope?.Choices.FirstOrDefault()?.Message.Content;
                     if (string.IsNullOrWhiteSpace(content))
                     {
-                        return Failure<T>(stopwatch, "EMPTY_RESPONSE", attempt);
+                        return Failure<T>(stopwatch, startedAt, "EMPTY_RESPONSE", attempt);
                     }
 
                     var parsed = JsonSerializer.Deserialize<T>(StripMarkdownFence(content), JsonOptions);
                     if (parsed is null)
                     {
-                        return Failure<T>(stopwatch, "MALFORMED_JSON", attempt);
+                        return Failure<T>(stopwatch, startedAt, "MALFORMED_JSON", attempt);
                     }
 
                     stopwatch.Stop();
@@ -139,11 +139,11 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                 }
                 catch (JsonException)
                 {
-                    return Failure<T>(stopwatch, "MALFORMED_JSON", attempt);
+                    return Failure<T>(stopwatch, startedAt, "MALFORMED_JSON", attempt);
                 }
                 catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
-                    return Failure<T>(stopwatch, "TIMEOUT", attempt);
+                    return Failure<T>(stopwatch, startedAt, "TIMEOUT", attempt);
                 }
                 catch (HttpRequestException exception) when (attempt < _options.MaxRetries)
                 {
@@ -153,15 +153,16 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                 catch (HttpRequestException exception)
                 {
                     _logger.LogWarning(exception, "Behavioural Interview AI request failed.");
-                    return Failure<T>(stopwatch, "NETWORK_ERROR", attempt);
+                    return Failure<T>(stopwatch, startedAt, "NETWORK_ERROR", attempt);
                 }
             }
 
-            return Failure<T>(stopwatch, "RETRY_EXHAUSTED", _options.MaxRetries);
+            return Failure<T>(stopwatch, startedAt, "RETRY_EXHAUSTED", _options.MaxRetries);
         }
 
         private BehaviouralAIProviderResult<T> Failure<T>(
             Stopwatch stopwatch,
+            DateTime startedAt,
             string errorCode,
             int retryCount)
         {
@@ -173,8 +174,20 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                 LatencyMs = stopwatch.ElapsedMilliseconds,
                 ErrorCode = errorCode,
                 RetryCount = retryCount,
-                StartedAt = DateTime.UtcNow - stopwatch.Elapsed,
+                StartedAt = startedAt,
                 CompletedAt = DateTime.UtcNow
+            };
+        }
+
+        private static string MapHttpError(HttpStatusCode statusCode)
+        {
+            return statusCode switch
+            {
+                HttpStatusCode.TooManyRequests => "GEMINI_QUOTA_EXCEEDED",
+                HttpStatusCode.Forbidden => "GEMINI_PERMISSION_DENIED",
+                HttpStatusCode.Unauthorized => "GEMINI_UNAUTHORIZED",
+                HttpStatusCode.ServiceUnavailable => "GEMINI_UNAVAILABLE",
+                _ => $"HTTP_{(int)statusCode}"
             };
         }
 
