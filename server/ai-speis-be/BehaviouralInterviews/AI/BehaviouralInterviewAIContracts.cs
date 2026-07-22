@@ -97,7 +97,7 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public List<BehaviouralAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
         public List<string> Strengths { get; set; } = new();
         public List<string> MissingPoints { get; set; } = new();
-        public int? OverallRubricScore { get; set; } // 0-10 integer theo scoring rubric của câu hỏi
+        public decimal? OverallRubricScore { get; set; } // 0-10 score theo scoring rubric của câu hỏi
         public string AnswerQuality { get; set; } = string.Empty; // Excellent, Good, Partial, Vague, Insufficient
         public string Decision { get; set; } = string.Empty; // NEXT_MAIN_QUESTION, CLARIFICATION, FOLLOW_UP_1, FOLLOW_UP_2
         public decimal Confidence { get; set; }

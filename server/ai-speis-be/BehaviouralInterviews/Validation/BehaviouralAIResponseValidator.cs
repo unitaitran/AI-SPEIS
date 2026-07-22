@@ -93,8 +93,8 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                 return Invalid("INVALID_CONFIDENCE");
             }
 
-            if (evaluation.OverallRubricScore < (int)rubric.MinimumScore
-                || evaluation.OverallRubricScore > (int)rubric.MaximumScore)
+            if (evaluation.OverallRubricScore < (decimal)rubric.MinimumScore
+                || evaluation.OverallRubricScore > (decimal)rubric.MaximumScore)
             {
                 return Invalid("INVALID_OVERALL_RUBRIC_SCORE");
             }

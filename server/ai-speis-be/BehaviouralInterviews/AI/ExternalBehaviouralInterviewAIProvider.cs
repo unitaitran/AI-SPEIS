@@ -16,7 +16,11 @@ namespace ai_speis_be.BehaviouralInterviews.AI
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
+            PropertyNameCaseInsensitive = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            AllowTrailingCommas = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
@@ -137,8 +141,9 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                         CompletedAt = DateTime.UtcNow
                     };
                 }
-                catch (JsonException)
+                catch (JsonException ex)
                 {
+                    _logger.LogError(ex, "Behavioural AI JSON Deserialization failed: {Error}", ex.Message);
                     return Failure<T>(stopwatch, startedAt, "MALFORMED_JSON", attempt);
                 }
                 catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -198,17 +203,17 @@ namespace ai_speis_be.BehaviouralInterviews.AI
 
         private static string StripMarkdownFence(string content)
         {
+            if (string.IsNullOrWhiteSpace(content)) return string.Empty;
             var trimmed = content.Trim();
-            if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+
+            var firstBrace = trimmed.IndexOf('{');
+            var lastBrace = trimmed.LastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace)
             {
-                return trimmed;
+                return trimmed.Substring(firstBrace, lastBrace - firstBrace + 1).Trim();
             }
 
-            var firstLineEnd = trimmed.IndexOf('\n');
-            var withoutOpening = firstLineEnd >= 0 ? trimmed[(firstLineEnd + 1)..] : trimmed[3..];
-            return withoutOpening.EndsWith("```", StringComparison.Ordinal)
-                ? withoutOpening[..^3].Trim()
-                : withoutOpening.Trim();
+            return trimmed;
         }
 
         private sealed class ChatCompletionEnvelope

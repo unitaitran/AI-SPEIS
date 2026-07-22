@@ -198,7 +198,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             // Match Score quyết định phân bổ nguồn câu hỏi CV/JD — tính lazy trước khi chọn câu
             await EnsureCvJdMatchScoreAsync(session.InterviewCampaign, cancellationToken);
 
-            var selectionContext = BuildSelectionContext(session, questionSet);
+            var selectionContext = await BuildSelectionContextAsync(session, questionSet, cancellationToken);
             var selection = await _selectionService.SelectAsync(selectionContext, cancellationToken);
             if (selection.Questions.Count == 0)
             {
@@ -208,27 +208,51 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     "Could not build a behavioural question set for this session.");
             }
 
+            // Đảm bảo câu hỏi đầu tiên (Order 1) của buổi phỏng vấn mới KHÁC VỚI câu hỏi đầu tiên của buổi gần nhất
+            var mostRecentFirstQuestionId = await _context.BehaviourSessionQuestions
+                .AsNoTracking()
+                .Where(bq => bq.BehaviourQuestionSet.InterviewSession.InterviewCampaign.UserId == session.InterviewCampaign.UserId
+                             && bq.QuestionType == BehaviourQuestionType.Main
+                             && bq.QuestionOrder == 1)
+                .OrderByDescending(bq => bq.BehaviourSessionQuestionId)
+                .Select(bq => (int?)bq.QuestionId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var selectedQuestionsList = selection.Questions.ToList();
+            if (selectedQuestionsList.Count > 1 && mostRecentFirstQuestionId.HasValue && selectedQuestionsList[0].Question.QuestionId == mostRecentFirstQuestionId.Value)
+            {
+                var swapIndex = selectedQuestionsList.FindIndex(1, q => q.Question.QuestionId != mostRecentFirstQuestionId.Value);
+                if (swapIndex > 0)
+                {
+                    var temp = selectedQuestionsList[0];
+                    selectedQuestionsList[0] = selectedQuestionsList[swapIndex];
+                    selectedQuestionsList[swapIndex] = temp;
+                }
+            }
+
             questionSet.SelectionSource = selection.FallbackUsed
                 ? BehaviourSelectionSource.RuleBasedFallback
                 : BehaviourSelectionSource.ExternalAi;
-            questionSet.QuestionCount = selection.Questions.Count;
+            questionSet.QuestionCount = selectedQuestionsList.Count;
             questionSet.CoveredSkillsJson = JsonSerializer.Serialize(selection.CoveredSkills, SnapshotJsonOptions);
 
             var now = DateTime.UtcNow;
-            foreach (var selected in selection.Questions)
+            for (var index = 0; index < selectedQuestionsList.Count; index++)
             {
+                var selected = selectedQuestionsList[index];
+                var order = index + 1;
                 var sessionQuestion = new BehaviourSessionQuestion
                 {
                     BehaviourQuestionSet = questionSet,
                     QuestionId = selected.Question.QuestionId,
-                    QuestionOrder = selected.Order,
+                    QuestionOrder = order,
                     QuestionType = BehaviourQuestionType.Main,
                     QuestionSnapshotJson = JsonSerializer.Serialize(
                         BehaviourQuestionSnapshot.FromQuestion(selected.Question), SnapshotJsonOptions),
                     SelectionReason = selected.SelectionReason,
                     EvaluationGoal = selected.EvaluationGoal,
-                    Status = selected.Order == 1 ? BehaviourQuestionStatus.Asked : BehaviourQuestionStatus.Pending,
-                    AskedAt = selected.Order == 1 ? now : null
+                    Status = order == 1 ? BehaviourQuestionStatus.Asked : BehaviourQuestionStatus.Pending,
+                    AskedAt = order == 1 ? now : null
                 };
                 questionSet.BehaviourSessionQuestion.Add(sessionQuestion);
             }
@@ -579,7 +603,14 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 }
             }
 
-            var overallScore = _scoringService.ScoreSession(questionScores.Select(item => item.Score), rubric);
+            var answeredQuestionScores = questionScores
+                .Where(item => item.Score > 0m)
+                .Select(item => item.Score)
+                .ToList();
+
+            var overallScore = _scoringService.ScoreSession(
+                answeredQuestionScores.Count > 0 ? answeredQuestionScores : questionScores.Select(item => item.Score),
+                rubric);
             var performanceBand = rubric.GetPerformanceBand(overallScore);
 
             var skillAverages = skillScores.ToDictionary(
@@ -819,11 +850,22 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             };
         }
 
-        private BehaviouralSelectionContext BuildSelectionContext(InterviewSession session, BehaviourQuestionSet questionSet)
+        private async Task<BehaviouralSelectionContext> BuildSelectionContextAsync(
+            InterviewSession session,
+            BehaviourQuestionSet questionSet,
+            CancellationToken cancellationToken)
         {
             var campaign = session.InterviewCampaign;
             var jdProfile = campaign.JDExtractedProfile;
             var cvProfile = campaign.CVExtractedProfile;
+
+            var askedQuestionIds = await _context.BehaviourSessionQuestions
+                .AsNoTracking()
+                .Where(bq => bq.BehaviourQuestionSet.InterviewSession.InterviewCampaign.UserId == campaign.UserId)
+                .Select(bq => bq.QuestionId)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToListAsync(cancellationToken);
 
             var requiredSkills = new List<string>();
             if (!string.IsNullOrWhiteSpace(questionSet.ConstraintsJson))
@@ -861,10 +903,10 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 NiceToHaveSkills = ParseJsonStringList(jdProfile?.NiceToHaveSkills),
                 CvHighlights = cvHighlights,
                 CvSkills = cvProfile?.Skills
-                
                     .Select(skill => skill.SkillName)
                     .Where(name => !string.IsNullOrWhiteSpace(name))
                     .ToList() ?? new List<string>(),
+                AskedQuestionIds = askedQuestionIds.ToHashSet(),
                 CvJdMatchScore = campaign.CvJdMatchScore
             };
         }
@@ -994,7 +1036,9 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             answer.AiCommunicationScore = GetScore(byCode, "COMMUNICATION");
             answer.AiCriteriaDetailJson = JsonSerializer.Serialize(
                 evaluation.DimensionEvaluations, SnapshotJsonOptions);
-            answer.AiOverallRubricScore = evaluation.OverallRubricScore;
+            answer.AiOverallRubricScore = evaluation.OverallRubricScore.HasValue
+                ? (int?)Math.Round(evaluation.OverallRubricScore.Value)
+                : null;
             answer.AiStrengths = JsonSerializer.Serialize(evaluation.Strengths, SnapshotJsonOptions);
             answer.AiMissingPoints = JsonSerializer.Serialize(evaluation.MissingPoints, SnapshotJsonOptions);
 

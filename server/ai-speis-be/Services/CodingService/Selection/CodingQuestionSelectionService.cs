@@ -59,6 +59,23 @@ namespace ai_speis_be.Services.CodingService.Selection
                 return new List<CodingQuestion>();
             }
 
+            // Fetch question IDs used in previous sessions for this user to avoid duplicate selections across consecutive rounds
+            var userId = campaign?.UserId ?? 0;
+            var previousQuestionIds = new HashSet<int>();
+            if (userId > 0)
+            {
+                var prevQIds = await _context.CodingSubmissions
+                    .Where(cs => cs.InterviewSession.InterviewCampaign.UserId == userId && cs.InterviewSessionId != session.InterviewSessionId)
+                    .Select(cs => cs.CodingQuestionId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                foreach (var id in prevQIds)
+                {
+                    previousQuestionIds.Add(id);
+                }
+            }
+
             // 4. Filter by JobRole (matching JobRole column or text inside EmbeddingText / Title / Description)
             var roleFiltered = FilterByJobRole(allQuestions, jobRole);
 
@@ -81,9 +98,14 @@ namespace ai_speis_be.Services.CodingService.Selection
             var selected = new List<CodingQuestion>();
             var usedIds = new HashSet<int>();
 
-            // Select CV-focused questions
+            // Phase A: Prioritize questions NOT used in previous sessions of the user
+            var unusedCandidatePool = candidatePool
+                .Where(q => !previousQuestionIds.Contains(q.CodingQuestionId))
+                .ToList();
+
+            // Select CV-focused questions (unused pool first)
             var cvSelectedCount = 0;
-            foreach (var q in candidatePool)
+            foreach (var q in unusedCandidatePool)
             {
                 if (cvSelectedCount >= cvQuota) break;
                 if (usedIds.Contains(q.CodingQuestionId)) continue;
@@ -96,9 +118,26 @@ namespace ai_speis_be.Services.CodingService.Selection
                 }
             }
 
-            // Select JD-focused questions
+            // Fallback to full candidatePool for CV quota if unused pool runs low
+            if (cvSelectedCount < cvQuota)
+            {
+                foreach (var q in candidatePool)
+                {
+                    if (cvSelectedCount >= cvQuota) break;
+                    if (usedIds.Contains(q.CodingQuestionId)) continue;
+
+                    if (MatchesSkills(q, cvSkills))
+                    {
+                        selected.Add(q);
+                        usedIds.Add(q.CodingQuestionId);
+                        cvSelectedCount++;
+                    }
+                }
+            }
+
+            // Select JD-focused questions (unused pool first)
             var jdSelectedCount = 0;
-            foreach (var q in candidatePool)
+            foreach (var q in unusedCandidatePool)
             {
                 if (jdSelectedCount >= jdQuota) break;
                 if (usedIds.Contains(q.CodingQuestionId)) continue;
@@ -111,8 +150,35 @@ namespace ai_speis_be.Services.CodingService.Selection
                 }
             }
 
-            // Fallback fill if not enough questions selected via exact skill match
+            // Fallback to full candidatePool for JD quota if unused pool runs low
+            if (jdSelectedCount < jdQuota)
+            {
+                foreach (var q in candidatePool)
+                {
+                    if (jdSelectedCount >= jdQuota) break;
+                    if (usedIds.Contains(q.CodingQuestionId)) continue;
+
+                    if (MatchesSkills(q, jdSkills))
+                    {
+                        selected.Add(q);
+                        usedIds.Add(q.CodingQuestionId);
+                        jdSelectedCount++;
+                    }
+                }
+            }
+
+            // Fallback fill: unused candidatePool first, then full candidatePool
             var targetTotal = Math.Min(totalQuestionCount, candidatePool.Count);
+            foreach (var q in unusedCandidatePool)
+            {
+                if (selected.Count >= targetTotal) break;
+                if (!usedIds.Contains(q.CodingQuestionId))
+                {
+                    selected.Add(q);
+                    usedIds.Add(q.CodingQuestionId);
+                }
+            }
+
             foreach (var q in candidatePool)
             {
                 if (selected.Count >= targetTotal) break;
@@ -126,6 +192,17 @@ namespace ai_speis_be.Services.CodingService.Selection
             // Final fallback from allQuestions if still needed
             if (selected.Count < totalQuestionCount)
             {
+                var unusedAll = allQuestions.Where(q => !previousQuestionIds.Contains(q.CodingQuestionId)).ToList();
+                foreach (var q in unusedAll)
+                {
+                    if (selected.Count >= totalQuestionCount) break;
+                    if (!usedIds.Contains(q.CodingQuestionId))
+                    {
+                        selected.Add(q);
+                        usedIds.Add(q.CodingQuestionId);
+                    }
+                }
+
                 foreach (var q in allQuestions)
                 {
                     if (selected.Count >= totalQuestionCount) break;

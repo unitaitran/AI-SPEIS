@@ -57,8 +57,21 @@ namespace ai_speis_be.Services.CodingService
                 if (session.InterviewCampaign.UserId != userId)
                     return (false, "Bạn không có quyền truy cập phiên phỏng vấn này.", null);
 
-                if (session.Status != InterviewSessionStatus.Active)
+                if (session.Status == InterviewSessionStatus.Pending)
+                {
+                    session.Status = InterviewSessionStatus.Active;
+                    if (session.InterviewCampaign.Status == InterviewCampaignStatus.Pending)
+                    {
+                        session.InterviewCampaign.Status = InterviewCampaignStatus.Active;
+                        session.InterviewCampaign.StartedAt = DateTime.UtcNow;
+                        session.InterviewCampaign.ExpiresAt = DateTime.UtcNow.AddMinutes(session.InterviewCampaign.DurationMinutes);
+                    }
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
+                else if (session.Status != InterviewSessionStatus.Active)
+                {
                     return (false, "Phiên phỏng vấn chưa bắt đầu hoặc đã kết thúc.", null);
+                }
             }
 
             bool isTestRun = request.IsTestRun || request.InterviewSessionId <= 0;

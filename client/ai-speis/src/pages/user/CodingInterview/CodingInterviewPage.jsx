@@ -9,8 +9,17 @@ import notify from '../../../utils/notification';
 import UserLayout from '../../../layouts/user/UserLayout';
 import '../../../styles/user/CodingInterviewPage.css';
 
-// Prioritized mainstream languages for coding interviews
-const PREFERRED_LANGUAGE_IDS = [71, 63, 62, 54, 51]; // Python 3, JavaScript (Node.js), Java, C++, C#
+// Mainstream interview languages category helper
+const getLanguageCategory = (name) => {
+  const lower = (name || '').toLowerCase().trim();
+  if (lower.includes('python')) return 'python';
+  if (lower.includes('javascript') || lower.includes('js')) return 'javascript';
+  if (lower.includes('java') && !lower.includes('script')) return 'java';
+  if (lower.includes('c++') || lower.includes('cpp')) return 'cpp';
+  if (lower.includes('c#') || lower.includes('csharp')) return 'csharp';
+  if (lower.startsWith('c ') || lower === 'c') return 'c';
+  return null;
+};
 
 const CodingInterviewPage = ({ sessionId }) => {
   const [questions, setQuestions] = useState([]);
@@ -31,27 +40,114 @@ const CodingInterviewPage = ({ sessionId }) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState('console'); // 'console' | 'samples'
 
+  // Resizable Panes State & Refs
+  const [leftWidth, setLeftWidth] = useState(40); // Left pane width in %
+  const [consoleHeight, setConsoleHeight] = useState(260); // Console height in px
+  const isDraggingHRef = useRef(false);
+  const isDraggingVRef = useRef(false);
+  const splitPaneRef = useRef(null);
+  const rightPaneRef = useRef(null);
+
   const editorRef = useRef(null);
+
+  // Drag handler for horizontal splitter (Left/Right panes)
+  const handleHorizontalMouseDown = (e) => {
+    e.preventDefault();
+    isDraggingHRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent) => {
+      if (!isDraggingHRef.current || !splitPaneRef.current) return;
+      const rect = splitPaneRef.current.getBoundingClientRect();
+      const newWidth = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+      if (newWidth >= 20 && newWidth <= 75) {
+        setLeftWidth(newWidth);
+      }
+    };
+
+    const onMouseUp = () => {
+      isDraggingHRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Drag handler for vertical splitter (Editor/Console panels)
+  const handleVerticalMouseDown = (e) => {
+    e.preventDefault();
+    isDraggingVRef.current = true;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent) => {
+      if (!isDraggingVRef.current || !rightPaneRef.current) return;
+      const rect = rightPaneRef.current.getBoundingClientRect();
+      const newHeight = rect.bottom - moveEvent.clientY;
+      if (newHeight >= 80 && newHeight <= rect.height - 120) {
+        setConsoleHeight(newHeight);
+      }
+    };
+
+    const onMouseUp = () => {
+      isDraggingVRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         const langRes = await codingService.getLanguages();
         if (langRes && langRes.length > 0) {
-          // Sort languages so mainstream ones appear at top
-          const sortedLangs = [...langRes].sort((a, b) => {
-            const idxA = PREFERRED_LANGUAGE_IDS.indexOf(a.id);
-            const idxB = PREFERRED_LANGUAGE_IDS.indexOf(b.id);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
-            return a.name.localeCompare(b.name);
+          // Filter only mainstream interview languages: C, C#, Python, Java, JavaScript, C++
+          const categoryMap = {};
+          langRes.forEach((lang) => {
+            const cat = getLanguageCategory(lang.name);
+            if (cat) {
+              if (!categoryMap[cat] || lang.id > categoryMap[cat].id) {
+                categoryMap[cat] = lang;
+              }
+            }
           });
-          setLanguages(sortedLangs);
-          setSelectedLanguage(sortedLangs[0]);
+
+          const desiredOrder = ['c', 'csharp', 'python', 'java', 'javascript', 'cpp'];
+          const filteredLangs = desiredOrder
+            .map((cat) => categoryMap[cat])
+            .filter(Boolean);
+
+          const finalLangs = filteredLangs.length > 0 ? filteredLangs : langRes;
+          setLanguages(finalLangs);
+          setSelectedLanguage(finalLangs[0]);
         }
 
         if (sessionId) {
+          try {
+            const startedCampaign = await interviewSessionService.startSession(sessionId);
+            if (startedCampaign?.sessions) {
+              const currentContext = getActiveInterviewContext();
+              saveActiveInterviewContext({
+                campaign: startedCampaign,
+                activeSessionId: parseInt(sessionId, 10),
+                configurationKey: currentContext?.configurationKey || null,
+              });
+            }
+          } catch (startErr) {
+            // Ignore if session is already active or started
+            console.log('Coding session start check:', startErr?.message || startErr);
+          }
+
           const qRes = await codingService.getQuestions(sessionId);
           if (qRes && qRes.length > 0) {
             setQuestions(qRes);
@@ -110,6 +206,9 @@ const CodingInterviewPage = ({ sessionId }) => {
     if (lowerLang.includes('c++') || lowerLang.includes('cpp')) {
       return `#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    void ${fnName}() {\n        // Write your code here\n    }\n};\n`;
     }
+    if (lowerLang.startsWith('c ') || lowerLang === 'c') {
+      return `#include <stdio.h>\n#include <stdlib.h>\n\nvoid ${fnName}() {\n    // Write your code here\n}\n`;
+    }
 
     return `// Write your ${langName} code here\n`;
   };
@@ -133,6 +232,7 @@ const CodingInterviewPage = ({ sessionId }) => {
     // Reset temporary run result when switching question
     setRunResult(null);
     setSubmissionResult(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestionIndex, selectedLanguage?.id]);
 
   // Handle Monaco code changes and persist to userCodes state
@@ -252,6 +352,7 @@ const CodingInterviewPage = ({ sessionId }) => {
     const lower = (langName || '').toLowerCase();
     if (lower.includes('c++') || lower.includes('cpp')) return 'cpp';
     if (lower.includes('c#') || lower.includes('csharp')) return 'csharp';
+    if (lower.startsWith('c ') || lower === 'c') return 'c';
     if (lower.includes('python')) return 'python';
     if (lower.includes('java') && !lower.includes('script')) return 'java';
     if (lower.includes('javascript') || lower.includes('js')) return 'javascript';
@@ -267,7 +368,7 @@ const CodingInterviewPage = ({ sessionId }) => {
   const isSubmission = !!submissionResult;
 
   return (
-    <UserLayout compactSidebar>
+    <UserLayout compactSidebar immersive>
       <div className="coding-interview-container">
         {/* HEADER NAVBAR */}
         <div className="coding-header">
@@ -277,48 +378,46 @@ const CodingInterviewPage = ({ sessionId }) => {
               <span className="job-role-pill">{currentQuestion.jobRole}</span>
             )}
           </div>
+
+          <div className="coding-header-actions">
+            {questions.length > 1 && (
+              <div className="question-nav">
+                <button
+                  disabled={currentQuestionIndex === 0}
+                  onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
+                >
+                  ◀ Câu trước
+                </button>
+                <span className="question-counter">
+                  Câu {currentQuestionIndex + 1} / {questions.length}
+                  {submittedQuestionIds.has(currentQId) && (
+                    <span className="submitted-check" title="Đã nộp bài"> ✓</span>
+                  )}
+                </span>
+                <button
+                  disabled={currentQuestionIndex === questions.length - 1}
+                  onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
+                >
+                  Câu tiếp ▶
+                </button>
+              </div>
+            )}
+            <button
+              className="btn-finish-coding"
+              type="button"
+              disabled={!canComplete || isCompleting}
+              onClick={handleCompleteRound}
+            >
+              {isCompleting ? 'Đang hoàn tất...' : 'Hoàn thành bài test'}
+            </button>
+          </div>
         </div>
 
-
-        <div className="coding-header-actions">
-          {questions.length > 1 && (
-            <div className="question-nav">
-              <button
-                disabled={currentQuestionIndex === 0}
-                onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
-              >
-                ◀ Câu trước
-              </button>
-              <span className="question-counter">
-                Câu {currentQuestionIndex + 1} / {questions.length}
-                {submittedQuestionIds.has(currentQId) && (
-                  <span className="submitted-check" title="Đã nộp bài"> ✓</span>
-                )}
-              </span>
-              <button
-                disabled={currentQuestionIndex === questions.length - 1}
-                onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-              >
-                Câu tiếp ▶
-              </button>
-            </div>
-          )}
-          <button
-            className="btn-finish-coding"
-            type="button"
-            disabled={!canComplete || isCompleting}
-            onClick={handleCompleteRound}
-          >
-            {isCompleting ? 'Đang hoàn tất...' : 'Hoàn thành bài test'}
-          </button>
-        </div>
-      </div>
-
-      {/* SPLIT PANE CONTENT */}
-      <div className="coding-split-pane">
-        {/* LEFT PANE: PROBLEM DESCRIPTION & DETAILS */}
-        <div className="coding-left-pane">
-          <div className="question-details">
+        {/* SPLIT PANE CONTENT */}
+        <div className="coding-split-pane" ref={splitPaneRef}>
+          {/* LEFT PANE: PROBLEM DESCRIPTION & DETAILS */}
+          <div className="coding-left-pane" style={{ width: `${leftWidth}%`, flex: `0 0 ${leftWidth}%` }}>
+            <div className="question-details">
             <h3>{currentQuestion.title}</h3>
 
             <div className="meta-tags">
@@ -390,66 +489,80 @@ const CodingInterviewPage = ({ sessionId }) => {
           </div>
         </div>
 
+        {/* HORIZONTAL RESIZER */}
+        <div
+          className="resizer-horizontal"
+          onMouseDown={handleHorizontalMouseDown}
+          title="Kéo sang trái/phải để thay đổi kích thước màn hình"
+        />
+
         {/* RIGHT PANE: EDITOR + CONTROL TOOLBAR + TEST CONSOLE */}
-        <div className="coding-right-pane">
-          <div className="editor-toolbar">
-            <div className="language-selector">
-              <label htmlFor="language-select">Ngôn ngữ:</label>
-              <select
-                id="language-select"
-                value={selectedLanguage?.id || ''}
-                onChange={handleLanguageChange}
-              >
-                {languages.map(lang => (
-                  <option key={lang.id} value={lang.id}>{lang.name}</option>
-                ))}
-              </select>
+        <div className="coding-right-pane" ref={rightPaneRef} style={{ width: `${100 - leftWidth}%` }}>
+            <div className="editor-toolbar">
+              <div className="language-selector">
+                <label htmlFor="language-select">Ngôn ngữ:</label>
+                <select
+                  id="language-select"
+                  value={selectedLanguage?.id || ''}
+                  onChange={handleLanguageChange}
+                >
+                  {languages.map(lang => (
+                    <option key={lang.id} value={lang.id}>{lang.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="editor-actions">
+                {/* BUTTON 1: RUN CODE (CHẠY THỬ) */}
+                <button
+                  className="btn-run-code"
+                  onClick={handleRunCode}
+                  disabled={isRunning || isSubmitting}
+                  title="Chạy thử code trên sample test cases mà không lưu điểm"
+                >
+                  {isRunning ? '⏳ Đang chạy...' : '▶ Chạy thử (Run Code)'}
+                </button>
+
+                {/* BUTTON 2: SUBMIT CODE (NỘP BÀI) */}
+                <button
+                  className="btn-submit"
+                  onClick={handleSubmitCode}
+                  disabled={isRunning || isSubmitting}
+                  title="Nộp bài chấm điểm trên tất cả test cases"
+                >
+                  {isSubmitting ? '⏳ Đang nộp...' : '✓ Nộp bài (Submit)'}
+                </button>
+              </div>
             </div>
 
-            <div className="editor-actions">
-              {/* BUTTON 1: RUN CODE (CHẠY THỬ) */}
-              <button
-                className="btn-run-code"
-                onClick={handleRunCode}
-                disabled={isRunning || isSubmitting}
-                title="Chạy thử code trên sample test cases mà không lưu điểm"
-              >
-                {isRunning ? '⏳ Đang chạy...' : '▶ Chạy thử (Run Code)'}
-              </button>
-
-              {/* BUTTON 2: SUBMIT CODE (NỘP BÀI) */}
-              <button
-                className="btn-submit"
-                onClick={handleSubmitCode}
-                disabled={isRunning || isSubmitting}
-                title="Nộp bài chấm điểm trên tất cả test cases"
-              >
-                {isSubmitting ? '⏳ Đang nộp...' : '✓ Nộp bài (Submit)'}
-              </button>
+            {/* MONACO CODE EDITOR */}
+            <div className="editor-container">
+              <Editor
+                height="100%"
+                language={getMonacoLanguage(selectedLanguage?.name)}
+                theme="vs-dark"
+                value={code}
+                onChange={handleCodeChange}
+                onMount={handleEditorDidMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  wordWrap: 'on',
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false
+                }}
+              />
             </div>
-          </div>
 
-          {/* MONACO CODE EDITOR */}
-          <div className="editor-container">
-            <Editor
-              height="100%"
-              language={getMonacoLanguage(selectedLanguage?.name)}
-              theme="vs-dark"
-              value={code}
-              onChange={handleCodeChange}
-              onMount={handleEditorDidMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                wordWrap: 'on',
-                automaticLayout: true,
-                scrollBeyondLastLine: false
-              }}
+            {/* VERTICAL RESIZER */}
+            <div
+              className="resizer-vertical"
+              onMouseDown={handleVerticalMouseDown}
+              title="Kéo lên/xuống để thay đổi chiều cao console"
             />
-          </div>
 
-          {/* OUTPUT & TEST RESULTS CONSOLE PANEL */}
-          <div className="submission-result-panel">
+            {/* OUTPUT & TEST RESULTS CONSOLE PANEL */}
+            <div className="submission-result-panel" style={{ height: `${consoleHeight}px` }}>
             <div className="panel-tabs">
               <button
                 className={`tab-btn ${activeRightTab === 'console' ? 'active' : ''}`}
@@ -581,7 +694,8 @@ const CodingInterviewPage = ({ sessionId }) => {
           </div>
         </div>
       </div>
-    </UserLayout>
+    </div>
+  </UserLayout>
 
   );
 };
