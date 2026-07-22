@@ -14,6 +14,7 @@ namespace ai_speis_be.Services.InterviewSessionService
         Task<InterviewQuotaDto?> GetQuotaAsync(int userId);
         Task<InterviewSessionDto?> GetSessionByIdAsync(int userId, int sessionId);
         Task<InterviewCampaignDto?> GetCampaignByIdAsync(int userId, int campaignId);
+        Task<CampaignInterviewResultDto?> GetCampaignResultAsync(int userId, int campaignId);
         Task<InterviewCampaignDto?> GetActiveCampaignAsync(int userId);
         Task<IEnumerable<InterviewCampaignDto>> GetUserCampaignsAsync(int userId);
         Task<AvailableRoundsDto?> GetAvailableRoundsAsync(int userId, int jdId);

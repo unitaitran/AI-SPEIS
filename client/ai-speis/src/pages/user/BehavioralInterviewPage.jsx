@@ -24,7 +24,7 @@ import useBehavioralInterviewSession from '../../features/behavioralInterview/us
 import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio';
 import useTechnicalRecorder from '../../features/technicalInterview/useTechnicalRecorder';
 import { navigate } from '../../routes/navigation';
-import { getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { getCampaignResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
 import {
   getActiveInterviewContext,
@@ -92,6 +92,14 @@ function BehavioralInterviewPage({ sessionId }) {
     || room.phase === BehavioralFlowPhase.EVALUATING_ANSWER;
   const error = localError || room.error;
   const nextRoundSession = getNextOpenSession(latestCampaign, resolvedSessionId);
+  const completedCampaignId = latestCampaign?.interviewCampaignId
+    || room.generalSession?.interviewCampaignId
+    || initialContext?.campaign?.interviewCampaignId;
+  const campaignResultPath = room.phase === BehavioralFlowPhase.COMPLETED
+    && !nextRoundSession
+    && completedCampaignId
+    ? getCampaignResultPath(completedCampaignId)
+    : USER_ROUTES.DASHBOARD;
   const transcriptItems = useMemo(() => {
     const restored = room.transcriptMessages.map((message) => ({
       ...message,
@@ -379,7 +387,7 @@ function BehavioralInterviewPage({ sessionId }) {
                 answeredCount={room.completionResult?.mainQuestions?.length || room.session?.completedMainQuestionCount || 0}
                 hasNextRound={Boolean(nextRoundSession)}
                 onContinue={handleContinue}
-                onOverview={() => navigate(USER_ROUTES.DASHBOARD)}
+                onOverview={() => navigate(campaignResultPath)}
                 t={t}
               />
               {localError ? (

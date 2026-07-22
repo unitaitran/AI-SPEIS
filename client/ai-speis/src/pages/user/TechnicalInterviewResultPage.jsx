@@ -11,7 +11,7 @@ import { getTechnicalInterviewErrorKey } from '../../features/technicalInterview
 import useTechnicalInterviewResult from '../../features/technicalInterview/useTechnicalInterviewResult';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { getCampaignResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
 import {
   getActiveInterviewContext,
@@ -34,6 +34,7 @@ function TechnicalInterviewResultPage({ sessionId }) {
   ), [interviewLanguage, translate]);
   const { result, isLoading, error, reload } = useTechnicalInterviewResult(resolvedSessionId);
   const nextRoundSession = getNextOpenSession(campaign, resolvedSessionId);
+  const campaignCompleted = campaign?.status === 'Completed';
 
   const syncCampaign = useCallback(async () => {
     if (!resolvedSessionId) return;
@@ -136,6 +137,14 @@ function TechnicalInterviewResultPage({ sessionId }) {
             {nextRoundSession ? (
               <button type="button" className="technical-primary-button" onClick={handleContinue}>
                 {t('result.continueNextRound', { defaultValue: 'Continue to next round' })}<ArrowRight size={18} />
+              </button>
+            ) : campaignCompleted ? (
+              <button
+                type="button"
+                className="technical-primary-button"
+                onClick={() => navigate(getCampaignResultPath(campaign.interviewCampaignId))}
+              >
+                {t('result.viewCampaignResult', { defaultValue: 'View final campaign result' })}<ArrowRight size={18} />
               </button>
             ) : null}
           </div>

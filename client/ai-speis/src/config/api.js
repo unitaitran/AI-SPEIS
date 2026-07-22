@@ -34,6 +34,7 @@ export const ENDPOINTS = {
   INTERVIEW_SESSION_START: (id) => `${API_BASE_URL}/api/InterviewSession/${id}/start`,
   INTERVIEW_SESSION_COMPLETE: (id) => `${API_BASE_URL}/api/InterviewSession/${id}/complete`,
   INTERVIEW_CAMPAIGN: (campaignId) => `${API_BASE_URL}/api/InterviewSession/campaign/${campaignId}`,
+  INTERVIEW_CAMPAIGN_RESULT: (campaignId) => `${API_BASE_URL}/api/InterviewSession/campaign/${campaignId}/result`,
   INTERVIEW_ACTIVE_CAMPAIGN: `${API_BASE_URL}/api/InterviewSession/active`,
   INTERVIEW_CAMPAIGN_CANCEL: (campaignId) => `${API_BASE_URL}/api/InterviewSession/campaign/${campaignId}/cancel`,
   INTERVIEW_CAMPAIGN_EXPIRE: (campaignId) => `${API_BASE_URL}/api/InterviewSession/campaign/${campaignId}/expire`,

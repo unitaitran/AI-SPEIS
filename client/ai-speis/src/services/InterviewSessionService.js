@@ -95,6 +95,11 @@ const interviewSessionService = {
     headers: { ...getAuthHeaders(), Accept: 'application/json' },
   }),
 
+  /** GET /api/InterviewSession/campaign/{campaignId}/result */
+  getCampaignResult: (campaignId) => request(ENDPOINTS.INTERVIEW_CAMPAIGN_RESULT(campaignId), {
+    headers: { ...getAuthHeaders(), Accept: 'application/json' },
+  }),
+
   /** GET /api/InterviewSession/active */
   getActiveCampaign: () => request(ENDPOINTS.INTERVIEW_ACTIVE_CAMPAIGN, {
     headers: { ...getAuthHeaders(), Accept: 'application/json' },

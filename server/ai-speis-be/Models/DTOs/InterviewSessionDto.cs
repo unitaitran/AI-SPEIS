@@ -28,6 +28,63 @@ namespace ai_speis_be.Models.DTOs
         public List<InterviewSessionDto> Sessions { get; set; } = new List<InterviewSessionDto>();
     }
 
+    public sealed class CampaignInterviewResultDto
+    {
+        public int InterviewCampaignId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string Language { get; set; } = string.Empty;
+        public decimal OverallScore { get; set; }
+        public decimal MaxScore { get; set; } = 10m;
+        public string PerformanceBand { get; set; } = string.Empty;
+        public DateTime? CompletedAt { get; set; }
+        public List<CampaignRoundResultDto> Rounds { get; set; } = new();
+        public List<CampaignDashboardMetricDto> DashboardMetrics { get; set; } = new();
+        public CampaignFinalFeedbackDto Feedback { get; set; } = new();
+    }
+
+    public sealed class CampaignRoundResultDto
+    {
+        public int InterviewSessionId { get; set; }
+        public string RoundType { get; set; } = string.Empty;
+        public decimal Score { get; set; }
+        public decimal MaxScore { get; set; } = 10m;
+        public decimal BaseWeight { get; set; }
+        public decimal AppliedWeight { get; set; }
+        public string PerformanceBand { get; set; } = string.Empty;
+        public int EvaluatedItemCount { get; set; }
+        public string Summary { get; set; } = string.Empty;
+        public List<string> Strengths { get; set; } = new();
+        public List<string> AreasForImprovement { get; set; } = new();
+        public List<string> Recommendations { get; set; } = new();
+        public List<CodingQuestionResultDto> CodingQuestions { get; set; } = new();
+    }
+
+    public sealed class CodingQuestionResultDto
+    {
+        public int CodingQuestionId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public decimal Score { get; set; }
+        public decimal PassRate { get; set; }
+        public int PassedTestCases { get; set; }
+        public int TotalTestCases { get; set; }
+    }
+
+    public sealed class CampaignDashboardMetricDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public decimal? Score { get; set; }
+        public List<string> Sources { get; set; } = new();
+    }
+
+    public sealed class CampaignFinalFeedbackDto
+    {
+        public string ExecutiveSummary { get; set; } = string.Empty;
+        public List<string> Strengths { get; set; } = new();
+        public List<string> AreasForImprovement { get; set; } = new();
+        public List<string> Recommendations { get; set; } = new();
+    }
+
     public class InterviewSessionDto
     {
         public int InterviewSessionId { get; set; }
