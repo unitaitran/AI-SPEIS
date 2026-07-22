@@ -200,7 +200,10 @@
     "notReadyForInterview": "Chưa thể bắt đầu khi kiểm tra bắt buộc chưa đạt.",
     "privacyTitle": "Lưu ý",
     "privacyDescription": "AI-SPEIS không tải lên hoặc lưu audio trong bước kiểm tra thiết bị.",
-    "starting": "Đang bắt đầu"
+    "starting": "Đang bắt đầu",
+    "setupModalTitle": "Đang chuẩn bị phòng phỏng vấn",
+    "setupModalDescription": "Vui lòng chờ trong giây lát. Hệ thống đang thiết lập môi trường và khởi tạo bộ câu hỏi AI phỏng vấn cho bạn...",
+    "setupModalTip": "Hệ thống đang tổng hợp thông tin từ CV & JD để tạo kịch bản phỏng vấn phù hợp."
   },
   "room": {
     "title": "Phỏng vấn kỹ thuật",

@@ -5,6 +5,7 @@ using ai_speis_be.Services.EmailService;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authorization;
 using System.Net;
 
 namespace ai_speis_be.Controllers
@@ -327,6 +328,34 @@ namespace ai_speis_be.Controllers
             }
 
             return Ok(new { Message = "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới." });
+        }
+
+        [HttpPost("refresh")]
+        [Authorize]
+        public async Task<IActionResult> RefreshToken()
+        {
+            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(email))
+            {
+                return Unauthorized(new { Message = "Token không hợp lệ" });
+            }
+
+            var user = await _userService.GetUserByEmailAsync(email);
+            if (user == null || user.IsLocked || !user.Status)
+            {
+                return Unauthorized(new { Message = "Tài khoản không tồn tại hoặc đã bị khóa" });
+            }
+
+            var newToken = _tokenService.GenerateToken(user.UserId, user.Role.RoleName, user.FullName, user.Email);
+            return Ok(new LoginResponseDto
+            {
+                JwtToken = newToken,
+                Role = user.Role.RoleName,
+                UserId = user.UserId,
+                FullName = user.FullName,
+                Email = user.Email,
+                ImageUrl = user.ImageUrl
+            });
         }
     }
 

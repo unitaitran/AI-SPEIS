@@ -20,6 +20,7 @@ import InterviewRoomTranscriptPanel from '../../components/interviewRoom/Intervi
 import {
   BehavioralFlowPhase,
 } from '../../features/behavioralInterview/behavioralInterview.types';
+import { RecordingStatus } from '../../features/technicalInterview/technicalInterview.types';
 import useBehavioralInterviewSession from '../../features/behavioralInterview/useBehavioralInterviewSession';
 import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio';
 import useTechnicalRecorder from '../../features/technicalInterview/useTechnicalRecorder';
@@ -226,6 +227,22 @@ function BehavioralInterviewPage({ sessionId }) {
       setLocalError(submitError);
     }
   };
+
+  const autoSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      recorder.recordingStatus === RecordingStatus.READY
+      && recorder.transcript.trim()
+      && !isSubmitting
+      && !autoSubmittingRef.current
+    ) {
+      autoSubmittingRef.current = true;
+      handleSubmit().finally(() => {
+        autoSubmittingRef.current = false;
+      });
+    }
+  }, [recorder.recordingStatus, recorder.transcript, isSubmitting]);
 
   const requestNavigation = useCallback((path) => {
     if (!phaseIsActive) return true;

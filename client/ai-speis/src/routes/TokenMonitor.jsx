@@ -1,10 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { decodeJwt } from './auth';
+import { ENDPOINTS } from '../config/api';
 
 export default function TokenMonitor() {
   const [showPopup, setShowPopup] = useState(false);
+  const lastRefreshRef = useRef(0);
 
   useEffect(() => {
+    const refreshTokenIfNeeded = async (token) => {
+      const now = Date.now();
+      // Throttle refresh requests to at most once per 5 minutes
+      if (now - lastRefreshRef.current < 5 * 60 * 1000) return;
+      lastRefreshRef.current = now;
+
+      try {
+        const response = await fetch(ENDPOINTS.REFRESH_TOKEN, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.jwtToken) {
+            localStorage.setItem('token', data.jwtToken);
+          }
+        }
+      } catch (err) {
+        // Silently ignore network errors during background token refresh
+      }
+    };
+
     const checkToken = () => {
       const token = localStorage.getItem('token');
       if (token) {
@@ -13,15 +40,19 @@ export default function TokenMonitor() {
           const currentTime = Math.floor(Date.now() / 1000);
           if (payload.exp < currentTime) {
             setShowPopup(true);
+          } else {
+            setShowPopup(false);
+            // Reset / extend token expiration on backend when user accesses web
+            refreshTokenIfNeeded(token);
           }
         }
       } else {
         setShowPopup(false);
       }
     };
-    
+
     checkToken();
-    const interval = setInterval(checkToken, 5000);
+    const interval = setInterval(checkToken, 60000); // Check every 60 seconds
     return () => clearInterval(interval);
   }, []);
 

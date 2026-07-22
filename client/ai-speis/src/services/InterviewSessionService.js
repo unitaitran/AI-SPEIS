@@ -52,10 +52,11 @@ const handleResponse = async (response) => {
 };
 
 const request = async (url, options = {}) => {
+  const { timeout = 120000, ...fetchOptions } = options;
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeout);
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
+    const response = await fetch(url, { ...fetchOptions, signal: controller.signal });
     return await handleResponse(response);
   } catch (error) {
     if (error instanceof InterviewSessionError) throw error;

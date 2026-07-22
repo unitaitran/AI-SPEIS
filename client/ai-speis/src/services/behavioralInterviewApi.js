@@ -43,7 +43,7 @@ const request = async (url, options = {}) => {
   const timeoutId = window.setTimeout(() => {
     timedOut = true;
     timeoutController.abort();
-  }, 30000);
+  }, 120000);
   let response;
   try {
     response = await fetch(url, {

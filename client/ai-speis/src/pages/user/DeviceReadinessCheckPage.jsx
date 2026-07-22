@@ -11,6 +11,7 @@ import {
   Mic,
   Radio,
   RefreshCw,
+  Sparkles,
   Wifi,
   XCircle,
 } from 'lucide-react';
@@ -852,6 +853,22 @@ function DeviceReadinessCheckPage() {
             </button>
           </div>
         </footer>
+
+        {isStartingSession && (
+          <div className="device-setup-modal-overlay" role="dialog" aria-modal="true" aria-label={t('device.setupModalTitle')}>
+            <div className="device-setup-modal">
+              <div className="device-setup-modal-icon">
+                <Loader2 size={44} className="device-spin" />
+              </div>
+              <h2>{t('device.setupModalTitle')}</h2>
+              <p>{t('device.setupModalDescription')}</p>
+              <div className="device-setup-modal-tip">
+                <Sparkles size={16} />
+                <span>{t('device.setupModalTip')}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </UserLayout>
   );

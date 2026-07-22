@@ -34,7 +34,7 @@ const request = async (url, options = {}) => {
     ? window.setTimeout(() => {
       timedOut = true;
       timeoutController.abort();
-    }, 60000)
+    }, 120000)
     : null;
   let response;
   try {
