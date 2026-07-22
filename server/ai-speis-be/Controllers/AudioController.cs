@@ -34,14 +34,19 @@ namespace ai_speis_be.Controllers
         [HttpPost("speech-to-text")]
         [Authorize]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> SpeechToText([FromForm] SpeechToTextRequestDto request)
+        public async Task<IActionResult> SpeechToText(
+            [FromForm] SpeechToTextRequestDto request,
+            CancellationToken cancellationToken)
         {
             if (request?.AudioFile == null || request.AudioFile.Length == 0)
                 return BadRequest(new { Message = "Audio file is required." });
 
             try
             {
-                var transcript = await _speechToTextService.RecognizeSpeechAsync(request.AudioFile, request.LanguageCode);
+                var transcript = await _speechToTextService.RecognizeSpeechAsync(
+                    request.AudioFile,
+                    request.LanguageCode,
+                    cancellationToken);
                 return Ok(new { transcript });
             }
             catch (System.Exception ex)

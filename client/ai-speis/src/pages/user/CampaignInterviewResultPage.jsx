@@ -13,10 +13,16 @@ import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
-import { getActiveInterviewContext } from '../../utils/interviewContext';
 import {
+  getActiveInterviewContext,
+  getInterviewSetupDraft,
+  resolveInterviewLanguage,
+} from '../../utils/interviewContext';
+import {
+  getMetricLabel,
   getPerformanceBandLabel,
   getRoundLabel,
+  getSourceLabel,
   scorePercentage,
 } from '../../features/campaignResult/campaignResult';
 import '../../styles/user/CampaignInterviewResult.css';
@@ -41,6 +47,7 @@ const COPY = {
     retry: 'Thử lại',
     loading: 'Đang tổng hợp kết quả campaign...',
     errorTitle: 'Chưa thể tải kết quả cuối cùng',
+    errorDescription: 'Đã xảy ra lỗi khi tải kết quả. Vui lòng thử lại.',
     codingDetails: 'Chi tiết bài Coding',
     passed: 'test case đạt',
   },
@@ -63,6 +70,7 @@ const COPY = {
     retry: 'Retry',
     loading: 'Combining campaign results...',
     errorTitle: 'The final result could not be loaded',
+    errorDescription: 'An error occurred while loading the result. Please try again.',
     codingDetails: 'Coding problem details',
     passed: 'test cases passed',
   },
@@ -78,14 +86,18 @@ function FeedbackList({ icon: Icon, title, items, tone }) {
 }
 
 function CampaignInterviewResultPage({ campaignId }) {
-  const storedCampaignId = useMemo(() => (
-    getActiveInterviewContext()?.campaign?.interviewCampaignId || null
-  ), []);
+  const storedContext = useMemo(() => getActiveInterviewContext(), []);
+  const setupDraft = useMemo(() => getInterviewSetupDraft(), []);
+  const storedCampaignId = storedContext?.campaign?.interviewCampaignId || null;
   const resolvedCampaignId = campaignId || storedCampaignId;
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const language = result?.language === 'en' ? 'en' : 'vi';
+  const language = resolveInterviewLanguage(
+    result?.language,
+    storedContext?.campaign?.language,
+    setupDraft?.language,
+  );
   const copy = COPY[language];
 
   const load = async () => {
@@ -113,7 +125,7 @@ function CampaignInterviewResultPage({ campaignId }) {
         <section className="campaign-result-state" role={error ? 'alert' : 'status'}>
           {error ? <Target size={42} /> : <RefreshCw className="campaign-result-spin" size={42} />}
           <h1>{error ? copy.errorTitle : copy.loading}</h1>
-          {error ? <p>{error.message}</p> : null}
+          {error ? <p>{copy.errorDescription}</p> : null}
           <div>
             {error ? <button type="button" onClick={load}><RefreshCw size={17} />{copy.retry}</button> : null}
             <button type="button" onClick={() => navigate(USER_ROUTES.DASHBOARD)}><ArrowLeft size={17} />{copy.back}</button>
@@ -192,9 +204,9 @@ function CampaignInterviewResultPage({ campaignId }) {
           <div className="campaign-metric-grid">
             {result.dashboardMetrics?.map((metric) => (
               <article key={metric.code}>
-                <div><span>{metric.name}</span><strong>{metric.score == null ? '—' : Number(metric.score).toFixed(2)}</strong></div>
+                <div><span>{getMetricLabel(metric, language)}</span><strong>{metric.score == null ? '—' : Number(metric.score).toFixed(2)}</strong></div>
                 <div className="campaign-progress"><span style={{ width: `${scorePercentage(metric.score)}%` }} /></div>
-                <p><b>{copy.source}:</b> {metric.sources?.join(' · ') || '—'}</p>
+                <p><b>{copy.source}:</b> {metric.sources?.map((source) => getSourceLabel(source, language)).join(' · ') || '—'}</p>
               </article>
             ))}
           </div>

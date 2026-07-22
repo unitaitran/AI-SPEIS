@@ -15,7 +15,9 @@ public sealed class TechnicalLockedQuestionPlanTests
         var refreshed = TechnicalQuestionPlanSerializer.DeserializeRequired(
             TechnicalQuestionPlanSerializer.Serialize(plan));
 
-        Assert.Equal(new int?[] { 101, 102, 103 }, refreshed.Slots.Select(item => item.SelectedQuestionId));
+        Assert.Equal(
+            new[] { 101, 102, 103 },
+            refreshed.Slots.Select(item => item.SelectedQuestionId!.Value));
         Assert.Equal(
             plan.Slots.Select(item => item.LockedQuestion!.ExpectedKeyPoints),
             refreshed.Slots.Select(item => item.LockedQuestion!.ExpectedKeyPoints));

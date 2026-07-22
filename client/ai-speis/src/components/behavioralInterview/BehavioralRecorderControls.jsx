@@ -75,7 +75,7 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
     );
   }
 
-  if ((permissionDenied || sttFailed) && !hasTranscript) {
+  if (permissionDenied || sttFailed) {
     return (
       <section className="behavior-recorder behavior-recorder--error" role="alert">
         <TriangleAlert size={22} />
@@ -107,6 +107,7 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
   }
 
   if (isSubmitting) {
+  if (isSubmitting) {
     return (
       <section className="behavior-recorder behavior-recorder--processing" role="status" aria-live="polite">
         <Loader2 size={24} className="behavior-spin" />
@@ -128,16 +129,20 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
           </div>
           <time>{formatDuration(recorder.elapsedSeconds)}</time>
         </div>
-        {audioUrl ? <audio controls preload="metadata" src={audioUrl}>{t('audioUnsupported')}</audio> : null}
+        {audioUrl ? (
+          <audio controls src={audioUrl}>
+            {t('audioUnsupported')}
+          </audio>
+        ) : null}
         <div className="behavior-recorder__transcript">
-          <label htmlFor="interview-answer-transcript">{t('yourTranscript')}</label>
+          <label htmlFor="behavior-recorder-transcript">{t('yourTranscript')}</label>
           <textarea
-            id="interview-answer-transcript"
+            id="behavior-recorder-transcript"
+            aria-label={t('yourTranscript')}
             value={recorder.transcript}
             onChange={(event) => recorder.setTranscript(event.target.value)}
             placeholder={t('transcriptPlaceholder')}
             readOnly={disabled}
-            aria-readonly={disabled}
           />
           <p>{t('transcriptHelper')}</p>
         </div>
@@ -150,9 +155,9 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
             type="button"
             className="behavior-recorder__submit"
             onClick={onSubmit}
-            disabled={disabled || !hasTranscript}
+            disabled={disabled || !recorder.transcript.trim()}
           >
-            <Send size={18} />
+            <Send size={17} />
             {t('submitAnswer')}
           </button>
         </div>

@@ -78,4 +78,25 @@ describe('AudioService text-to-speech', () => {
     });
     expect(payload).not.toHaveProperty('questionId');
   });
+
+  test('times out a stalled speech-to-text request instead of leaving the recorder processing forever', async () => {
+    jest.useFakeTimers();
+    global.fetch.mockImplementation((url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => {
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      });
+    }));
+
+    const request = audioService.checkSpeechToText(
+      new Blob(['audio'], { type: 'audio/webm' }),
+      'vi-VN',
+      { timeoutMs: 1000 },
+    );
+    jest.advanceTimersByTime(1000);
+
+    await expect(request).rejects.toMatchObject({ code: 'STT_TIMEOUT' });
+    jest.useRealTimers();
+  });
 });

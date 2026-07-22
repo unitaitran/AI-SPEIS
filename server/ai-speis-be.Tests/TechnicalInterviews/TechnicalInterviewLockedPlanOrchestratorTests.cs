@@ -174,6 +174,10 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
         using var context = TestDbContextFactory.Create();
         SeedRealSession(context);
         var evaluation = TechnicalParallelTestData.CreateEvaluation(2m, "AMBIGUOUS");
+        foreach (var dimension in evaluation.DimensionEvaluations)
+        {
+            dimension.Evidence = new List<string> { "khong ro" };
+        }
         var orchestrator = CreateOrchestrator(context, evaluation: evaluation);
         await orchestrator.InitializeAsync(
             71,
@@ -201,6 +205,47 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
             item.QuestionType == TechnicalAttemptType.Clarification
             && item.QuestionId == next.QuestionId
             && item.QuestionContentSnapshot == next.Content);
+    }
+
+    [Fact]
+    public async Task SubmitAnswerAsync_InvalidAiEvidenceReopensAttemptWithoutZeroEvaluation()
+    {
+        using var context = TestDbContextFactory.Create();
+        SeedRealSession(context);
+        var evaluation = TechnicalParallelTestData.CreateEvaluation(4m);
+        evaluation.DimensionEvaluations[0].Evidence = new List<string> { "invented evidence" };
+        var orchestrator = CreateOrchestrator(context, evaluation: evaluation);
+        await orchestrator.InitializeAsync(
+            71,
+            new InitializeTechnicalInterviewRequest { InterviewSessionId = 501 },
+            CancellationToken.None);
+        var started = await orchestrator.StartAsync(71, 501, CancellationToken.None);
+
+        var submitted = await orchestrator.SubmitAnswerAsync(
+            71,
+            501,
+            new SubmitTechnicalAnswerRequest
+            {
+                AttemptId = started.Value!.AttemptId,
+                Transcript = "Dependency injection separates construction from use."
+            },
+            "technical-invalid-evidence",
+            CancellationToken.None);
+
+        var attempt = context.TechnicalQuestionAttempts.Single(item =>
+            item.AttemptId == started.Value.AttemptId);
+        Assert.Equal(TechnicalOperationStatus.ExternalFailure, submitted.Status);
+        Assert.Equal("EVIDENCE_NOT_IN_ANSWER", submitted.ErrorCode);
+        Assert.Empty(context.TechnicalAnswerEvaluations);
+        Assert.Equal(TechnicalAttemptStatus.Ready, attempt.Status);
+        Assert.Null(attempt.AnswerTranscript);
+        Assert.Null(attempt.SubmissionIdempotencyKey);
+        Assert.Equal(TechnicalInterviewState.QuestionReady, context.InterviewSessions
+            .Single(item => item.InterviewSessionId == 501)
+            .TechnicalState);
+        Assert.Contains(context.AIInteractionLogs, log =>
+            log.AttemptId == attempt.AttemptId
+            && log.ErrorCode == "EVIDENCE_NOT_IN_ANSWER");
     }
 
     [Fact]

@@ -127,7 +127,7 @@ public sealed class TechnicalInterviewDecisionArbiterTests
     [Theory]
     [InlineData(TechnicalAITaskStatus.Timeout, "TIMEOUT")]
     [InlineData(TechnicalAITaskStatus.InvalidOutput, "MALFORMED_JSON")]
-    public void Resolve_CriticalAiFailureUsesValidatedDeterministicFallback(
+    public void Resolve_CriticalAiFailureDoesNotPersistArtificialZeroScore(
         TechnicalAITaskStatus status,
         string errorCode)
     {
@@ -137,10 +137,46 @@ public sealed class TechnicalInterviewDecisionArbiterTests
             TechnicalParallelTestData.Results(
                 evaluation: TechnicalParallelTestData.Failed<TechnicalAIEvaluationResponse>(status, errorCode)));
 
+        Assert.False(result.IsSuccess);
+        Assert.False(result.EvaluationFallbackUsed);
+        Assert.Equal(errorCode, result.ErrorCode);
+        Assert.Null(result.Score);
+        Assert.Null(result.NextQuestion);
+    }
+
+    [Fact]
+    public void Resolve_InvalidEvidenceDoesNotPersistArtificialZeroScore()
+    {
+        var evaluation = TechnicalParallelTestData.CreateEvaluation(4m);
+        evaluation.DimensionEvaluations[0].Evidence = new List<string> { "invented evidence" };
+
+        var result = Resolve(
+            TechnicalParallelTestData.CreateContext(),
+            evaluation);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("EVIDENCE_NOT_IN_ANSWER", result.ErrorCode);
+        Assert.Equal(TechnicalAITaskStatus.InvalidOutput, result.EvaluationStatus);
+        Assert.False(result.EvaluationFallbackUsed);
+        Assert.Null(result.Score);
+    }
+
+    [Fact]
+    public void Resolve_MissingScoreEvidenceUsesVerbatimTranscriptWithoutChangingScore()
+    {
+        var context = TechnicalParallelTestData.CreateContext();
+        var evaluation = TechnicalParallelTestData.CreateEvaluation(4m);
+        evaluation.DimensionEvaluations[3].Evidence.Clear();
+
+        var result = Resolve(context, evaluation);
+
         Assert.True(result.IsSuccess);
-        Assert.True(result.EvaluationFallbackUsed);
-        Assert.NotNull(result.Score);
-        Assert.NotNull(result.NextQuestion);
+        Assert.Equal(4m, result.Score!.FinalOverallScore);
+        Assert.Equal(
+            new[] { context.CandidateAnswer },
+            result.EffectiveEvaluation!.DimensionEvaluations[3].Evidence);
+        Assert.Equal("EVIDENCE_GROUNDED_FROM_TRANSCRIPT", result.OverrideReason);
+        Assert.False(result.EvaluationFallbackUsed);
     }
 
     [Fact]

@@ -1,6 +1,21 @@
 const ACTIVE_INTERVIEW_CONTEXT_KEY = 'ai-speis:active-interview-context';
 const INTERVIEW_SETUP_DRAFT_KEY = 'ai-speis:interview-setup-draft';
 
+export function normalizeInterviewLanguage(language, fallback = 'vi') {
+  if (typeof language !== 'string') return fallback;
+  const normalized = language.trim().toLowerCase();
+  if (normalized === 'en' || normalized.startsWith('en-')) return 'en';
+  if (normalized === 'vi' || normalized.startsWith('vi-')) return 'vi';
+  return fallback;
+}
+
+export function resolveInterviewLanguage(...sources) {
+  const language = sources.find((source) => (
+    typeof source === 'string' && /^(en|vi)(-|$)/i.test(source.trim())
+  ));
+  return normalizeInterviewLanguage(language);
+}
+
 export function getInterviewSetupDraft() {
   const storedDraft = sessionStorage.getItem(INTERVIEW_SETUP_DRAFT_KEY);
   if (!storedDraft) return null;

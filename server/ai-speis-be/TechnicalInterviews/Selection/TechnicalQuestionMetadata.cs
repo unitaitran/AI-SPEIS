@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace ai_speis_be.TechnicalInterviews.Selection
 {
-    internal static class TechnicalQuestionMetadata
+    public static class TechnicalQuestionMetadata
     {
         public static IReadOnlyList<string> ResolveRoleAliases(string? roleTarget, string? jobTitle = null)
         {

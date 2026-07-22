@@ -32,16 +32,35 @@ const readAudioError = async (response) => {
 };
 
 const audioService = {
-  checkSpeechToText: async (audioBlob, languageCode = 'vi-VN') => {
+  checkSpeechToText: async (audioBlob, languageCode = 'vi-VN', { signal, timeoutMs = 90000 } = {}) => {
     const formData = new FormData();
     formData.append('audioFile', audioBlob, 'record.webm');
     formData.append('languageCode', languageCode);
 
-    const response = await fetch(ENDPOINTS.AUDIO_SPEECH_TO_TEXT, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: formData,
-    });
+    const timeoutController = signal ? null : new AbortController();
+    let timedOut = false;
+    const timeoutId = timeoutController
+      ? window.setTimeout(() => {
+        timedOut = true;
+        timeoutController.abort();
+      }, timeoutMs)
+      : null;
+    let response;
+    try {
+      response = await fetch(ENDPOINTS.AUDIO_SPEECH_TO_TEXT, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: formData,
+        signal: signal || timeoutController.signal,
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError' && timedOut) {
+        throw new AudioServiceError('Speech-to-text timed out', { code: 'STT_TIMEOUT' });
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       let errorMessage = `Request failed with status ${response.status}`;

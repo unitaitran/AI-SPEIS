@@ -2438,7 +2438,17 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 TechnicalPromptVersions.Evaluation,
                 results.Evaluation,
                 arbiterResult.EvaluationStatus,
-                arbiterResult.EvaluationFallbackUsed);
+                arbiterResult.EvaluationFallbackUsed,
+                arbiterResult.IsSuccess ? null : arbiterResult.ErrorCode);
+            AddTaskInteractionLog(
+                session,
+                attemptId,
+                AIInteractionOperationType.FeedbackGeneration,
+                TechnicalPromptVersions.Feedback,
+                results.Feedback,
+                arbiterResult.FeedbackStatus,
+                arbiterResult.FeedbackFallbackUsed,
+                null);
         }
 
         private void AddTaskInteractionLog<T>(
@@ -2448,7 +2458,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             string promptVersion,
             TechnicalAITaskOutcome<T> outcome,
             TechnicalAITaskStatus finalStatus,
-            bool fallbackUsed)
+            bool fallbackUsed,
+            string? finalErrorCode)
         {
             var result = outcome.ProviderResult;
             _context.AIInteractionLogs.Add(new AIInteractionLog
@@ -2464,7 +2475,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 OutputTokenCount = result?.OutputTokens,
                 EstimatedCost = null,
                 Status = ToLogStatus(finalStatus),
-                ErrorCode = outcome.ErrorCode
+                ErrorCode = finalErrorCode
+                    ?? outcome.ErrorCode
                     ?? (finalStatus == TechnicalAITaskStatus.InvalidOutput
                         ? "INVALID_OUTPUT"
                         : fallbackUsed
