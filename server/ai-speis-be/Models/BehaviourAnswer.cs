@@ -32,6 +32,12 @@ namespace ai_speis_be.Models
         public BehaviourResolvedAction? AiRecommendedAction { get; set; }
         public BehaviourResolvedAction? ResolvedAction { get; set; }
         public decimal? ComputedScore { get; set; }
+
+        // COMPLETED | SKIPPED_LOW_STT | PENDING_EVALUATION
+        public string? EvaluationStatus { get; set; }
+        // Provider error code when EvaluationStatus == PENDING_EVALUATION (e.g. GEMINI_QUOTA_EXCEEDED, HTTP_404)
+        public string? AiErrorCode { get; set; }
+
         [Required] public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual BehaviourSessionQuestion BehaviourSessionQuestion { get; set; } = null!;

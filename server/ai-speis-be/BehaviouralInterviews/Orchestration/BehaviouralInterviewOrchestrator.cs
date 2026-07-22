@@ -390,6 +390,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviourResolvedAction.Clarification, false, BehaviourQuestionType.Clarification);
                 answer.AiAnswerQuality = BehaviourAnswerQuality.Insufficient;
                 evaluationStatus = "SKIPPED_LOW_STT";
+                answer.EvaluationStatus = evaluationStatus;
             }
             else
             {
@@ -411,6 +412,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                         aiResult.Data, rubric, evaluationRequest.AnswerContext);
 
                     ApplyEvaluationToAnswer(answer, aiResult.Data, rubric, _scoringService);
+                    answer.EvaluationStatus = evaluationStatus;
 
                     if (!validation.IsValid)
                     {
@@ -439,6 +441,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                         "Behavioural evaluation failed ({ErrorCode}) for session {SessionId}; marking PENDING_EVALUATION.",
                         aiResult.ErrorCode, sessionId);
                     evaluationStatus = "PENDING_EVALUATION";
+                    answer.EvaluationStatus = evaluationStatus;
+                    answer.AiErrorCode = aiResult.ErrorCode;
                     outcome = new BehaviouralDecisionOutcome(BehaviourResolvedAction.NextMainQuestion, true, null);
                 }
             }

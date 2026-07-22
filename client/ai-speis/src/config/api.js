@@ -75,4 +75,10 @@ export const ENDPOINTS = {
   PAYMENT_CHECK: (orderCode) => `${API_BASE_URL}/api/payment/check/${orderCode}`,
   PAYMENT_WEBHOOK: `${API_BASE_URL}/api/payment/webhook`,
   PAYMENT_VERIFY: (orderId) => `${API_BASE_URL}/api/payment/callback?orderId=${orderId}`,
+  CODING_ADMIN_IMPORT: `${API_BASE_URL}/api/coding/admin/import`,
+  CODING_GET_QUESTIONS: (sessionId) => `${API_BASE_URL}/api/coding/questions/${sessionId}`,
+  CODING_SUBMIT: `${API_BASE_URL}/api/coding/submit`,
+  CODING_SUBMISSION_HISTORY: (sessionId, questionId) => `${API_BASE_URL}/api/coding/submissions/${sessionId}/${questionId}`,
+  CODING_LANGUAGES: `${API_BASE_URL}/api/coding/languages`,
 };
+

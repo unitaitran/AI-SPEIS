@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { codingService } from '../../../services/codingService';
 import interviewSessionService from '../../../services/InterviewSessionService';
@@ -7,7 +7,11 @@ import { getCampaignResultPath, getInterviewRoomPath } from '../../../routes/rou
 import { getActiveInterviewContext, getNextOpenSession, saveActiveInterviewContext } from '../../../utils/interviewContext';
 import notify from '../../../utils/notification';
 import { useTranslation } from 'react-i18next';
+import UserLayout from '../../../layouts/user/UserLayout';
 import '../../../styles/user/CodingInterviewPage.css';
+
+// Prioritized mainstream languages for coding interviews
+const PREFERRED_LANGUAGE_IDS = [71, 63, 62, 54, 51]; // Python 3, JavaScript (Node.js), Java, C++, C#
 
 const CodingInterviewPage = ({ sessionId }) => {
   const { t } = useTranslation('interview');
@@ -15,12 +19,20 @@ const CodingInterviewPage = ({ sessionId }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [languages, setLanguages] = useState([]);
   const [selectedLanguage, setSelectedLanguage] = useState(null);
+
+  // Save user written code per question & language: key = `${questionId}_${languageId}`
+  const [userCodes, setUserCodes] = useState({});
   const [code, setCode] = useState('');
+
+  const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [runResult, setRunResult] = useState(null);
   const [submissionResult, setSubmissionResult] = useState(null);
+
   const [submittedQuestionIds, setSubmittedQuestionIds] = useState(() => new Set());
   const [isCompleting, setIsCompleting] = useState(false);
-  
+  const [activeRightTab, setActiveRightTab] = useState('console'); // 'console' | 'samples'
+
   const editorRef = useRef(null);
 
   useEffect(() => {
@@ -28,8 +40,17 @@ const CodingInterviewPage = ({ sessionId }) => {
       try {
         const langRes = await codingService.getLanguages();
         if (langRes && langRes.length > 0) {
-          setLanguages(langRes);
-          setSelectedLanguage(langRes[0]);
+          // Sort languages so mainstream ones appear at top
+          const sortedLangs = [...langRes].sort((a, b) => {
+            const idxA = PREFERRED_LANGUAGE_IDS.indexOf(a.id);
+            const idxB = PREFERRED_LANGUAGE_IDS.indexOf(b.id);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.name.localeCompare(b.name);
+          });
+          setLanguages(sortedLangs);
+          setSelectedLanguage(sortedLangs[0]);
         }
 
         if (sessionId) {
@@ -58,48 +79,143 @@ const CodingInterviewPage = ({ sessionId }) => {
   }, [sessionId]);
 
   const currentQuestion = questions[currentQuestionIndex];
-  const getQuestionId = (question) => question?.codingQuestionId ?? question?.id;
+  const getQuestionId = (q) => q?.codingQuestionId ?? q?.id;
+  const currentQId = getQuestionId(currentQuestion);
+
   const canComplete = questions.length > 0
-    && questions.every((question) => submittedQuestionIds.has(getQuestionId(question)));
+    && questions.every((q) => submittedQuestionIds.has(getQuestionId(q)));
 
-  // Update starter code when question or language changes
-  useEffect(() => {
-    if (currentQuestion && selectedLanguage) {
-      const template = currentQuestion.templates?.find(t => t.languageId === selectedLanguage.id);
-      if (template) {
-        setCode(template.templateCode);
-      } else {
-        setCode(`// ${t('coding.writeCodePrompt', { language: selectedLanguage.name })}\n`);
-      }
+  // Generate fallback starter code template based on question signature and language
+  const getFallbackStarterCode = (q, lang) => {
+    if (!q || !lang) return '';
+    const langName = lang.name || '';
+    const lowerLang = langName.toLowerCase();
+    const sig = q.functionSignature;
+    const fnName = q.functionName || 'solution';
+
+    if (sig) {
+      return `// ${sig}\n// Write your solution below\n`;
     }
-  }, [currentQuestion, selectedLanguage, t]);
 
-  const handleEditorDidMount = (editor, monaco) => {
+    if (lowerLang.includes('python')) {
+      return `def ${fnName}(*args):\n    # Write your code here\n    pass\n`;
+    }
+    if (lowerLang.includes('javascript') || lowerLang.includes('js')) {
+      return `function ${fnName}(...args) {\n  // Write your code here\n}\n\nmodule.exports.${fnName} = ${fnName};\n`;
+    }
+    if (lowerLang.includes('c#') || lowerLang.includes('csharp')) {
+      return `using System;\nusing System.Collections.Generic;\n\npublic class Solution\n{\n    public void ${fnName}()\n    {\n        // Write your code here\n    }\n}\n`;
+    }
+    if (lowerLang.includes('java') && !lowerLang.includes('script')) {
+      return `import java.util.*;\n\npublic class Solution {\n    public void ${fnName}() {\n        // Write your code here\n    }\n}\n`;
+    }
+    if (lowerLang.includes('c++') || lowerLang.includes('cpp')) {
+      return `#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    void ${fnName}() {\n        // Write your code here\n    }\n};\n`;
+    }
+
+    return `// Write your ${langName} code here\n`;
+  };
+
+  // Sync code whenever currentQuestion or selectedLanguage changes
+  useEffect(() => {
+    if (!currentQId || !selectedLanguage) return;
+
+    const codeKey = `${currentQId}_${selectedLanguage.id}`;
+    if (userCodes[codeKey] !== undefined) {
+      setCode(userCodes[codeKey]);
+    } else {
+      // Check templates from DB
+      const template = currentQuestion?.templates?.find(tmpl => tmpl.languageId === selectedLanguage.id);
+      const initialCode = template ? template.templateCode : getFallbackStarterCode(currentQuestion, selectedLanguage);
+
+      setCode(initialCode);
+      setUserCodes(prev => ({ ...prev, [codeKey]: initialCode }));
+    }
+
+    // Reset temporary run result when switching question
+    setRunResult(null);
+    setSubmissionResult(null);
+  }, [currentQuestionIndex, selectedLanguage?.id]);
+
+  // Handle Monaco code changes and persist to userCodes state
+  const handleCodeChange = (newValue) => {
+    const val = newValue ?? '';
+    setCode(val);
+    if (currentQId && selectedLanguage) {
+      const codeKey = `${currentQId}_${selectedLanguage.id}`;
+      setUserCodes(prev => ({ ...prev, [codeKey]: val }));
+    }
+  };
+
+  const handleEditorDidMount = (editor) => {
     editorRef.current = editor;
   };
 
   const handleLanguageChange = (e) => {
     const langId = parseInt(e.target.value, 10);
     const lang = languages.find(l => l.id === langId);
-    setSelectedLanguage(lang);
+    if (lang) {
+      setSelectedLanguage(lang);
+    }
   };
 
-  const handleSubmit = async () => {
+  // 1. RUN CODE (Chay Thu doi voi Sample Test Cases)
+  const handleRunCode = async () => {
     if (!currentQuestion || !selectedLanguage) return;
-    
+
+    setIsRunning(true);
+    setRunResult(null);
+    setActiveRightTab('console');
+
+    try {
+      const payload = {
+        interviewSessionId: 0, // Test Run
+        codingQuestionId: currentQId,
+        languageId: selectedLanguage.id,
+        sourceCode: code,
+        isTestRun: true
+      };
+
+      const res = await codingService.submitCode(payload);
+      setRunResult(res);
+      if (res.status === 'Accepted') {
+        notify.success(t('coding.runSuccess', { passed: res.passedTestCases, total: res.totalTestCases }));
+      } else {
+        notify.info(t('coding.runPartial', { passed: res.passedTestCases, total: res.totalTestCases, status: res.status }));
+      }
+    } catch (err) {
+      notify.error(err.message || t('coding.runFailed'));
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  // 2. SUBMIT CODE (Nop Bai chinh thuc)
+  const handleSubmitCode = async () => {
+    if (!currentQuestion || !selectedLanguage) return;
+
     setIsSubmitting(true);
     setSubmissionResult(null);
+    setActiveRightTab('console');
+
     try {
       const payload = {
         interviewSessionId: parseInt(sessionId, 10),
-        codingQuestionId: getQuestionId(currentQuestion),
+        codingQuestionId: currentQId,
         languageId: selectedLanguage.id,
-        sourceCode: code
+        sourceCode: code,
+        isTestRun: false
       };
+
       const res = await codingService.submitCode(payload);
       setSubmissionResult(res);
-      setSubmittedQuestionIds((previous) => new Set(previous).add(getQuestionId(currentQuestion)));
-      notify.success(t('coding.submitSuccess'));
+      setSubmittedQuestionIds((prev) => new Set(prev).add(currentQId));
+
+      if (res.status === 'Accepted') {
+        notify.success(t('coding.submitAccepted'));
+      } else {
+        notify.warning(t('coding.submitPartial', { status: res.status, passed: res.passedTestCases, total: res.totalTestCases }));
+      }
     } catch (err) {
       notify.error(err.message || t('coding.submitFailed'));
     } finally {
@@ -133,7 +249,7 @@ const CodingInterviewPage = ({ sessionId }) => {
     return <div className="coding-interview-loading">{t('coding.loading')}</div>;
   }
 
-  // Monaco editor expects language name in lowercase (e.g., 'javascript', 'python', 'java', 'csharp', 'cpp')
+  // Map language name to Monaco language string
   const getMonacoLanguage = (langName) => {
     const lower = (langName || '').toLowerCase();
     if (lower.includes('c++') || lower.includes('cpp')) return 'cpp';
@@ -146,170 +262,322 @@ const CodingInterviewPage = ({ sessionId }) => {
     if (lower.includes('ruby')) return 'ruby';
     if (lower.includes('rust')) return 'rust';
     if (lower.includes('php')) return 'php';
-    if (lower.includes('swift')) return 'swift';
-    if (lower.includes('kotlin')) return 'kotlin';
     return 'plaintext';
   };
 
+  const activeResult = submissionResult || runResult;
+  const isSubmission = !!submissionResult;
+
   return (
-    <div className="coding-interview-container">
-      <div className="coding-header">
-        <h2>{t('coding.title')}</h2>
-        <div className="coding-header-actions">
-          {questions.length > 1 && (
-            <div className="question-nav">
-              <button 
-                disabled={currentQuestionIndex === 0}
-                onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
-              >
-                {t('coding.previousQuestion')}
-              </button>
-              <span>{currentQuestionIndex + 1} / {questions.length}</span>
-              <button 
-                disabled={currentQuestionIndex === questions.length - 1}
-                onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-              >
-                {t('coding.nextQuestion')}
-              </button>
-            </div>
-          )}
-          <button
-            className="btn-finish-coding"
-            type="button"
-            disabled={!canComplete || isCompleting}
-            onClick={handleCompleteRound}
-          >
-            {isCompleting ? t('coding.finalizing') : t('coding.finishRound')}
-          </button>
-        </div>
-      </div>
-      
-      <div className="coding-split-pane">
-        <div className="coding-left-pane">
-          <div className="question-details">
-            <h3>{currentQuestion.title}</h3>
-            
-            <div className="meta-tags">
-              <span className={`difficulty ${currentQuestion.difficulty?.toLowerCase()}`}>
-                {currentQuestion.difficulty}
-              </span>
-              {currentQuestion.skill && (
-                <span className="skill-tag">{currentQuestion.skill}</span>
-              )}
-            </div>
-
-            <div className="markdown-content">
-              <h4>{t('coding.problemStatement')}</h4>
-              <p>{currentQuestion.description}</p>
-              
-              {currentQuestion.inputDescription && (
-                <>
-                  <h4>{t('coding.inputDescription')}</h4>
-                  <p>{currentQuestion.inputDescription}</p>
-                </>
-              )}
-              
-              {currentQuestion.outputDescription && (
-                <>
-                  <h4>{t('coding.outputDescription')}</h4>
-                  <p>{currentQuestion.outputDescription}</p>
-                </>
-              )}
-
-              {currentQuestion.constraints && (
-                <>
-                  <h4>{t('coding.constraints')}</h4>
-                  <pre>{currentQuestion.constraints}</pre>
-                </>
-              )}
-
-              {currentQuestion.examples && (
-                <>
-                  <h4>{t('coding.examples')}</h4>
-                  <pre>{currentQuestion.examples}</pre>
-                </>
-              )}
-            </div>
+    <UserLayout compactSidebar>
+      <div className="coding-interview-container">
+        {/* HEADER NAVBAR */}
+        <div className="coding-header">
+          <div className="coding-title-badge">
+            <h2>{t('coding.title')}</h2>
+            {currentQuestion?.jobRole && (
+              <span className="job-role-pill">{currentQuestion.jobRole}</span>
+            )}
           </div>
-        </div>
-        
-        <div className="coding-right-pane">
-          <div className="editor-toolbar">
-            <select value={selectedLanguage?.id || ''} onChange={handleLanguageChange}>
-              {languages.map(lang => (
-                <option key={lang.id} value={lang.id}>{lang.name}</option>
-              ))}
-            </select>
-            
-            <button 
-              className="btn-submit" 
-              onClick={handleSubmit}
-              disabled={isSubmitting}
+          <div className="coding-header-actions">
+            {questions.length > 1 && (
+              <div className="question-nav">
+                <button
+                  disabled={currentQuestionIndex === 0}
+                  onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
+                >
+                  {t('coding.previousQuestion')}
+                </button>
+                <span className="question-counter">
+                  {t('coding.questionCounter', { current: currentQuestionIndex + 1, total: questions.length })}
+                  {submittedQuestionIds.has(currentQId) && (
+                    <span className="submitted-check" title={t('coding.submittedLabel')}> ✓</span>
+                  )}
+                </span>
+                <button
+                  disabled={currentQuestionIndex === questions.length - 1}
+                  onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
+                >
+                  {t('coding.nextQuestion')}
+                </button>
+              </div>
+            )}
+            <button
+              className="btn-finish-coding"
+              type="button"
+              disabled={!canComplete || isCompleting}
+              onClick={handleCompleteRound}
             >
-              {isSubmitting ? t('coding.running') : t('coding.runAndSubmit')}
+              {isCompleting ? t('coding.finalizing') : t('coding.finishRound')}
             </button>
           </div>
-          
-          <div className="editor-container">
-            <Editor
-              height="100%"
-              language={getMonacoLanguage(selectedLanguage?.name)}
-              theme="vs-dark"
-              value={code}
-              onChange={(value) => setCode(value)}
-              onMount={handleEditorDidMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                wordWrap: 'on'
-              }}
-            />
+        </div>
+
+        {/* SPLIT PANE CONTENT */}
+        <div className="coding-split-pane">
+          {/* LEFT PANE: PROBLEM DESCRIPTION & DETAILS */}
+          <div className="coding-left-pane">
+            <div className="question-details">
+              <h3>{currentQuestion.title}</h3>
+
+              <div className="meta-tags">
+                {currentQuestion.difficulty && (
+                  <span className={`difficulty ${currentQuestion.difficulty.toLowerCase()}`}>
+                    {currentQuestion.difficulty}
+                  </span>
+                )}
+                {currentQuestion.skill && (
+                  <span className="skill-tag">{currentQuestion.skill}</span>
+                )}
+                {currentQuestion.subskill && (
+                  <span className="subskill-tag">{currentQuestion.subskill}</span>
+                )}
+              </div>
+
+              {/* TIME & SPACE COMPLEXITY HINTS */}
+              {(currentQuestion.expectedTimeComplexity || currentQuestion.expectedSpaceComplexity) && (
+                <div className="complexity-box">
+                  {currentQuestion.expectedTimeComplexity && (
+                    <span>⏱ <strong>Time:</strong> {currentQuestion.expectedTimeComplexity}</span>
+                  )}
+                  {currentQuestion.expectedSpaceComplexity && (
+                    <span>💾 <strong>Space:</strong> {currentQuestion.expectedSpaceComplexity}</span>
+                  )}
+                </div>
+              )}
+
+              {/* FUNCTION SIGNATURE HINT */}
+              {currentQuestion.functionSignature && (
+                <div className="function-sig-box">
+                  <span className="sig-label">Function Signature:</span>
+                  <code>{currentQuestion.functionSignature}</code>
+                </div>
+              )}
+
+              <div className="markdown-content">
+                <h4>{t('coding.problemStatement')}</h4>
+                <p>{currentQuestion.description}</p>
+
+                {currentQuestion.inputDescription && (
+                  <>
+                    <h4>{t('coding.inputDescription')}</h4>
+                    <p>{currentQuestion.inputDescription}</p>
+                  </>
+                )}
+
+                {currentQuestion.outputDescription && (
+                  <>
+                    <h4>{t('coding.outputDescription')}</h4>
+                    <p>{currentQuestion.outputDescription}</p>
+                  </>
+                )}
+
+                {currentQuestion.constraints && (
+                  <>
+                    <h4>{t('coding.constraints')}</h4>
+                    <pre>{currentQuestion.constraints}</pre>
+                  </>
+                )}
+
+                {currentQuestion.examples && (
+                  <>
+                    <h4>{t('coding.examples')}</h4>
+                    <pre>{currentQuestion.examples}</pre>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
-          {submissionResult && (
+          {/* RIGHT PANE: EDITOR + CONTROL TOOLBAR + TEST CONSOLE */}
+          <div className="coding-right-pane">
+            <div className="editor-toolbar">
+              <div className="language-selector">
+                <label htmlFor="language-select">{t('coding.languageLabel')}</label>
+                <select
+                  id="language-select"
+                  value={selectedLanguage?.id || ''}
+                  onChange={handleLanguageChange}
+                >
+                  {languages.map(lang => (
+                    <option key={lang.id} value={lang.id}>{lang.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="editor-actions">
+                {/* BUTTON 1: RUN CODE */}
+                <button
+                  className="btn-run-code"
+                  onClick={handleRunCode}
+                  disabled={isRunning || isSubmitting}
+                  title={t('coding.runCodeTitle')}
+                >
+                  {isRunning ? t('coding.running') : t('coding.runCodeBtn')}
+                </button>
+
+                {/* BUTTON 2: SUBMIT CODE */}
+                <button
+                  className="btn-submit"
+                  onClick={handleSubmitCode}
+                  disabled={isRunning || isSubmitting}
+                  title={t('coding.submitCodeTitle')}
+                >
+                  {isSubmitting ? t('coding.submitting') : t('coding.submitCodeBtn')}
+                </button>
+              </div>
+            </div>
+
+            {/* MONACO CODE EDITOR */}
+            <div className="editor-container">
+              <Editor
+                height="100%"
+                language={getMonacoLanguage(selectedLanguage?.name)}
+                theme="vs-dark"
+                value={code}
+                onChange={handleCodeChange}
+                onMount={handleEditorDidMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  wordWrap: 'on',
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false
+                }}
+              />
+            </div>
+
+            {/* OUTPUT & TEST RESULTS CONSOLE PANEL */}
             <div className="submission-result-panel">
-              <h4>{t('coding.submissionResults')}</h4>
-              <div className="result-stats">
-                <span className={submissionResult.status === 'Accepted' ? 'status-accepted' : 'status-error'}>
-                  {submissionResult.status || t('common.unknown')}
-                </span>
-                <span>{t('coding.passed', { passed: submissionResult.passedTestCases, total: submissionResult.totalTestCases })}</span>
-                <span>{t('coding.time', { value: submissionResult.maxTimeMs })}</span>
-                <span>{t('coding.memory', { value: submissionResult.maxMemoryKb })}</span>
+              <div className="panel-tabs">
+                <button
+                  className={`tab-btn ${activeRightTab === 'console' ? 'active' : ''}`}
+                  onClick={() => setActiveRightTab('console')}
+                >
+                  {t('coding.consoleTab')} {activeResult ? `(${isSubmission ? t('coding.submissionLabel') : t('coding.runLabel')})` : ''}
+                </button>
+                <button
+                  className={`tab-btn ${activeRightTab === 'samples' ? 'active' : ''}`}
+                  onClick={() => setActiveRightTab('samples')}
+                >
+                  {t('coding.samplesTab')} ({currentQuestion?.sampleTestCases?.length || 0})
+                </button>
               </div>
-              
-              <div className="test-cases-results">
-                {submissionResult.testCaseResults && submissionResult.testCaseResults.map((tc, idx) => {
-                  const passed = tc.status === 'Accepted';
-                  return (
-                  <div key={tc.testCaseId || idx} className={`test-case-card ${passed ? 'passed' : 'failed'}`}>
-                    <h5>{t('coding.testCase', { index: idx + 1 })} {passed ? '✓' : '✕'}</h5>
-                    {tc.stderr || tc.compileOutput ? (
-                      <div className="error-output">
-                        <strong>{t('coding.error')}</strong> <pre>{tc.stderr || tc.compileOutput}</pre>
+
+              {activeRightTab === 'console' && (
+                <div className="tab-content">
+                  {!activeResult ? (
+                    <div className="empty-console-message">
+                      {t('coding.emptyConsole')}
+                    </div>
+                  ) : (
+                    <>
+                      {/* STATS BAR */}
+                      <div className="result-stats">
+                        <span className={activeResult.status === 'Accepted' ? 'status-accepted' : 'status-error'}>
+                          {isSubmission ? t('coding.submissionLabel') : t('coding.runLabel')} {activeResult.status || t('common.unknown')}
+                        </span>
+                        <span>{t('coding.passed', { passed: activeResult.passedTestCases, total: activeResult.totalTestCases })}</span>
+                        <span>{t('coding.time', { value: activeResult.maxTimeMs })}</span>
+                        <span>{t('coding.memory', { value: activeResult.maxMemoryKb })}</span>
                       </div>
-                    ) : (
-                      <div className="execution-details">
-                        <p><strong>{t('coding.status')}</strong> {tc.status}</p>
-                        <p><strong>{t('coding.timeLabel')}</strong> {tc.timeMs}ms</p>
-                        <p><strong>{t('coding.memoryLabel')}</strong> {tc.memoryKb}KB</p>
+
+                      {/* TOP-LEVEL COMPILATION / RUNTIME ERROR LOG BOX */}
+                      {(activeResult.compileOutput || activeResult.stderr) && (
+                        <div className="top-error-box">
+                          <div className="top-error-header">
+                            ⚠️ <strong>{t('coding.compileErrorHeader')}</strong>
+                          </div>
+                          <pre>{activeResult.compileOutput || activeResult.stderr}</pre>
+                        </div>
+                      )}
+
+                      {/* DETAILED TEST CASE CARDS */}
+                      <div className="test-cases-results">
+                        {activeResult.testCaseResults && activeResult.testCaseResults.map((tc, idx) => {
+                          const passed = tc.status === 'Accepted';
+                          return (
+                            <div key={tc.testCaseId || idx} className={`test-case-card ${passed ? 'passed' : 'failed'}`}>
+                              <div className="test-case-header">
+                                <h5>{t('coding.testCase', { index: idx + 1 })} {tc.isSample ? `(${t('coding.sampleLabel')})` : `(${t('coding.hiddenLabel')})`}</h5>
+                                <span className={`status-tag ${passed ? 'passed' : 'failed'}`}>
+                                  {passed ? 'PASSED ✓' : `${tc.status} ✕`}
+                                </span>
+                              </div>
+
+                              <div className="execution-details">
+                                {tc.input && (
+                                  <div className="io-row">
+                                    <span>{t('coding.inputLabel')}</span>
+                                    <code className="input-code">{tc.input}</code>
+                                  </div>
+                                )}
+
+                                {tc.expectedOutput !== null && tc.expectedOutput !== undefined && (
+                                  <div className="io-row">
+                                    <span>{t('coding.expectedOutputLabel')}</span>
+                                    <code className="expected-code">{tc.expectedOutput}</code>
+                                  </div>
+                                )}
+
+                                {tc.actualOutput !== null && tc.actualOutput !== undefined && (
+                                  <div className="io-row">
+                                    <span>{t('coding.yourOutputLabel')}</span>
+                                    <code className={passed ? 'actual-passed' : 'actual-failed'}>
+                                      {tc.actualOutput !== '' ? tc.actualOutput : `(${t('coding.emptyOutput')})`}
+                                    </code>
+                                  </div>
+                                )}
+
+                                {(tc.stderr || tc.compileOutput) && (
+                                  <div className="error-output">
+                                    <strong>{t('coding.stderrLabel')}</strong>
+                                    <pre>{tc.stderr || tc.compileOutput}</pre>
+                                  </div>
+                                )}
+
+                                <div className="metrics-row">
+                                  <span>{t('coding.timeLabel')} {tc.timeMs}ms</span>
+                                  <span>{t('coding.memoryLabel')} {tc.memoryKb}KB</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    )}
-                  </div>
-                );})}
-              </div>
-              
-              {submissionResult.compileOutput && (
-                <div className="compile-output">
-                  <h5>{t('coding.compilationOutput')}</h5>
-                  <pre>{submissionResult.compileOutput}</pre>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {activeRightTab === 'samples' && (
+                <div className="tab-content sample-cases-tab">
+                  {currentQuestion.sampleTestCases && currentQuestion.sampleTestCases.length > 0 ? (
+                    currentQuestion.sampleTestCases.map((stc, idx) => (
+                      <div key={stc.testCaseId || idx} className="sample-case-box">
+                        <h5>{t('coding.sampleTestCase', { index: idx + 1 })}</h5>
+                        <div className="io-pair">
+                          <div>
+                            <strong>{t('coding.inputLabel')}</strong>
+                            <pre>{stc.input || `(${t('coding.emptyInput')})`}</pre>
+                          </div>
+                          <div>
+                            <strong>{t('coding.expectedOutputLabel')}</strong>
+                            <pre>{stc.expectedOutput}</pre>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="no-samples">{t('coding.noSampleCases')}</p>
+                  )}
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       </div>
-    </div>
+    </UserLayout>
   );
 };
 
