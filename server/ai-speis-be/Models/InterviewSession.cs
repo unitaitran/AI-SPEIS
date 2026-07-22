@@ -96,6 +96,23 @@ namespace ai_speis_be.Models
         [Column(TypeName = "nvarchar(max)")]
         public string? TechnicalSummaryJson { get; set; }
 
+        public RoundFeedbackStatus TechnicalFeedbackStatus { get; set; } = RoundFeedbackStatus.NotStarted;
+
+        [MaxLength(120)]
+        public string? TechnicalFeedbackModel { get; set; }
+
+        [MaxLength(80)]
+        public string? TechnicalFeedbackPromptVersion { get; set; }
+
+        public int? TechnicalFeedbackInputTokens { get; set; }
+
+        public int? TechnicalFeedbackOutputTokens { get; set; }
+
+        public long? TechnicalFeedbackLatencyMs { get; set; }
+
+        [MaxLength(100)]
+        public string? TechnicalFeedbackError { get; set; }
+
         [MaxLength(500)]
         public string? TechnicalReliabilityFailureReason { get; set; }
 

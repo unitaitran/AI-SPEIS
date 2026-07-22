@@ -100,8 +100,7 @@ namespace ai_speis_be.Controllers
             }
 
             request.SessionQuestionId = sessionQuestionId;
-            var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault()
-                ?? $"{sessionId}:{sessionQuestionId}";
+            var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault() ?? string.Empty;
 
             var result = await _orchestrator.SubmitAnswerAsync(
                 userId, sessionId, request, idempotencyKey, cancellationToken);

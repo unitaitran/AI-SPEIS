@@ -178,6 +178,11 @@ export default function useBehavioralInterviewSession(sessionId) {
     dispatch({ type: 'PHASE', phase: BehavioralFlowPhase.COMPLETING });
     try {
       const result = await behavioralInterviewApi.complete(sessionId);
+      if (result?.feedbackStatus !== 'COMPLETED') {
+        throw new BehavioralInterviewError('Final round feedback is not ready', {
+          code: BehavioralErrorCode.FINAL_FEEDBACK_FAILED,
+        });
+      }
       dispatch({ type: 'COMPLETED', result });
       return result;
     } catch (error) {
@@ -223,6 +228,11 @@ export default function useBehavioralInterviewSession(sessionId) {
       if (isCompletedStatus(generalSession.status)) {
         dispatch({ type: 'PHASE', phase: BehavioralFlowPhase.COMPLETING });
         const result = await behavioralInterviewApi.getResult(sessionId, { signal: controller.signal });
+        if (result?.feedbackStatus !== 'COMPLETED') {
+          throw new BehavioralInterviewError('Final round feedback is not ready', {
+            code: BehavioralErrorCode.FINAL_FEEDBACK_FAILED,
+          });
+        }
         dispatch({ type: 'COMPLETED', result, generalSession });
         return;
       }
@@ -293,11 +303,21 @@ export default function useBehavioralInterviewSession(sessionId) {
           });
           if (!isReadyToComplete(latestState)) throw error;
           const result = await behavioralInterviewApi.complete(sessionId, { signal: controller.signal });
+          if (result?.feedbackStatus !== 'COMPLETED') {
+            throw new BehavioralInterviewError('Final round feedback is not ready', {
+              code: BehavioralErrorCode.FINAL_FEEDBACK_FAILED,
+            });
+          }
           dispatch({ type: 'COMPLETED', result, generalSession });
           return;
         }
         if (error?.code === BehavioralErrorCode.ROUND_COMPLETED) {
           const result = await behavioralInterviewApi.getResult(sessionId, { signal: controller.signal });
+          if (result?.feedbackStatus !== 'COMPLETED') {
+            throw new BehavioralInterviewError('Final round feedback is not ready', {
+              code: BehavioralErrorCode.FINAL_FEEDBACK_FAILED,
+            });
+          }
           dispatch({ type: 'COMPLETED', result });
           return;
         }
@@ -381,6 +401,11 @@ export default function useBehavioralInterviewSession(sessionId) {
       if (response?.sessionStatus === BehavioralSessionStatus.READY_TO_COMPLETE) {
         try {
           const result = await behavioralInterviewApi.complete(sessionId);
+          if (result?.feedbackStatus !== 'COMPLETED') {
+            throw new BehavioralInterviewError('Final round feedback is not ready', {
+              code: BehavioralErrorCode.FINAL_FEEDBACK_FAILED,
+            });
+          }
           dispatch({ type: 'COMPLETED', result });
           return { accepted: true, completed: true, result, response };
         } catch (completionError) {
@@ -419,6 +444,11 @@ export default function useBehavioralInterviewSession(sessionId) {
             idempotencyKeysRef.current.delete(keyId);
             try {
               const result = await behavioralInterviewApi.complete(sessionId);
+              if (result?.feedbackStatus !== 'COMPLETED') {
+                throw new BehavioralInterviewError('Final round feedback is not ready', {
+                  code: BehavioralErrorCode.FINAL_FEEDBACK_FAILED,
+                });
+              }
               dispatch({ type: 'COMPLETED', result });
               return { accepted: true, reconciled: true, completed: true, result };
             } catch (completionError) {

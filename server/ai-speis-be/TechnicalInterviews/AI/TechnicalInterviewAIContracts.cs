@@ -4,9 +4,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
 {
     public static class TechnicalPromptVersions
     {
-        public const string Evaluation = "technical-evaluation-rubric-v6";
-        public const string Feedback = "technical-feedback-v2";
-        public const string Summary = "technical-summary-v1";
+        public const string Evaluation = "technical-evaluation-rubric-v7";
+        public const string Summary = "technical-round-feedback-v2";
     }
 
     public sealed record TechnicalAnswerContext(
@@ -14,6 +13,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
         string Question,
         string Answer);
 
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class TechnicalAIDimensionEvaluation
     {
         public string RubricCode { get; set; } = string.Empty;
@@ -25,15 +25,14 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public string ReasonSummary { get; set; } = string.Empty;
     }
 
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class TechnicalAIEvaluationPayload
     {
         public string AnswerQuality { get; set; } = string.Empty;
         public List<TechnicalAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
         public List<string> Evidence { get; set; } = new();
-        public List<string> Strengths { get; set; } = new();
         public List<string> MissingPoints { get; set; } = new();
         public List<string> IncorrectClaims { get; set; } = new();
-        public List<string> ImprovementSuggestions { get; set; } = new();
     }
 
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -52,13 +51,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         }
 
         [System.Text.Json.Serialization.JsonIgnore]
-        public List<string> Strengths
-        {
-            get => Evaluation.Strengths;
-            set => Evaluation.Strengths = value ?? new();
-        }
-
-        [System.Text.Json.Serialization.JsonIgnore]
         public List<string> MissingPoints
         {
             get => Evaluation.MissingPoints;
@@ -72,22 +64,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
             set => Evaluation.IncorrectClaims = value ?? new();
         }
 
-        [System.Text.Json.Serialization.JsonIgnore]
-        public List<string> ImprovementSuggestions
-        {
-            get => Evaluation.ImprovementSuggestions;
-            set => Evaluation.ImprovementSuggestions = value ?? new();
-        }
-
-    }
-
-    public sealed class TechnicalAIFeedbackDraftResponse
-    {
-        public List<string> Strengths { get; set; } = new();
-        public List<string> MissingPoints { get; set; } = new();
-        public List<string> IncorrectClaims { get; set; } = new();
-        public List<string> ImprovementSuggestions { get; set; } = new();
-        public string Summary { get; set; } = string.Empty;
     }
 
     public sealed class TechnicalAIFinalSummaryRequest
@@ -97,6 +73,10 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public string PerformanceBand { get; init; } = string.Empty;
         public IReadOnlyList<object> MainQuestionResults { get; init; } = Array.Empty<object>();
         public IReadOnlyList<object> SkillResults { get; init; } = Array.Empty<object>();
+        public object? RelevantCvContext { get; init; }
+        public object? RelevantJdContext { get; init; }
+        public IReadOnlyList<string> RequiredSkills { get; init; } = Array.Empty<string>();
+        public int? CvJdMatchScore { get; init; }
     }
 
     public sealed class TechnicalAIFinalSummaryResponse

@@ -1,10 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace ai_speis_be.BehaviouralInterviews.AI
 {
     public static class BehaviouralPromptVersions
     {
         public const string Selection = "behavioural-selection-v3";
-        public const string Evaluation = "behavioural-evaluation-v3";
-        public const string Summary = "behavioural-summary-v1";
+        public const string Evaluation = "behavioural-evaluation-v4";
+        public const string Summary = "behavioural-round-feedback-v2";
     }
 
     public sealed record BehaviouralAIQuestionCandidate(
@@ -83,6 +85,7 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public int FollowUpsUsed { get; init; }
     }
 
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class BehaviouralAIDimensionEvaluation
     {
         public string RubricCode { get; set; } = string.Empty; // e.g. SITUATION_TASK, ACTION, RESULT, COMPETENCY, COMMUNICATION
@@ -92,14 +95,14 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public string ReasonSummary { get; set; } = string.Empty;
     }
 
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class BehaviouralAIEvaluationResponse
     {
         public List<BehaviouralAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
-        public List<string> Strengths { get; set; } = new();
-        public List<string> MissingPoints { get; set; } = new();
-        public int? OverallRubricScore { get; set; } // 0-10 integer theo scoring rubric của câu hỏi
-        public string AnswerQuality { get; set; } = string.Empty; // Excellent, Good, Partial, Vague, Insufficient
-        public string Decision { get; set; } = string.Empty; // NEXT_MAIN_QUESTION, CLARIFICATION, FOLLOW_UP_1, FOLLOW_UP_2
+        public string AnswerStatus { get; set; } = string.Empty;
+        public List<string> MissingAspects { get; set; } = new();
+        public List<string> Evidence { get; set; } = new();
+        public string RecommendedAction { get; set; } = string.Empty;
         public decimal Confidence { get; set; }
     }
 
@@ -116,6 +119,11 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public IReadOnlyDictionary<string, decimal> CriteriaAverages { get; init; } =
             new Dictionary<string, decimal>();
         public IReadOnlyList<object> MainQuestionResults { get; init; } = Array.Empty<object>();
+        public IReadOnlyList<object> QuestionResults { get; init; } = Array.Empty<object>();
+        public object? RelevantCvContext { get; init; }
+        public object? RelevantJdContext { get; init; }
+        public IReadOnlyList<string> RequiredSkills { get; init; } = Array.Empty<string>();
+        public int? CvJdMatchScore { get; init; }
     }
 
     public sealed class BehaviouralAIFinalSummaryResponse
@@ -136,5 +144,8 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public int? InputTokens { get; init; }
         public int? OutputTokens { get; init; }
         public string? ErrorCode { get; init; }
+        public int RetryCount { get; init; }
+        public DateTime StartedAt { get; init; } = DateTime.UtcNow;
+        public DateTime CompletedAt { get; init; } = DateTime.UtcNow;
     }
 }

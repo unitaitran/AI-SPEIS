@@ -78,10 +78,14 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
 
     public sealed class BehaviouralSubmitAnswerResponseDto
     {
+        public int AnswerId { get; set; }
         public int SessionQuestionId { get; set; }
+        public decimal? QuestionScore { get; set; }
+        public string NextAction { get; set; } = string.Empty;
         public BehaviouralEvaluationDecisionDto Evaluation { get; set; } = new();
         public BehaviouralCurrentQuestionDto? NextQuestion { get; set; }
         public string SessionStatus { get; set; } = string.Empty;
+        public string RoundStatus { get; set; } = string.Empty;
     }
 
     public sealed class BehaviouralEvaluationDecisionDto
@@ -100,6 +104,17 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
         public string PerformanceBand { get; set; } = string.Empty;
         public List<BehaviouralMainQuestionResultDto> MainQuestions { get; set; } = new();
         public BehaviouralFinalSummaryDto Summary { get; set; } = new();
+        public string FeedbackStatus { get; set; } = string.Empty;
+        public BehaviouralTokenUsageDto TokenUsage { get; set; } = new();
+        public DateTime? CompletedAt { get; set; }
+    }
+
+    public sealed class BehaviouralTokenUsageDto
+    {
+        public int EvaluationInputTokens { get; set; }
+        public int EvaluationOutputTokens { get; set; }
+        public int FeedbackInputTokens { get; set; }
+        public int FeedbackOutputTokens { get; set; }
     }
 
     public sealed class BehaviouralMainQuestionResultDto

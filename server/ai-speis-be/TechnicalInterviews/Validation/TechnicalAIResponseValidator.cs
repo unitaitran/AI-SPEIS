@@ -59,9 +59,22 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 return Invalid("INVALID_ANSWER_QUALITY");
             }
 
+            if (evaluation.Evaluation.Evidence.Count > 3
+                || evaluation.MissingPoints.Count > 3
+                || evaluation.IncorrectClaims.Count > 3)
+            {
+                return Invalid("EVALUATION_LIST_LIMIT_EXCEEDED");
+            }
+
             var transcript = Normalize(string.Join(" ", answerContext.Select(item => item.Answer)));
             foreach (var dimension in evaluation.DimensionEvaluations)
             {
+                if (dimension.Evidence.Count > 3
+                    || dimension.MissingEvidence.Count > 3
+                    || dimension.IncorrectClaims.Count > 3)
+                {
+                    return Invalid("DIMENSION_LIST_LIMIT_EXCEEDED");
+                }
                 if (dimension.SuggestedScore < rubric.MinimumScore
                     || dimension.SuggestedScore > rubric.MaximumScore)
                 {

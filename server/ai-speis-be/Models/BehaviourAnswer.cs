@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using ai_speis_be.Models.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace ai_speis_be.Models
 {
     [Table("BehaviourAnswer")]
+    [Index(nameof(SubmissionIdempotencyKey), IsUnique = true)]
     public class BehaviourAnswer 
     {
         [Key]
@@ -32,6 +34,16 @@ namespace ai_speis_be.Models
         public BehaviourResolvedAction? AiRecommendedAction { get; set; }
         public BehaviourResolvedAction? ResolvedAction { get; set; }
         public decimal? ComputedScore { get; set; }
+        [MaxLength(128)] public string? SubmissionIdempotencyKey { get; set; }
+        [MaxLength(30)] public string EvaluationStatus { get; set; } = "NOT_STARTED";
+        [MaxLength(120)] public string? EvaluationModel { get; set; }
+        [MaxLength(80)] public string? EvaluationPromptVersion { get; set; }
+        public int? EvaluationInputTokens { get; set; }
+        public int? EvaluationOutputTokens { get; set; }
+        public long? EvaluationLatencyMs { get; set; }
+        [MaxLength(100)] public string? EvaluationError { get; set; }
+        public DateTime? ProcessingStartedAt { get; set; }
+        public DateTime? ProcessingCompletedAt { get; set; }
         [Required] public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual BehaviourSessionQuestion BehaviourSessionQuestion { get; set; } = null!;

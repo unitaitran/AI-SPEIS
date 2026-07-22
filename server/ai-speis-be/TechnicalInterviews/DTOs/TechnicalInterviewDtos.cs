@@ -55,6 +55,7 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public int CompletedFollowUpCount { get; set; }
         public string ProcessingStatus { get; set; } = string.Empty;
         public TechnicalProcessingStatusDto? ProcessingStatuses { get; set; }
+        public string FeedbackStatus { get; set; } = string.Empty;
         public string SessionStatus { get; set; } = string.Empty;
         public List<TechnicalTranscriptEntryDto> Transcript { get; set; } = new();
     }
@@ -108,11 +109,13 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
     public sealed class TechnicalSubmitAnswerResponseDto
     {
         public Guid AttemptId { get; set; }
+        public decimal? QuestionScore { get; set; }
         public TechnicalProcessingStatusDto Processing { get; set; } = new();
         public TechnicalEvaluationDecisionDto Evaluation { get; set; } = new();
-        public TechnicalFeedbackAcknowledgementDto Feedback { get; set; } = new();
         public TechnicalCurrentQuestionDto? NextQuestion { get; set; }
         public string SessionStatus { get; set; } = string.Empty;
+        public string RoundStatus { get; set; } = string.Empty;
+        public string NextAction { get; set; } = string.Empty;
         public TechnicalFallbackStatusDto Fallbacks { get; set; } = new();
         public string ResolvedAction { get; set; } = string.Empty;
         public string? AiSuggestedAction { get; set; }
@@ -136,22 +139,14 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
     public sealed class TechnicalProcessingStatusDto
     {
         public string Evaluation { get; set; } = string.Empty;
-        public string Feedback { get; set; } = string.Empty;
         // Retained for old clients; this is now a derived validation/fallback status,
         // not a separate AI task.
         public string QuestionGeneration { get; set; } = string.Empty;
     }
 
-    public sealed class TechnicalFeedbackAcknowledgementDto
-    {
-        public string Status { get; set; } = string.Empty;
-        public bool AvailableInResult { get; set; } = true;
-    }
-
     public sealed class TechnicalFallbackStatusDto
     {
         public bool EvaluationFallbackUsed { get; set; }
-        public bool FeedbackFallbackUsed { get; set; }
         public bool QuestionFallbackUsed { get; set; }
     }
 
@@ -176,6 +171,17 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public List<string> Strengths { get; set; } = new();
         public List<string> Weaknesses { get; set; } = new();
         public List<string> Recommendations { get; set; } = new();
+        public string FeedbackStatus { get; set; } = string.Empty;
+        public TechnicalTokenUsageDto TokenUsage { get; set; } = new();
+        public DateTime? CompletedAt { get; set; }
+    }
+
+    public sealed class TechnicalTokenUsageDto
+    {
+        public int EvaluationInputTokens { get; set; }
+        public int EvaluationOutputTokens { get; set; }
+        public int FeedbackInputTokens { get; set; }
+        public int FeedbackOutputTokens { get; set; }
     }
 
     public sealed class TechnicalMainQuestionResultDto

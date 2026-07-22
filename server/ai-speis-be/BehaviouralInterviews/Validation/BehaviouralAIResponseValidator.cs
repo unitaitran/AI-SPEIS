@@ -83,7 +83,7 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             BehaviouralRubricDefinition rubric,
             IReadOnlyList<BehaviouralAnswerContext> answerContext)
         {
-            if (!TryParseDecision(evaluation.Decision, out var decision))
+            if (!TryParseRecommendedAction(evaluation.RecommendedAction, out var decision))
             {
                 return Invalid("INVALID_DECISION");
             }
@@ -93,11 +93,14 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                 return Invalid("INVALID_CONFIDENCE");
             }
 
-            if (evaluation.OverallRubricScore < (int)rubric.MinimumScore
-                || evaluation.OverallRubricScore > (int)rubric.MaximumScore)
+            var answerStatus = evaluation.AnswerStatus?.Trim().ToUpperInvariant();
+            if (answerStatus is not ("INSUFFICIENT" or "PARTIAL" or "ACCEPTABLE" or "STRONG"))
             {
-                return Invalid("INVALID_OVERALL_RUBRIC_SCORE");
+                return Invalid("INVALID_ANSWER_STATUS");
             }
+
+            if (evaluation.Evidence.Count > 3 || evaluation.MissingAspects.Count > 3)
+                return Invalid("EVALUATION_LIST_LIMIT_EXCEEDED");
 
             var expectedCodes = rubric.Dimensions
                 .Select(item => item.Code)
@@ -116,6 +119,10 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             var transcript = Normalize(string.Join(" ", answerContext.Select(item => item.Answer)));
             foreach (var dimension in evaluation.DimensionEvaluations)
             {
+                if (dimension.Evidence.Count > 3 || dimension.MissingEvidence.Count > 3)
+                {
+                    return Invalid("DIMENSION_LIST_LIMIT_EXCEEDED");
+                }
                 if (dimension.SuggestedScore < rubric.MinimumScore
                     || dimension.SuggestedScore > rubric.MaximumScore)
                 {
@@ -146,12 +153,17 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             return new BehaviouralEvaluationValidationResult(true, decision, null);
         }
 
-        private static bool TryParseDecision(string value, out BehaviourResolvedAction decision)
+        private static bool TryParseRecommendedAction(string value, out BehaviourResolvedAction decision)
         {
-            var normalized = value?.Trim().Replace("_", string.Empty, StringComparison.Ordinal) ?? string.Empty;
-            // "NEXT_MAIN_QUESTION" -> "NEXTMAINQUESTION", "FOLLOW_UP_1" -> "FOLLOWUP1"
-            return Enum.TryParse(normalized, true, out decision)
-                && Enum.IsDefined(decision);
+            var normalized = value?.Trim().ToUpperInvariant() ?? string.Empty;
+            decision = normalized switch
+            {
+                "CLARIFICATION" => BehaviourResolvedAction.Clarification,
+                "FOLLOW_UP" => BehaviourResolvedAction.FollowUp1,
+                "NEXT_MAIN" or "COMPLETE_ROUND" => BehaviourResolvedAction.NextMainQuestion,
+                _ => BehaviourResolvedAction.NextMainQuestion
+            };
+            return normalized is "CLARIFICATION" or "FOLLOW_UP" or "NEXT_MAIN" or "COMPLETE_ROUND";
         }
 
         private static BehaviouralEvaluationValidationResult Invalid(string errorCode)

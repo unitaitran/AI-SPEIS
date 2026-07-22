@@ -61,10 +61,11 @@ namespace ai_speis_be.BehaviouralInterviews.AI
             string userPrompt,
             CancellationToken cancellationToken)
         {
+            var startedAt = DateTime.UtcNow;
             var stopwatch = Stopwatch.StartNew();
             if (string.IsNullOrWhiteSpace(_options.ApiKey))
             {
-                return Failure<T>(stopwatch, "CONFIGURATION_MISSING");
+                return Failure<T>(stopwatch, "CONFIGURATION_MISSING", 0);
             }
 
             var payload = new
@@ -105,7 +106,7 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                         _logger.LogWarning(
                             "Behavioural Interview AI returned HTTP {StatusCode}.",
                             (int)response.StatusCode);
-                        return Failure<T>(stopwatch, $"HTTP_{(int)response.StatusCode}");
+                        return Failure<T>(stopwatch, $"HTTP_{(int)response.StatusCode}", attempt);
                     }
 
                     var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -113,13 +114,13 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                     var content = envelope?.Choices.FirstOrDefault()?.Message.Content;
                     if (string.IsNullOrWhiteSpace(content))
                     {
-                        return Failure<T>(stopwatch, "EMPTY_RESPONSE");
+                        return Failure<T>(stopwatch, "EMPTY_RESPONSE", attempt);
                     }
 
                     var parsed = JsonSerializer.Deserialize<T>(StripMarkdownFence(content), JsonOptions);
                     if (parsed is null)
                     {
-                        return Failure<T>(stopwatch, "MALFORMED_JSON");
+                        return Failure<T>(stopwatch, "MALFORMED_JSON", attempt);
                     }
 
                     stopwatch.Stop();
@@ -130,16 +131,19 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                         Model = envelope?.Model ?? _options.Model,
                         LatencyMs = stopwatch.ElapsedMilliseconds,
                         InputTokens = envelope?.Usage?.PromptTokens,
-                        OutputTokens = envelope?.Usage?.CompletionTokens
+                        OutputTokens = envelope?.Usage?.CompletionTokens,
+                        RetryCount = attempt,
+                        StartedAt = startedAt,
+                        CompletedAt = DateTime.UtcNow
                     };
                 }
                 catch (JsonException)
                 {
-                    return Failure<T>(stopwatch, "MALFORMED_JSON");
+                    return Failure<T>(stopwatch, "MALFORMED_JSON", attempt);
                 }
                 catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
-                    return Failure<T>(stopwatch, "TIMEOUT");
+                    return Failure<T>(stopwatch, "TIMEOUT", attempt);
                 }
                 catch (HttpRequestException exception) when (attempt < _options.MaxRetries)
                 {
@@ -149,14 +153,17 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                 catch (HttpRequestException exception)
                 {
                     _logger.LogWarning(exception, "Behavioural Interview AI request failed.");
-                    return Failure<T>(stopwatch, "NETWORK_ERROR");
+                    return Failure<T>(stopwatch, "NETWORK_ERROR", attempt);
                 }
             }
 
-            return Failure<T>(stopwatch, "RETRY_EXHAUSTED");
+            return Failure<T>(stopwatch, "RETRY_EXHAUSTED", _options.MaxRetries);
         }
 
-        private BehaviouralAIProviderResult<T> Failure<T>(Stopwatch stopwatch, string errorCode)
+        private BehaviouralAIProviderResult<T> Failure<T>(
+            Stopwatch stopwatch,
+            string errorCode,
+            int retryCount)
         {
             stopwatch.Stop();
             return new BehaviouralAIProviderResult<T>
@@ -164,7 +171,10 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                 Success = false,
                 Model = _options.Model,
                 LatencyMs = stopwatch.ElapsedMilliseconds,
-                ErrorCode = errorCode
+                ErrorCode = errorCode,
+                RetryCount = retryCount,
+                StartedAt = DateTime.UtcNow - stopwatch.Elapsed,
+                CompletedAt = DateTime.UtcNow
             };
         }
 

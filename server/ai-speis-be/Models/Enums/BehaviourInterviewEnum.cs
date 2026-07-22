@@ -46,4 +46,12 @@ namespace ai_speis_be.Models.Enums
         FollowUp1,
         FollowUp2
     }
+
+    public enum RoundFeedbackStatus
+    {
+        NotStarted,
+        Processing,
+        Completed,
+        Failed
+    }
 }

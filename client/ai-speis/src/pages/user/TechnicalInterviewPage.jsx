@@ -145,10 +145,13 @@ function TechnicalInterviewPage({ sessionId }) {
   const openTranscript = useCallback(() => setIsTranscriptOpen(true), []);
 
   useEffect(() => {
-    if (status === TechnicalSessionStatus.COMPLETED && resolvedSessionId) {
+    if (status === TechnicalSessionStatus.COMPLETED
+      && room.session?.feedbackStatus === 'COMPLETED'
+      && resolvedSessionId
+      && !isCompleting) {
       navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
     }
-  }, [resolvedSessionId, status]);
+  }, [isCompleting, resolvedSessionId, room.session?.feedbackStatus, status]);
 
   useEffect(() => {
     syncQuestion(room.currentQuestion);
@@ -264,12 +267,19 @@ function TechnicalInterviewPage({ sessionId }) {
       markCandidateFinal(attemptId, transcript);
       clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
       recorder.reset();
-      room.applyAnswerResponse(response);
       const nextStatus = getTechnicalSessionStatus(response?.session) || response?.sessionStatus;
       if (nextStatus === TechnicalSessionStatus.COMPLETED) {
+        setIsCompleting(true);
+        room.applyAnswerResponse(response);
+        const result = await technicalInterviewApi.completeSession(resolvedSessionId);
+        if (result?.feedbackStatus !== 'COMPLETED') {
+          setLocalError({ messageKey: 'room.feedbackPendingDescription' });
+          return;
+        }
         navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
         return;
       }
+      room.applyAnswerResponse(response);
       if (!response.nextQuestion && !response.currentQuestion && !response.question) await room.reload();
     } catch (error) {
       const recovery = await room.reconcileAfterSubmission(attemptId);
@@ -277,7 +287,7 @@ function TechnicalInterviewPage({ sessionId }) {
         markCandidateFinal(attemptId, transcript);
         clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
         recorder.reset();
-        navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+        await handleRetryFinalFeedback();
         return;
       }
       if (recovery.state === 'ACCEPTED_NEXT_QUESTION') {
@@ -293,6 +303,26 @@ function TechnicalInterviewPage({ sessionId }) {
       }
       markCandidateError(attemptId, transcript);
       setLocalError(error);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const handleRetryFinalFeedback = async () => {
+    if (!resolvedSessionId || isCompleting) return;
+    setIsCompleting(true);
+    setLocalError(null);
+    try {
+      const result = await technicalInterviewApi.completeSession(resolvedSessionId);
+      if (result?.feedbackStatus !== 'COMPLETED') {
+        setLocalError({ messageKey: 'room.feedbackPendingDescription' });
+        return;
+      }
+      navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+    } catch (error) {
+      setLocalError(error);
+    } finally {
+      setIsCompleting(false);
     }
   };
 
@@ -319,6 +349,10 @@ function TechnicalInterviewPage({ sessionId }) {
     setLocalError(null);
     try {
       const response = await technicalInterviewApi.completeSession(resolvedSessionId);
+      if (response?.feedbackStatus !== 'COMPLETED') {
+        setLocalError({ messageKey: 'room.feedbackPendingDescription' });
+        return;
+      }
       room.applyAnswerResponse(response);
       setIsEndConfirmOpen(false);
       navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
@@ -397,6 +431,17 @@ function TechnicalInterviewPage({ sessionId }) {
         backLabel={t('room.backToDashboard')}
         onEnd={handleForceEndSession}
         endLabel={isCompleting ? t('room.ending') : t('room.endEarly')}
+      />
+    );
+  } else if (status === TechnicalSessionStatus.COMPLETED) {
+    content = isCompleting ? (
+      <TechnicalEvaluationState finalizing t={t} />
+    ) : (
+      <TechnicalInterviewErrorState
+        title={t('room.feedbackPendingTitle')}
+        message={localError ? getErrorMessage(localError) : t('room.feedbackPendingDescription')}
+        onRetry={handleRetryFinalFeedback}
+        retryLabel={t('common.retry')}
       />
     );
   } else if ((status === TechnicalSessionStatus.EVALUATING || submitMutation.isSubmitting)
