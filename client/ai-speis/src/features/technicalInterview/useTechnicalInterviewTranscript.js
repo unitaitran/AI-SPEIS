@@ -110,6 +110,30 @@ export default function useTechnicalInterviewTranscript(sessionId) {
     TechnicalTranscriptItemStatus.ERROR,
   ), [syncCandidate]);
 
+  const syncServerTranscript = useCallback((entries = []) => {
+    const normalized = entries
+      .filter((entry) => entry?.id && entry?.attemptId && entry?.content)
+      .map((entry) => ({
+        id: String(entry.id),
+        attemptId: String(entry.attemptId),
+        role: String(entry.role || '').toUpperCase() === TechnicalTranscriptRole.CANDIDATE
+          ? TechnicalTranscriptRole.CANDIDATE
+          : TechnicalTranscriptRole.INTERVIEWER,
+        content: entry.content,
+        status: Object.values(TechnicalTranscriptItemStatus).includes(String(entry.status || '').toUpperCase())
+          ? String(entry.status).toUpperCase()
+          : TechnicalTranscriptItemStatus.FINAL,
+        questionType: entry.questionType,
+        createdAt: entry.createdAt,
+      }));
+
+    if (normalized.length === 0) return;
+    updateItems((current) => normalized.reduce(
+      (next, entry) => upsertTechnicalTranscriptItem(next, entry),
+      current,
+    ));
+  }, [updateItems]);
+
   return {
     items,
     syncQuestion,
@@ -117,5 +141,6 @@ export default function useTechnicalInterviewTranscript(sessionId) {
     markCandidateFinal,
     markCandidateProcessing,
     markCandidateError,
+    syncServerTranscript,
   };
 }

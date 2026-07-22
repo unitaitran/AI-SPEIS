@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import TechnicalInterviewErrorState from '../../components/technicalInterview/TechnicalInterviewErrorState';
 import TechnicalQuestionBreakdown from '../../components/technicalInterview/TechnicalQuestionBreakdown';
@@ -11,20 +11,61 @@ import { getTechnicalInterviewErrorKey } from '../../features/technicalInterview
 import useTechnicalInterviewResult from '../../features/technicalInterview/useTechnicalInterviewResult';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { USER_ROUTES } from '../../routes/routePaths';
-import { getActiveInterviewContext, getInterviewSetupDraft } from '../../utils/interviewContext';
+import { getCampaignResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import interviewSessionService from '../../services/InterviewSessionService';
+import {
+  getActiveInterviewContext,
+  getInterviewSetupDraft,
+  getNextOpenSession,
+  saveActiveInterviewContext,
+} from '../../utils/interviewContext';
 import '../../styles/user/TechnicalInterview.css';
 
 function TechnicalInterviewResultPage({ sessionId }) {
   const activeContext = useMemo(() => getActiveInterviewContext(), []);
   const setupDraft = useMemo(() => getInterviewSetupDraft(), []);
   const resolvedSessionId = sessionId || activeContext?.activeSessionId || null;
-  const interviewLanguage = (activeContext?.campaign?.language || setupDraft?.language) === 'en' ? 'en' : 'vi';
+  const [campaign, setCampaign] = useState(activeContext?.campaign || null);
+  const [campaignError, setCampaignError] = useState('');
+  const interviewLanguage = (campaign?.language || setupDraft?.language) === 'en' ? 'en' : 'vi';
   const { t: translate } = useTranslation('interview');
   const t = useCallback((key, options = {}) => (
     translate(key, { ...options, lng: interviewLanguage })
   ), [interviewLanguage, translate]);
   const { result, isLoading, error, reload } = useTechnicalInterviewResult(resolvedSessionId);
+  const nextRoundSession = getNextOpenSession(campaign, resolvedSessionId);
+  const campaignCompleted = campaign?.status === 'Completed';
+
+  const syncCampaign = useCallback(async () => {
+    if (!resolvedSessionId) return;
+    setCampaignError('');
+    try {
+      const session = await interviewSessionService.getSession(resolvedSessionId);
+      const latestCampaign = await interviewSessionService.getCampaign(session.interviewCampaignId);
+      const nextSession = getNextOpenSession(latestCampaign, resolvedSessionId);
+      saveActiveInterviewContext({
+        campaign: latestCampaign,
+        activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
+        configurationKey: activeContext?.configurationKey || null,
+      });
+      setCampaign(latestCampaign);
+    } catch (syncError) {
+      setCampaignError(syncError.message || t('result.campaignSyncFailed', {
+        defaultValue: 'Could not load the next interview round.',
+      }));
+    }
+  }, [activeContext?.configurationKey, resolvedSessionId, t]);
+
+  useEffect(() => {
+    if (result) syncCampaign();
+  }, [result, syncCampaign]);
+
+  const handleContinue = () => {
+    if (!nextRoundSession) return;
+    navigate(nextRoundSession.status === 'Active'
+      ? getInterviewRoomPath(nextRoundSession.interviewSessionId)
+      : USER_ROUTES.DEVICE_CHECK);
+  };
 
   let content;
   if (!resolvedSessionId) {
@@ -89,10 +130,33 @@ function TechnicalInterviewResultPage({ sessionId }) {
             <h1>{t('result.title')}</h1>
             <p>{t('result.subtitle')}</p>
           </div>
-          <button type="button" className="technical-secondary-button" onClick={() => navigate(USER_ROUTES.DASHBOARD)}>
-            <ArrowLeft size={18} aria-hidden="true" />{t('room.backToDashboard')}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="technical-secondary-button" onClick={() => navigate(USER_ROUTES.DASHBOARD)}>
+              <ArrowLeft size={18} aria-hidden="true" />{t('room.backToDashboard')}
+            </button>
+            {nextRoundSession ? (
+              <button type="button" className="technical-primary-button" onClick={handleContinue}>
+                {t('result.continueNextRound', { defaultValue: 'Continue to next round' })}<ArrowRight size={18} />
+              </button>
+            ) : campaignCompleted ? (
+              <button
+                type="button"
+                className="technical-primary-button"
+                onClick={() => navigate(getCampaignResultPath(campaign.interviewCampaignId))}
+              >
+                {t('result.viewCampaignResult', { defaultValue: 'View final campaign result' })}<ArrowRight size={18} />
+              </button>
+            ) : null}
+          </div>
         </div>
+        {campaignError ? (
+          <div className="technical-inline-error" role="alert">
+            <span>{campaignError}</span>
+            <button type="button" className="technical-secondary-button" onClick={syncCampaign}>
+              <RefreshCw size={16} />{t('common.retry')}
+            </button>
+          </div>
+        ) : null}
         {content}
       </div>
     </UserLayout>

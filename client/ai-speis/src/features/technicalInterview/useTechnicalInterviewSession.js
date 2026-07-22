@@ -121,6 +121,7 @@ export default function useTechnicalInterviewSession(sessionId) {
       let nextQuestionError = null;
 
       commitSession(nextSession);
+      setError(null);
       if (canFetchCurrentQuestion(status)) {
         try {
           const questionResponse = await technicalInterviewApi.getCurrentQuestion(sessionId);
@@ -160,7 +161,7 @@ export default function useTechnicalInterviewSession(sessionId) {
         questionError: nextQuestionError,
       };
     } catch (requestError) {
-      if (requestIdRef.current === requestId && showLoading) {
+      if (requestIdRef.current === requestId) {
         setError(requestError);
         setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
       }

@@ -16,11 +16,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
 
         public string ProviderName => "gemini";
 
-        public Task<AIProviderResult<TechnicalAISelectionResponse>> SelectQuestionAsync(
-            TechnicalAISelectionRequest request,
-            CancellationToken cancellationToken) =>
-            _transport.SelectQuestionAsync(request, cancellationToken);
-
         public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken) =>
@@ -30,11 +25,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken) =>
             _transport.GenerateFeedbackDraftAsync(context, cancellationToken);
-
-        public Task<AIProviderResult<TechnicalAIQuestionBundleResponse>> GenerateQuestionBundleAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken) =>
-            _transport.GenerateQuestionBundleAsync(context, cancellationToken);
 
         public Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
             TechnicalAIFinalSummaryRequest request,

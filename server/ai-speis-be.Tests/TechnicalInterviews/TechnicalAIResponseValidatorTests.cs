@@ -1,5 +1,6 @@
 using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Validation;
+using System.Text.Json;
 
 namespace ai_speis_be.Tests.TechnicalInterviews;
 
@@ -20,19 +21,37 @@ public sealed class TechnicalAIResponseValidatorTests
     }
 
     [Fact]
-    public void ValidateEvaluation_TreatsInvalidAiActionAsAuditDataInsteadOfCriticalFailure()
+    public void EvaluationContract_DoesNotExposeAnAiDecisionOrQuestion()
+    {
+        var propertyNames = typeof(TechnicalAIEvaluationResponse)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        Assert.DoesNotContain("Decision", propertyNames);
+        Assert.DoesNotContain("AdaptiveDecision", propertyNames);
+        Assert.DoesNotContain("SuggestedQuestion", propertyNames);
+        Assert.Throws<JsonException>(() =>
+        {
+            JsonSerializer.Deserialize<TechnicalAIEvaluationResponse>(
+                "{\"adaptiveDecision\":{\"recommendedAction\":\"FOLLOW_UP\"}}");
+        });
+    }
+
+    [Fact]
+    public void ValidateEvaluation_RejectsAnswerQualityOutsideBackendRuleVocabulary()
     {
         var validator = new TechnicalAIResponseValidator();
         var response = TechnicalTestRubric.CreateEvaluation(8m, 8m, 8m, 8m, 8m);
-        response.Decision = "MODEL_INVENTED_ACTION";
+        response.Evaluation.AnswerQuality = "MODEL_INVENTED_QUALITY";
 
         var result = validator.ValidateEvaluation(
             response,
             TechnicalTestRubric.Create(),
             new[] { new TechnicalAnswerContext("MAIN", "What is DI?", "Dependency injection separates construction from use.") });
 
-        Assert.True(result.IsValid);
-        Assert.Null(result.AiSuggestedDecision);
+        Assert.False(result.IsValid);
+        Assert.Equal("INVALID_ANSWER_QUALITY", result.ErrorCode);
     }
 
     [Fact]

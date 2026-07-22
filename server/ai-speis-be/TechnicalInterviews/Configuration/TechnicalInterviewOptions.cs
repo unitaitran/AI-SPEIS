@@ -14,23 +14,21 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         public string PracticeRubricVersion { get; init; } = "technical-rubric-v1";
         public string ScoringPolicyVersion { get; init; } = "technical-scoring-v2";
         public string QuestionPlanVersion { get; init; } = "technical-question-plan-v1";
-        public string AdaptiveRuleVersion { get; init; } = "technical-adaptive-v1";
+        public string AdaptiveRuleVersion { get; init; } = "technical-rubric-bank-v2";
         public string BonusCalculationVersion { get; init; } = "technical-follow-up-bonus-v1";
         public int StandardMainQuestionCount { get; init; } = 3;
         public decimal ClarificationRecoveryFactor { get; init; } = 0.75m;
-        public bool ClarificationEndsMainQuestion { get; init; } = true;
+        public bool ClarificationEndsMainQuestion { get; init; }
         public bool ReliabilityFollowUpEnabled { get; init; } = true;
         public int ReliabilityMinimumQuestionCount { get; init; } = 5;
-        public int ReliabilityFollowUpLimit { get; init; } = 1;
+        public int ReliabilityFollowUpLimit { get; init; } = 2;
         public bool ParallelProcessingEnabled { get; init; } = true;
-        public int MaxParallelTasksPerSession { get; init; } = 3;
+        public int MaxParallelTasksPerSession { get; init; } = 2;
         public int GlobalConcurrencyLimit { get; init; } = 10;
         public int EvaluationTimeoutMs { get; init; } = 15_000;
         public int FeedbackTimeoutMs { get; init; } = 10_000;
-        public int QuestionTimeoutMs { get; init; } = 12_000;
         public int EvaluationMaxRetries { get; init; } = 1;
         public int FeedbackMaxRetries { get; init; }
-        public int QuestionMaxRetries { get; init; } = 1;
 
         public static TechnicalInterviewOptions FromConfiguration(IConfiguration configuration)
         {
@@ -51,23 +49,23 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                 PracticeRubricVersion = Get(configuration, "TECHNICAL_INTERVIEW_PRACTICE_RUBRIC_VERSION", "technical-rubric-v1"),
                 ScoringPolicyVersion = Get(configuration, "TECHNICAL_INTERVIEW_SCORING_POLICY_VERSION", "technical-scoring-v2"),
                 QuestionPlanVersion = Get(configuration, "TECHNICAL_INTERVIEW_QUESTION_PLAN_VERSION", "technical-question-plan-v1"),
-                AdaptiveRuleVersion = Get(configuration, "TECHNICAL_INTERVIEW_ADAPTIVE_RULE_VERSION", "technical-adaptive-v1"),
+                AdaptiveRuleVersion = Get(configuration, "TECHNICAL_INTERVIEW_ADAPTIVE_RULE_VERSION", "technical-rubric-bank-v2"),
                 BonusCalculationVersion = Get(configuration, "TECHNICAL_INTERVIEW_BONUS_CALCULATION_VERSION", "technical-follow-up-bonus-v1"),
                 StandardMainQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_STANDARD_MAIN_QUESTION_COUNT", 3, 3, 3),
                 ClarificationRecoveryFactor = GetDecimal(configuration, "TECHNICAL_INTERVIEW_CLARIFICATION_RECOVERY_FACTOR", 0.75m, 0m, 1m),
-                ClarificationEndsMainQuestion = GetBool(configuration, "TECHNICAL_INTERVIEW_CLARIFICATION_ENDS_MAIN", true),
+                // The legacy switch is intentionally forced off: a clarification answer
+                // may still require one or two evidence-grounded follow-ups.
+                ClarificationEndsMainQuestion = false,
                 ReliabilityFollowUpEnabled = GetBool(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_ENABLED", true),
                 ReliabilityMinimumQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_MINIMUM_COUNT", 5, 3, 20),
-                ReliabilityFollowUpLimit = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_LIMIT", 1, 0, 3),
-                ParallelProcessingEnabled = GetBool(configuration, "TECHNICAL_AI_PARALLEL_PROCESSING_ENABLED", true),
-                MaxParallelTasksPerSession = GetInt(configuration, "TECHNICAL_AI_MAX_PARALLEL_TASKS_PER_SESSION", 3, 1, 3),
+                ReliabilityFollowUpLimit = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_LIMIT", 2, 0, 6),
+                ParallelProcessingEnabled = true,
+                MaxParallelTasksPerSession = 2,
                 GlobalConcurrencyLimit = GetInt(configuration, "TECHNICAL_AI_GLOBAL_CONCURRENCY_LIMIT", 10, 1, 100),
                 EvaluationTimeoutMs = GetInt(configuration, "TECHNICAL_AI_EVALUATION_TIMEOUT_MS", 15_000, 1_000, 180_000),
                 FeedbackTimeoutMs = GetInt(configuration, "TECHNICAL_AI_FEEDBACK_TIMEOUT_MS", 10_000, 1_000, 180_000),
-                QuestionTimeoutMs = GetInt(configuration, "TECHNICAL_AI_QUESTION_TIMEOUT_MS", 12_000, 1_000, 180_000),
                 EvaluationMaxRetries = GetInt(configuration, "TECHNICAL_AI_EVALUATION_MAX_RETRIES", 1, 0, 3),
-                FeedbackMaxRetries = GetInt(configuration, "TECHNICAL_AI_FEEDBACK_MAX_RETRIES", 0, 0, 3),
-                QuestionMaxRetries = GetInt(configuration, "TECHNICAL_AI_QUESTION_MAX_RETRIES", 1, 0, 3)
+                FeedbackMaxRetries = GetInt(configuration, "TECHNICAL_AI_FEEDBACK_MAX_RETRIES", 0, 0, 3)
             };
         }
 

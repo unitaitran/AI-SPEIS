@@ -1303,6 +1303,32 @@
   padding: var(--spacing-lg);
 }
 
+.technical-primary-button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-lg);
+  color: var(--surface-2);
+  background: var(--primary-dark);
+  border: 1px solid var(--primary-dark);
+  border-radius: var(--border-radius);
+  font: inherit;
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+
+.technical-primary-button:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.technical-main-stage__body--flush {
+  overflow: hidden;
+  padding: 0;
+}
+
 .technical-main-stage__actions {
   flex: 0 0 auto;
   display: flex;

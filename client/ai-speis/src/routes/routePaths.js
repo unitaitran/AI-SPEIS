@@ -16,6 +16,7 @@ export const USER_ROUTES = {
   DEVICE_CHECK: '/user/interview/device-check',
   INTERVIEW_ROOM: '/user/interview/room',
   INTERVIEW_RESULT: '/user/interview/result',
+  CAMPAIGN_RESULT: '/user/interview/campaign-result',
   CODING_INTERVIEW_ROOM: '/user/coding-interview',
   PAYMENT_RESULT: '/user/packages/payment-result',
 };
@@ -26,6 +27,10 @@ export const getInterviewRoomPath = (sessionId) => (
 
 export const getInterviewResultPath = (sessionId) => (
   sessionId ? `${USER_ROUTES.INTERVIEW_RESULT}/${encodeURIComponent(sessionId)}` : USER_ROUTES.INTERVIEW_RESULT
+);
+
+export const getCampaignResultPath = (campaignId) => (
+  campaignId ? `${USER_ROUTES.CAMPAIGN_RESULT}/${encodeURIComponent(campaignId)}` : USER_ROUTES.CAMPAIGN_RESULT
 );
 
 export const getCodingInterviewRoomPath = (sessionId) => (

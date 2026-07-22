@@ -75,8 +75,20 @@ namespace ai_speis_be.Models
 
         public TechnicalInterviewDecision BackendResolvedAction { get; set; }
 
+        [MaxLength(1000)]
+        public string? DecisionReason { get; set; }
+
+        [Required]
+        [Column(TypeName = "nvarchar(max)")]
+        public string TargetRubricCodesJson { get; set; } = "[]";
+
+        [MaxLength(80)]
+        public string? AdaptiveRuleVersion { get; set; }
+
         [MaxLength(500)]
         public string? OverrideReason { get; set; }
+
+        public bool FallbackUsed { get; set; }
 
         [Column(TypeName = "decimal(5,4)")]
         public decimal Confidence { get; set; }

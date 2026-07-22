@@ -64,6 +64,8 @@ const audioService = {
     questionId,
     attemptId,
   }, { signal } = {}) => {
+    const normalizedSessionId = Number(sessionId);
+    const normalizedQuestionId = Number(questionId);
     const response = await fetch(ENDPOINTS.AUDIO_TEXT_TO_SPEECH, {
       method: 'POST',
       headers: {
@@ -78,8 +80,15 @@ const audioService = {
         voiceName,
         speakingRate,
         pitch,
-        sessionId: Number.isInteger(Number(sessionId)) ? Number(sessionId) : undefined,
-        questionId: Number.isInteger(Number(questionId)) ? Number(questionId) : undefined,
+        sessionId: Number.isInteger(normalizedSessionId) && normalizedSessionId > 0
+          ? normalizedSessionId
+          : undefined,
+        // Clarification and Follow-up questions are generated inside the session and
+        // intentionally have no Question Bank id. Omit the nullable field instead of
+        // coercing null to zero, which violates the backend Range validation.
+        questionId: Number.isInteger(normalizedQuestionId) && normalizedQuestionId > 0
+          ? normalizedQuestionId
+          : undefined,
         attemptId: attemptId || undefined,
       }),
     });

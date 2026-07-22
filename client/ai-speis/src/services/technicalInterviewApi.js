@@ -27,10 +27,20 @@ const getFallbackErrorCode = (status) => {
 };
 
 const request = async (url, options = {}) => {
+  const callerSignal = options.signal;
+  const timeoutController = callerSignal ? null : new AbortController();
+  let timedOut = false;
+  const timeoutId = timeoutController
+    ? window.setTimeout(() => {
+      timedOut = true;
+      timeoutController.abort();
+    }, 60000)
+    : null;
   let response;
   try {
     response = await fetch(url, {
       ...options,
+      signal: callerSignal || timeoutController.signal,
       headers: {
         ...getAuthHeaders(),
         Accept: 'application/json',
@@ -38,10 +48,19 @@ const request = async (url, options = {}) => {
       },
     });
   } catch (error) {
+    if (error instanceof TechnicalInterviewError) throw error;
+    if (error?.name === 'AbortError' && timedOut) {
+      throw new TechnicalInterviewError('Request timed out', {
+        code: TechnicalInterviewErrorCode.REQUEST_TIMEOUT,
+      });
+    }
+    if (error?.name === 'AbortError') throw error;
     throw new TechnicalInterviewError('Network request failed', {
       code: TechnicalInterviewErrorCode.NETWORK_ERROR,
       details: error,
     });
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 
   const body = await readResponseBody(response);

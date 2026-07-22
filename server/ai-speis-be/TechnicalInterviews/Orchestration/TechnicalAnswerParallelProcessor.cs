@@ -26,7 +26,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
     public sealed record TechnicalParallelAIResults(
         TechnicalAITaskOutcome<TechnicalAIEvaluationResponse> Evaluation,
         TechnicalAITaskOutcome<TechnicalAIFeedbackDraftResponse> Feedback,
-        TechnicalAITaskOutcome<TechnicalAIQuestionBundleResponse> QuestionBundle,
         TechnicalParallelProcessingMetrics Metrics);
 
     public interface ITechnicalAnswerParallelProcessor
@@ -61,77 +60,42 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
             TechnicalAITaskOutcome<TechnicalAIEvaluationResponse> evaluation;
             TechnicalAITaskOutcome<TechnicalAIFeedbackDraftResponse> feedback;
-            TechnicalAITaskOutcome<TechnicalAIQuestionBundleResponse> question;
-
-            if (_options.ParallelProcessingEnabled)
+            using var feedbackStop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            // These are true async I/O operations. Both are started before either is
+            // awaited; Task.Run is intentionally not involved.
+            var evaluationTask = RunSettledAsync(
+                token => provider.EvaluateAnswerAsync(context, token),
+                _options.EvaluationTimeoutMs,
+                sessionGate,
+                cancellationToken);
+            var feedbackTask = RunSettledAsync(
+                token => provider.GenerateFeedbackDraftAsync(context, token),
+                _options.FeedbackTimeoutMs,
+                sessionGate,
+                cancellationToken,
+                feedbackStop.Token);
+            evaluation = await evaluationTask;
+            if (!evaluation.IsFulfilled)
             {
-                using var feedbackStop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                using var questionStop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                var evaluationTask = RunSettledAsync(
-                    token => provider.EvaluateAnswerAsync(context, token),
-                    _options.EvaluationTimeoutMs,
-                    sessionGate,
-                    cancellationToken);
-                var feedbackTask = RunSettledAsync(
-                    token => provider.GenerateFeedbackDraftAsync(context, token),
-                    _options.FeedbackTimeoutMs,
-                    sessionGate,
-                    cancellationToken,
-                    feedbackStop.Token);
-                var questionTask = RunSettledAsync(
-                    token => provider.GenerateQuestionBundleAsync(context, token),
-                    _options.QuestionTimeoutMs,
-                    sessionGate,
-                    cancellationToken,
-                    questionStop.Token);
-
-                evaluation = await evaluationTask;
-                if (!evaluation.IsFulfilled)
-                {
-                    feedbackStop.Cancel();
-                    questionStop.Cancel();
-                    await Task.WhenAll(feedbackTask, questionTask);
-                    feedback = await feedbackTask;
-                    question = await questionTask;
-                }
-                else
-                {
-                    question = await questionTask;
-                    if (!feedbackTask.IsCompleted)
-                    {
-                        // Detailed feedback is non-critical. Do not let it extend the
-                        // answer-to-next-question path once critical work is settled.
-                        feedbackStop.Cancel();
-                    }
-
-                    feedback = await feedbackTask;
-                }
+                feedbackStop.Cancel();
+                feedback = await feedbackTask;
             }
             else
             {
-                evaluation = await RunSettledAsync(
-                    token => provider.EvaluateAnswerAsync(context, token),
-                    _options.EvaluationTimeoutMs,
-                    sessionGate,
-                    cancellationToken);
-                feedback = await RunSettledAsync(
-                    token => provider.GenerateFeedbackDraftAsync(context, token),
-                    _options.FeedbackTimeoutMs,
-                    sessionGate,
-                    cancellationToken);
-                question = await RunSettledAsync(
-                    token => provider.GenerateQuestionBundleAsync(context, token),
-                    _options.QuestionTimeoutMs,
-                    sessionGate,
-                    cancellationToken);
+                if (!feedbackTask.IsCompleted)
+                {
+                    // Detailed feedback is non-critical. Do not let it extend the
+                    // answer-to-next-question path once critical work is settled.
+                    feedbackStop.Cancel();
+                }
+                feedback = await feedbackTask;
             }
 
             stopwatch.Stop();
-            var sequentialEstimate = evaluation.LatencyMs + feedback.LatencyMs + question.LatencyMs;
+            var sequentialEstimate = evaluation.LatencyMs + feedback.LatencyMs;
             return new TechnicalParallelAIResults(
                 evaluation,
                 feedback,
-                question,
                 new TechnicalParallelProcessingMetrics(
                     stopwatch.ElapsedMilliseconds,
                     sequentialEstimate,

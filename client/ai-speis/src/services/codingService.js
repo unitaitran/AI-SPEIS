@@ -73,6 +73,17 @@ export const codingService = {
     });
     return parseJsonResponse(response);
   },
+
+  getSubmissionHistory: async (sessionId, questionId) => {
+    const endpoint = ENDPOINTS.API_URL
+      ? `${ENDPOINTS.API_URL}/coding/submissions/${sessionId}/${questionId}`
+      : `/api/coding/submissions/${sessionId}/${questionId}`;
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return parseJsonResponse(response);
+  },
   
   getLanguages: async () => {
     const endpoint = ENDPOINTS.API_URL ? `${ENDPOINTS.API_URL}/coding/languages` : '/api/coding/languages';

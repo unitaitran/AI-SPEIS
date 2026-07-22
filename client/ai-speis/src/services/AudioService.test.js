@@ -54,4 +54,28 @@ describe('AudioService text-to-speech', () => {
         status: 504,
       });
   });
+
+  test('omits QuestionId for generated clarification or follow-up audio', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'audio/mpeg' },
+      blob: async () => new Blob(['audio'], { type: 'audio/mpeg' }),
+    });
+
+    await audioService.synthesizeSpeech({
+      text: 'Could you explain that trade-off in more detail?',
+      languageCode: 'en-US',
+      sessionId: 17,
+      questionId: null,
+      attemptId: '22222222-2222-2222-2222-222222222222',
+    });
+
+    const payload = JSON.parse(global.fetch.mock.calls[0][1].body);
+    expect(payload).toMatchObject({
+      sessionId: 17,
+      attemptId: '22222222-2222-2222-2222-222222222222',
+    });
+    expect(payload).not.toHaveProperty('questionId');
+  });
 });

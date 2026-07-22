@@ -96,6 +96,12 @@ namespace ai_speis_be.Models
         [Column(TypeName = "nvarchar(max)")]
         public string? TechnicalSummaryJson { get; set; }
 
+        [MaxLength(500)]
+        public string? TechnicalReliabilityFailureReason { get; set; }
+
+        [MaxLength(500)]
+        public string? TechnicalLegacyUpgradeFailureReason { get; set; }
+
         public DateTime? TechnicalStartedAt { get; set; }
 
         public DateTime? TechnicalCompletedAt { get; set; }

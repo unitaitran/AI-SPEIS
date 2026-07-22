@@ -56,7 +56,9 @@ export const TechnicalInterviewErrorCode = Object.freeze({
   MAIN_QUESTION_TARGET_NOT_REACHED: 'MAIN_QUESTION_TARGET_NOT_REACHED',
   QUESTION_STILL_PENDING: 'QUESTION_STILL_PENDING',
   SESSION_CONCURRENCY_CONFLICT: 'SESSION_CONCURRENCY_CONFLICT',
+  ROUND_LIFECYCLE_TRANSITION_FAILED: 'ROUND_LIFECYCLE_TRANSITION_FAILED',
   NETWORK_ERROR: 'NETWORK_ERROR',
+  REQUEST_TIMEOUT: 'REQUEST_TIMEOUT',
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 });
 
@@ -90,6 +92,7 @@ export const SttStatus = Object.freeze({
  * @property {number=} completedMainQuestionCount
  * @property {string=} status
  * @property {boolean=} canCompleteEarly
+ * @property {Array<Object>=} transcript Server-authoritative question and submitted-answer history.
  */
 
 /**

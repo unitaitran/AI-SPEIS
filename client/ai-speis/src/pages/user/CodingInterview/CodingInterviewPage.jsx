@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { codingService } from '../../../services/codingService';
+import interviewSessionService from '../../../services/InterviewSessionService';
+import { navigate } from '../../../routes/navigation';
+import { getCampaignResultPath, getInterviewRoomPath } from '../../../routes/routePaths';
+import { getActiveInterviewContext, getNextOpenSession, saveActiveInterviewContext } from '../../../utils/interviewContext';
 import notify from '../../../utils/notification';
 import '../../../styles/user/CodingInterviewPage.css';
 
@@ -12,6 +16,8 @@ const CodingInterviewPage = ({ sessionId }) => {
   const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState(null);
+  const [submittedQuestionIds, setSubmittedQuestionIds] = useState(() => new Set());
+  const [isCompleting, setIsCompleting] = useState(false);
   
   const editorRef = useRef(null);
 
@@ -28,6 +34,17 @@ const CodingInterviewPage = ({ sessionId }) => {
           const qRes = await codingService.getQuestions(sessionId);
           if (qRes && qRes.length > 0) {
             setQuestions(qRes);
+            const historyResults = await Promise.allSettled(qRes.map((question) => (
+              codingService.getSubmissionHistory(
+                sessionId,
+                question.codingQuestionId ?? question.id,
+              )
+            )));
+            setSubmittedQuestionIds(new Set(historyResults.flatMap((history, index) => (
+              history.status === 'fulfilled' && history.value?.length
+                ? [qRes[index].codingQuestionId ?? qRes[index].id]
+                : []
+            ))));
           }
         }
       } catch (err) {
@@ -39,6 +56,9 @@ const CodingInterviewPage = ({ sessionId }) => {
   }, [sessionId]);
 
   const currentQuestion = questions[currentQuestionIndex];
+  const getQuestionId = (question) => question?.codingQuestionId ?? question?.id;
+  const canComplete = questions.length > 0
+    && questions.every((question) => submittedQuestionIds.has(getQuestionId(question)));
 
   // Update starter code when question or language changes
   useEffect(() => {
@@ -69,18 +89,41 @@ const CodingInterviewPage = ({ sessionId }) => {
     setSubmissionResult(null);
     try {
       const payload = {
-        sessionId: parseInt(sessionId, 10),
-        questionId: currentQuestion.id,
+        interviewSessionId: parseInt(sessionId, 10),
+        codingQuestionId: getQuestionId(currentQuestion),
         languageId: selectedLanguage.id,
         sourceCode: code
       };
       const res = await codingService.submitCode(payload);
       setSubmissionResult(res);
+      setSubmittedQuestionIds((previous) => new Set(previous).add(getQuestionId(currentQuestion)));
       notify.success('Code submitted successfully');
     } catch (err) {
       notify.error(err.message || 'Failed to submit code');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCompleteRound = async () => {
+    if (!canComplete || isCompleting) return;
+    setIsCompleting(true);
+    try {
+      const campaign = await interviewSessionService.completeSession(sessionId);
+      const nextSession = getNextOpenSession(campaign, sessionId);
+      const currentContext = getActiveInterviewContext();
+      saveActiveInterviewContext({
+        campaign,
+        activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
+        configurationKey: currentContext?.configurationKey || null,
+      });
+      navigate(nextSession
+        ? getInterviewRoomPath(nextSession.interviewSessionId)
+        : getCampaignResultPath(campaign.interviewCampaignId), { replace: true });
+    } catch (err) {
+      notify.error(err.message || 'Failed to complete coding round');
+    } finally {
+      setIsCompleting(false);
     }
   };
 
@@ -128,6 +171,14 @@ const CodingInterviewPage = ({ sessionId }) => {
               </button>
             </div>
           )}
+          <button
+            className="btn-finish-coding"
+            type="button"
+            disabled={!canComplete || isCompleting}
+            onClick={handleCompleteRound}
+          >
+            {isCompleting ? 'Finalizing...' : 'Finish coding round'}
+          </button>
         </div>
       </div>
       
@@ -217,29 +268,33 @@ const CodingInterviewPage = ({ sessionId }) => {
             <div className="submission-result-panel">
               <h4>Submission Results</h4>
               <div className="result-stats">
-                <span className={submissionResult.status?.description === 'Accepted' ? 'status-accepted' : 'status-error'}>
-                  {submissionResult.status?.description || 'Unknown'}
+                <span className={submissionResult.status === 'Accepted' ? 'status-accepted' : 'status-error'}>
+                  {submissionResult.status || 'Unknown'}
                 </span>
-                <span>Time: {submissionResult.time}s</span>
-                <span>Memory: {submissionResult.memory}KB</span>
+                <span>Passed: {submissionResult.passedTestCases}/{submissionResult.totalTestCases}</span>
+                <span>Time: {submissionResult.maxTimeMs}ms</span>
+                <span>Memory: {submissionResult.maxMemoryKb}KB</span>
               </div>
               
               <div className="test-cases-results">
-                {submissionResult.testCaseResults && submissionResult.testCaseResults.map((tc, idx) => (
-                  <div key={idx} className={`test-case-card ${tc.passed ? 'passed' : 'failed'}`}>
-                    <h5>Test Case {idx + 1} {tc.passed ? '✅' : '❌'}</h5>
-                    {tc.error ? (
+                {submissionResult.testCaseResults && submissionResult.testCaseResults.map((tc, idx) => {
+                  const passed = tc.status === 'Accepted';
+                  return (
+                  <div key={tc.testCaseId || idx} className={`test-case-card ${passed ? 'passed' : 'failed'}`}>
+                    <h5>Test Case {idx + 1} {passed ? '✓' : '✕'}</h5>
+                    {tc.stderr || tc.compileOutput ? (
                       <div className="error-output">
-                        <strong>Error:</strong> <pre>{tc.error}</pre>
+                        <strong>Error:</strong> <pre>{tc.stderr || tc.compileOutput}</pre>
                       </div>
                     ) : (
                       <div className="execution-details">
-                        <p><strong>Time:</strong> {tc.time}s</p>
-                        <p><strong>Memory:</strong> {tc.memory}KB</p>
+                        <p><strong>Status:</strong> {tc.status}</p>
+                        <p><strong>Time:</strong> {tc.timeMs}ms</p>
+                        <p><strong>Memory:</strong> {tc.memoryKb}KB</p>
                       </div>
                     )}
                   </div>
-                ))}
+                );})}
               </div>
               
               {submissionResult.compileOutput && (

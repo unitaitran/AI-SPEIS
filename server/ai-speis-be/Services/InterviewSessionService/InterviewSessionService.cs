@@ -2,12 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
+using ai_speis_be.CampaignResults;
 using ai_speis_be.Helpers;
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.InterviewCampaignRepo;
+using ai_speis_be.TechnicalInterviews.DTOs;
+using ai_speis_be.TechnicalInterviews.Scoring;
 using Microsoft.EntityFrameworkCore;
 
 namespace ai_speis_be.Services.InterviewSessionService
@@ -15,6 +19,10 @@ namespace ai_speis_be.Services.InterviewSessionService
     public class InterviewSessionService : IInterviewSessionService
     {
         private static readonly TimeSpan PendingCampaignLifetime = TimeSpan.FromMinutes(30);
+        private static readonly JsonSerializerOptions ResultJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
         private const int BasicInterviewQuota = 5;
         private const int PremiumInterviewQuota = 15;
 
@@ -236,6 +244,24 @@ namespace ai_speis_be.Services.InterviewSessionService
                 return (true, null, MapCampaignToResponse(campaign, activeQuota));
             }
 
+            // Recover sessions started by older round-specific flows that activated the
+            // round without advancing the parent campaign lifecycle.
+            if (session.Status == InterviewSessionStatus.Active
+                && campaign.Status == InterviewCampaignStatus.Pending
+                && !campaign.InterviewSessions.Any(candidate =>
+                    candidate.InterviewSessionId != session.InterviewSessionId
+                    && candidate.Status == InterviewSessionStatus.Active))
+            {
+                campaign.Status = InterviewCampaignStatus.Active;
+                campaign.StartedAt ??= now;
+                campaign.ExpiresAt = campaign.StartedAt.Value.AddMinutes(campaign.DurationMinutes);
+                campaign.UpdatedAt = now;
+                session.UpdatedAt = now;
+                await _context.SaveChangesAsync();
+                var recoveredQuota = await GetQuotaMetadataAsync(campaign.User, now);
+                return (true, null, MapCampaignToResponse(campaign, recoveredQuota));
+            }
+
             if (session.Status != InterviewSessionStatus.Pending)
                 return (false, $"Phiên phỏng vấn đang ở trạng thái '{session.Status}' và không thể bắt đầu.", null);
             if (!IsLiveCampaign(campaign))
@@ -279,48 +305,16 @@ namespace ai_speis_be.Services.InterviewSessionService
 
             if (session.Status == InterviewSessionStatus.Completed)
             {
-                var existingQuota = await GetQuotaMetadataAsync(campaign.User, now);
-                return (true, null, MapCampaignToResponse(campaign, existingQuota));
+                var recoveredQuota = await AdvanceCampaignAsync(campaign, now);
+                return (true, null, MapCampaignToResponse(campaign, recoveredQuota));
             }
             if (session.Status != InterviewSessionStatus.Active)
                 return (false, "Chỉ có thể hoàn tất phiên đang hoạt động.", null);
 
             session.Status = InterviewSessionStatus.Completed;
             session.UpdatedAt = now;
-
-            var nextSession = campaign.InterviewSessions
-                .Where(candidate => !candidate.IsDeleted && candidate.Status == InterviewSessionStatus.Pending)
-                .OrderBy(candidate => GetRoundOrder(candidate.InterviewRoundType))
-                .ThenBy(candidate => candidate.InterviewSessionId)
-                .FirstOrDefault();
-
-            if (nextSession != null)
-            {
-                nextSession.Status = InterviewSessionStatus.Active;
-                nextSession.UpdatedAt = now;
-            }
-            else
-            {
-                campaign.Status = InterviewCampaignStatus.Completed;
-                campaign.CompletedAt = now;
-
-                var quota = await GetQuotaMetadataAsync(campaign.User, now);
-                if (quota.Remaining > 0)
-                {
-                    campaign.User.RemainingInterviewQuota = quota.Remaining - 1;
-                    campaign.User.UpdatedAt = now;
-                    quota = quota with { Remaining = campaign.User.RemainingInterviewQuota };
-                }
-
-                campaign.UpdatedAt = now;
-                await _context.SaveChangesAsync();
-                return (true, null, MapCampaignToResponse(campaign, quota));
-            }
-
-            campaign.UpdatedAt = now;
-            await _context.SaveChangesAsync();
-            var inProgressQuota = await GetQuotaMetadataAsync(campaign.User, now);
-            return (true, null, MapCampaignToResponse(campaign, inProgressQuota));
+            var quota = await AdvanceCampaignAsync(campaign, now);
+            return (true, null, MapCampaignToResponse(campaign, quota));
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CancelCampaignAsync(
@@ -420,6 +414,159 @@ namespace ai_speis_be.Services.InterviewSessionService
             return MapCampaignToResponse(campaign, quota);
         }
 
+        public async Task<CampaignInterviewResultDto?> GetCampaignResultAsync(int userId, int campaignId)
+        {
+            var campaign = await GetOwnedCampaignAsync(userId, campaignId);
+            if (campaign == null || campaign.Status != InterviewCampaignStatus.Completed) return null;
+
+            var rounds = new List<CampaignRoundResultDto>();
+            var technicalDimensions = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+            var behaviouralCriteria = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+            var technicalSession = campaign.InterviewSessions.FirstOrDefault(session =>
+                !session.IsDeleted && session.InterviewRoundType == InterviewRoundType.Technical);
+            if (technicalSession != null)
+            {
+                var summary = DeserializeOrDefault<TechnicalFinalSummaryDto>(technicalSession.TechnicalSummaryJson);
+                var evaluationJson = await _context.TechnicalAnswerEvaluations
+                    .Where(evaluation => evaluation.Attempt.InterviewSessionId == technicalSession.InterviewSessionId
+                        && evaluation.Attempt.QuestionType == TechnicalAttemptType.Main)
+                    .Select(evaluation => evaluation.ScoringBreakdownJson)
+                    .ToListAsync();
+
+                var dimensionScores = evaluationJson
+                    .SelectMany(json => DeserializeList<TechnicalDimensionScore>(json))
+                    .GroupBy(dimension => dimension.RubricCode, StringComparer.OrdinalIgnoreCase);
+                foreach (var group in dimensionScores)
+                {
+                    technicalDimensions[group.Key] = CampaignResultCalculator.Round(
+                        group.Average(dimension => dimension.FinalScore));
+                }
+
+                var score = CampaignResultCalculator.Round(technicalSession.TechnicalFinalScore ?? 0m);
+                rounds.Add(new CampaignRoundResultDto
+                {
+                    InterviewSessionId = technicalSession.InterviewSessionId,
+                    RoundType = InterviewRoundType.Technical.ToString(),
+                    Score = score,
+                    PerformanceBand = string.IsNullOrWhiteSpace(technicalSession.TechnicalPerformanceBand)
+                        ? CampaignResultCalculator.GetPerformanceBand(score)
+                        : technicalSession.TechnicalPerformanceBand,
+                    EvaluatedItemCount = technicalSession.TechnicalCompletedMainQuestionCount,
+                    Summary = summary.Summary,
+                    Strengths = summary.Strengths,
+                    AreasForImprovement = summary.AreasForImprovement,
+                    Recommendations = summary.RecommendedNextSteps
+                });
+            }
+
+            var behaviourSession = campaign.InterviewSessions.FirstOrDefault(session =>
+                !session.IsDeleted && session.InterviewRoundType == InterviewRoundType.Behavior);
+            if (behaviourSession != null)
+            {
+                var result = await _context.BehaviourRoundResults
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item => item.InterviewSessionId == behaviourSession.InterviewSessionId);
+                behaviouralCriteria = DeserializeDictionary(result?.CriteriaAveragesJson);
+                var score = CampaignResultCalculator.Round(result?.OverallScore ?? 0m);
+                rounds.Add(new CampaignRoundResultDto
+                {
+                    InterviewSessionId = behaviourSession.InterviewSessionId,
+                    RoundType = InterviewRoundType.Behavior.ToString(),
+                    Score = score,
+                    PerformanceBand = CampaignResultCalculator.GetPerformanceBand(score),
+                    EvaluatedItemCount = await _context.BehaviourSessionQuestions.CountAsync(question =>
+                        question.BehaviourQuestionSet.InterviewSessionId == behaviourSession.InterviewSessionId
+                        && question.QuestionType == BehaviourQuestionType.Main),
+                    Summary = result?.AiExecutiveSummary ?? string.Empty,
+                    Strengths = DeserializeStringList(result?.AiStrengths),
+                    AreasForImprovement = DeserializeStringList(result?.AiGaps),
+                    Recommendations = DeserializeStringList(result?.AiRecommendations)
+                });
+            }
+
+            var codingSession = campaign.InterviewSessions.FirstOrDefault(session =>
+                !session.IsDeleted && session.InterviewRoundType == InterviewRoundType.Code);
+            if (codingSession != null)
+            {
+                var submissions = await _context.CodingSubmissions
+                    .AsNoTracking()
+                    .Include(submission => submission.CodingQuestion)
+                    .Where(submission => submission.InterviewSessionId == codingSession.InterviewSessionId)
+                    .ToListAsync();
+
+                var questionResults = submissions
+                    .GroupBy(submission => submission.CodingQuestionId)
+                    .Select(group => group
+                        .OrderByDescending(submission => CampaignResultCalculator.GetCodingScore(
+                            submission.PassedTestCases, submission.TotalTestCases))
+                        .ThenByDescending(submission => submission.TotalTestCases == 0
+                            ? 0m
+                            : (decimal)submission.PassedTestCases / submission.TotalTestCases)
+                        .ThenByDescending(submission => submission.CreatedAt)
+                        .First())
+                    .Select(submission => new CodingQuestionResultDto
+                    {
+                        CodingQuestionId = submission.CodingQuestionId,
+                        Title = submission.CodingQuestion?.Title ?? $"Coding question {submission.CodingQuestionId}",
+                        Score = CampaignResultCalculator.GetCodingScore(
+                            submission.PassedTestCases, submission.TotalTestCases),
+                        PassRate = submission.TotalTestCases == 0
+                            ? 0m
+                            : CampaignResultCalculator.Round(
+                                (decimal)submission.PassedTestCases / submission.TotalTestCases * 100m),
+                        PassedTestCases = submission.PassedTestCases,
+                        TotalTestCases = submission.TotalTestCases
+                    })
+                    .OrderBy(item => item.CodingQuestionId)
+                    .ToList();
+
+                var score = questionResults.Count == 0
+                    ? 0m
+                    : CampaignResultCalculator.Round(questionResults.Average(item => item.Score));
+                var isVietnamese = string.Equals(campaign.Language, "vi", StringComparison.OrdinalIgnoreCase);
+                rounds.Add(new CampaignRoundResultDto
+                {
+                    InterviewSessionId = codingSession.InterviewSessionId,
+                    RoundType = InterviewRoundType.Code.ToString(),
+                    Score = score,
+                    PerformanceBand = CampaignResultCalculator.GetPerformanceBand(score),
+                    EvaluatedItemCount = questionResults.Count,
+                    Summary = isVietnamese
+                        ? $"Điểm Coding được tính từ tỷ lệ test case vượt qua của {questionResults.Count} bài đã nộp."
+                        : $"The Coding score is calculated from passed test cases across {questionResults.Count} submitted problems.",
+                    Strengths = score >= 6.5m
+                        ? new List<string> { isVietnamese ? "Khả năng hiện thực hoá lời giải bằng code đạt mức khá trở lên." : "Coding execution met or exceeded the good-performance threshold." }
+                        : new List<string>(),
+                    AreasForImprovement = score < 6.5m
+                        ? new List<string> { isVietnamese ? "Tăng độ chính xác của lời giải và tỷ lệ test case vượt qua." : "Improve solution correctness and the test-case pass rate." }
+                        : new List<string>(),
+                    Recommendations = score < 8m
+                        ? new List<string> { isVietnamese ? "Luyện thêm edge case, độ phức tạp và kiểm thử trước khi nộp." : "Practise edge cases, complexity analysis, and pre-submission testing." }
+                        : new List<string>(),
+                    CodingQuestions = questionResults
+                });
+            }
+
+            var overallScore = CampaignResultCalculator.ApplyRoundWeights(rounds);
+            var metrics = BuildDashboardMetrics(technicalDimensions, behaviouralCriteria, rounds);
+            var feedback = BuildCampaignFeedback(campaign.Language, overallScore, rounds);
+
+            return new CampaignInterviewResultDto
+            {
+                InterviewCampaignId = campaign.InterviewCampaignId,
+                Status = campaign.Status.ToString(),
+                Language = campaign.Language,
+                OverallScore = overallScore,
+                PerformanceBand = CampaignResultCalculator.GetPerformanceBand(overallScore),
+                CompletedAt = AsUtc(campaign.CompletedAt),
+                Rounds = rounds.OrderBy(round => GetRoundOrder(
+                    Enum.Parse<InterviewRoundType>(round.RoundType))).ToList(),
+                DashboardMetrics = metrics,
+                Feedback = feedback
+            };
+        }
+
         public async Task<InterviewCampaignDto?> GetActiveCampaignAsync(int userId)
         {
             var campaigns = await _context.InterviewCampaigns
@@ -506,6 +653,63 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private static bool IsLiveCampaign(InterviewCampaign campaign) =>
             campaign.Status == InterviewCampaignStatus.Pending || campaign.Status == InterviewCampaignStatus.Active;
+
+        private async Task<QuotaMetadata> AdvanceCampaignAsync(InterviewCampaign campaign, DateTime now)
+        {
+            // A completed round may be retried after a transient failure. If another round is
+            // already active, the lifecycle transition has already succeeded and is idempotent.
+            if (campaign.InterviewSessions.Any(candidate =>
+                !candidate.IsDeleted && candidate.Status == InterviewSessionStatus.Active))
+            {
+                if (campaign.Status == InterviewCampaignStatus.Pending)
+                {
+                    campaign.Status = InterviewCampaignStatus.Active;
+                    campaign.StartedAt ??= now;
+                    campaign.ExpiresAt = campaign.StartedAt.Value.AddMinutes(campaign.DurationMinutes);
+                }
+                campaign.UpdatedAt = now;
+                await _context.SaveChangesAsync();
+                return await GetQuotaMetadataAsync(campaign.User, now);
+            }
+
+            var nextSession = campaign.InterviewSessions
+                .Where(candidate => !candidate.IsDeleted && candidate.Status == InterviewSessionStatus.Pending)
+                .OrderBy(candidate => GetRoundOrder(candidate.InterviewRoundType))
+                .ThenBy(candidate => candidate.InterviewSessionId)
+                .FirstOrDefault();
+
+            if (nextSession != null)
+            {
+                nextSession.Status = InterviewSessionStatus.Active;
+                nextSession.UpdatedAt = now;
+                if (campaign.Status == InterviewCampaignStatus.Pending)
+                {
+                    campaign.StartedAt ??= now;
+                    campaign.ExpiresAt = campaign.StartedAt.Value.AddMinutes(campaign.DurationMinutes);
+                }
+                campaign.Status = InterviewCampaignStatus.Active;
+                campaign.UpdatedAt = now;
+                await _context.SaveChangesAsync();
+                return await GetQuotaMetadataAsync(campaign.User, now);
+            }
+
+            var quota = await GetQuotaMetadataAsync(campaign.User, now);
+            if (campaign.Status != InterviewCampaignStatus.Completed)
+            {
+                campaign.Status = InterviewCampaignStatus.Completed;
+                campaign.CompletedAt = now;
+                campaign.UpdatedAt = now;
+                if (quota.Remaining > 0)
+                {
+                    campaign.User.RemainingInterviewQuota = quota.Remaining - 1;
+                    campaign.User.UpdatedAt = now;
+                    quota = quota with { Remaining = campaign.User.RemainingInterviewQuota };
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return quota;
+        }
 
         private static bool MatchesConfiguration(
             InterviewCampaign campaign,
@@ -613,6 +817,145 @@ namespace ai_speis_be.Services.InterviewSessionService
         {
             // Quota is consumed on completed campaigns only, so there is nothing to refund.
             campaign.QuotaRefunded = true;
+        }
+
+        private static List<CampaignDashboardMetricDto> BuildDashboardMetrics(
+            IReadOnlyDictionary<string, decimal> technical,
+            IReadOnlyDictionary<string, decimal> behavioural,
+            IReadOnlyCollection<CampaignRoundResultDto> rounds)
+        {
+            decimal? Technical(string code) => technical.TryGetValue(code, out var value) ? value : null;
+            decimal? Behavioural(string code) => behavioural.TryGetValue(code, out var value) ? value : null;
+            var coding = rounds.FirstOrDefault(round =>
+                string.Equals(round.RoundType, InterviewRoundType.Code.ToString(), StringComparison.OrdinalIgnoreCase))?.Score;
+
+            CampaignDashboardMetricDto Metric(
+                string code,
+                string name,
+                params (decimal? Score, decimal Weight, string Source)[] components) => new()
+                {
+                    Code = code,
+                    Name = name,
+                    Score = CampaignResultCalculator.CalculateMetric(components),
+                    Sources = components
+                        .Where(component => component.Score.HasValue)
+                        .Select(component => component.Source)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList()
+                };
+
+            return new List<CampaignDashboardMetricDto>
+            {
+                Metric("PROFESSIONAL_KNOWLEDGE", "Professional Knowledge",
+                    (Technical("ACCURACY"), 0.35m, "Technical Accuracy"),
+                    (Technical("TECHNICAL_DEPTH"), 0.25m, "Technical Depth"),
+                    (Technical("APPLICATION"), 0.15m, "Technical Application"),
+                    (coding, 0.25m, "Coding")),
+                Metric("COMMUNICATION_SKILLS", "Communication Skills",
+                    (Technical("COMMUNICATION"), 0.40m, "Technical Communication"),
+                    (Behavioural("communication"), 0.60m, "Behavioral Communication")),
+                Metric("CV_UNDERSTANDING", "CV Understanding",
+                    (Technical("APPLICATION"), 0.30m, "Technical Application"),
+                    (Technical("REASONING"), 0.30m, "Technical Reasoning"),
+                    (Behavioural("action"), 0.40m, "Behavioral Action & Ownership")),
+                Metric("PROBLEM_SOLVING", "Problem Solving",
+                    (coding, 0.35m, "Coding"),
+                    (Technical("TECHNICAL_DEPTH"), 0.35m, "Technical Depth"),
+                    (Technical("REASONING"), 0.30m, "Technical Reasoning"))
+            };
+        }
+
+        private static CampaignFinalFeedbackDto BuildCampaignFeedback(
+            string language,
+            decimal overallScore,
+            IReadOnlyCollection<CampaignRoundResultDto> rounds)
+        {
+            var isVietnamese = string.Equals(language, "vi", StringComparison.OrdinalIgnoreCase);
+            var strengths = DistinctItems(rounds.SelectMany(round => round.Strengths));
+            var improvements = DistinctItems(rounds.SelectMany(round => round.AreasForImprovement));
+            var recommendations = DistinctItems(rounds.SelectMany(round => round.Recommendations));
+            var strongestRound = rounds.OrderByDescending(round => round.Score).FirstOrDefault();
+
+            if (strengths.Count == 0 && strongestRound != null)
+            {
+                strengths.Add(isVietnamese
+                    ? $"Vòng {strongestRound.RoundType} là phần thể hiện tốt nhất với {strongestRound.Score:0.00}/10."
+                    : $"{strongestRound.RoundType} was the strongest round at {strongestRound.Score:0.00}/10.");
+            }
+
+            if (improvements.Count == 0)
+            {
+                improvements.Add(isVietnamese
+                    ? "Tiếp tục tăng độ sâu của bằng chứng và tính nhất quán giữa các vòng."
+                    : "Continue improving evidence depth and consistency across rounds.");
+            }
+
+            if (recommendations.Count == 0)
+            {
+                recommendations.Add(isVietnamese
+                    ? "Ưu tiên luyện tập tiêu chí có điểm dashboard thấp nhất trong lần phỏng vấn tiếp theo."
+                    : "Prioritise the lowest dashboard metric in the next interview practice session.");
+            }
+
+            return new CampaignFinalFeedbackDto
+            {
+                ExecutiveSummary = isVietnamese
+                    ? $"Campaign đã hoàn tất với điểm tổng hợp {overallScore:0.00}/10 trên {rounds.Count} vòng phỏng vấn. Kết quả dùng trọng số rubric và chỉ tổng hợp các vòng đã chọn."
+                    : $"The campaign finished with an aggregate score of {overallScore:0.00}/10 across {rounds.Count} interview rounds. The result uses rubric weights and includes only selected rounds.",
+                Strengths = strengths.Take(6).ToList(),
+                AreasForImprovement = improvements.Take(6).ToList(),
+                Recommendations = recommendations.Take(6).ToList()
+            };
+        }
+
+        private static List<string> DistinctItems(IEnumerable<string?> values) => values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        private static T DeserializeOrDefault<T>(string? json) where T : new()
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new T();
+            try
+            {
+                return JsonSerializer.Deserialize<T>(json, ResultJsonOptions) ?? new T();
+            }
+            catch (JsonException)
+            {
+                return new T();
+            }
+        }
+
+        private static List<T> DeserializeList<T>(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new List<T>();
+            try
+            {
+                return JsonSerializer.Deserialize<List<T>>(json, ResultJsonOptions) ?? new List<T>();
+            }
+            catch (JsonException)
+            {
+                return new List<T>();
+            }
+        }
+
+        private static List<string> DeserializeStringList(string? json) => DeserializeList<string>(json);
+
+        private static Dictionary<string, decimal> DeserializeDictionary(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var values = JsonSerializer.Deserialize<Dictionary<string, decimal>>(json, ResultJsonOptions)
+                    ?? new Dictionary<string, decimal>();
+                return new Dictionary<string, decimal>(values, StringComparer.OrdinalIgnoreCase);
+            }
+            catch (JsonException)
+            {
+                return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+            }
         }
 
         private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign, QuotaMetadata? quota = null)

@@ -8,6 +8,7 @@ import QuestionsPage from '../pages/user/QuestionsPage';
 import DeviceReadinessCheckPage from '../pages/user/DeviceReadinessCheckPage';
 import AIInterviewRoomPage from '../pages/user/AIInterviewRoomPage';
 import TechnicalInterviewResultPage from '../pages/user/TechnicalInterviewResultPage';
+import CampaignInterviewResultPage from '../pages/user/CampaignInterviewResultPage';
 import CodingInterviewPage from '../pages/user/CodingInterview/CodingInterviewPage';
 import ProfilePage from '../pages/user/ProfilePage';
 import InterviewSetupPage from '../pages/user/InterviewSetupPage';
@@ -22,6 +23,8 @@ function UserRoutes({ pathname }) {
     || pathname.startsWith(`${USER_ROUTES.CODING_INTERVIEW_ROOM}/`);
   const isInterviewResultRoute = pathname === USER_ROUTES.INTERVIEW_RESULT
     || pathname.startsWith(`${USER_ROUTES.INTERVIEW_RESULT}/`);
+  const isCampaignResultRoute = pathname === USER_ROUTES.CAMPAIGN_RESULT
+    || pathname.startsWith(`${USER_ROUTES.CAMPAIGN_RESULT}/`);
   const getRouteId = (basePath) => {
     if (!pathname.startsWith(`${basePath}/`)) return null;
     const routeId = pathname.slice(basePath.length + 1).split('/')[0];
@@ -41,6 +44,7 @@ function UserRoutes({ pathname }) {
     isInterviewRoomRoute ||
     isCodingInterviewRoomRoute ||
     isInterviewResultRoute ||
+    isCampaignResultRoute ||
     pathname === USER_ROUTES.PAYMENT_RESULT;
 
   useEffect(() => {
@@ -95,6 +99,10 @@ function UserRoutes({ pathname }) {
 
   if (isInterviewResultRoute) {
     return <TechnicalInterviewResultPage sessionId={getRouteId(USER_ROUTES.INTERVIEW_RESULT)} />;
+  }
+
+  if (isCampaignResultRoute) {
+    return <CampaignInterviewResultPage campaignId={getRouteId(USER_ROUTES.CAMPAIGN_RESULT)} />;
   }
 
   return isKnownRoute ? <DashboardPage /> : null;

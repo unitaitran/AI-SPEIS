@@ -24,8 +24,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
 
     public sealed record TechnicalPromptVersionSnapshot(
         string Evaluation,
-        string Feedback,
-        string QuestionBundle);
+        string Feedback);
 
     public sealed record TechnicalAnswerProcessingContext
     {
@@ -45,6 +44,9 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public required string CandidateAnswer { get; init; }
         public required ImmutableArray<TechnicalAnswerContext> PreviousAnswers { get; init; }
         public required ImmutableArray<string> RemainingMissingEvidence { get; init; }
+        public ImmutableArray<string> CollectedEvidence { get; init; } = ImmutableArray<string>.Empty;
+        public ImmutableArray<string> PreviousIncorrectClaims { get; init; } = ImmutableArray<string>.Empty;
+        public ImmutableArray<decimal> PreviousAttemptScores { get; init; } = ImmutableArray<decimal>.Empty;
         public required string JobRole { get; init; }
         public required string ExperienceLevel { get; init; }
         public required string Language { get; init; }
@@ -55,17 +57,9 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public required int CompletedMainQuestionCount { get; init; }
         public required int MainQuestionIndex { get; init; }
         public required int TargetMainQuestionCount { get; init; }
-        public required ImmutableHashSet<int> AskedQuestionIds { get; init; }
-        public required ImmutableArray<TechnicalAIQuestionCandidate> CandidateQuestionPool { get; init; }
-        public required ImmutableDictionary<string, int> SkillCoverage { get; init; }
-        public required ImmutableDictionary<string, int> DifficultyCoverage { get; init; }
         public required TechnicalPromptVersionSnapshot PromptVersions { get; init; }
         public required bool UseAdaptiveRubricFramework { get; init; }
-        public int? MatchScore { get; init; }
-        public TechnicalMatchBand? MatchBand { get; init; }
-        public TechnicalQuestionPlan? QuestionPlan { get; init; }
         public TechnicalQuestionPlanSlot? CurrentPlanSlot { get; init; }
-        public TechnicalQuestionPlanSlot? NextPlanSlot { get; init; }
         public TechnicalQuestionSourceType? SourceType { get; init; }
         public string? TargetSkill { get; init; }
         public string? TargetSubskill { get; init; }
@@ -77,16 +71,14 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public int RequiredFollowUpCount { get; init; }
         public int CompletedFollowUpCount { get; init; }
         public decimal CumulativeFollowUpBonus { get; init; }
-        public int TotalMainCount { get; init; }
-        public int TotalFollowUpCount { get; init; }
-        public int TotalClarificationCount { get; init; }
+        public int RemainingSubQuestionBudget { get; init; }
+        public int ReliabilityCount { get; init; }
+        public int ReliabilityMinimumQuestionCount { get; init; }
         public bool IsReliabilityFollowUpRequired { get; init; }
-        public TechnicalQuestionGenerationReason? CurrentGenerationReason { get; init; }
         public required string ScoringPolicyVersion { get; init; }
         public required string AdaptiveRuleVersion { get; init; }
         public required string BonusCalculationVersion { get; init; }
-        public bool NextPlanDeviation { get; init; }
-        public string? NextPlanDeviationReason { get; init; }
+        public TechnicalLockedMainQuestionSnapshot? LockedMainQuestion { get; init; }
 
         public ImmutableArray<TechnicalAnswerContext> BuildCompleteAnswerContext()
         {

@@ -104,7 +104,7 @@ internal static class TechnicalTestRubric
     {
         return new TechnicalAIEvaluationResponse
         {
-            Decision = "NEXT_QUESTION",
+            Evaluation = new TechnicalAIEvaluationPayload { AnswerQuality = "PARTIAL" },
             Confidence = 0.9m,
             DimensionEvaluations = Codes.Select((code, index) => new TechnicalAIDimensionEvaluation
             {

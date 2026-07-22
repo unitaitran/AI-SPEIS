@@ -143,6 +143,40 @@ namespace ai_speis_be.Controllers
             return Ok(campaign);
         }
 
+        [HttpGet("campaign/{campaignId:int}/result")]
+        public async Task<IActionResult> GetCampaignResult(int campaignId)
+        {
+            if (campaignId <= 0)
+            {
+                return BadRequest(new { Message = "ID campaign is invalid." });
+            }
+
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new { Message = "The authenticated token does not contain a valid UserId." });
+            }
+
+            var campaign = await _service.GetCampaignByIdAsync(userId, campaignId);
+            if (campaign == null)
+            {
+                return NotFound(new { Message = "Interview campaign was not found." });
+            }
+
+            if (!string.Equals(campaign.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                return Conflict(new
+                {
+                    Code = "CAMPAIGN_RESULT_NOT_READY",
+                    Message = "The final campaign result is available only after every selected round is completed."
+                });
+            }
+
+            var result = await _service.GetCampaignResultAsync(userId, campaignId);
+            return result == null
+                ? NotFound(new { Message = "Interview campaign result was not found." })
+                : Ok(result);
+        }
+
         [HttpGet("active")]
         public async Task<IActionResult> GetActiveCampaign()
         {

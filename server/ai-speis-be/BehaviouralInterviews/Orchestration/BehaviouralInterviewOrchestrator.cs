@@ -1,8 +1,10 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Services.GeminiAiParsingService;
+using ai_speis_be.Services.InterviewSessionService;
 using ai_speis_be.BehaviouralInterviews.AI;
 using ai_speis_be.BehaviouralInterviews.Configuration;
 using ai_speis_be.BehaviouralInterviews.DTOs;
@@ -15,6 +17,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
 {
     public sealed class BehaviouralInterviewOrchestrator : IBehaviouralInterviewOrchestrator
     {
+        private static readonly ConcurrentDictionary<int, SemaphoreSlim> SessionGates = new();
         private const string RubricVersion = "behavioural-rubric-v2";
         private const decimal LowSttConfidenceThreshold = 0.70m;
         private const int ShortTranscriptWordCount = 50;
@@ -37,6 +40,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
         private readonly IBehaviouralFollowUpDecisionEngine _decisionEngine;
         private readonly Validation.IBehaviouralAIResponseValidator _validator;
         private readonly IGeminiAiParsingService _aiParsingService;
+        private readonly IInterviewSessionService _sessionLifecycleService;
         private readonly BehaviouralInterviewOptions _options;
         private readonly ILogger<BehaviouralInterviewOrchestrator> _logger;
 
@@ -49,6 +53,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             IBehaviouralFollowUpDecisionEngine decisionEngine,
             Validation.IBehaviouralAIResponseValidator validator,
             IGeminiAiParsingService aiParsingService,
+            IInterviewSessionService sessionLifecycleService,
             BehaviouralInterviewOptions options,
             ILogger<BehaviouralInterviewOrchestrator> logger)
         {
@@ -60,6 +65,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             _decisionEngine = decisionEngine;
             _validator = validator;
             _aiParsingService = aiParsingService;
+            _sessionLifecycleService = sessionLifecycleService;
             _options = options;
             _logger = logger;
         }
@@ -69,6 +75,10 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             InitializeBehaviouralInterviewRequest request,
             CancellationToken cancellationToken = default)
         {
+            var sessionGate = SessionGates.GetOrAdd(request.InterviewSessionId, _ => new SemaphoreSlim(1, 1));
+            await sessionGate.WaitAsync(cancellationToken);
+            try
+            {
             var session = await LoadSessionAsync(userId, request.InterviewSessionId, cancellationToken);
             if (session is null)
             {
@@ -82,13 +92,18 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.BadRequest, "WRONG_ROUND_TYPE", "Session is not a behavioural interview round.");
             }
 
-            var existingSet = await _context.BehaviourQuestionSets
-                .FirstOrDefaultAsync(s => s.InterviewSessionId == request.InterviewSessionId, cancellationToken);
+            var existingSet = await LoadCanonicalQuestionSetAsync(
+                request.InterviewSessionId,
+                cancellationToken);
 
             if (existingSet is not null)
             {
-                return Failure<BehaviouralInterviewSessionDto>(
-                    BehaviouralOperationStatus.Conflict, "ALREADY_INITIALIZED", "Behavioural interview is already initialized.");
+                return BehaviouralOperationResult<BehaviouralInterviewSessionDto>.Ok(
+                    BuildSessionDto(
+                        session,
+                        existingSet,
+                        existingSet.BehaviourSessionQuestion.ToList(),
+                        roundResult: null));
             }
 
             var questionSet = CreateQuestionSet(session, request.RequiredSkills);
@@ -96,7 +111,12 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             await _context.SaveChangesAsync(cancellationToken);
 
             return BehaviouralOperationResult<BehaviouralInterviewSessionDto>.Created(
-                BuildSessionDto(session, questionSet, mainQuestions: Array.Empty<BehaviourSessionQuestion>(), roundResult: null));
+                BuildSessionDto(session, questionSet, questions: Array.Empty<BehaviourSessionQuestion>(), roundResult: null));
+            }
+            finally
+            {
+                sessionGate.Release();
+            }
         }
 
         public async Task<BehaviouralOperationResult<BehaviouralCurrentQuestionDto>> StartAsync(
@@ -104,6 +124,10 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             int sessionId,
             CancellationToken cancellationToken = default)
         {
+            var sessionGate = SessionGates.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
+            await sessionGate.WaitAsync(cancellationToken);
+            try
+            {
             var session = await LoadSessionAsync(userId, sessionId, cancellationToken);
             if (session is null)
             {
@@ -117,9 +141,27 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.BadRequest, "WRONG_ROUND_TYPE", "Session is not a behavioural interview round.");
             }
 
-            var questionSet = await _context.BehaviourQuestionSets
-                .Include(s => s.BehaviourSessionQuestion)
-                .FirstOrDefaultAsync(s => s.InterviewSessionId == sessionId, cancellationToken);
+            if (session.Status == InterviewSessionStatus.Pending
+                || session.Status == InterviewSessionStatus.Active)
+            {
+                var lifecycleResult = await _sessionLifecycleService.StartSessionAsync(userId, sessionId);
+                if (!lifecycleResult.Success)
+                {
+                    return Failure<BehaviouralCurrentQuestionDto>(
+                        BehaviouralOperationStatus.Conflict,
+                        "SESSION_START_REJECTED",
+                        lifecycleResult.ErrorMessage ?? "The behavioural session cannot be started.");
+                }
+            }
+            else if (session.Status != InterviewSessionStatus.Completed)
+            {
+                return Failure<BehaviouralCurrentQuestionDto>(
+                    BehaviouralOperationStatus.Conflict,
+                    "INVALID_SESSION_STATUS",
+                    "Only a pending or active session can start a behavioural interview.");
+            }
+
+            var questionSet = await LoadCanonicalQuestionSetAsync(sessionId, cancellationToken);
 
             if (questionSet is null)
             {
@@ -140,6 +182,13 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 {
                     return Failure<BehaviouralCurrentQuestionDto>(
                         BehaviouralOperationStatus.Conflict, "ALL_QUESTIONS_ANSWERED", "All questions are answered. Call complete.");
+                }
+
+                if (current.Status == BehaviourQuestionStatus.Pending)
+                {
+                    current.Status = BehaviourQuestionStatus.Asked;
+                    current.AskedAt ??= DateTime.UtcNow;
+                    await _context.SaveChangesAsync(cancellationToken);
                 }
 
                 return BehaviouralOperationResult<BehaviouralCurrentQuestionDto>.Ok(
@@ -184,18 +233,17 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 questionSet.BehaviourSessionQuestion.Add(sessionQuestion);
             }
 
-            if (session.Status == InterviewSessionStatus.Pending)
-            {
-                session.Status = InterviewSessionStatus.Active;
-                session.UpdatedAt = now;
-            }
-
             await _context.SaveChangesAsync(cancellationToken);
 
             var firstQuestion = questionSet.BehaviourSessionQuestion
                 .First(q => q.QuestionOrder == 1 && q.QuestionType == BehaviourQuestionType.Main);
             return BehaviouralOperationResult<BehaviouralCurrentQuestionDto>.Created(
                 BuildQuestionDto(firstQuestion, questionSet));
+            }
+            finally
+            {
+                sessionGate.Release();
+            }
         }
 
         public async Task<BehaviouralOperationResult<BehaviouralInterviewSessionDto>> GetSessionAsync(
@@ -210,10 +258,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.NotFound, "SESSION_NOT_FOUND", "Interview session not found.");
             }
 
-            var questionSet = await _context.BehaviourQuestionSets
-                .Include(s => s.BehaviourSessionQuestion)
-                .ThenInclude(q => q.BehaviourAnswerAnswer)
-                .FirstOrDefaultAsync(s => s.InterviewSessionId == sessionId, cancellationToken);
+            var questionSet = await LoadCanonicalQuestionSetAsync(sessionId, cancellationToken);
 
             if (questionSet is null)
             {
@@ -225,12 +270,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.InterviewSessionId == sessionId, cancellationToken);
 
-            var mainQuestions = questionSet.BehaviourSessionQuestion
-                .Where(q => q.QuestionType == BehaviourQuestionType.Main)
-                .ToList();
-
             return BehaviouralOperationResult<BehaviouralInterviewSessionDto>.Ok(
-                BuildSessionDto(session, questionSet, mainQuestions, roundResult));
+                BuildSessionDto(session, questionSet, questionSet.BehaviourSessionQuestion.ToList(), roundResult));
         }
 
         public async Task<BehaviouralOperationResult<BehaviouralCurrentQuestionDto>> GetCurrentQuestionAsync(
@@ -245,9 +286,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.NotFound, "SESSION_NOT_FOUND", "Interview session not found.");
             }
 
-            var questionSet = await _context.BehaviourQuestionSets
-                .Include(s => s.BehaviourSessionQuestion)
-                .FirstOrDefaultAsync(s => s.InterviewSessionId == sessionId, cancellationToken);
+            var questionSet = await LoadCanonicalQuestionSetAsync(sessionId, cancellationToken);
 
             if (questionSet is null || questionSet.BehaviourSessionQuestion.Count == 0)
             {
@@ -280,10 +319,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.NotFound, "SESSION_NOT_FOUND", "Interview session not found.");
             }
 
-            var questionSet = await _context.BehaviourQuestionSets
-                .Include(s => s.BehaviourSessionQuestion)
-                .ThenInclude(q => q.BehaviourAnswerAnswer)
-                .FirstOrDefaultAsync(s => s.InterviewSessionId == sessionId, cancellationToken);
+            var questionSet = await LoadCanonicalQuestionSetAsync(sessionId, cancellationToken);
 
             if (questionSet is null || questionSet.BehaviourSessionQuestion.Count == 0)
             {
@@ -487,21 +523,28 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.NotFound, "SESSION_NOT_FOUND", "Interview session not found.");
             }
 
-            var questionSet = await _context.BehaviourQuestionSets
-                .Include(s => s.BehaviourSessionQuestion)
-                .ThenInclude(q => q.BehaviourAnswerAnswer)
-                .FirstOrDefaultAsync(s => s.InterviewSessionId == sessionId, cancellationToken);
+            var questionSet = await LoadCanonicalQuestionSetAsync(sessionId, cancellationToken);
 
             if (questionSet is null || questionSet.BehaviourSessionQuestion.Count == 0)
             {
                 return Failure<BehaviouralInterviewResultDto>(
-                    BehaviouralOperationStatus.NotFound, "NOT_STARTED", "Behavioural interview has not started.");
+                    BehaviouralOperationStatus.Conflict,
+                    "NOT_STARTED",
+                    "Behavioural interview must be started before it can be completed.");
             }
 
             var existingResult = await _context.BehaviourRoundResults
                 .FirstOrDefaultAsync(r => r.InterviewSessionId == sessionId, cancellationToken);
             if (existingResult is not null)
             {
+                var lifecycleError = await EnsureLifecycleCompletionAsync(userId, session);
+                if (lifecycleError is not null)
+                {
+                    return Failure<BehaviouralInterviewResultDto>(
+                        BehaviouralOperationStatus.Conflict,
+                        "ROUND_LIFECYCLE_TRANSITION_FAILED",
+                        lifecycleError);
+                }
                 return BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
                     BuildResultDto(sessionId, questionSet, existingResult));
             }
@@ -592,11 +635,19 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             }
 
             questionSet.Status = BehaviourQuestionSetStatus.Completed;
-            session.Status = InterviewSessionStatus.Completed;
             session.UpdatedAt = now;
 
             await _context.BehaviourRoundResults.AddAsync(roundResult, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
+
+            var transitionError = await EnsureLifecycleCompletionAsync(userId, session);
+            if (transitionError is not null)
+            {
+                return Failure<BehaviouralInterviewResultDto>(
+                    BehaviouralOperationStatus.Conflict,
+                    "ROUND_LIFECYCLE_TRANSITION_FAILED",
+                    transitionError);
+            }
 
             return BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
                 BuildResultDto(sessionId, questionSet, roundResult));
@@ -623,11 +674,19 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.NotFound, "RESULT_NOT_READY", "Behavioural round result is not available yet.");
             }
 
-            var questionSet = await _context.BehaviourQuestionSets
-                .AsNoTracking()
-                .Include(s => s.BehaviourSessionQuestion)
-                .ThenInclude(q => q.BehaviourAnswerAnswer)
-                .FirstOrDefaultAsync(s => s.InterviewSessionId == sessionId, cancellationToken);
+            var lifecycleError = await EnsureLifecycleCompletionAsync(userId, session);
+            if (lifecycleError is not null)
+            {
+                return Failure<BehaviouralInterviewResultDto>(
+                    BehaviouralOperationStatus.Conflict,
+                    "ROUND_LIFECYCLE_TRANSITION_FAILED",
+                    lifecycleError);
+            }
+
+            var questionSet = await LoadCanonicalQuestionSetAsync(
+                sessionId,
+                cancellationToken,
+                asNoTracking: true);
 
             if (questionSet is null)
             {
@@ -657,6 +716,32 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                         && !s.IsDeleted
                         && s.InterviewCampaign.UserId == userId,
                     cancellationToken);
+        }
+
+        private Task<BehaviourQuestionSet?> LoadCanonicalQuestionSetAsync(
+            int sessionId,
+            CancellationToken cancellationToken,
+            bool asNoTracking = false)
+        {
+            IQueryable<BehaviourQuestionSet> query = _context.BehaviourQuestionSets
+                .Include(set => set.BehaviourSessionQuestion)
+                .ThenInclude(question => question.BehaviourAnswerAnswer);
+
+            if (asNoTracking)
+            {
+                query = query.AsNoTracking();
+            }
+
+            // Older builds could create more than one set when initialize/start requests
+            // overlapped. Always select the set containing the most interview progress so
+            // start, state and complete cannot observe different rows for the same session.
+            return query
+                .Where(set => set.InterviewSessionId == sessionId)
+                .OrderByDescending(set => set.BehaviourSessionQuestion.Count(question =>
+                    question.BehaviourAnswerAnswer != null))
+                .ThenByDescending(set => set.BehaviourSessionQuestion.Count)
+                .ThenBy(set => set.BehaviourQuestionSetId)
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
         /// <summary>
@@ -1137,11 +1222,14 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
         private BehaviouralInterviewSessionDto BuildSessionDto(
             InterviewSession session,
             BehaviourQuestionSet questionSet,
-            IReadOnlyCollection<BehaviourSessionQuestion> mainQuestions,
+            IReadOnlyCollection<BehaviourSessionQuestion> questions,
             BehaviourRoundResult? roundResult)
         {
             var rubric = _rubricProvider.GetRequired(RubricVersion);
             var jdProfile = session.InterviewCampaign.JDExtractedProfile;
+            var mainQuestions = questions
+                .Where(q => q.QuestionType == BehaviourQuestionType.Main)
+                .ToList();
 
             return new BehaviouralInterviewSessionDto
             {
@@ -1165,8 +1253,83 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 FinalScore = roundResult?.OverallScore,
                 PerformanceBand = roundResult?.OverallScore is not null
                     ? rubric.GetPerformanceBand(roundResult.OverallScore.Value).Code
-                    : null
+                    : null,
+                Transcript = BuildTranscript(questions)
             };
+        }
+
+        private static List<BehaviouralTranscriptEntryDto> BuildTranscript(
+            IEnumerable<BehaviourSessionQuestion> questions)
+        {
+            return questions
+                .Where(question => question.AskedAt.HasValue)
+                .OrderBy(question => question.AskedAt)
+                .ThenBy(question => question.BehaviourSessionQuestionId)
+                .SelectMany(question =>
+                {
+                    var snapshot = ParseSnapshot(question.QuestionSnapshotJson);
+                    var entries = new List<BehaviouralTranscriptEntryDto>
+                    {
+                        new()
+                        {
+                            Id = $"question-{question.BehaviourSessionQuestionId}",
+                            SessionQuestionId = question.BehaviourSessionQuestionId,
+                            Role = "INTERVIEWER",
+                            Content = snapshot.QuestionText,
+                            QuestionType = question.QuestionType.ToString(),
+                            Status = question.BehaviourAnswerAnswer is null ? "CURRENT" : "FINAL",
+                            CreatedAt = question.AskedAt!.Value
+                        }
+                    };
+
+                    if (question.BehaviourAnswerAnswer is not null)
+                    {
+                        entries.Add(new BehaviouralTranscriptEntryDto
+                        {
+                            Id = $"answer-{question.BehaviourSessionQuestionId}",
+                            SessionQuestionId = question.BehaviourSessionQuestionId,
+                            Role = "CANDIDATE",
+                            Content = question.BehaviourAnswerAnswer.Transcript,
+                            QuestionType = question.QuestionType.ToString(),
+                            Status = "FINAL",
+                            CreatedAt = question.BehaviourAnswerAnswer.CreatedAt
+                        });
+                    }
+
+                    return entries;
+                })
+                .ToList();
+        }
+
+        private async Task<string?> EnsureLifecycleCompletionAsync(int userId, InterviewSession session)
+        {
+            if (session.Status == InterviewSessionStatus.Completed
+                && session.InterviewCampaign.Status is InterviewCampaignStatus.Completed
+                    or InterviewCampaignStatus.Cancelled
+                    or InterviewCampaignStatus.Expired)
+            {
+                return null;
+            }
+
+            if (session.Status != InterviewSessionStatus.Active
+                && session.Status != InterviewSessionStatus.Completed)
+            {
+                return $"Interview session is in '{session.Status}' state and cannot transition to the next round.";
+            }
+
+            var lifecycleResult = await _sessionLifecycleService.CompleteSessionAsync(
+                userId,
+                session.InterviewSessionId);
+            if (lifecycleResult.Success)
+            {
+                return null;
+            }
+
+            _logger.LogWarning(
+                "Behavioural session {SessionId} was scored but lifecycle completion failed: {Error}",
+                session.InterviewSessionId,
+                lifecycleResult.ErrorMessage);
+            return lifecycleResult.ErrorMessage ?? "Could not activate the next interview round.";
         }
 
         private List<string> ParseConstraintSkills(string? constraintsJson)

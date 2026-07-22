@@ -46,6 +46,18 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
         public DateTime? CompletedAt { get; set; }
         public decimal? FinalScore { get; set; }
         public string? PerformanceBand { get; set; }
+        public List<BehaviouralTranscriptEntryDto> Transcript { get; set; } = new();
+    }
+
+    public sealed class BehaviouralTranscriptEntryDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public int SessionQuestionId { get; set; }
+        public string Role { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string QuestionType { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
     }
 
     public sealed class BehaviouralCurrentQuestionDto
