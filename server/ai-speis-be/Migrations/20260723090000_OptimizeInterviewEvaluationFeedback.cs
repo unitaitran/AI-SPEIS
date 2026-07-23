@@ -159,24 +159,24 @@ namespace ai_speis_be.Migrations
                     WHERE object_id = OBJECT_ID(N'dbo.BehaviourRoundResult')
                       AND name = N'IX_BehaviourRoundResult_InterviewSessionId'
                       AND is_unique = 0)
-                    DROP INDEX [IX_BehaviourRoundResult_InterviewSessionId]
-                        ON [dbo].[BehaviourRoundResult];
+                    EXEC(N'DROP INDEX [IX_BehaviourRoundResult_InterviewSessionId]
+                        ON [dbo].[BehaviourRoundResult]');
                 IF NOT EXISTS (
                     SELECT 1
                     FROM sys.indexes
                     WHERE object_id = OBJECT_ID(N'dbo.BehaviourRoundResult')
                       AND name = N'IX_BehaviourRoundResult_InterviewSessionId')
-                    CREATE UNIQUE INDEX [IX_BehaviourRoundResult_InterviewSessionId]
-                        ON [dbo].[BehaviourRoundResult] ([InterviewSessionId]);
+                    EXEC(N'CREATE UNIQUE INDEX [IX_BehaviourRoundResult_InterviewSessionId]
+                        ON [dbo].[BehaviourRoundResult] ([InterviewSessionId])');
 
                 IF NOT EXISTS (
                     SELECT 1
                     FROM sys.indexes
                     WHERE object_id = OBJECT_ID(N'dbo.BehaviourAnswer')
                       AND name = N'IX_BehaviourAnswer_SubmissionIdempotencyKey')
-                    CREATE UNIQUE INDEX [IX_BehaviourAnswer_SubmissionIdempotencyKey]
+                    EXEC(N'CREATE UNIQUE INDEX [IX_BehaviourAnswer_SubmissionIdempotencyKey]
                         ON [dbo].[BehaviourAnswer] ([SubmissionIdempotencyKey])
-                        WHERE [SubmissionIdempotencyKey] IS NOT NULL;
+                        WHERE [SubmissionIdempotencyKey] IS NOT NULL');
                 """);
         }
 
