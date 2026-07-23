@@ -98,6 +98,9 @@ namespace ai_speis_be.Services.CodingService
 
             string wrappedSourceCode = WrapCodeWithHarness(request.SourceCode, request.LanguageId, question);
 
+            int targetMemory = request.LanguageId == 62 ? Math.Max(question.MemoryLimit, 256000) : question.MemoryLimit;
+            int safeMemoryLimit = Math.Clamp(targetMemory <= 0 ? 256000 : targetMemory, 1000, 512000);
+
             // 3. Tạo batch submissions gửi đến Judge0
             var judge0Requests = testCases.Select(tc => new Judge0SubmissionRequest
             {
@@ -105,7 +108,7 @@ namespace ai_speis_be.Services.CodingService
                 language_id = request.LanguageId,
                 stdin = tc.Input ?? "",
                 cpu_time_limit = question.TimeLimit,
-                memory_limit = request.LanguageId == 62 ? Math.Max(question.MemoryLimit, 512000) : question.MemoryLimit,
+                memory_limit = safeMemoryLimit,
                 command_line_arguments = request.LanguageId == 62 ? "-Xms64m -Xmx128m" : null
             }).ToList();
 
@@ -604,7 +607,7 @@ if (typeof process !== 'undefined') {{
 
                 int memoryLimit = 256000;
                 if (int.TryParse(row.GetValueOrDefault("memory_limit_mb"), out var parsedMem))
-                    memoryLimit = parsedMem * 1024; // Excel often in MB, store in KB. Wait, if it's already KB? We assume MB based on column name.
+                    memoryLimit = Math.Clamp(parsedMem * 1024, 1000, 512000);
 
                 var q = new CodingQuestion
                 {

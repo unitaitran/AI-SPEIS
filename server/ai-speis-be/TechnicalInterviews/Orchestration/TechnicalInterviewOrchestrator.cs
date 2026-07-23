@@ -105,7 +105,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     if (string.Equals(upgraded.ErrorCode, "LEGACY_PLAN_UPGRADE_CONFLICT", StringComparison.Ordinal))
                     {
                         await transaction.RollbackAsync(cancellationToken);
-                        return Conflict<TechnicalInterviewSessionDto>(upgraded.ErrorCode, upgraded.Message!);
+                        return Conflict<TechnicalInterviewSessionDto>(upgraded.ErrorCode ?? "LEGACY_PLAN_UPGRADE_CONFLICT", upgraded.Message!);
                     }
                     await RecordLegacyUpgradeFailureAsync(session, upgraded, cancellationToken);
                     await transaction.CommitAsync(cancellationToken);

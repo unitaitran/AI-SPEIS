@@ -1,12 +1,17 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Sparkles } from 'lucide-react';
 
 function EvaluatingAnalysisModal({
   isOpen,
-  title = 'Hệ thống đang đánh giá và phân tích',
-  description = 'Vui lòng chờ trong giây lát, hệ thống đang tổng hợp và phân tích kết quả phỏng vấn của bạn...',
+  title,
+  description,
 }) {
+  const { t } = useTranslation('interview');
   if (!isOpen) return null;
+
+  const displayTitle = title || t('device.evaluatingAnalysisTitle', { defaultValue: 'Hệ thống đang đánh giá và phân tích' });
+  const displayDescription = description || t('device.evaluatingAnalysisDescription', { defaultValue: 'Vui lòng chờ trong giây lát, hệ thống đang tổng hợp và phân tích kết quả phỏng vấn của bạn...' });
 
   return (
     <div
@@ -66,10 +71,10 @@ function EvaluatingAnalysisModal({
         </div>
         <div>
           <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: '700', color: '#0f172a' }}>
-            {title}
+            {displayTitle}
           </h3>
           <p style={{ margin: 0, fontSize: '0.875rem', color: '#475569', lineHeight: '1.5' }}>
-            {description}
+            {displayDescription}
           </p>
         </div>
       </section>

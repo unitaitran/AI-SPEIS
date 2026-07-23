@@ -33,7 +33,16 @@ const MENU_GROUPS = [
 function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) {
   const { t } = useTranslation('dashboard');
   const [currentPathname, setCurrentPathname] = React.useState(window.location.pathname);
-  const [isPremium, setIsPremium] = React.useState(false);
+  const [isPremium, setIsPremium] = React.useState(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        return Boolean(u?.isPremium || u?.IsPremium);
+      } catch (e) {}
+    }
+    return false;
+  });
 
   React.useEffect(() => {
     const syncPathname = () => setCurrentPathname(window.location.pathname);
@@ -46,6 +55,19 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
   }, []);
 
   React.useEffect(() => {
+    const updateLocalUserIsPremium = (isPrem) => {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const u = JSON.parse(userStr);
+          if (u.isPremium !== isPrem) {
+            u.isPremium = isPrem;
+            localStorage.setItem('user', JSON.stringify(u));
+          }
+        } catch (e) {}
+      }
+    };
+
     const checkQuota = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -55,9 +77,9 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
         });
         if (res.ok) {
           const data = await res.json();
-          if (data && data.planName === 'Premium') {
-            setIsPremium(true);
-          }
+          const isPrem = data && data.planName === 'Premium';
+          setIsPremium(isPrem);
+          updateLocalUserIsPremium(isPrem);
         }
       } catch {
         // Ignore fetch errors
@@ -67,7 +89,9 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
     const handleQuotaChanged = (event) => {
       const nextPlanName = event.detail?.planName;
       if (typeof nextPlanName === 'string') {
-        setIsPremium(nextPlanName === 'Premium');
+        const isPrem = nextPlanName === 'Premium';
+        setIsPremium(isPrem);
+        updateLocalUserIsPremium(isPrem);
       } else {
         checkQuota();
       }

@@ -41,7 +41,9 @@ const LoginForm = () => {
         fullName: data.fullName,
         email: data.email,
         role: data.role,
-        avatar: data.imageUrl
+        avatar: data.imageUrl,
+        isPremium: data.isPremium,
+        remainingInterviewQuota: data.remainingInterviewQuota
       }));
       
       const targetRoute = getDefaultRouteForRole(data.role);

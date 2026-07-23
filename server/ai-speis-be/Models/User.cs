@@ -70,6 +70,22 @@ namespace ai_speis_be.Models
 
         [MaxLength(256)]
         public string? ImageUrl { get; set; }
+
+        public bool SyncPremiumStatus(DateTime now)
+        {
+            if (PremiumExpireAt.HasValue)
+            {
+                bool shouldBePremium = PremiumExpireAt.Value > now;
+                if (IsPremium != shouldBePremium)
+                {
+                    IsPremium = shouldBePremium;
+                    UpdatedAt = now;
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // Navigation property
         public virtual  Role Role { get; set; } = null!;
         

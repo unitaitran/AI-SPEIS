@@ -256,14 +256,13 @@ export default function useTechnicalInterviewSession(sessionId) {
   const markProcessing = useCallback((attemptId) => {
     setProcessingStatus({ attemptId, evaluation: 'PROCESSING' });
     setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_NEXT_QUESTION);
-    commitQuestion(null);
     commitSession({
       ...sessionRef.current,
       sessionId,
       status: TechnicalSessionStatus.EVALUATING,
       sessionStatus: TechnicalSessionStatus.EVALUATING,
     });
-  }, [commitQuestion, commitSession, sessionId]);
+  }, [commitSession, sessionId]);
 
   const applyAnswerResponse = useCallback((response) => {
     if (!response) return;

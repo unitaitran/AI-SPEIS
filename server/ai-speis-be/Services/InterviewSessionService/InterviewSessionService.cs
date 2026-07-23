@@ -269,11 +269,18 @@ namespace ai_speis_be.Services.InterviewSessionService
                 return (false, $"Phiên phỏng vấn đang ở trạng thái '{session.Status}' và không thể bắt đầu.", null);
             if (!IsLiveCampaign(campaign))
                 return (false, $"Campaign đang ở trạng thái '{campaign.Status}' và không thể bắt đầu.", null);
-            if (campaign.InterviewSessions.Any(candidate =>
-                candidate.InterviewSessionId != session.InterviewSessionId
-                && candidate.Status == InterviewSessionStatus.Active))
+            var activeOtherSessions = campaign.InterviewSessions
+                .Where(candidate => candidate.InterviewSessionId != session.InterviewSessionId
+                    && candidate.Status == InterviewSessionStatus.Active)
+                .ToList();
+
+            if (activeOtherSessions.Any())
             {
-                return (false, "Campaign đã có một phiên đang hoạt động.", null);
+                foreach (var other in activeOtherSessions)
+                {
+                    other.Status = InterviewSessionStatus.Completed;
+                    other.UpdatedAt = now;
+                }
             }
 
             if (campaign.Status == InterviewCampaignStatus.Pending)
@@ -391,7 +398,7 @@ namespace ai_speis_be.Services.InterviewSessionService
             var lifecycleChanged = false;
             foreach (var campaign in liveCampaigns)
                 lifecycleChanged |= ExpireIfDue(campaign, user, now);
-            if (lifecycleChanged || previousRemainingQuota != user.RemainingInterviewQuota) await _context.SaveChangesAsync();
+            if (lifecycleChanged || _context.ChangeTracker.HasChanges()) await _context.SaveChangesAsync();
 
             return new InterviewQuotaDto
             {
@@ -588,47 +595,112 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         public async Task<List<CampaignDashboardMetricDto>> GetUserCapabilitiesAsync(int userId)
         {
-            var campaign = await _context.InterviewCampaigns
+            var userCampaigns = await _context.InterviewCampaigns
                 .AsNoTracking()
-                .Where(c => c.UserId == userId && !c.IsDeleted && c.DashboardMetricsJson != null)
-                .OrderByDescending(c => c.CompletedAt ?? c.CreatedAt)
-                .FirstOrDefaultAsync();
+                .Where(c => c.UserId == userId && !c.IsDeleted)
+                .OrderBy(c => c.CreatedAt)
+                .ToListAsync();
 
-            if (campaign != null && !string.IsNullOrWhiteSpace(campaign.DashboardMetricsJson))
+            var campaignMetricsList = new List<(DateTime Date, string Title, List<CampaignDashboardMetricDto> Metrics)>();
+
+            foreach (var campaign in userCampaigns)
             {
-                try
+                List<CampaignDashboardMetricDto>? metrics = null;
+                if (!string.IsNullOrWhiteSpace(campaign.DashboardMetricsJson))
                 {
-                    var savedMetrics = JsonSerializer.Deserialize<List<CampaignDashboardMetricDto>>(campaign.DashboardMetricsJson);
-                    if (savedMetrics != null && savedMetrics.Count > 0)
+                    try
                     {
-                        return savedMetrics;
+                        metrics = JsonSerializer.Deserialize<List<CampaignDashboardMetricDto>>(campaign.DashboardMetricsJson);
+                    }
+                    catch { }
+                }
+
+                if (metrics == null || !metrics.Any(m => m.Score.HasValue && m.Score.Value > 0))
+                {
+                    var res = await GetCampaignResultAsync(userId, campaign.InterviewCampaignId);
+                    metrics = res?.DashboardMetrics;
+                }
+
+                if (metrics != null && metrics.Any(m => m.Score.HasValue && m.Score.Value > 0))
+                {
+                    var title = $"Phỏng vấn #{campaign.InterviewCampaignId}";
+                    campaignMetricsList.Add((campaign.CompletedAt ?? campaign.CreatedAt, title, metrics));
+                }
+            }
+
+            if (campaignMetricsList.Count == 0)
+            {
+                var attempts = await (
+                    from q in _context.TechnicalQuestionAttempts.AsNoTracking()
+                    join s in _context.InterviewSessions.AsNoTracking() on q.InterviewSessionId equals s.InterviewSessionId
+                    join c in _context.InterviewCampaigns.AsNoTracking() on s.InterviewCampaignId equals c.InterviewCampaignId
+                    where c.UserId == userId && !s.IsDeleted && !c.IsDeleted && (q.FinalMainScore != null || q.RawScore != null)
+                    orderby s.CreatedAt
+                    select new { s.InterviewSessionId, s.CreatedAt, Score = (q.FinalMainScore ?? q.RawScore)!.Value }
+                ).ToListAsync();
+
+                if (attempts.Any())
+                {
+                    var grouped = attempts.GroupBy(a => a.InterviewSessionId);
+                    foreach (var group in grouped)
+                    {
+                        var first = group.First();
+                        var avg = Math.Round(group.Average(x => x.Score), 1);
+                        var title = $"Phiên kỹ thuật #{first.InterviewSessionId}";
+                        var sessionMetrics = new List<CampaignDashboardMetricDto>
+                        {
+                            new() { Code = "PROFESSIONAL_KNOWLEDGE", Name = "Professional Knowledge", Score = avg },
+                            new() { Code = "COMMUNICATION_SKILLS", Name = "Communication Skills", Score = avg },
+                            new() { Code = "CV_UNDERSTANDING", Name = "CV Understanding", Score = avg },
+                            new() { Code = "PROBLEM_SOLVING", Name = "Problem Solving", Score = avg },
+                        };
+                        campaignMetricsList.Add((first.CreatedAt, title, sessionMetrics));
                     }
                 }
-                catch { }
             }
 
-            var latestCompleted = await _context.InterviewCampaigns
-                .AsNoTracking()
-                .Where(c => c.UserId == userId && !c.IsDeleted && c.Status == InterviewCampaignStatus.Completed)
-                .OrderByDescending(c => c.CompletedAt ?? c.CreatedAt)
-                .FirstOrDefaultAsync();
-
-            if (latestCompleted != null)
+            var skillDefinitions = new[]
             {
-                var result = await GetCampaignResultAsync(userId, latestCompleted.InterviewCampaignId);
-                if (result?.DashboardMetrics != null && result.DashboardMetrics.Count > 0)
-                {
-                    return result.DashboardMetrics;
-                }
-            }
-
-            return new List<CampaignDashboardMetricDto>
-            {
-                new() { Code = "PROFESSIONAL_KNOWLEDGE", Name = "Professional Knowledge", Score = null, Sources = new() { "Technical Depth", "Coding" } },
-                new() { Code = "COMMUNICATION_SKILLS", Name = "Communication Skills", Score = null, Sources = new() { "Technical Communication", "Behavioral Communication" } },
-                new() { Code = "CV_UNDERSTANDING", Name = "CV Understanding", Score = null, Sources = new() { "Behavioral Action & Ownership" } },
-                new() { Code = "PROBLEM_SOLVING", Name = "Problem Solving", Score = null, Sources = new() { "Coding", "Technical Depth" } }
+                ("PROFESSIONAL_KNOWLEDGE", "Professional Knowledge", new[] { "Technical Depth", "Coding" }),
+                ("COMMUNICATION_SKILLS", "Communication Skills", new[] { "Technical Communication", "Behavioral Communication" }),
+                ("CV_UNDERSTANDING", "CV Understanding", new[] { "Behavioral Action & Ownership" }),
+                ("PROBLEM_SOLVING", "Problem Solving", new[] { "Coding", "Technical Depth" }),
             };
+
+            var resultList = new List<CampaignDashboardMetricDto>();
+
+            foreach (var (code, name, sources) in skillDefinitions)
+            {
+                var history = new List<SkillHistoryPointDto>();
+                foreach (var entry in campaignMetricsList)
+                {
+                    var match = entry.Metrics.FirstOrDefault(m => string.Equals(m.Code, code, StringComparison.OrdinalIgnoreCase));
+                    if (match?.Score != null && match.Score.Value > 0)
+                    {
+                        history.Add(new SkillHistoryPointDto
+                        {
+                            SessionId = 0,
+                            Title = entry.Title,
+                            Score = match.Score.Value,
+                            Date = entry.Date
+                        });
+                    }
+                }
+
+                // Takes the LATEST score (most recent evaluation point)
+                decimal? latestScore = history.Count > 0 ? history.Last().Score : null;
+
+                resultList.Add(new CampaignDashboardMetricDto
+                {
+                    Code = code,
+                    Name = name,
+                    Score = latestScore,
+                    Sources = sources.ToList(),
+                    History = history
+                });
+            }
+
+            return resultList;
         }
 
         public async Task<InterviewCampaignDto?> GetActiveCampaignAsync(int userId)
@@ -1097,6 +1169,8 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private async Task<QuotaMetadata> GetQuotaMetadataAsync(User user, DateTime now)
         {
+            user.SyncPremiumStatus(now);
+
             var isPremium = user.IsPremium;
 
             var maxQuota = isPremium ? PremiumInterviewQuota : BasicInterviewQuota;

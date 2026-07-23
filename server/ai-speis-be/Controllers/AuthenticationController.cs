@@ -72,7 +72,9 @@ namespace ai_speis_be.Controllers
                 UserId = user.UserId,
                 FullName = user.FullName,
                 Email = user.Email,
-                ImageUrl = user.ImageUrl
+                ImageUrl = user.ImageUrl,
+                IsPremium = user.IsPremium,
+                RemainingInterviewQuota = user.RemainingInterviewQuota
             });
         }
 
@@ -230,7 +232,7 @@ namespace ai_speis_be.Controllers
             var jwtToken = _tokenService.GenerateToken(user.UserId, user.Role.RoleName, user.FullName, user.Email);
             await HttpContext.SignOutAsync("External");
 
-            var redirectUrl = $"http://localhost:3000/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}&imageUrl={Uri.EscapeDataString(user.ImageUrl ?? "")}";
+            var redirectUrl = $"http://localhost:3000/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}&imageUrl={Uri.EscapeDataString(user.ImageUrl ?? "")}&isPremium={user.IsPremium}&remainingInterviewQuota={user.RemainingInterviewQuota}";
             return Redirect(redirectUrl);
         }
 
@@ -354,7 +356,9 @@ namespace ai_speis_be.Controllers
                 UserId = user.UserId,
                 FullName = user.FullName,
                 Email = user.Email,
-                ImageUrl = user.ImageUrl
+                ImageUrl = user.ImageUrl,
+                IsPremium = user.IsPremium,
+                RemainingInterviewQuota = user.RemainingInterviewQuota
             });
         }
     }

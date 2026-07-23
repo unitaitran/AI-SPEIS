@@ -284,6 +284,38 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try
+    {
+        await db.Database.MigrateAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] Database migration notice: {ex.Message}");
+    }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(@"
+            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[InterviewCampaign]') AND name = N'DashboardMetricsJson')
+            BEGIN
+                ALTER TABLE [dbo].[InterviewCampaign] ADD [DashboardMetricsJson] nvarchar(max) NULL;
+            END;
+
+            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[InterviewCampaign]') AND name = N'OverallScore')
+            BEGIN
+                ALTER TABLE [dbo].[InterviewCampaign] ADD [OverallScore] decimal(5,2) NULL;
+            END;
+        ");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] Column check notice: {ex.Message}");
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

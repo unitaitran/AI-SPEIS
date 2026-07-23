@@ -39,14 +39,27 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
         if (isMounted) {
           setRemainingInterviewQuota(quota.remainingInterviewQuota);
           setMaxInterviewQuota(quota.maxInterviewQuota ?? null);
+          const isPrem = quota.planName === 'Premium';
           setPlanName(quota.planName || 'Free');
+
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const u = JSON.parse(userStr);
+              if (u.isPremium !== isPrem) {
+                u.isPremium = isPrem;
+                localStorage.setItem('user', JSON.stringify(u));
+              }
+            } catch (e) {}
+          }
         }
       } catch {
         if (isMounted) {
-          const fallbackRemaining = propUser?.remainingInterviewQuota ?? user?.remainingInterviewQuota ?? 5;
+          const isUserPremium = Boolean(propUser?.isPremium ?? user?.isPremium);
+          const fallbackRemaining = propUser?.remainingInterviewQuota ?? user?.remainingInterviewQuota ?? (isUserPremium ? 15 : 5);
           setRemainingInterviewQuota(fallbackRemaining);
-          setMaxInterviewQuota(5);
-          setPlanName('Free');
+          setMaxInterviewQuota(isUserPremium ? 15 : 5);
+          setPlanName(isUserPremium ? 'Premium' : 'Free');
         }
       }
     };
@@ -69,7 +82,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
       isMounted = false;
       window.removeEventListener('interview:quota-changed', handleQuotaChanged);
     };
-  }, [propUser, user?.remainingInterviewQuota]);
+  }, [propUser, user?.remainingInterviewQuota, user?.isPremium]);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);

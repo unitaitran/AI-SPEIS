@@ -19,6 +19,8 @@ namespace ai_speis_be.Models.DTOs
         public string FullName { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string? ImageUrl { get; set; }
+        public bool IsPremium { get; set; }
+        public int RemainingInterviewQuota { get; set; }
     }
 
     public class RegisterDto
