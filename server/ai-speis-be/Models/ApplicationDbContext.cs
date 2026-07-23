@@ -38,6 +38,7 @@ namespace ai_speis_be.Models
         public DbSet<TechnicalQuestionAttempt> TechnicalQuestionAttempts { get; set; } = null!;
         public DbSet<TechnicalAnswerEvaluation> TechnicalAnswerEvaluations { get; set; } = null!;
         public DbSet<AIInteractionLog> AIInteractionLogs { get; set; } = null!;
+        public DbSet<UserSkillScore> UserSkillScores { get; set; } = null!;
 
 
 

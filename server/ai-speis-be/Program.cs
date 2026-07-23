@@ -308,6 +308,25 @@ using (var scope = app.Services.CreateScope())
             BEGIN
                 ALTER TABLE [dbo].[InterviewCampaign] ADD [OverallScore] decimal(5,2) NULL;
             END;
+
+            IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'UserSkillScore')
+            BEGIN
+                CREATE TABLE [dbo].[UserSkillScore] (
+                    [UserSkillScoreId] INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    [UserId] INT NOT NULL,
+                    [InterviewCampaignId] INT NULL,
+                    [InterviewSessionId] INT NULL,
+                    [SkillCode] NVARCHAR(100) NOT NULL,
+                    [SkillName] NVARCHAR(200) NOT NULL,
+                    [Score] DECIMAL(5,2) NOT NULL,
+                    [SessionTitle] NVARCHAR(255) NULL,
+                    [EvaluatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                    [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                    CONSTRAINT [FK_UserSkillScore_User] FOREIGN KEY ([UserId]) REFERENCES [User]([UserId]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_UserSkillScore_InterviewCampaign] FOREIGN KEY ([InterviewCampaignId]) REFERENCES [InterviewCampaign]([InterviewCampaignId]),
+                    CONSTRAINT [FK_UserSkillScore_InterviewSession] FOREIGN KEY ([InterviewSessionId]) REFERENCES [InterviewSession]([InterviewSessionId])
+                );
+            END;
         ");
     }
     catch (Exception ex)

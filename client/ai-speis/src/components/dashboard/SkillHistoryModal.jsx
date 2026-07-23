@@ -6,7 +6,6 @@ import {
   TrendingDown,
   Minus,
   Calendar,
-  Award,
   Sparkles,
   BarChart2,
 } from 'lucide-react';
@@ -35,15 +34,30 @@ function SkillHistoryModal({ skill, onClose }) {
 
   if (!skill) return null;
 
-  const history = Array.isArray(skill.history) && skill.history.length > 0
+  const rawHistory = Array.isArray(skill.history) && skill.history.length > 0
     ? skill.history
     : [
-      { Title: 'Phỏng vấn gần nhất', Score: skill.score || 0, Date: new Date().toISOString() },
+      { title: 'Phỏng vấn gần nhất', score: skill.score || 0, date: new Date().toISOString() },
     ];
 
+  const history = rawHistory.map((item) => {
+    const rawVal = item.score ?? item.Score ?? item.value ?? item.Value;
+    const scoreNum = Number(rawVal);
+    const fallbackSkillScore = Number(skill.score) || 0;
+    const validScore = (!Number.isNaN(scoreNum) && scoreNum > 0)
+      ? scoreNum
+      : (fallbackSkillScore > 0 ? fallbackSkillScore : 0);
+
+    return {
+      title: item.title || item.Title || 'Buổi phỏng vấn',
+      score: validScore,
+      date: item.date || item.Date || new Date().toISOString(),
+    };
+  });
+
   const skillTitle = isEnglish ? (skill.labelEn || skill.name) : (skill.label || skill.name);
-  const latestScore = Number(history[history.length - 1]?.Score ?? skill.score ?? 0);
-  const firstScore = Number(history[0]?.Score ?? latestScore);
+  const latestScore = Number(history[history.length - 1]?.score ?? skill.score ?? 0);
+  const firstScore = Number(history[0]?.score ?? latestScore);
   const scoreDiff = latestScore - firstScore;
 
   // Chart coordinate calculations
@@ -56,7 +70,7 @@ function SkillHistoryModal({ skill, onClose }) {
   const usableHeight = chartHeight - paddingTop - paddingBottom;
 
   const points = history.map((pt, idx) => {
-    const scoreVal = Math.min(10, Math.max(0, Number(pt.Score) || 0));
+    const scoreVal = Math.min(10, Math.max(0, Number(pt.score) || 0));
     const x = history.length === 1
       ? paddingX + usableWidth / 2
       : paddingX + (idx / (history.length - 1)) * usableWidth;
@@ -384,8 +398,8 @@ function SkillHistoryModal({ skill, onClose }) {
                   pointerEvents: 'none',
                 }}
               >
-                <div style={{ fontWeight: '700', color: '#38bdf8' }}>{hoveredPoint.Title || 'Buổi phỏng vấn'}</div>
-                <div>{formatDate(hoveredPoint.Date)}</div>
+                <div style={{ fontWeight: '700', color: '#38bdf8' }}>{hoveredPoint.title || 'Buổi phỏng vấn'}</div>
+                <div>{formatDate(hoveredPoint.date)}</div>
                 <div style={{ marginTop: '2px', fontWeight: '800', color: '#f59e0b' }}>
                   Điểm: {hoveredPoint.scoreVal.toFixed(2)} / 10
                 </div>
@@ -400,8 +414,8 @@ function SkillHistoryModal({ skill, onClose }) {
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
               {history.slice().reverse().map((item, idx, arr) => {
-                const itemScore = Number(item.Score) || 0;
-                const prevItemScore = idx < arr.length - 1 ? Number(arr[idx + 1].Score) || 0 : null;
+                const itemScore = Number(item.score) || 0;
+                const prevItemScore = idx < arr.length - 1 ? Number(arr[idx + 1].score) || 0 : null;
                 const diff = prevItemScore != null ? itemScore - prevItemScore : null;
 
                 return (
@@ -434,10 +448,10 @@ function SkillHistoryModal({ skill, onClose }) {
                       </div>
                       <div>
                         <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1e293b' }}>
-                          {item.Title || `Phỏng vấn #${arr.length - idx}`}
+                          {item.title || `Phỏng vấn #${arr.length - idx}`}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                          {formatDate(item.Date)}
+                          {formatDate(item.date)}
                         </div>
                       </div>
                     </div>
