@@ -9,6 +9,7 @@ import {
   Target,
   TrendingUp,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
@@ -16,6 +17,7 @@ import interviewSessionService from '../../services/InterviewSessionService';
 import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
+  normalizeInterviewLanguage,
   resolveInterviewLanguage,
 } from '../../utils/interviewContext';
 import {
@@ -86,6 +88,7 @@ function FeedbackList({ icon: Icon, title, items, tone }) {
 }
 
 function CampaignInterviewResultPage({ campaignId }) {
+  const { i18n } = useTranslation();
   const storedContext = useMemo(() => getActiveInterviewContext(), []);
   const setupDraft = useMemo(() => getInterviewSetupDraft(), []);
   const storedCampaignId = storedContext?.campaign?.interviewCampaignId || null;
@@ -93,12 +96,14 @@ function CampaignInterviewResultPage({ campaignId }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const activeUiLanguage = normalizeInterviewLanguage(i18n?.language, null);
   const language = resolveInterviewLanguage(
+    activeUiLanguage,
     result?.language,
     storedContext?.campaign?.language,
     setupDraft?.language,
   );
-  const copy = COPY[language];
+  const copy = COPY[language] || COPY.vi;
 
   const load = async () => {
     if (!resolvedCampaignId) {
@@ -164,7 +169,7 @@ function CampaignInterviewResultPage({ campaignId }) {
           </div>
           <div className="campaign-result-hero__meta">
             <CheckCircle2 size={20} />
-            <div><strong>{result.rounds?.length || 0}</strong><span>{copy.rounds.toLowerCase()}</span></div>
+            <div><strong>{result.rounds?.length || 0}</strong><span>{language === 'vi' ? 'vòng phỏng vấn' : (result.rounds?.length === 1 ? 'round result' : 'round results')}</span></div>
           </div>
         </section>
 

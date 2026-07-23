@@ -18,7 +18,7 @@ namespace ai_speis_be.Services.InterviewSessionService
 {
     public class InterviewSessionService : IInterviewSessionService
     {
-        private static readonly TimeSpan PendingCampaignLifetime = TimeSpan.FromMinutes(30);
+        private static readonly TimeSpan PendingCampaignLifetime = TimeSpan.FromHours(2);
         private static readonly JsonSerializerOptions ResultJsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
@@ -81,8 +81,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             var selectableRounds = new HashSet<string>(availableRounds.AvailableRounds, StringComparer.OrdinalIgnoreCase);
             if (availableRounds.HasOptionalCoding) selectableRounds.Add(InterviewRoundType.Code.ToString());
 
-            var requestedRounds = mode == InterviewMode.Practice
-                ? request.SelectedRounds ?? new List<string>()
+            var requestedRounds = request.SelectedRounds != null && request.SelectedRounds.Count > 0
+                ? request.SelectedRounds
                 : availableRounds.AvailableRounds;
             var roundTypesToCreate = new List<InterviewRoundType>();
 
@@ -562,6 +562,15 @@ namespace ai_speis_be.Services.InterviewSessionService
             var metrics = BuildDashboardMetrics(technicalDimensions, behaviouralCriteria, rounds);
             var feedback = BuildCampaignFeedback(campaign.Language, overallScore, rounds);
 
+            try
+            {
+                campaign.DashboardMetricsJson = JsonSerializer.Serialize(metrics);
+                campaign.OverallScore = overallScore;
+                campaign.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+            catch { }
+
             return new CampaignInterviewResultDto
             {
                 InterviewCampaignId = campaign.InterviewCampaignId,
@@ -574,6 +583,51 @@ namespace ai_speis_be.Services.InterviewSessionService
                     Enum.Parse<InterviewRoundType>(round.RoundType))).ToList(),
                 DashboardMetrics = metrics,
                 Feedback = feedback
+            };
+        }
+
+        public async Task<List<CampaignDashboardMetricDto>> GetUserCapabilitiesAsync(int userId)
+        {
+            var campaign = await _context.InterviewCampaigns
+                .AsNoTracking()
+                .Where(c => c.UserId == userId && !c.IsDeleted && c.DashboardMetricsJson != null)
+                .OrderByDescending(c => c.CompletedAt ?? c.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (campaign != null && !string.IsNullOrWhiteSpace(campaign.DashboardMetricsJson))
+            {
+                try
+                {
+                    var savedMetrics = JsonSerializer.Deserialize<List<CampaignDashboardMetricDto>>(campaign.DashboardMetricsJson);
+                    if (savedMetrics != null && savedMetrics.Count > 0)
+                    {
+                        return savedMetrics;
+                    }
+                }
+                catch { }
+            }
+
+            var latestCompleted = await _context.InterviewCampaigns
+                .AsNoTracking()
+                .Where(c => c.UserId == userId && !c.IsDeleted && c.Status == InterviewCampaignStatus.Completed)
+                .OrderByDescending(c => c.CompletedAt ?? c.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (latestCompleted != null)
+            {
+                var result = await GetCampaignResultAsync(userId, latestCompleted.InterviewCampaignId);
+                if (result?.DashboardMetrics != null && result.DashboardMetrics.Count > 0)
+                {
+                    return result.DashboardMetrics;
+                }
+            }
+
+            return new List<CampaignDashboardMetricDto>
+            {
+                new() { Code = "PROFESSIONAL_KNOWLEDGE", Name = "Professional Knowledge", Score = null, Sources = new() { "Technical Depth", "Coding" } },
+                new() { Code = "COMMUNICATION_SKILLS", Name = "Communication Skills", Score = null, Sources = new() { "Technical Communication", "Behavioral Communication" } },
+                new() { Code = "CV_UNDERSTANDING", Name = "CV Understanding", Score = null, Sources = new() { "Behavioral Action & Ownership" } },
+                new() { Code = "PROBLEM_SOLVING", Name = "Problem Solving", Score = null, Sources = new() { "Coding", "Technical Depth" } }
             };
         }
 
@@ -1043,13 +1097,7 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private async Task<QuotaMetadata> GetQuotaMetadataAsync(User user, DateTime now)
         {
-            var isPremium = user.IsPremium && user.PremiumExpireAt.HasValue && user.PremiumExpireAt.Value > now;
-
-            if (user.IsPremium && (!user.PremiumExpireAt.HasValue || user.PremiumExpireAt.Value <= now))
-            {
-                user.IsPremium = false;
-                user.UpdatedAt = now;
-            }
+            var isPremium = user.IsPremium;
 
             var maxQuota = isPremium ? PremiumInterviewQuota : BasicInterviewQuota;
             var normalizedRemaining = Math.Clamp(user.RemainingInterviewQuota, 0, maxQuota);

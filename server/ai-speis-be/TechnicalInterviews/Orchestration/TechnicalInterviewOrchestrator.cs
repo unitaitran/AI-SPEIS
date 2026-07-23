@@ -2588,16 +2588,12 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
         private async Task<bool> EnsureLifecycleCompletionAsync(int userId, InterviewSession session)
         {
-            if (session.Status == InterviewSessionStatus.Completed
-                && session.InterviewCampaign.Status is InterviewCampaignStatus.Completed
-                    or InterviewCampaignStatus.Cancelled
-                    or InterviewCampaignStatus.Expired)
+            if (session.Status == InterviewSessionStatus.Completed)
             {
                 return true;
             }
 
-            if (session.Status != InterviewSessionStatus.Active
-                && session.Status != InterviewSessionStatus.Completed)
+            if (session.Status != InterviewSessionStatus.Active)
             {
                 return false;
             }

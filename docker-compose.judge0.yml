@@ -1,5 +1,3 @@
-version: '3.8'
-
 x-logging: &default-logging
   logging:
     driver: json-file
@@ -17,11 +15,20 @@ services:
     restart: always
     environment:
       ENABLE_CGROUPS: "false"
-      REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:?Set JUDGE0_REDIS_PASSWORD in .env}
-      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:?Set JUDGE0_POSTGRES_PASSWORD in .env}
+      RAILS_SERVER_PROCESSES: "0"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: aispeis_password_2026
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:-aispeis_password_2026}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     <<: *default-logging
 
   worker:
@@ -32,12 +39,22 @@ services:
     privileged: true
     restart: always
     environment:
+      COUNT: "2"
+      INTERVAL: "1.0"
       ENABLE_CGROUPS: "false"
-      REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:?Set JUDGE0_REDIS_PASSWORD in .env}
-      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:?Set JUDGE0_POSTGRES_PASSWORD in .env}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: aispeis_password_2026
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:-aispeis_password_2026}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     <<: *default-logging
 
   db:
@@ -45,18 +62,26 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: judge0
-      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:?Set JUDGE0_POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:-aispeis_password_2026}
     volumes:
       - postgres-data:/var/lib/postgresql/data/
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d judge0"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
     <<: *default-logging
 
   redis:
     image: redis:7.2.4
-    command: ["bash", "-c", 'docker-entrypoint.sh --appendonly no --requirepass "$${REDIS_PASSWORD}"']
-    environment:
-      REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:?Set JUDGE0_REDIS_PASSWORD in .env}
+    command: ["redis-server", "--appendonly", "no", "--requirepass", "aispeis_password_2026"]
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "aispeis_password_2026", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
     <<: *default-logging
 
 volumes:

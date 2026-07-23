@@ -427,6 +427,7 @@ namespace ai_speis_be.Services.UserService
             HasPassword = !string.IsNullOrEmpty(user.PasswordHash),
             ImageUrl = user.ImageUrl,
             RemainingInterviewQuota = user.RemainingInterviewQuota,
+            IsPremium = user.IsPremium,
             PremiumExpireAt = user.PremiumExpireAt
         };
     }

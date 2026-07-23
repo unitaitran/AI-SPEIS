@@ -105,7 +105,8 @@ namespace ai_speis_be.Services.CodingService
                 language_id = request.LanguageId,
                 stdin = tc.Input ?? "",
                 cpu_time_limit = question.TimeLimit,
-                memory_limit = question.MemoryLimit
+                memory_limit = request.LanguageId == 62 ? Math.Max(question.MemoryLimit, 512000) : question.MemoryLimit,
+                command_line_arguments = request.LanguageId == 62 ? "-Xms64m -Xmx128m" : null
             }).ToList();
 
             List<Judge0SubmissionResponse> judge0Results;

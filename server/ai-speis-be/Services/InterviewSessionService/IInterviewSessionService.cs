@@ -18,5 +18,6 @@ namespace ai_speis_be.Services.InterviewSessionService
         Task<InterviewCampaignDto?> GetActiveCampaignAsync(int userId);
         Task<IEnumerable<InterviewCampaignDto>> GetUserCampaignsAsync(int userId);
         Task<AvailableRoundsDto?> GetAvailableRoundsAsync(int userId, int jdId);
+        Task<List<CampaignDashboardMetricDto>> GetUserCapabilitiesAsync(int userId);
     }
 }

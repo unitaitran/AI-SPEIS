@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   Bot,
+  FileText,
   Loader2,
   Pause,
   RefreshCw,
@@ -16,6 +17,7 @@ import TechnicalEvaluationState from '../../components/technicalInterview/Techni
 import TechnicalInterviewErrorState from '../../components/technicalInterview/TechnicalInterviewErrorState';
 import TechnicalTranscriptPanel from '../../components/technicalInterview/TechnicalTranscriptPanel';
 import InterviewRoomShell from '../../components/interviewRoom/InterviewRoomShell';
+import EvaluatingAnalysisModal from '../../components/interviewRoom/EvaluatingAnalysisModal';
 import {
   clearStaleTechnicalInterviewDrafts,
   clearTechnicalInterviewDraft,
@@ -435,18 +437,25 @@ function TechnicalInterviewPage({ sessionId }) {
           <div className="behavior-stage__session">
             <span>{t('room.title')}</span>
             <strong>{room.session?.jobRole || setupDraft?.jobRole || 'AI-SPEIS'}</strong>
+            <button
+              type="button"
+              className="technical-transcript-toggle technical-transcript-toggle--topbar"
+              onClick={isTranscriptOpen ? closeTranscript : openTranscript}
+              aria-expanded={isTranscriptOpen}
+            >
+              <FileText size={15} aria-hidden="true" />
+              {t('room.transcript')}
+            </button>
           </div>
           <div className="behavior-stage__top-actions">
-            {room.session?.canCompleteEarly === true ? (
-              <button
-                type="button"
-                className="behavior-stage__end"
-                onClick={() => setIsEndConfirmOpen(true)}
-                disabled={isCompleting}
-              >
-                {isCompleting ? t('room.ending') : t('room.endEarly')}
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="behavior-stage__end"
+              onClick={() => setIsEndConfirmOpen(true)}
+              disabled={isCompleting}
+            >
+              {isCompleting ? t('room.ending') : t('room.endEarly')}
+            </button>
           </div>
         </header>
 
@@ -575,7 +584,6 @@ function TechnicalInterviewPage({ sessionId }) {
       mainFlush
       isTranscriptOpen={isTranscriptOpen}
       onCloseTranscript={closeTranscript}
-      onToggleTranscript={isTranscriptOpen ? closeTranscript : openTranscript}
       transcriptCloseLabel={t('room.closeTranscript')}
       transcriptLabel={t('room.transcript')}
       transcript={(
@@ -592,13 +600,16 @@ function TechnicalInterviewPage({ sessionId }) {
         />
       )}
       dialog={(
-        <EndSessionConfirmDialog
-          action={isEndConfirmOpen ? 'session' : null}
-          isSubmitting={isCompleting}
-          onConfirm={handleCompleteEarly}
-          onCancel={() => setIsEndConfirmOpen(false)}
-          t={t}
-        />
+        <>
+          <EndSessionConfirmDialog
+            action={isEndConfirmOpen ? 'session' : null}
+            isSubmitting={isCompleting}
+            onConfirm={handleCompleteEarly}
+            onCancel={() => setIsEndConfirmOpen(false)}
+            t={t}
+          />
+          <EvaluatingAnalysisModal isOpen={isCompleting} />
+        </>
       )}
     >
       {content}
