@@ -127,6 +127,11 @@ const behavioralInterviewApi = {
     { method: 'POST', signal },
   ),
 
+  generateFeedback: (sessionId, { signal } = {}) => request(
+    ENDPOINTS.BEHAVIORAL_INTERVIEW_FEEDBACK(sessionId),
+    { method: 'POST', signal },
+  ),
+
   getResult: (sessionId, { signal } = {}) => request(
     ENDPOINTS.BEHAVIORAL_INTERVIEW_RESULT(sessionId),
     { signal },

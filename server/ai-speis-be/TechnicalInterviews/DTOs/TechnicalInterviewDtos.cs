@@ -110,7 +110,6 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public Guid AttemptId { get; set; }
         public TechnicalProcessingStatusDto Processing { get; set; } = new();
         public TechnicalEvaluationDecisionDto Evaluation { get; set; } = new();
-        public TechnicalFeedbackAcknowledgementDto Feedback { get; set; } = new();
         public TechnicalCurrentQuestionDto? NextQuestion { get; set; }
         public string SessionStatus { get; set; } = string.Empty;
         public TechnicalFallbackStatusDto Fallbacks { get; set; } = new();
@@ -136,22 +135,14 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
     public sealed class TechnicalProcessingStatusDto
     {
         public string Evaluation { get; set; } = string.Empty;
-        public string Feedback { get; set; } = string.Empty;
         // Retained for old clients; this is now a derived validation/fallback status,
         // not a separate AI task.
         public string QuestionGeneration { get; set; } = string.Empty;
     }
 
-    public sealed class TechnicalFeedbackAcknowledgementDto
-    {
-        public string Status { get; set; } = string.Empty;
-        public bool AvailableInResult { get; set; } = true;
-    }
-
     public sealed class TechnicalFallbackStatusDto
     {
         public bool EvaluationFallbackUsed { get; set; }
-        public bool FeedbackFallbackUsed { get; set; }
         public bool QuestionFallbackUsed { get; set; }
     }
 
@@ -169,6 +160,7 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public decimal TechnicalScore { get; set; }
         public decimal MaxScore { get; set; } = 10m;
         public string PerformanceBand { get; set; } = string.Empty;
+        public string FinalFeedbackStatus { get; set; } = string.Empty;
         public List<TechnicalMainQuestionResultDto> MainQuestions { get; set; } = new();
         public List<TechnicalMainQuestionResultDto> MainQuestionResults { get; set; } = new();
         public List<TechnicalSkillResultDto> SkillScores { get; set; } = new();
@@ -240,10 +232,23 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
 
     public sealed class TechnicalFinalSummaryDto
     {
+        public string OverallTechnicalAssessment { get; set; } = string.Empty;
         public string Summary { get; set; } = string.Empty;
         public List<string> Strengths { get; set; } = new();
+        public List<string> KnowledgeGaps { get; set; } = new();
         public List<string> AreasForImprovement { get; set; } = new();
+        public string ReasoningAndApplicationAssessment { get; set; } = string.Empty;
+        public string CommunicationAssessment { get; set; } = string.Empty;
+        public List<TechnicalSkillFeedbackDto> PerformanceBySkill { get; set; } = new();
+        public List<string> RecommendationsForImprovement { get; set; } = new();
         public List<string> RecommendedNextSteps { get; set; } = new();
+        public decimal FinalTechnicalScore { get; set; }
+    }
+
+    public sealed class TechnicalSkillFeedbackDto
+    {
+        public string Skill { get; set; } = string.Empty;
+        public string Assessment { get; set; } = string.Empty;
     }
 
     public enum TechnicalOperationStatus

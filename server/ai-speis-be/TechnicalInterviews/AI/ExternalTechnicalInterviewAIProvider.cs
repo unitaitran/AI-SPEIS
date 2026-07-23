@@ -48,19 +48,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 cancellationToken);
         }
 
-        public Task<AIProviderResult<TechnicalAIFeedbackDraftResponse>> GenerateFeedbackDraftAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken)
-        {
-            var prompt = TechnicalPromptFactory.Feedback(context);
-            return CallAsync<TechnicalAIFeedbackDraftResponse>(
-                prompt.System,
-                prompt.User,
-                _options.FeedbackTimeoutMs,
-                _options.FeedbackMaxRetries,
-                cancellationToken);
-        }
-
         public Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
             TechnicalAIFinalSummaryRequest request,
             CancellationToken cancellationToken)

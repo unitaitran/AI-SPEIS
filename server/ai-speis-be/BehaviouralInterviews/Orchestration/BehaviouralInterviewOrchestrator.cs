@@ -19,8 +19,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
     {
         private static readonly ConcurrentDictionary<int, SemaphoreSlim> SessionGates = new();
         private const string RubricVersion = "behavioural-rubric-v2";
-        private const decimal LowSttConfidenceThreshold = 0.70m;
-        private const int ShortTranscriptWordCount = 50;
         // Evaluation Framework Level 1 (thang 0–10) — công thức gộp điểm nằm ở BehaviouralRubricScoringService
         private const decimal ClarificationWeight = 0.75m;      // Điểm gốc sau clarification = 75% × điểm clarification
         private const int MinimumCountedQuestionsPerRound = 5;  // Dưới 5 câu (main + FU, không tính clarification) → thêm 1 FU câu cuối
@@ -235,6 +233,18 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 : BehaviourSelectionSource.ExternalAi;
             questionSet.QuestionCount = selectedQuestionsList.Count;
             questionSet.CoveredSkillsJson = JsonSerializer.Serialize(selection.CoveredSkills, SnapshotJsonOptions);
+            if (selection.AIResult is not null)
+            {
+                AddBehaviouralInteractionLog(
+                    session,
+                    AIInteractionOperationType.QuestionSelection,
+                    BehaviouralPromptVersions.Selection,
+                    selection.AIResult,
+                    selection.FallbackUsed,
+                    selection.FallbackUsed
+                        ? selection.ErrorCode ?? selection.AIResult.ErrorCode ?? "INVALID_SELECTION"
+                        : null);
+            }
 
             var now = DateTime.UtcNow;
             for (var index = 0; index < selectedQuestionsList.Count; index++)
@@ -336,6 +346,47 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             string idempotencyKey,
             CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(idempotencyKey) || idempotencyKey.Length > 128)
+            {
+                return Failure<BehaviouralSubmitAnswerResponseDto>(
+                    BehaviouralOperationStatus.BadRequest,
+                    "INVALID_IDEMPOTENCY_KEY",
+                    "A valid Idempotency-Key header is required.");
+            }
+
+            request.Transcript = request.Transcript?.Trim() ?? string.Empty;
+            if (request.Transcript.Length == 0)
+            {
+                return Failure<BehaviouralSubmitAnswerResponseDto>(
+                    BehaviouralOperationStatus.BadRequest,
+                    "INVALID_TRANSCRIPT",
+                    "Transcript is required.");
+            }
+
+            var sessionGate = SessionGates.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
+            await sessionGate.WaitAsync(cancellationToken);
+            try
+            {
+                return await SubmitAnswerCoreAsync(
+                    userId,
+                    sessionId,
+                    request,
+                    idempotencyKey,
+                    cancellationToken);
+            }
+            finally
+            {
+                sessionGate.Release();
+            }
+        }
+
+        private async Task<BehaviouralOperationResult<BehaviouralSubmitAnswerResponseDto>> SubmitAnswerCoreAsync(
+            int userId,
+            int sessionId,
+            SubmitBehaviouralAnswerRequest request,
+            string idempotencyKey,
+            CancellationToken cancellationToken = default)
+        {
             var session = await LoadSessionAsync(userId, sessionId, cancellationToken);
             if (session is null)
             {
@@ -351,12 +402,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.NotFound, "NOT_STARTED", "Behavioural interview has not started.");
             }
 
-            if (questionSet.Status == BehaviourQuestionSetStatus.Completed)
-            {
-                return Failure<BehaviouralSubmitAnswerResponseDto>(
-                    BehaviouralOperationStatus.Conflict, "ROUND_COMPLETED", "Behavioural round is already completed.");
-            }
-
             var sessionQuestion = questionSet.BehaviourSessionQuestion
                 .FirstOrDefault(q => q.BehaviourSessionQuestionId == request.SessionQuestionId);
             if (sessionQuestion is null)
@@ -365,16 +410,70 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.NotFound, "QUESTION_NOT_FOUND", "Session question not found.");
             }
 
+            if (sessionQuestion.BehaviourAnswerAnswer is not null)
+            {
+                var existingAnswer = sessionQuestion.BehaviourAnswerAnswer;
+                if (string.Equals(
+                    existingAnswer.SubmissionIdempotencyKey,
+                    idempotencyKey,
+                    StringComparison.Ordinal))
+                {
+                    if (!string.Equals(existingAnswer.Transcript, request.Transcript, StringComparison.Ordinal))
+                    {
+                        return Failure<BehaviouralSubmitAnswerResponseDto>(
+                            BehaviouralOperationStatus.Conflict,
+                            "IDEMPOTENCY_PAYLOAD_MISMATCH",
+                            "The Idempotency-Key was already used with a different answer transcript.");
+                    }
+                    _logger.LogInformation(
+                        "Duplicate behavioural submission suppressed for session {SessionId}, question {QuestionId}. DuplicateCallCount={DuplicateCallCount}",
+                        sessionId,
+                        sessionQuestion.BehaviourSessionQuestionId,
+                        1);
+                    var current = FindCurrentQuestion(questionSet.BehaviourSessionQuestion);
+                    var answerProcessing = string.Equals(
+                        existingAnswer.EvaluationStatus,
+                        "PROCESSING",
+                        StringComparison.Ordinal);
+                    var next = current is not null
+                        && current.BehaviourSessionQuestionId != sessionQuestion.BehaviourSessionQuestionId
+                            ? BuildQuestionDto(current, questionSet)
+                            : null;
+                    return BehaviouralOperationResult<BehaviouralSubmitAnswerResponseDto>.Ok(
+                        new BehaviouralSubmitAnswerResponseDto
+                        {
+                            SessionQuestionId = sessionQuestion.BehaviourSessionQuestionId,
+                            Evaluation = new BehaviouralEvaluationDecisionDto
+                            {
+                                Decision = existingAnswer.ResolvedAction?.ToString() ?? "PROCESSING",
+                                AnswerQuality = existingAnswer.AiAnswerQuality?.ToString(),
+                                EvaluationStatus = existingAnswer.EvaluationStatus ?? "PROCESSING"
+                            },
+                            NextQuestion = next,
+                            SessionStatus = answerProcessing
+                                ? "Processing"
+                                : questionSet.Status == BehaviourQuestionSetStatus.Completed
+                                ? "Completed"
+                                : next is null
+                                    ? "ReadyToComplete"
+                                    : questionSet.Status.ToString()
+                        });
+                }
+
+                return Failure<BehaviouralSubmitAnswerResponseDto>(
+                    BehaviouralOperationStatus.Conflict, "ALREADY_ANSWERED", "This question already has an answer.");
+            }
+
+            if (questionSet.Status == BehaviourQuestionSetStatus.Completed)
+            {
+                return Failure<BehaviouralSubmitAnswerResponseDto>(
+                    BehaviouralOperationStatus.Conflict, "ROUND_COMPLETED", "Behavioural round is already completed.");
+            }
+
             if (sessionQuestion.Status != BehaviourQuestionStatus.Asked)
             {
                 return Failure<BehaviouralSubmitAnswerResponseDto>(
                     BehaviouralOperationStatus.Conflict, "QUESTION_NOT_ACTIVE", "This question is not awaiting an answer.");
-            }
-
-            if (sessionQuestion.BehaviourAnswerAnswer is not null)
-            {
-                return Failure<BehaviouralSubmitAnswerResponseDto>(
-                    BehaviouralOperationStatus.Conflict, "ALREADY_ANSWERED", "This question already has an answer.");
             }
 
             var mainQuestion = ResolveMainQuestion(sessionQuestion, questionSet.BehaviourSessionQuestion);
@@ -392,51 +491,85 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 BehaviourSessionQuestion = sessionQuestion,
                 BehaviourSessionQuestionId = sessionQuestion.BehaviourSessionQuestionId,
                 Transcript = request.Transcript,
+                AudioId = string.IsNullOrWhiteSpace(request.AudioId) ? null : request.AudioId.Trim(),
+                SubmissionIdempotencyKey = idempotencyKey,
                 SttConfidence = request.SttConfidence,
+                EvaluationStatus = "PROCESSING",
                 CreatedAt = now
             };
+
+            await _context.BehaviourAnswers.AddAsync(answer, cancellationToken);
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                _logger.LogInformation(
+                    "Concurrent duplicate behavioural submission suppressed for session {SessionId}, question {QuestionId}. DuplicateCallCount={DuplicateCallCount}",
+                    sessionId,
+                    sessionQuestion.BehaviourSessionQuestionId,
+                    1);
+                return Failure<BehaviouralSubmitAnswerResponseDto>(
+                    BehaviouralOperationStatus.Conflict,
+                    "DUPLICATE_SUBMISSION",
+                    "This answer submission is already being processed.");
+            }
 
             BehaviouralDecisionOutcome outcome;
             string evaluationStatus = "COMPLETED";
 
-            // Rule chặn trước AI (brief §21): audio kém + trả lời quá ngắn → clarification, không gọi AI
-            var wordCount = request.Transcript.Split(
-                (char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
-            var lowQualityInput = request.SttConfidence is not null
-                && request.SttConfidence < LowSttConfidenceThreshold
-                && wordCount < ShortTranscriptWordCount;
-
-            if (lowQualityInput
-                && clarificationsUsed < rubric.Limits.MaxClarificationsPerMainQuestion
-                && !string.IsNullOrWhiteSpace(mainSnapshot.ClarificationQuestion))
-            {
-                outcome = new BehaviouralDecisionOutcome(
-                    BehaviourResolvedAction.Clarification, false, BehaviourQuestionType.Clarification);
-                answer.AiAnswerQuality = BehaviourAnswerQuality.Insufficient;
-                evaluationStatus = "SKIPPED_LOW_STT";
-                answer.EvaluationStatus = evaluationStatus;
-            }
-            else
+            // Every submitted answer is evaluated once; STT confidence remains audit context.
             {
                 var evaluationRequest = BuildEvaluationRequest(
                     session, rubric, mainQuestion, mainSnapshot, chain, sessionQuestion, request,
                     clarificationsUsed, followUpsUsed);
 
                 var provider = _providerResolver.Resolve("external");
-                var aiResult = await provider.EvaluateAnswerAsync(evaluationRequest, cancellationToken);
-                if (!aiResult.Success || aiResult.Data is null)
+                var evaluationStartedAt = DateTime.UtcNow;
+                BehaviouralAIProviderResult<BehaviouralAIEvaluationResponse> aiResult;
+                try
                 {
-                    // Retry 1 lần (brief §21)
                     aiResult = await provider.EvaluateAnswerAsync(evaluationRequest, cancellationToken);
                 }
-
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    _logger.LogError(
+                        exception,
+                        "Behavioural evaluation provider threw for session {SessionId}, question {QuestionId}.",
+                        sessionId,
+                        sessionQuestion.BehaviourSessionQuestionId);
+                    var completedAt = DateTime.UtcNow;
+                    aiResult = new BehaviouralAIProviderResult<BehaviouralAIEvaluationResponse>
+                    {
+                        Success = false,
+                        Model = _options.Model,
+                        ErrorCode = "PROVIDER_EXCEPTION",
+                        LatencyMs = Math.Max(0, (long)(completedAt - evaluationStartedAt).TotalMilliseconds),
+                        StartedAt = evaluationStartedAt,
+                        CompletedAt = completedAt
+                    };
+                }
                 if (aiResult.Success && aiResult.Data is not null)
                 {
                     var validation = _validator.ValidateEvaluation(
                         aiResult.Data, rubric, evaluationRequest.AnswerContext);
 
-                    ApplyEvaluationToAnswer(answer, aiResult.Data, rubric, _scoringService);
+                    var effectiveEvaluation = validation.IsValid
+                        ? aiResult.Data
+                        : BuildSafeEvaluationFallback(rubric);
+                    evaluationStatus = validation.IsValid ? "COMPLETED" : "FALLBACK";
+                    answer.AiErrorCode = validation.IsValid ? null : validation.ErrorCode;
+                    ApplyEvaluationToAnswer(answer, effectiveEvaluation, rubric, _scoringService);
                     answer.EvaluationStatus = evaluationStatus;
+                    CaptureEvaluationMetrics(answer, aiResult);
+                    AddBehaviouralInteractionLog(
+                        session,
+                        AIInteractionOperationType.AnswerEvaluation,
+                        BehaviouralPromptVersions.Evaluation,
+                        aiResult,
+                        !validation.IsValid,
+                        validation.IsValid ? null : validation.ErrorCode);
 
                     if (!validation.IsValid)
                     {
@@ -460,14 +593,33 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 }
                 else
                 {
-                    // AI fail sau retry → không treo phỏng vấn, đi tiếp và đánh dấu pending (brief §21)
+                    // Provider failure must not strand the round. Persist an explicit,
+                    // deterministic fallback evaluation so backend branching remains valid.
                     _logger.LogError(
-                        "Behavioural evaluation failed ({ErrorCode}) for session {SessionId}; marking PENDING_EVALUATION.",
+                        "Behavioural evaluation failed ({ErrorCode}) for session {SessionId}; using deterministic fallback.",
                         aiResult.ErrorCode, sessionId);
-                    evaluationStatus = "PENDING_EVALUATION";
+                    evaluationStatus = "FALLBACK";
                     answer.EvaluationStatus = evaluationStatus;
-                    answer.AiErrorCode = aiResult.ErrorCode;
-                    outcome = new BehaviouralDecisionOutcome(BehaviourResolvedAction.NextMainQuestion, true, null);
+                    answer.AiErrorCode = aiResult.ErrorCode ?? "EVALUATION_FAILED";
+                    var fallbackEvaluation = BuildSafeEvaluationFallback(rubric);
+                    ApplyEvaluationToAnswer(answer, fallbackEvaluation, rubric, _scoringService);
+                    CaptureEvaluationMetrics(answer, aiResult);
+                    AddBehaviouralInteractionLog(
+                        session,
+                        AIInteractionOperationType.AnswerEvaluation,
+                        BehaviouralPromptVersions.Evaluation,
+                        aiResult,
+                        fallbackUsed: true,
+                        errorCode: answer.AiErrorCode);
+                    var effectiveBaseScore = ComputeEffectiveBaseScore(chain, sessionQuestion, answer);
+                    outcome = _decisionEngine.Resolve(
+                        effectiveBaseScore,
+                        clarificationsUsed,
+                        followUpsUsed,
+                        !string.IsNullOrWhiteSpace(mainSnapshot.ClarificationQuestion),
+                        !string.IsNullOrWhiteSpace(mainSnapshot.FollowUp1),
+                        !string.IsNullOrWhiteSpace(mainSnapshot.FollowUp2),
+                        rubric.Limits);
                 }
             }
 
@@ -488,8 +640,16 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             }
 
             answer.ResolvedAction = outcome.Decision;
-            await _context.BehaviourAnswers.AddAsync(answer, cancellationToken);
-
+            if (answer.AiRecommendedAction.HasValue
+                && answer.AiRecommendedAction.Value != outcome.Decision)
+            {
+                _logger.LogInformation(
+                    "Behavioural AI action mismatch for session {SessionId}, question {QuestionId}: AI={AiAction}, backend={BackendAction}.",
+                    sessionId,
+                    sessionQuestion.BehaviourSessionQuestionId,
+                    answer.AiRecommendedAction.Value,
+                    outcome.Decision);
+            }
             BehaviouralCurrentQuestionDto? nextQuestionDto = null;
             var sessionStatus = questionSet.Status.ToString();
 
@@ -544,6 +704,23 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             int sessionId,
             CancellationToken cancellationToken = default)
         {
+            var sessionGate = SessionGates.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
+            await sessionGate.WaitAsync(cancellationToken);
+            try
+            {
+                return await CompleteCoreAsync(userId, sessionId, cancellationToken);
+            }
+            finally
+            {
+                sessionGate.Release();
+            }
+        }
+
+        private async Task<BehaviouralOperationResult<BehaviouralInterviewResultDto>> CompleteCoreAsync(
+            int userId,
+            int sessionId,
+            CancellationToken cancellationToken)
+        {
             var session = await LoadSessionAsync(userId, sessionId, cancellationToken);
             if (session is null)
             {
@@ -583,7 +760,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 .OrderBy(q => q.QuestionOrder)
                 .ToList();
 
-            // Điểm từng câu chính: main×0.7 + followUpAvg×0.3, cap main+1.5 (brief §14)
+            // Official per-main score: clarification recovery at 75%, then at most
+            // +1 per follow-up and +2 total, capped at 10.
             var questionScores = new List<(BehaviourSessionQuestion Question, decimal Score)>();
             var skillScores = new Dictionary<string, List<decimal>>(StringComparer.OrdinalIgnoreCase);
 
@@ -591,9 +769,14 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             {
                 var score = ComputeMainQuestionScore(mainQuestion, questionSet.BehaviourSessionQuestion);
                 questionScores.Add((mainQuestion, score));
+                if (mainQuestion.BehaviourAnswerAnswer is not null)
+                {
+                    mainQuestion.BehaviourAnswerAnswer.FinalQuestionScore = score;
+                }
 
                 var skill = ParseSnapshot(mainQuestion.QuestionSnapshotJson).Skill;
-                if (!string.IsNullOrWhiteSpace(skill))
+                if (mainQuestion.BehaviourAnswerAnswer is not null
+                    && !string.IsNullOrWhiteSpace(skill))
                 {
                     if (!skillScores.TryGetValue(skill, out var list))
                     {
@@ -604,15 +787,13 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             }
 
             var answeredQuestionScores = questionScores
-                .Where(item => item.Score > 0m)
+                .Where(item => item.Question.BehaviourAnswerAnswer is not null)
                 .Select(item => item.Score)
                 .ToList();
 
             var overallScore = _scoringService.ScoreSession(
                 answeredQuestionScores.Count > 0 ? answeredQuestionScores : questionScores.Select(item => item.Score),
                 rubric);
-            var performanceBand = rubric.GetPerformanceBand(overallScore);
-
             var skillAverages = skillScores.ToDictionary(
                 pair => pair.Key,
                 pair => Math.Round(pair.Value.Average(), 2, MidpointRounding.AwayFromZero));
@@ -630,49 +811,45 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 CreatedAt = now
             };
 
-            // AI chỉ tổng hợp narrative — điểm đã do backend tính xong (brief §15)
-            var summaryRequest = new BehaviouralAIFinalSummaryRequest
-            {
-                RubricVersion = rubric.Version,
-                JobRole = session.InterviewCampaign.JDExtractedProfile?.RoleTarget
-                    ?? session.InterviewCampaign.JDExtractedProfile?.JobTitle ?? string.Empty,
-                ExperienceLevel = session.InterviewCampaign.JDExtractedProfile?.ExperienceLevel ?? string.Empty,
-                Language = session.InterviewCampaign.Language,
-                OverallScore = overallScore,
-                PerformanceBand = performanceBand.Code,
-                SkillScores = skillAverages,
-                CriteriaAverages = criteriaAverages,
-                MainQuestionResults = questionScores.Select(item => (object)new
-                {
-                    question = ParseSnapshot(item.Question.QuestionSnapshotJson).QuestionText,
-                    skill = ParseSnapshot(item.Question.QuestionSnapshotJson).Skill,
-                    score = item.Score,
-                    strengths = item.Question.BehaviourAnswerAnswer?.AiStrengths,
-                    missingPoints = item.Question.BehaviourAnswerAnswer?.AiMissingPoints
-                }).ToList()
-            };
-
-            var provider = _providerResolver.Resolve("external");
-            var summaryResult = await provider.GenerateFinalSummaryAsync(summaryRequest, cancellationToken);
-            if (summaryResult.Success && summaryResult.Data is not null)
-            {
-                roundResult.AiExecutiveSummary = summaryResult.Data.ExecutiveSummary;
-                roundResult.AiStrengths = JsonSerializer.Serialize(summaryResult.Data.CompetencyStrengths, SnapshotJsonOptions);
-                roundResult.AiGaps = JsonSerializer.Serialize(summaryResult.Data.CompetencyGaps, SnapshotJsonOptions);
-                roundResult.AiLevelAssessment = summaryResult.Data.LevelAssessment;
-                roundResult.AiRecommendations = JsonSerializer.Serialize(summaryResult.Data.TopRecommendations, SnapshotJsonOptions);
-            }
-            else
-            {
-                _logger.LogWarning(
-                    "Behavioural summary failed ({ErrorCode}) for session {SessionId}; storing scores without narrative.",
-                    summaryResult.ErrorCode, sessionId);
-            }
-
+            roundResult.FinalFeedbackStatus = "PROCESSING";
+            roundResult.FinalFeedbackStartedAt = now;
+            roundResult.FeedbackConcurrencyVersion = 1;
             questionSet.Status = BehaviourQuestionSetStatus.Completed;
             session.UpdatedAt = now;
-
             await _context.BehaviourRoundResults.AddAsync(roundResult, cancellationToken);
+            // Commit deterministic scores and the completion boundary before the
+            // single final-feedback call. A feedback outage cannot roll scores back.
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                // A different application instance may have crossed the completion
+                // boundary first. The unique session/result index prevents a second
+                // synthesis call; return the already-claimed result instead.
+                _context.Entry(roundResult).State = EntityState.Detached;
+                var concurrentlyCreatedResult = await _context.BehaviourRoundResults
+                    .AsNoTracking()
+                    .SingleOrDefaultAsync(
+                        result => result.InterviewSessionId == sessionId,
+                        cancellationToken);
+                if (concurrentlyCreatedResult is null)
+                {
+                    throw;
+                }
+
+                return BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
+                    BuildResultDto(sessionId, questionSet, concurrentlyCreatedResult));
+            }
+
+            await TryGenerateBehaviouralFinalFeedbackAsync(
+                session,
+                questionSet,
+                roundResult,
+                rubric,
+                cancellationToken);
+            roundResult.FeedbackConcurrencyVersion++;
             await _context.SaveChangesAsync(cancellationToken);
 
             var transitionError = await EnsureLifecycleCompletionAsync(userId, session);
@@ -731,6 +908,93 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
 
             return BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
                 BuildResultDto(sessionId, questionSet, roundResult));
+        }
+
+        public async Task<BehaviouralOperationResult<BehaviouralInterviewResultDto>> GenerateFeedbackAsync(
+            int userId,
+            int sessionId,
+            CancellationToken cancellationToken = default)
+        {
+            var sessionGate = SessionGates.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
+            await sessionGate.WaitAsync(cancellationToken);
+            try
+            {
+                var session = await LoadSessionAsync(userId, sessionId, cancellationToken);
+                if (session is null)
+                {
+                    return Failure<BehaviouralInterviewResultDto>(
+                        BehaviouralOperationStatus.NotFound,
+                        "SESSION_NOT_FOUND",
+                        "Interview session not found.");
+                }
+
+                var questionSet = await LoadCanonicalQuestionSetAsync(sessionId, cancellationToken);
+                var roundResult = await _context.BehaviourRoundResults
+                    .FirstOrDefaultAsync(item => item.InterviewSessionId == sessionId, cancellationToken);
+                if (questionSet is null || roundResult is null
+                    || questionSet.Status != BehaviourQuestionSetStatus.Completed)
+                {
+                    return Failure<BehaviouralInterviewResultDto>(
+                        BehaviouralOperationStatus.Conflict,
+                        "ROUND_NOT_COMPLETED",
+                        "Final feedback can only be generated after the Behavioural round is completed.");
+                }
+
+                if (string.Equals(roundResult.FinalFeedbackStatus, "COMPLETED", StringComparison.Ordinal)
+                    && !string.IsNullOrWhiteSpace(roundResult.AiExecutiveSummary))
+                {
+                    return BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
+                        BuildResultDto(sessionId, questionSet, roundResult));
+                }
+
+                var feedbackLease = TimeSpan.FromSeconds(_options.TimeoutSeconds + 10);
+                if (string.Equals(roundResult.FinalFeedbackStatus, "PROCESSING", StringComparison.Ordinal)
+                    && roundResult.FinalFeedbackStartedAt > DateTime.UtcNow - feedbackLease)
+                {
+                    return Failure<BehaviouralInterviewResultDto>(
+                        BehaviouralOperationStatus.Conflict,
+                        "FINAL_FEEDBACK_PROCESSING",
+                        "Final Behavioural feedback is already being generated.");
+                }
+
+                roundResult.FinalFeedbackStatus = "PROCESSING";
+                roundResult.FinalFeedbackStartedAt = DateTime.UtcNow;
+                roundResult.FinalFeedbackError = null;
+                roundResult.FeedbackConcurrencyVersion++;
+                try
+                {
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    return Failure<BehaviouralInterviewResultDto>(
+                        BehaviouralOperationStatus.Conflict,
+                        "FINAL_FEEDBACK_PROCESSING",
+                        "Another request already claimed final Behavioural feedback generation.");
+                }
+
+                var rubric = _rubricProvider.GetRequired(RubricVersion);
+                var generated = await TryGenerateBehaviouralFinalFeedbackAsync(
+                    session,
+                    questionSet,
+                    roundResult,
+                    rubric,
+                    cancellationToken);
+                roundResult.FeedbackConcurrencyVersion++;
+                await _context.SaveChangesAsync(cancellationToken);
+
+                return generated
+                    ? BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
+                        BuildResultDto(sessionId, questionSet, roundResult))
+                    : Failure<BehaviouralInterviewResultDto>(
+                        BehaviouralOperationStatus.ExternalFailure,
+                        "FINAL_FEEDBACK_FAILED",
+                        "The Behavioural score remains completed; final feedback can be retried without re-evaluating answers.");
+            }
+            finally
+            {
+                sessionGate.Release();
+            }
         }
 
         // ----- helpers -----
@@ -980,22 +1244,13 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             int followUpsUsed)
         {
             var answerContext = new List<BehaviouralAnswerContext>();
-            foreach (var chainQuestion in chain)
-            {
-                var text = chainQuestion.QuestionType == BehaviourQuestionType.Main
-                    ? mainSnapshot.QuestionText
-                    : GetSubQuestionText(mainSnapshot, chainQuestion.QuestionType) ?? string.Empty;
-
-                var chainAnswer = chainQuestion.BehaviourSessionQuestionId == currentQuestion.BehaviourSessionQuestionId
-                    ? request.Transcript
-                    : chainQuestion.BehaviourAnswerAnswer?.Transcript;
-
-                if (chainAnswer is not null)
-                {
-                    answerContext.Add(new BehaviouralAnswerContext(
-                        chainQuestion.QuestionType.ToString(), text, chainAnswer));
-                }
-            }
+            var currentQuestionText = currentQuestion.QuestionType == BehaviourQuestionType.Main
+                ? mainSnapshot.QuestionText
+                : GetSubQuestionText(mainSnapshot, currentQuestion.QuestionType) ?? string.Empty;
+            answerContext.Add(new BehaviouralAnswerContext(
+                currentQuestion.QuestionType.ToString(),
+                currentQuestionText,
+                request.Transcript));
 
             return new BehaviouralAIEvaluationRequest
             {
@@ -1039,8 +1294,14 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             answer.AiOverallRubricScore = evaluation.OverallRubricScore.HasValue
                 ? (int?)Math.Round(evaluation.OverallRubricScore.Value)
                 : null;
-            answer.AiStrengths = JsonSerializer.Serialize(evaluation.Strengths, SnapshotJsonOptions);
-            answer.AiMissingPoints = JsonSerializer.Serialize(evaluation.MissingPoints, SnapshotJsonOptions);
+            answer.AiEvidenceJson = JsonSerializer.Serialize(
+                evaluation.Evidence.Take(3),
+                SnapshotJsonOptions);
+            answer.AiMissingAspectsJson = JsonSerializer.Serialize(
+                evaluation.MissingAspects.Take(3),
+                SnapshotJsonOptions);
+            answer.AiStrengths = null;
+            answer.AiMissingPoints = answer.AiMissingAspectsJson;
 
             if (Enum.TryParse<BehaviourAnswerQuality>(
                 evaluation.AnswerQuality?.Trim().Replace("_", string.Empty), true, out var quality))
@@ -1056,6 +1317,90 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
 
             // Điểm chính thức do backend tính theo công thức 5 tiêu chí cố định (brief §14)
             answer.ComputedScore = scoringService.ScoreQuestion(evaluation, rubric).FinalOverallScore;
+        }
+
+        private static BehaviouralAIEvaluationResponse BuildSafeEvaluationFallback(
+            BehaviouralRubricDefinition rubric)
+        {
+            return new BehaviouralAIEvaluationResponse
+            {
+                DimensionEvaluations = rubric.Dimensions.Select(dimension =>
+                    new BehaviouralAIDimensionEvaluation
+                    {
+                        RubricCode = dimension.Code,
+                        SuggestedScore = 0m,
+                        Evidence = new List<string>(),
+                        MissingEvidence = new List<string> { dimension.Name },
+                        ReasonSummary = "No validated evidence was available for this criterion."
+                    }).ToList(),
+                Evidence = new List<string>(),
+                MissingAspects = rubric.Dimensions
+                    .Select(dimension => dimension.Name)
+                    .Take(3)
+                    .ToList(),
+                OverallRubricScore = 0m,
+                AnswerQuality = "INSUFFICIENT",
+                Decision = "CLARIFICATION",
+                Confidence = 0m
+            };
+        }
+
+        private static void CaptureEvaluationMetrics<T>(
+            BehaviourAnswer answer,
+            BehaviouralAIProviderResult<T> result)
+        {
+            answer.EvaluationModel = result.Model;
+            answer.EvaluationPromptVersion = BehaviouralPromptVersions.Evaluation;
+            answer.EvaluationInputTokens = result.InputTokens;
+            answer.EvaluationOutputTokens = result.OutputTokens;
+            answer.EvaluationLatencyMs = result.LatencyMs;
+            answer.EvaluationRetryCount = result.RetryCount;
+        }
+
+        private void AddBehaviouralInteractionLog<T>(
+            InterviewSession session,
+            AIInteractionOperationType operationType,
+            string promptVersion,
+            BehaviouralAIProviderResult<T> result,
+            bool fallbackUsed,
+            string? errorCode)
+        {
+            _context.AIInteractionLogs.Add(new AIInteractionLog
+            {
+                Provider = _options.Provider,
+                Model = string.IsNullOrWhiteSpace(result.Model) ? _options.Model : result.Model,
+                OperationType = operationType,
+                PromptVersion = promptVersion,
+                RubricVersion = RubricVersion,
+                LatencyMs = result.LatencyMs,
+                RetryCount = result.RetryCount,
+                InputTokenCount = result.InputTokens,
+                OutputTokenCount = result.OutputTokens,
+                EstimatedCost = EstimateCost(result.InputTokens, result.OutputTokens),
+                Status = fallbackUsed
+                    ? AIInteractionStatus.FallbackUsed
+                    : result.Success && errorCode is null
+                        ? AIInteractionStatus.Succeeded
+                        : string.Equals(errorCode, "TIMEOUT", StringComparison.Ordinal)
+                            ? AIInteractionStatus.Timeout
+                            : string.Equals(errorCode, "MALFORMED_JSON", StringComparison.Ordinal)
+                                ? AIInteractionStatus.InvalidOutput
+                                : AIInteractionStatus.Failed,
+                ErrorCode = errorCode,
+                FallbackUsed = fallbackUsed,
+                InterviewSessionId = session.InterviewSessionId,
+                AttemptId = null,
+                StartedAt = result.StartedAt,
+                CompletedAt = result.CompletedAt,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        private decimal EstimateCost(int? inputTokens, int? outputTokens)
+        {
+            var inputCost = (inputTokens ?? 0) * _options.InputTokenCostPerMillion;
+            var outputCost = (outputTokens ?? 0) * _options.OutputTokenCostPerMillion;
+            return Math.Round((inputCost + outputCost) / 1_000_000m, 8);
         }
 
         private static decimal? GetScore(
@@ -1398,6 +1743,204 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             }
         }
 
+        private async Task<bool> TryGenerateBehaviouralFinalFeedbackAsync(
+            InterviewSession session,
+            BehaviourQuestionSet questionSet,
+            BehaviourRoundResult roundResult,
+            BehaviouralRubricDefinition rubric,
+            CancellationToken cancellationToken)
+        {
+            if (string.Equals(roundResult.FinalFeedbackStatus, "COMPLETED", StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(roundResult.FinalFeedbackJson))
+            {
+                return true;
+            }
+
+            var skillScores = DeserializeDecimalDictionary(roundResult.SkillScoresJson);
+            var criteriaAverages = DeserializeDecimalDictionary(roundResult.CriteriaAveragesJson);
+            var cvSkills = session.InterviewCampaign.CVExtractedProfile?.Skills
+                .Select(skill => skill.SkillName)
+                .Where(skill => !string.IsNullOrWhiteSpace(skill))
+                .Select(skill => skill.Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var mainQuestionResults = questionSet.BehaviourSessionQuestion
+                .Where(question => question.QuestionType == BehaviourQuestionType.Main)
+                .OrderBy(question => question.QuestionOrder)
+                .Select(mainQuestion =>
+                {
+                    var snapshot = ParseSnapshot(mainQuestion.QuestionSnapshotJson);
+                    var chain = GetQuestionChain(mainQuestion, questionSet.BehaviourSessionQuestion);
+                    return (object)new
+                    {
+                        question = snapshot.QuestionText,
+                        skill = snapshot.Skill,
+                        source = !string.IsNullOrWhiteSpace(snapshot.Skill) && cvSkills.Contains(snapshot.Skill)
+                            ? "CV"
+                            : "JD",
+                        selectionReason = mainQuestion.SelectionReason,
+                        finalQuestionScore = ComputeMainQuestionScore(
+                            mainQuestion,
+                            questionSet.BehaviourSessionQuestion),
+                        attempts = chain.Select(attempt => new
+                        {
+                            type = attempt.QuestionType.ToString(),
+                            question = attempt.QuestionType == BehaviourQuestionType.Main
+                                ? snapshot.QuestionText
+                                : GetSubQuestionText(snapshot, attempt.QuestionType),
+                            answer = attempt.BehaviourAnswerAnswer?.Transcript,
+                            criterionScores = new
+                            {
+                                situationContext = attempt.BehaviourAnswerAnswer?.AiSituationScore,
+                                actionOwnership = attempt.BehaviourAnswerAnswer?.AiActionScore,
+                                resultReflection = attempt.BehaviourAnswerAnswer?.AiResultScore,
+                                competencyFit = attempt.BehaviourAnswerAnswer?.AiCompetencyScore,
+                                communication = attempt.BehaviourAnswerAnswer?.AiCommunicationScore
+                            },
+                            questionScore = attempt.BehaviourAnswerAnswer?.ComputedScore,
+                            evidence = ParseJsonStringList(attempt.BehaviourAnswerAnswer?.AiEvidenceJson),
+                            missingAspects = ParseJsonStringList(attempt.BehaviourAnswerAnswer?.AiMissingAspectsJson)
+                        }).ToList()
+                    };
+                })
+                .ToList();
+
+            var summaryRequest = new BehaviouralAIFinalSummaryRequest
+            {
+                RubricVersion = rubric.Version,
+                JobRole = session.InterviewCampaign.JDExtractedProfile?.RoleTarget
+                    ?? session.InterviewCampaign.JDExtractedProfile?.JobTitle
+                    ?? string.Empty,
+                ExperienceLevel = session.InterviewCampaign.JDExtractedProfile?.ExperienceLevel ?? string.Empty,
+                Language = session.InterviewCampaign.Language,
+                RequiredSkills = ParseConstraintSkills(questionSet.ConstraintsJson),
+                CvJdMatchScore = session.InterviewCampaign.CvJdMatchScore,
+                CvContext = JsonSerializer.Serialize(new
+                {
+                    roleTarget = session.InterviewCampaign.CVExtractedProfile?.RoleTarget,
+                    overallAssessment = session.InterviewCampaign.CVExtractedProfile?.OverallAssessment,
+                    skills = cvSkills.Take(20).ToList()
+                }, SnapshotJsonOptions),
+                JdContext = JsonSerializer.Serialize(new
+                {
+                    jobTitle = session.InterviewCampaign.JDExtractedProfile?.JobTitle,
+                    roleTarget = session.InterviewCampaign.JDExtractedProfile?.RoleTarget,
+                    experienceLevel = session.InterviewCampaign.JDExtractedProfile?.ExperienceLevel,
+                    requiredSkills = ParseConstraintSkills(questionSet.ConstraintsJson),
+                    responsibilities = session.InterviewCampaign.JDExtractedProfile?.Responsibilities
+                }, SnapshotJsonOptions),
+                OverallScore = roundResult.OverallScore ?? 0m,
+                PerformanceBand = rubric.GetPerformanceBand(roundResult.OverallScore ?? 0m).Code,
+                SkillScores = skillScores,
+                CriteriaAverages = criteriaAverages,
+                MainQuestionResults = mainQuestionResults
+            };
+
+            var provider = _providerResolver.Resolve("external");
+            var feedbackStartedAt = DateTime.UtcNow;
+            BehaviouralAIProviderResult<BehaviouralAIFinalSummaryResponse> summaryResult;
+            try
+            {
+                summaryResult = await provider.GenerateFinalSummaryAsync(summaryRequest, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogError(
+                    exception,
+                    "Behavioural final feedback provider failed for session {SessionId}.",
+                    session.InterviewSessionId);
+                var completedAt = DateTime.UtcNow;
+                summaryResult = new BehaviouralAIProviderResult<BehaviouralAIFinalSummaryResponse>
+                {
+                    Success = false,
+                    Model = _options.Model,
+                    ErrorCode = "PROVIDER_EXCEPTION",
+                    LatencyMs = Math.Max(0, (long)(completedAt - feedbackStartedAt).TotalMilliseconds),
+                    StartedAt = feedbackStartedAt,
+                    CompletedAt = completedAt
+                };
+            }
+            var valid = summaryResult.Success
+                && summaryResult.Data is not null
+                && !string.IsNullOrWhiteSpace(summaryResult.Data.OverallBehavioralAssessment);
+
+            roundResult.FinalFeedbackModel = summaryResult.Model;
+            roundResult.FinalFeedbackPromptVersion = BehaviouralPromptVersions.Summary;
+            roundResult.FeedbackInputTokens = summaryResult.InputTokens;
+            roundResult.FeedbackOutputTokens = summaryResult.OutputTokens;
+            roundResult.FeedbackLatencyMs = summaryResult.LatencyMs;
+            roundResult.FeedbackRetryCount = summaryResult.RetryCount;
+            roundResult.FinalFeedbackError = valid
+                ? null
+                : summaryResult.ErrorCode ?? "INVALID_FINAL_FEEDBACK";
+            roundResult.FinalFeedbackStatus = valid ? "COMPLETED" : "FAILED";
+
+            if (valid)
+            {
+                var data = summaryResult.Data!;
+                var strengths = CleanBehaviouralList(data.Strengths);
+                var weaknesses = CleanBehaviouralList(data.Weaknesses);
+                var recommendations = CleanBehaviouralList(data.RecommendationsForImprovement);
+                var feedback = new BehaviouralFinalSummaryDto
+                {
+                    OverallBehavioralAssessment = data.OverallBehavioralAssessment.Trim(),
+                    ExecutiveSummary = data.OverallBehavioralAssessment.Trim(),
+                    Strengths = strengths,
+                    CompetencyStrengths = strengths,
+                    Weaknesses = weaknesses,
+                    CompetencyGaps = weaknesses,
+                    StarStructureAssessment = data.StarStructureAssessment?.Trim() ?? string.Empty,
+                    OwnershipAndImpactAssessment = data.OwnershipAndImpactAssessment?.Trim() ?? string.Empty,
+                    CompetencyFit = data.CompetencyFit?.Trim() ?? string.Empty,
+                    CommunicationAssessment = data.CommunicationAssessment?.Trim() ?? string.Empty,
+                    LevelAssessment = data.CompetencyFit?.Trim() ?? string.Empty,
+                    RecommendationsForImprovement = recommendations,
+                    TopRecommendations = recommendations,
+                    FinalBehavioralScore = roundResult.OverallScore ?? 0m
+                };
+                roundResult.FinalFeedbackJson = JsonSerializer.Serialize(feedback, SnapshotJsonOptions);
+                roundResult.AiExecutiveSummary = feedback.ExecutiveSummary;
+                roundResult.AiStrengths = JsonSerializer.Serialize(strengths, SnapshotJsonOptions);
+                roundResult.AiGaps = JsonSerializer.Serialize(weaknesses, SnapshotJsonOptions);
+                roundResult.AiLevelAssessment = feedback.LevelAssessment;
+                roundResult.AiRecommendations = JsonSerializer.Serialize(recommendations, SnapshotJsonOptions);
+            }
+
+            AddBehaviouralInteractionLog(
+                session,
+                AIInteractionOperationType.FinalSummary,
+                BehaviouralPromptVersions.Summary,
+                summaryResult,
+                fallbackUsed: false,
+                errorCode: valid ? null : roundResult.FinalFeedbackError);
+            return valid;
+        }
+
+        private static Dictionary<string, decimal> DeserializeDecimalDictionary(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                return JsonSerializer.Deserialize<Dictionary<string, decimal>>(json, SnapshotJsonOptions)
+                    ?? new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+            }
+            catch (JsonException)
+            {
+                return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        private static List<string> CleanBehaviouralList(IEnumerable<string>? items)
+        {
+            return (items ?? Array.Empty<string>())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(10)
+                .ToList();
+        }
+
         private BehaviouralInterviewResultDto BuildResultDto(
             int sessionId,
             BehaviourQuestionSet questionSet,
@@ -1405,6 +1948,31 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
         {
             var rubric = _rubricProvider.GetRequired(RubricVersion);
             var overall = roundResult.OverallScore ?? 0m;
+            BehaviouralFinalSummaryDto summary;
+            try
+            {
+                summary = string.IsNullOrWhiteSpace(roundResult.FinalFeedbackJson)
+                    ? new BehaviouralFinalSummaryDto
+                    {
+                        OverallBehavioralAssessment = roundResult.AiExecutiveSummary ?? string.Empty,
+                        ExecutiveSummary = roundResult.AiExecutiveSummary ?? string.Empty,
+                        Strengths = ParseJsonStringList(roundResult.AiStrengths),
+                        CompetencyStrengths = ParseJsonStringList(roundResult.AiStrengths),
+                        Weaknesses = ParseJsonStringList(roundResult.AiGaps),
+                        CompetencyGaps = ParseJsonStringList(roundResult.AiGaps),
+                        LevelAssessment = roundResult.AiLevelAssessment ?? string.Empty,
+                        RecommendationsForImprovement = ParseJsonStringList(roundResult.AiRecommendations),
+                        TopRecommendations = ParseJsonStringList(roundResult.AiRecommendations),
+                        FinalBehavioralScore = overall
+                    }
+                    : JsonSerializer.Deserialize<BehaviouralFinalSummaryDto>(
+                        roundResult.FinalFeedbackJson,
+                        SnapshotJsonOptions) ?? new BehaviouralFinalSummaryDto();
+            }
+            catch (JsonException)
+            {
+                summary = new BehaviouralFinalSummaryDto { FinalBehavioralScore = overall };
+            }
 
             var mainQuestions = questionSet.BehaviourSessionQuestion
                 .Where(q => q.QuestionType == BehaviourQuestionType.Main)
@@ -1435,15 +2003,9 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 ScoringPolicyVersion = rubric.ScoringPolicyVersion,
                 OverallScore = overall,
                 PerformanceBand = rubric.GetPerformanceBand(overall).Code,
+                FinalFeedbackStatus = roundResult.FinalFeedbackStatus,
                 MainQuestions = mainQuestions,
-                Summary = new BehaviouralFinalSummaryDto
-                {
-                    ExecutiveSummary = roundResult.AiExecutiveSummary ?? string.Empty,
-                    CompetencyStrengths = ParseJsonStringList(roundResult.AiStrengths),
-                    CompetencyGaps = ParseJsonStringList(roundResult.AiGaps),
-                    LevelAssessment = roundResult.AiLevelAssessment ?? string.Empty,
-                    TopRecommendations = ParseJsonStringList(roundResult.AiRecommendations)
-                }
+                Summary = summary
             };
         }
 

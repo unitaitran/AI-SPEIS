@@ -98,6 +98,7 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
         public string ScoringPolicyVersion { get; set; } = string.Empty;
         public decimal OverallScore { get; set; }
         public string PerformanceBand { get; set; } = string.Empty;
+        public string FinalFeedbackStatus { get; set; } = string.Empty;
         public List<BehaviouralMainQuestionResultDto> MainQuestions { get; set; } = new();
         public BehaviouralFinalSummaryDto Summary { get; set; } = new();
     }
@@ -130,11 +131,20 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
 
     public sealed class BehaviouralFinalSummaryDto
     {
+        public string OverallBehavioralAssessment { get; set; } = string.Empty;
         public string ExecutiveSummary { get; set; } = string.Empty;
+        public List<string> Strengths { get; set; } = new();
         public List<string> CompetencyStrengths { get; set; } = new();
+        public List<string> Weaknesses { get; set; } = new();
         public List<string> CompetencyGaps { get; set; } = new();
+        public string StarStructureAssessment { get; set; } = string.Empty;
+        public string OwnershipAndImpactAssessment { get; set; } = string.Empty;
+        public string CompetencyFit { get; set; } = string.Empty;
+        public string CommunicationAssessment { get; set; } = string.Empty;
         public string LevelAssessment { get; set; } = string.Empty;
+        public List<string> RecommendationsForImprovement { get; set; } = new();
         public List<string> TopRecommendations { get; set; } = new();
+        public decimal FinalBehavioralScore { get; set; }
     }
 
     public enum BehaviouralOperationStatus

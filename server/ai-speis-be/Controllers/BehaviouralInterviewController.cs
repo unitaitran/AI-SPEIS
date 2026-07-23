@@ -101,7 +101,7 @@ namespace ai_speis_be.Controllers
 
             request.SessionQuestionId = sessionQuestionId;
             var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault()
-                ?? $"{sessionId}:{sessionQuestionId}";
+                ?? string.Empty;
 
             var result = await _orchestrator.SubmitAnswerAsync(
                 userId, sessionId, request, idempotencyKey, cancellationToken);
@@ -130,6 +130,17 @@ namespace ai_speis_be.Controllers
 
             var result = await _orchestrator.GetResultAsync(userId, sessionId, cancellationToken);
             return ToActionResult(result);
+        }
+
+        [HttpPost("feedback")]
+        public async Task<IActionResult> GenerateFeedback(int sessionId, CancellationToken cancellationToken)
+        {
+            if (!TryGetUserId(out var userId))
+            {
+                return Unauthorized(new { Message = "Invalid user identity." });
+            }
+
+            return ToActionResult(await _orchestrator.GenerateFeedbackAsync(userId, sessionId, cancellationToken));
         }
 
         private IActionResult ToActionResult<T>(BehaviouralOperationResult<T> result)

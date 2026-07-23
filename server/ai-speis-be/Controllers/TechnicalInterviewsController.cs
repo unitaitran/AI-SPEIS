@@ -86,6 +86,14 @@ namespace ai_speis_be.Controllers
                 : UnauthorizedProblem();
         }
 
+        [HttpPost("{sessionId:int}/feedback")]
+        public async Task<IActionResult> GenerateFeedback(int sessionId, CancellationToken cancellationToken)
+        {
+            return TryGetUserId(out var userId)
+                ? ToActionResult(await _orchestrator.GenerateFeedbackAsync(userId, sessionId, cancellationToken))
+                : UnauthorizedProblem();
+        }
+
         private bool TryGetUserId(out int userId)
         {
             return int.TryParse(User.FindFirst("UserId")?.Value, out userId) && userId > 0;

@@ -50,7 +50,10 @@ export const normalizeTechnicalInterviewResult = (result) => {
     ...result,
     technicalScore: result.technicalScore,
     maxScore,
-    summaryFeedback: result.summaryFeedback || summary.summary || '',
+    summaryFeedback: result.summaryFeedback
+      || summary.overallTechnicalAssessment
+      || summary.summary
+      || '',
     summaryStrengths: firstNonEmptyArray(
       result.summaryStrengths,
       summary.strengths,
@@ -58,10 +61,15 @@ export const normalizeTechnicalInterviewResult = (result) => {
     ),
     areasForImprovement: firstNonEmptyArray(
       result.areasForImprovement,
+      summary.knowledgeGaps,
       summary.areasForImprovement,
       result.weaknesses,
     ),
-    recommendations: firstNonEmptyArray(result.recommendations, summary.recommendedNextSteps),
+    recommendations: firstNonEmptyArray(
+      result.recommendations,
+      summary.recommendationsForImprovement,
+      summary.recommendedNextSteps,
+    ),
     skillResults: firstNonEmptyArray(result.skillResults, result.skillScores),
     dimensionResults: (result.dimensionResults || [])
       .map((dimension) => normalizeDimension(dimension, maxScore)),

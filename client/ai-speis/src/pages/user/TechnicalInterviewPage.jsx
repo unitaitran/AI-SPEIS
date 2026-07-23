@@ -127,6 +127,7 @@ function TechnicalInterviewPage({ sessionId }) {
   const [localError, setLocalError] = useState(null);
   const [activeDraftAttempt, setActiveDraftAttempt] = useState(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isFinalRoundProcessing, setIsFinalRoundProcessing] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(getDefaultTranscriptVisibility);
 
@@ -249,6 +250,18 @@ function TechnicalInterviewPage({ sessionId }) {
     }
 
     setLocalError(null);
+    const currentMainIndex = Number(room.currentQuestion?.mainQuestionIndex);
+    const totalMainQuestions = Number(
+      room.currentQuestion?.totalMainQuestions
+      || room.session?.lockedMainQuestions?.length
+      || room.session?.targetMainQuestionCount,
+    );
+    setIsFinalRoundProcessing(
+      Number.isFinite(currentMainIndex)
+      && Number.isFinite(totalMainQuestions)
+      && totalMainQuestions > 0
+      && currentMainIndex >= totalMainQuestions,
+    );
     recorder.stopForSubmission();
     markCandidateProcessing(attemptId, transcript);
     room.markProcessing(attemptId);
@@ -258,7 +271,11 @@ function TechnicalInterviewPage({ sessionId }) {
         transcript,
         audioId: recorder.audioId || undefined,
       });
-      if (!response) return;
+      if (!response) {
+        setIsFinalRoundProcessing(false);
+        return;
+      }
+      setIsFinalRoundProcessing(false);
 
       markCandidateFinal(attemptId, transcript);
       clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
@@ -280,6 +297,7 @@ function TechnicalInterviewPage({ sessionId }) {
         return;
       }
       if (recovery.state === 'ACCEPTED_NEXT_QUESTION') {
+        setIsFinalRoundProcessing(false);
         markCandidateFinal(attemptId, transcript);
         clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
         recorder.reset();
@@ -291,6 +309,7 @@ function TechnicalInterviewPage({ sessionId }) {
         return;
       }
       markCandidateError(attemptId, transcript);
+      setIsFinalRoundProcessing(false);
       setLocalError(error);
     }
   };
@@ -385,6 +404,7 @@ function TechnicalInterviewPage({ sessionId }) {
     && !room.currentQuestion) {
     content = (
       <TechnicalEvaluationState
+        finalizing={isFinalRoundProcessing}
         t={t}
       />
     );

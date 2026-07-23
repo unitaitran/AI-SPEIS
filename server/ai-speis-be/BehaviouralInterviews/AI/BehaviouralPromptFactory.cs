@@ -41,8 +41,10 @@ decision is only a recommendation; the backend makes the final call. Valid decis
 Recommend CLARIFICATION when the answer is too vague or off-topic to evaluate, FOLLOW_UP_1 or FOLLOW_UP_2 when a partial answer deserves probing (respect clarificationsUsed and followUpsUsed already spent), otherwise NEXT_MAIN_QUESTION.
 Never write the text of a clarification or follow-up question; the backend already has pre-written ones.
 Return only valid JSON matching this shape, no markdown:
-{"dimensionEvaluations":[{"rubricCode":"...","evidence":["..."],"missingEvidence":["..."],"suggestedScore":7.5,"reasonSummary":"..."}],"strengths":["..."],"missingPoints":["..."],"overallRubricScore":7,"answerQuality":"PARTIAL","decision":"FOLLOW_UP_1","confidence":0.85}
-Use a short reasonSummary, never chain-of-thought. Write strengths, missingPoints and reasonSummary in the requested language.
+{"dimensionEvaluations":[{"rubricCode":"...","evidence":["..."],"missingEvidence":["..."],"suggestedScore":7.5,"reasonSummary":"..."}],"evidence":["..."],"missingAspects":["..."],"overallRubricScore":7,"answerQuality":"PARTIAL","decision":"FOLLOW_UP_1","confidence":0.85}
+evidence must contain at most 3 short excerpts and missingAspects at most 3 short items.
+Do not generate candidate-facing feedback, strengths, weaknesses, recommendations, an overall assessment or a learning plan.
+Use a short reasonSummary, never chain-of-thought. Write missingAspects and reasonSummary in the requested language.
 """;
             return (system, JsonSerializer.Serialize(request, JsonOptions));
         }
@@ -50,12 +52,16 @@ Use a short reasonSummary, never chain-of-thought. Write strengths, missingPoint
         public static (string System, string User) Summary(BehaviouralAIFinalSummaryRequest request)
         {
             const string system = """
-Create a concise, structured final behavioural interview summary from backend-calculated scores.
+Create the final behavioural-round feedback from backend-calculated scores and supplied answer evidence.
 Do not recalculate or change scores and do not disclose rubric internals or hidden reasoning.
-levelAssessment must be one of: Junior, Middle, Senior.
-topRecommendations must contain 3 to 5 short actionable items.
+Use the compact CV/JD context and question source only to interpret demonstrated fit; do not invent experience.
+Cover the overall assessment, strengths, weaknesses, STAR structure, ownership and impact,
+competency fit, communication and actionable recommendations.
+recommendationsForImprovement must contain 3 to 5 short actionable items.
 Write all text in the requested language.
-Return only JSON with: executiveSummary, competencyStrengths, competencyGaps, levelAssessment, and topRecommendations.
+Return only JSON with: overallBehavioralAssessment, strengths, weaknesses,
+starStructureAssessment, ownershipAndImpactAssessment, competencyFit,
+communicationAssessment, and recommendationsForImprovement.
 """;
             return (system, JsonSerializer.Serialize(request, JsonOptions));
         }

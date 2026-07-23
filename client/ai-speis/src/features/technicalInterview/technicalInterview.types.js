@@ -135,7 +135,7 @@ export const SttStatus = Object.freeze({
  * @property {string=} resolvedAction
  * @property {TechnicalInterviewProgress=} progress
  * @property {TechnicalQuestion|null=} nextQuestion
- * @property {{evaluation?: string, feedback?: string, questionGeneration?: string}=} processing
+ * @property {{evaluation?: string, questionGeneration?: string}=} processing
  */
 
 /**

@@ -21,11 +21,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
             CancellationToken cancellationToken) =>
             _transport.EvaluateAnswerAsync(context, cancellationToken);
 
-        public Task<AIProviderResult<TechnicalAIFeedbackDraftResponse>> GenerateFeedbackDraftAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken) =>
-            _transport.GenerateFeedbackDraftAsync(context, cancellationToken);
-
         public Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
             TechnicalAIFinalSummaryRequest request,
             CancellationToken cancellationToken) =>

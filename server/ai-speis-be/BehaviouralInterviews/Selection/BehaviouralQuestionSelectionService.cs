@@ -119,7 +119,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
             BehaviouralAIProviderResult<BehaviouralAISelectionResponse>? aiResult = null;
 
             // Retry 1 lần khi AI trả kết quả không hợp lệ (brief §21)
-            for (var attempt = 0; attempt < 2; attempt++)
+            for (var attempt = 0; attempt < 1; attempt++)
             {
                 aiResult = await aiProvider.SelectQuestionsAsync(aiRequest, cancellationToken);
                 if (!aiResult.Success || aiResult.Data is null)

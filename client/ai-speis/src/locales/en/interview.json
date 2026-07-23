@@ -291,6 +291,8 @@
     "submitting": "Submitting...",
     "evaluatingTitle": "Evaluating your answer",
     "evaluatingDescription": "The system is analyzing your answer and preparing the next interview step. The transcript remains visible and submission is temporarily locked.",
+    "finalizingTitle": "Finalizing this interview round",
+    "finalizingDescription": "The backend is evaluating the final-stage answer and will generate the round feedback if no further adaptive question is required.",
     "processingTranscript": "Transcript being processed",
     "readyTitle": "Ready to begin",
     "readyDescription": "When you begin, the backend will select and return the first technical question.",
@@ -370,7 +372,10 @@
     "suggestions": "Improvement suggestions",
     "areasForImprovement": "Areas for improvement",
     "nextStepsEyebrow": "Next steps",
-    "recommendations": "Recommendations"
+    "recommendations": "Recommendations",
+    "feedbackUnavailable": "The score is complete, but final Technical feedback is temporarily unavailable.",
+    "retryFeedback": "Retry final feedback",
+    "generatingFeedback": "Generating feedback..."
   },
   "behavioralRoom": {
     "behavioralInterview": "Behavioral interview",
@@ -437,6 +442,9 @@
     "completed": "Completed",
     "backToOverview": "Back to overview",
     "continueNextRound": "Continue to next round",
+    "feedbackUnavailable": "Your score is complete, but final feedback is temporarily unavailable.",
+    "retryFeedback": "Retry final feedback",
+    "generatingFeedback": "Generating feedback...",
     "progressLabel": "Main question {{current}} of {{total}}",
     "interviewerAsks": "The interviewer asks",
     "questionAudio": "Question audio controls",

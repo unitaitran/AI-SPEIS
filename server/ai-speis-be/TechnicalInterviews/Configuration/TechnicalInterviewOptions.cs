@@ -22,13 +22,11 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         public bool ReliabilityFollowUpEnabled { get; init; } = true;
         public int ReliabilityMinimumQuestionCount { get; init; } = 5;
         public int ReliabilityFollowUpLimit { get; init; } = 2;
-        public bool ParallelProcessingEnabled { get; init; } = true;
-        public int MaxParallelTasksPerSession { get; init; } = 2;
         public int GlobalConcurrencyLimit { get; init; } = 10;
         public int EvaluationTimeoutMs { get; init; } = 15_000;
-        public int FeedbackTimeoutMs { get; init; } = 10_000;
         public int EvaluationMaxRetries { get; init; } = 1;
-        public int FeedbackMaxRetries { get; init; }
+        public decimal InputTokenCostPerMillion { get; init; }
+        public decimal OutputTokenCostPerMillion { get; init; }
 
         public static TechnicalInterviewOptions FromConfiguration(IConfiguration configuration)
         {
@@ -59,13 +57,21 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                 ReliabilityFollowUpEnabled = GetBool(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_ENABLED", true),
                 ReliabilityMinimumQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_MINIMUM_COUNT", 5, 3, 20),
                 ReliabilityFollowUpLimit = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_LIMIT", 2, 0, 6),
-                ParallelProcessingEnabled = true,
-                MaxParallelTasksPerSession = 2,
                 GlobalConcurrencyLimit = GetInt(configuration, "TECHNICAL_AI_GLOBAL_CONCURRENCY_LIMIT", 10, 1, 100),
                 EvaluationTimeoutMs = GetInt(configuration, "TECHNICAL_AI_EVALUATION_TIMEOUT_MS", 15_000, 1_000, 180_000),
-                FeedbackTimeoutMs = GetInt(configuration, "TECHNICAL_AI_FEEDBACK_TIMEOUT_MS", 10_000, 1_000, 180_000),
                 EvaluationMaxRetries = GetInt(configuration, "TECHNICAL_AI_EVALUATION_MAX_RETRIES", 1, 0, 3),
-                FeedbackMaxRetries = GetInt(configuration, "TECHNICAL_AI_FEEDBACK_MAX_RETRIES", 0, 0, 3)
+                InputTokenCostPerMillion = GetDecimal(
+                    configuration,
+                    "TECHNICAL_AI_INPUT_TOKEN_COST_PER_MILLION",
+                    0m,
+                    0m,
+                    1_000_000m),
+                OutputTokenCostPerMillion = GetDecimal(
+                    configuration,
+                    "TECHNICAL_AI_OUTPUT_TOKEN_COST_PER_MILLION",
+                    0m,
+                    0m,
+                    1_000_000m)
             };
         }
 

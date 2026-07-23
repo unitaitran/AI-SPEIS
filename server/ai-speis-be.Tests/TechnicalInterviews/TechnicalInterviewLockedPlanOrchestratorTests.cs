@@ -68,6 +68,59 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
     }
 
     [Fact]
+    public async Task InitializeAsync_NewSessionWithSameUserAndContext_ChangesOrderAndPersistsIt()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        int[] firstOrder;
+        int[] secondOrder;
+
+        using (var context = TestDbContextFactory.Create(databaseName))
+        {
+            SeedRealSession(context);
+            var orchestrator = CreateOrchestrator(context);
+            var first = await orchestrator.InitializeAsync(
+                71,
+                new InitializeTechnicalInterviewRequest { InterviewSessionId = 501 },
+                CancellationToken.None);
+            firstOrder = first.Value!.LockedMainQuestions
+                .Select(item => item.SelectedQuestionId)
+                .ToArray();
+
+            SeedSecondRealSession(context);
+            var second = await orchestrator.InitializeAsync(
+                71,
+                new InitializeTechnicalInterviewRequest { InterviewSessionId = 502 },
+                CancellationToken.None);
+            secondOrder = second.Value!.LockedMainQuestions
+                .Select(item => item.SelectedQuestionId)
+                .ToArray();
+
+            Assert.Equal(firstOrder.OrderBy(id => id), secondOrder.OrderBy(id => id));
+            Assert.False(firstOrder.SequenceEqual(secondOrder));
+            var stored = TechnicalQuestionPlanSerializer.DeserializeRequired(context.InterviewSessions
+                .Single(item => item.InterviewSessionId == 502)
+                .TechnicalQuestionPlanJson!);
+            Assert.False(string.IsNullOrWhiteSpace(stored.SelectionContextKey));
+            Assert.Equal(TechnicalQuestionOrderRandomizer.StrategyVersion, stored.QuestionOrderVersion);
+        }
+
+        using var reconnectContext = TestDbContextFactory.Create(databaseName);
+        var reconnectOrchestrator = CreateOrchestrator(reconnectContext);
+        var refreshed = await reconnectOrchestrator.GetSessionAsync(71, 502, CancellationToken.None);
+        var retriedInitialize = await reconnectOrchestrator.InitializeAsync(
+            71,
+            new InitializeTechnicalInterviewRequest { InterviewSessionId = 502 },
+            CancellationToken.None);
+        var started = await reconnectOrchestrator.StartAsync(71, 502, CancellationToken.None);
+
+        Assert.Equal(secondOrder, refreshed.Value!.LockedMainQuestions
+            .Select(item => item.SelectedQuestionId));
+        Assert.Equal(secondOrder, retriedInitialize.Value!.LockedMainQuestions
+            .Select(item => item.SelectedQuestionId));
+        Assert.Equal(secondOrder[0], started.Value!.SelectedQuestionId);
+    }
+
+    [Fact]
     public async Task InitializeAsync_AcceptsParsedJdAllowedByGenericCampaignLifecycle()
     {
         using var context = TestDbContextFactory.Create();
@@ -424,7 +477,7 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
             .Returns(TechnicalTestRubric.Create());
 
         var options = new TechnicalInterviewOptions();
-        var parallel = new Mock<ITechnicalAnswerParallelProcessor>();
+        var parallel = new Mock<ITechnicalAnswerEvaluationProcessor>();
         parallel.Setup(item => item.ProcessAsync(
                 It.IsAny<TechnicalAnswerProcessingContext>(),
                 It.IsAny<CancellationToken>()))
@@ -449,6 +502,7 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
             parallel.Object,
             arbiter,
             new TechnicalQuestionPlanBuilder(),
+            new TechnicalQuestionOrderRandomizer(),
             jd.Object,
             Mock.Of<IInterviewSessionService>(),
             options,
@@ -561,6 +615,35 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
         };
 
         context.AddRange(user, cvFile, jdFile, cv, jd, campaign, session);
+        context.SaveChanges();
+    }
+
+    private static void SeedSecondRealSession(ApplicationDbContext context)
+    {
+        context.AddRange(
+            new InterviewCampaign
+            {
+                InterviewCampaignId = 451,
+                UserId = 71,
+                CVExtractedProfileId = 401,
+                JDExtractedProfileId = 402,
+                Language = "vi",
+                Mode = InterviewMode.RealTest,
+                DurationMinutes = 15,
+                Status = InterviewCampaignStatus.Active,
+                StartedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow.AddSeconds(1)
+            },
+            new InterviewSession
+            {
+                InterviewSessionId = 502,
+                InterviewCampaignId = 451,
+                InterviewRoundType = InterviewRoundType.Technical,
+                Difficulty = QuestionDifficultyEnum.Hard,
+                QuestionCount = 3,
+                Status = InterviewSessionStatus.Active,
+                CreatedAt = DateTime.UtcNow.AddSeconds(1)
+            });
         context.SaveChanges();
     }
 }

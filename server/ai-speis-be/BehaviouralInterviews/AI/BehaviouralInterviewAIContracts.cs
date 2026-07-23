@@ -3,8 +3,8 @@ namespace ai_speis_be.BehaviouralInterviews.AI
     public static class BehaviouralPromptVersions
     {
         public const string Selection = "behavioural-selection-v3";
-        public const string Evaluation = "behavioural-evaluation-v3";
-        public const string Summary = "behavioural-summary-v1";
+        public const string Evaluation = "behavioural-evaluation-v4";
+        public const string Summary = "behavioural-round-feedback-v2";
     }
 
     public sealed record BehaviouralAIQuestionCandidate(
@@ -92,11 +92,13 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public string ReasonSummary { get; set; } = string.Empty;
     }
 
+    [System.Text.Json.Serialization.JsonUnmappedMemberHandling(
+        System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed class BehaviouralAIEvaluationResponse
     {
         public List<BehaviouralAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
-        public List<string> Strengths { get; set; } = new();
-        public List<string> MissingPoints { get; set; } = new();
+        public List<string> Evidence { get; set; } = new();
+        public List<string> MissingAspects { get; set; } = new();
         public decimal? OverallRubricScore { get; set; } // 0-10 score theo scoring rubric của câu hỏi
         public string AnswerQuality { get; set; } = string.Empty; // Excellent, Good, Partial, Vague, Insufficient
         public string Decision { get; set; } = string.Empty; // NEXT_MAIN_QUESTION, CLARIFICATION, FOLLOW_UP_1, FOLLOW_UP_2
@@ -109,6 +111,10 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public string JobRole { get; init; } = string.Empty;
         public string ExperienceLevel { get; init; } = string.Empty;
         public string Language { get; init; } = string.Empty;
+        public IReadOnlyList<string> RequiredSkills { get; init; } = Array.Empty<string>();
+        public int? CvJdMatchScore { get; init; }
+        public string CvContext { get; init; } = string.Empty;
+        public string JdContext { get; init; } = string.Empty;
         public decimal OverallScore { get; init; }
         public string PerformanceBand { get; init; } = string.Empty;
         public IReadOnlyDictionary<string, decimal> SkillScores { get; init; } =
@@ -118,13 +124,18 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public IReadOnlyList<object> MainQuestionResults { get; init; } = Array.Empty<object>();
     }
 
+    [System.Text.Json.Serialization.JsonUnmappedMemberHandling(
+        System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed class BehaviouralAIFinalSummaryResponse
     {
-        public string ExecutiveSummary { get; set; } = string.Empty;
-        public List<string> CompetencyStrengths { get; set; } = new();
-        public List<string> CompetencyGaps { get; set; } = new();
-        public string LevelAssessment { get; set; } = string.Empty;
-        public List<string> TopRecommendations { get; set; } = new();
+        public string OverallBehavioralAssessment { get; set; } = string.Empty;
+        public List<string> Strengths { get; set; } = new();
+        public List<string> Weaknesses { get; set; } = new();
+        public string StarStructureAssessment { get; set; } = string.Empty;
+        public string OwnershipAndImpactAssessment { get; set; } = string.Empty;
+        public string CompetencyFit { get; set; } = string.Empty;
+        public string CommunicationAssessment { get; set; } = string.Empty;
+        public List<string> RecommendationsForImprovement { get; set; } = new();
     }
 
     public sealed class BehaviouralAIProviderResult<T>

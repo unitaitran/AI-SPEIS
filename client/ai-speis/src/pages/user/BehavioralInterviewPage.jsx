@@ -84,6 +84,7 @@ function BehavioralInterviewPage({ sessionId }) {
   const [dialog, setDialog] = useState(null);
   const [pendingNavigation, setPendingNavigation] = useState(null);
   const [localError, setLocalError] = useState(null);
+  const [feedbackRetryError, setFeedbackRetryError] = useState(null);
   const [latestCampaign, setLatestCampaign] = useState(initialContext?.campaign || null);
   const previousQuestionRef = useRef(null);
   const hydratingDraftRef = useRef(false);
@@ -289,6 +290,15 @@ function BehavioralInterviewPage({ sessionId }) {
       : USER_ROUTES.DEVICE_CHECK);
   };
 
+  const handleRetryFeedback = async () => {
+    setFeedbackRetryError(null);
+    try {
+      await room.retryFeedback();
+    } catch (retryError) {
+      setFeedbackRetryError(retryError);
+    }
+  };
+
   const handleForceEndSession = async () => {
     if (!resolvedSessionId) return;
     setLocalError(null);
@@ -405,6 +415,9 @@ function BehavioralInterviewPage({ sessionId }) {
                 hasNextRound={Boolean(nextRoundSession)}
                 onContinue={handleContinue}
                 onOverview={() => navigate(campaignResultPath)}
+                onRetryFeedback={handleRetryFeedback}
+                feedbackRetrying={room.feedbackRetrying}
+                feedbackError={feedbackRetryError}
                 t={t}
               />
               {localError ? (

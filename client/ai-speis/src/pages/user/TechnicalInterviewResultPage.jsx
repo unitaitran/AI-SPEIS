@@ -33,7 +33,15 @@ function TechnicalInterviewResultPage({ sessionId }) {
   const t = useCallback((key, options = {}) => (
     translate(key, { ...options, lng: interviewLanguage })
   ), [interviewLanguage, translate]);
-  const { result, isLoading, error, reload } = useTechnicalInterviewResult(resolvedSessionId);
+  const {
+    result,
+    isLoading,
+    error,
+    feedbackError,
+    isRetryingFeedback,
+    reload,
+    retryFeedback,
+  } = useTechnicalInterviewResult(resolvedSessionId);
   const nextRoundSession = getNextOpenSession(campaign, resolvedSessionId);
   const campaignCompleted = campaign?.status === 'Completed';
 
@@ -100,8 +108,23 @@ function TechnicalInterviewResultPage({ sessionId }) {
       />
     );
   } else if (result) {
+    const feedbackFailed = String(result.finalFeedbackStatus || '').toUpperCase() === 'FAILED';
     content = (
       <div className="technical-result-stack">
+        {(feedbackFailed || feedbackError) ? (
+          <div className="technical-inline-error" role="alert">
+            <span>{t('result.feedbackUnavailable')}</span>
+            <button
+              type="button"
+              className="technical-secondary-button"
+              onClick={() => retryFeedback().catch(() => undefined)}
+              disabled={isRetryingFeedback}
+            >
+              <RefreshCw size={16} />
+              {isRetryingFeedback ? t('result.generatingFeedback') : t('result.retryFeedback')}
+            </button>
+          </div>
+        ) : null}
         <TechnicalResultSummary result={result} t={t} language={interviewLanguage} />
         {result.dimensionResults?.length > 0 && (
           <TechnicalRubricBreakdown dimensions={result.dimensionResults} t={t} />

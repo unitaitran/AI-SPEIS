@@ -18,29 +18,28 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             && ProviderResult.Data is not null;
     }
 
-    public sealed record TechnicalParallelProcessingMetrics(
+    public sealed record TechnicalEvaluationProcessingMetrics(
         long TotalProcessingLatencyMs,
         long SequentialEstimatedLatencyMs,
         long ParallelLatencySavingMs);
 
-    public sealed record TechnicalParallelAIResults(
+    public sealed record TechnicalAnswerEvaluationProcessingResult(
         TechnicalAITaskOutcome<TechnicalAIEvaluationResponse> Evaluation,
-        TechnicalAITaskOutcome<TechnicalAIFeedbackDraftResponse> Feedback,
-        TechnicalParallelProcessingMetrics Metrics);
+        TechnicalEvaluationProcessingMetrics Metrics);
 
-    public interface ITechnicalAnswerParallelProcessor
+    public interface ITechnicalAnswerEvaluationProcessor
     {
-        Task<TechnicalParallelAIResults> ProcessAsync(
+        Task<TechnicalAnswerEvaluationProcessingResult> ProcessAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken);
     }
 
-    public sealed class TechnicalAnswerParallelProcessor : ITechnicalAnswerParallelProcessor
+    public sealed class TechnicalAnswerEvaluationProcessor : ITechnicalAnswerEvaluationProcessor
     {
         private readonly ITechnicalInterviewAIProviderResolver _providerResolver;
         private readonly TechnicalInterviewOptions _options;
 
-        public TechnicalAnswerParallelProcessor(
+        public TechnicalAnswerEvaluationProcessor(
             ITechnicalInterviewAIProviderResolver providerResolver,
             TechnicalInterviewOptions options)
         {
@@ -48,73 +47,35 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             _options = options;
         }
 
-        public async Task<TechnicalParallelAIResults> ProcessAsync(
+        public async Task<TechnicalAnswerEvaluationProcessingResult> ProcessAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken)
         {
             var provider = _providerResolver.Resolve();
             var stopwatch = Stopwatch.StartNew();
-            using var sessionGate = new SemaphoreSlim(
-                _options.MaxParallelTasksPerSession,
-                _options.MaxParallelTasksPerSession);
-
-            TechnicalAITaskOutcome<TechnicalAIEvaluationResponse> evaluation;
-            TechnicalAITaskOutcome<TechnicalAIFeedbackDraftResponse> feedback;
-            using var feedbackStop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            // These are true async I/O operations. Both are started before either is
-            // awaited; Task.Run is intentionally not involved.
-            var evaluationTask = RunSettledAsync(
+            var evaluation = await RunSettledAsync(
                 token => provider.EvaluateAnswerAsync(context, token),
                 _options.EvaluationTimeoutMs,
-                sessionGate,
                 cancellationToken);
-            var feedbackTask = RunSettledAsync(
-                token => provider.GenerateFeedbackDraftAsync(context, token),
-                _options.FeedbackTimeoutMs,
-                sessionGate,
-                cancellationToken,
-                feedbackStop.Token);
-            evaluation = await evaluationTask;
-            if (!evaluation.IsFulfilled)
-            {
-                feedbackStop.Cancel();
-                feedback = await feedbackTask;
-            }
-            else
-            {
-                if (!feedbackTask.IsCompleted)
-                {
-                    // Detailed feedback is non-critical. Do not let it extend the
-                    // answer-to-next-question path once critical work is settled.
-                    feedbackStop.Cancel();
-                }
-                feedback = await feedbackTask;
-            }
 
             stopwatch.Stop();
-            var sequentialEstimate = evaluation.LatencyMs + feedback.LatencyMs;
-            return new TechnicalParallelAIResults(
+            var sequentialEstimate = evaluation.LatencyMs;
+            return new TechnicalAnswerEvaluationProcessingResult(
                 evaluation,
-                feedback,
-                new TechnicalParallelProcessingMetrics(
+                new TechnicalEvaluationProcessingMetrics(
                     stopwatch.ElapsedMilliseconds,
                     sequentialEstimate,
-                    Math.Max(0, sequentialEstimate - stopwatch.ElapsedMilliseconds)));
+                    0));
         }
 
         private static async Task<TechnicalAITaskOutcome<T>> RunSettledAsync<T>(
             Func<CancellationToken, Task<AIProviderResult<T>>> operation,
             int timeoutMs,
-            SemaphoreSlim sessionGate,
-            CancellationToken cancellationToken,
-            CancellationToken speculativeStopToken = default)
+            CancellationToken cancellationToken)
         {
             var startedAt = DateTime.UtcNow;
             var stopwatch = Stopwatch.StartNew();
-            await sessionGate.WaitAsync(cancellationToken);
-            using var operationCts = speculativeStopToken.CanBeCanceled
-                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, speculativeStopToken)
-                : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            using var operationCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             operationCts.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
 
             try
@@ -158,10 +119,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     startedAt,
                     stopwatch.ElapsedMilliseconds,
                     "PROVIDER_EXCEPTION");
-            }
-            finally
-            {
-                sessionGate.Release();
             }
         }
 

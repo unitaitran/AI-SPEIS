@@ -40,5 +40,10 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             int userId,
             int sessionId,
             CancellationToken cancellationToken = default);
+
+        Task<BehaviouralOperationResult<BehaviouralInterviewResultDto>> GenerateFeedbackAsync(
+            int userId,
+            int sessionId,
+            CancellationToken cancellationToken = default);
     }
 }

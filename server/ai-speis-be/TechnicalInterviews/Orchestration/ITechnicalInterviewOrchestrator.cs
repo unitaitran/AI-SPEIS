@@ -40,5 +40,10 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             int userId,
             int sessionId,
             CancellationToken cancellationToken);
+
+        Task<TechnicalOperationResult<TechnicalInterviewResultDto>> GenerateFeedbackAsync(
+            int userId,
+            int sessionId,
+            CancellationToken cancellationToken);
     }
 }
