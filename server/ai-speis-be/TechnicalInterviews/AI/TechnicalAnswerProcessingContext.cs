@@ -23,8 +23,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
         ImmutableArray<TechnicalRubricPromptLevel> Levels);
 
     public sealed record TechnicalPromptVersionSnapshot(
-        string Evaluation,
-        string Feedback);
+        string Evaluation);
 
     public sealed record TechnicalAnswerProcessingContext
     {

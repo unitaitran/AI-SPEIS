@@ -15,6 +15,11 @@ namespace ai_speis_be.Models
         public int BehaviourSessionQuestionId { get; set; }
         [Required]
         public string Transcript { get; set; } = string.Empty;
+        [MaxLength(200)]
+        public string? AudioId { get; set; }
+        [MaxLength(128)]
+        public string? SubmissionIdempotencyKey { get; set; }
+        public int AnswerVersion { get; set; } = 1;
         public decimal? SttConfidence { get; set; }
         public decimal? AiSituationScore { get; set; }       // Điểm mô tả hoàn cảnh (Situation)
         public decimal? AiActionScore { get; set; }          // Điểm hành động đã làm (Action)
@@ -25,6 +30,8 @@ namespace ai_speis_be.Models
         // Chi tiết AI nhận xét từng tiêu chí (JSON). 
         // Ví dụ: {"situation": {"score": 4, "evidence": "Mô tả rõ ràng khó khăn dự án", "missing": "Chưa nhắc đến timeline"}}
         public string? AiCriteriaDetailJson { get; set; }
+        public string? AiEvidenceJson { get; set; }
+        public string? AiMissingAspectsJson { get; set; }
         public int? AiOverallRubricScore { get; set; }
         public BehaviourAnswerQuality? AiAnswerQuality { get; set; }
         public string? AiStrengths { get; set; }
@@ -32,11 +39,20 @@ namespace ai_speis_be.Models
         public BehaviourResolvedAction? AiRecommendedAction { get; set; }
         public BehaviourResolvedAction? ResolvedAction { get; set; }
         public decimal? ComputedScore { get; set; }
+        public decimal? FinalQuestionScore { get; set; }
 
-        // COMPLETED | SKIPPED_LOW_STT | PENDING_EVALUATION
+        // PROCESSING | COMPLETED | FALLBACK
         public string? EvaluationStatus { get; set; }
-        // Provider error code when EvaluationStatus == PENDING_EVALUATION (e.g. GEMINI_QUOTA_EXCEEDED, HTTP_404)
+        // Provider/validation error code when EvaluationStatus == FALLBACK.
         public string? AiErrorCode { get; set; }
+        [MaxLength(120)]
+        public string? EvaluationModel { get; set; }
+        [MaxLength(80)]
+        public string? EvaluationPromptVersion { get; set; }
+        public int? EvaluationInputTokens { get; set; }
+        public int? EvaluationOutputTokens { get; set; }
+        public long? EvaluationLatencyMs { get; set; }
+        public int EvaluationRetryCount { get; set; }
 
         [Required] public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

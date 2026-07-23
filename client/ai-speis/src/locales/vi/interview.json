@@ -291,6 +291,8 @@
     "submitting": "Đang gửi...",
     "evaluatingTitle": "Đang đánh giá câu trả lời",
     "evaluatingDescription": "Đang phân tích câu trả lời và chuẩn bị bước phỏng vấn tiếp theo. Bản ghi được giữ nguyên và thao tác gửi đã tạm khóa.",
+    "finalizingTitle": "Đang hoàn tất vòng phỏng vấn",
+    "finalizingDescription": "Backend đang đánh giá câu trả lời ở chặng cuối và sẽ tạo phản hồi tổng hợp nếu không cần thêm câu hỏi thích ứng.",
     "processingTranscript": "Bản ghi đang xử lý",
     "readyTitle": "Sẵn sàng bắt đầu",
     "readyDescription": "Khi bạn bắt đầu, backend sẽ chọn và trả về câu hỏi kỹ thuật đầu tiên.",
@@ -370,7 +372,10 @@
     "suggestions": "Gợi ý cải thiện",
     "areasForImprovement": "Nội dung cần cải thiện",
     "nextStepsEyebrow": "Bước tiếp theo",
-    "recommendations": "Khuyến nghị"
+    "recommendations": "Khuyến nghị",
+    "feedbackUnavailable": "Điểm số đã hoàn tất nhưng phản hồi Technical cuối vòng đang tạm thời chưa khả dụng.",
+    "retryFeedback": "Thử tạo lại phản hồi cuối",
+    "generatingFeedback": "Đang tạo phản hồi..."
   },
   "behavioralRoom": {
     "behavioralInterview": "Phỏng vấn hành vi",
@@ -437,6 +442,9 @@
     "completed": "Đã hoàn tất",
     "backToOverview": "Về tổng quan",
     "continueNextRound": "Tiếp tục vòng tiếp theo",
+    "feedbackUnavailable": "Điểm số đã hoàn tất nhưng phản hồi cuối vòng đang tạm thời chưa khả dụng.",
+    "retryFeedback": "Thử tạo lại phản hồi cuối",
+    "generatingFeedback": "Đang tạo phản hồi...",
     "progressLabel": "Câu hỏi chính {{current}} trên {{total}}",
     "interviewerAsks": "Người phỏng vấn hỏi",
     "questionAudio": "Điều khiển âm thanh câu hỏi",

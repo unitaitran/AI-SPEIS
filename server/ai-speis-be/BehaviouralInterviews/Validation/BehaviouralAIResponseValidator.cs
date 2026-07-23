@@ -93,6 +93,12 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                 return Invalid("INVALID_CONFIDENCE");
             }
 
+            var allowedStatuses = new[] { "EXCELLENT", "GOOD", "PARTIAL", "VAGUE", "INSUFFICIENT" };
+            if (!allowedStatuses.Contains(evaluation.AnswerQuality?.Trim(), StringComparer.OrdinalIgnoreCase))
+            {
+                return Invalid("INVALID_ANSWER_STATUS");
+            }
+
             if (evaluation.OverallRubricScore < (decimal)rubric.MinimumScore
                 || evaluation.OverallRubricScore > (decimal)rubric.MaximumScore)
             {
@@ -114,6 +120,21 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             }
 
             var transcript = Normalize(string.Join(" ", answerContext.Select(item => item.Answer)));
+            if (evaluation.Evidence.Count > 3 || evaluation.MissingAspects.Count > 3)
+            {
+                return Invalid("EVALUATION_DETAIL_LIMIT_EXCEEDED");
+            }
+            if (evaluation.Evidence.Any(evidence =>
+                string.IsNullOrWhiteSpace(evidence)
+                || evidence.Length > 300
+                || !transcript.Contains(Normalize(evidence), StringComparison.Ordinal)))
+            {
+                return Invalid("EVIDENCE_NOT_IN_ANSWER");
+            }
+            if (evaluation.MissingAspects.Any(item => string.IsNullOrWhiteSpace(item) || item.Length > 300))
+            {
+                return Invalid("INVALID_MISSING_ASPECT");
+            }
             foreach (var dimension in evaluation.DimensionEvaluations)
             {
                 if (dimension.SuggestedScore < rubric.MinimumScore

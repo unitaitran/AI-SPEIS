@@ -123,6 +123,11 @@ const technicalInterviewApi = {
     { method: 'POST' },
   ),
 
+  generateFeedback: (sessionId) => request(
+    ENDPOINTS.TECHNICAL_INTERVIEW_FEEDBACK(sessionId),
+    { method: 'POST' },
+  ),
+
   getResult: (sessionId) => request(ENDPOINTS.TECHNICAL_INTERVIEW_RESULT(sessionId)),
 };
 

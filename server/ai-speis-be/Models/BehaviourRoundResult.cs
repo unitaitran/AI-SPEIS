@@ -20,6 +20,22 @@ namespace ai_speis_be.Models
         public string? AiGaps { get; set; }
         public string? AiLevelAssessment { get; set; }
         public string? AiRecommendations { get; set; }
+        public string? FinalFeedbackJson { get; set; }
+        [MaxLength(30)]
+        public string FinalFeedbackStatus { get; set; } = "NOT_STARTED";
+        public DateTime? FinalFeedbackStartedAt { get; set; }
+        [ConcurrencyCheck]
+        public int FeedbackConcurrencyVersion { get; set; }
+        [MaxLength(120)]
+        public string? FinalFeedbackModel { get; set; }
+        [MaxLength(80)]
+        public string? FinalFeedbackPromptVersion { get; set; }
+        public int? FeedbackInputTokens { get; set; }
+        public int? FeedbackOutputTokens { get; set; }
+        public long? FeedbackLatencyMs { get; set; }
+        public int FeedbackRetryCount { get; set; }
+        [MaxLength(100)]
+        public string? FinalFeedbackError { get; set; }
         public DateTime? CompletedAt { get; set; }
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

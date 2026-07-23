@@ -4,9 +4,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
 {
     public static class TechnicalPromptVersions
     {
-        public const string Evaluation = "technical-evaluation-rubric-v7";
-        public const string Feedback = "technical-feedback-v2";
-        public const string Summary = "technical-summary-v1";
+        public const string Evaluation = "technical-evaluation-rubric-v8";
+        public const string Summary = "technical-round-feedback-v2";
     }
 
     public sealed record TechnicalAnswerContext(
@@ -30,10 +29,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public string AnswerQuality { get; set; } = string.Empty;
         public List<TechnicalAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
         public List<string> Evidence { get; set; } = new();
-        public List<string> Strengths { get; set; } = new();
-        public List<string> MissingPoints { get; set; } = new();
-        public List<string> IncorrectClaims { get; set; } = new();
-        public List<string> ImprovementSuggestions { get; set; } = new();
     }
 
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -43,7 +38,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public decimal Confidence { get; set; }
 
         // Source-compatible aliases for existing scoring code and legacy tests. They
-        // are ignored by JSON so the provider contract remains the evaluation-only v6 schema.
+        // are ignored by JSON so the provider contract remains the evaluation-only v8 schema.
         [System.Text.Json.Serialization.JsonIgnore]
         public List<TechnicalAIDimensionEvaluation> DimensionEvaluations
         {
@@ -51,60 +46,40 @@ namespace ai_speis_be.TechnicalInterviews.AI
             set => Evaluation.DimensionEvaluations = value ?? new();
         }
 
-        [System.Text.Json.Serialization.JsonIgnore]
-        public List<string> Strengths
-        {
-            get => Evaluation.Strengths;
-            set => Evaluation.Strengths = value ?? new();
-        }
-
-        [System.Text.Json.Serialization.JsonIgnore]
-        public List<string> MissingPoints
-        {
-            get => Evaluation.MissingPoints;
-            set => Evaluation.MissingPoints = value ?? new();
-        }
-
-        [System.Text.Json.Serialization.JsonIgnore]
-        public List<string> IncorrectClaims
-        {
-            get => Evaluation.IncorrectClaims;
-            set => Evaluation.IncorrectClaims = value ?? new();
-        }
-
-        [System.Text.Json.Serialization.JsonIgnore]
-        public List<string> ImprovementSuggestions
-        {
-            get => Evaluation.ImprovementSuggestions;
-            set => Evaluation.ImprovementSuggestions = value ?? new();
-        }
-
-    }
-
-    public sealed class TechnicalAIFeedbackDraftResponse
-    {
-        public List<string> Strengths { get; set; } = new();
-        public List<string> MissingPoints { get; set; } = new();
-        public List<string> IncorrectClaims { get; set; } = new();
-        public List<string> ImprovementSuggestions { get; set; } = new();
-        public string Summary { get; set; } = string.Empty;
     }
 
     public sealed class TechnicalAIFinalSummaryRequest
     {
         public string RubricVersion { get; init; } = string.Empty;
+        public string JobRole { get; init; } = string.Empty;
+        public string ExperienceLevel { get; init; } = string.Empty;
+        public string Language { get; init; } = string.Empty;
+        public IReadOnlyList<string> RequiredSkills { get; init; } = Array.Empty<string>();
+        public int? CvJdMatchScore { get; init; }
+        public string CvContext { get; init; } = string.Empty;
+        public string JdContext { get; init; } = string.Empty;
         public decimal OverallScore { get; init; }
         public string PerformanceBand { get; init; } = string.Empty;
         public IReadOnlyList<object> MainQuestionResults { get; init; } = Array.Empty<object>();
         public IReadOnlyList<object> SkillResults { get; init; } = Array.Empty<object>();
     }
 
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class TechnicalAIFinalSummaryResponse
     {
-        public string Summary { get; set; } = string.Empty;
+        public string OverallTechnicalAssessment { get; set; } = string.Empty;
         public List<string> Strengths { get; set; } = new();
-        public List<string> AreasForImprovement { get; set; } = new();
-        public List<string> RecommendedNextSteps { get; set; } = new();
+        public List<string> KnowledgeGaps { get; set; } = new();
+        public string ReasoningAndApplicationAssessment { get; set; } = string.Empty;
+        public string CommunicationAssessment { get; set; } = string.Empty;
+        public List<TechnicalAIPerformanceBySkill> PerformanceBySkill { get; set; } = new();
+        public List<string> RecommendationsForImprovement { get; set; } = new();
+    }
+
+    public sealed class TechnicalAIPerformanceBySkill
+    {
+        public string Skill { get; set; } = string.Empty;
+        public string Assessment { get; set; } = string.Empty;
     }
 
     public sealed class AIProviderResult<T>

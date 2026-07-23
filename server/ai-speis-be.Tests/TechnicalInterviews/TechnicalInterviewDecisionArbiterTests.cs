@@ -33,8 +33,34 @@ public sealed class TechnicalInterviewDecisionArbiterTests
         Assert.Equal(TechnicalInterviewDecision.Clarification, result.Decision);
         Assert.Equal(TechnicalAttemptType.Clarification, result.NextQuestion!.AttemptType);
         Assert.Null(result.AiSuggestedAction);
-        Assert.Equal("RUBRIC_RULE_LOW_SCORE_AMBIGUOUS_ANSWER", result.DecisionReason);
+        Assert.Equal("RUBRIC_RULE_LOW_SCORE_CLARIFICATION", result.DecisionReason);
         Assert.Null(result.OverrideReason);
+    }
+
+    [Fact]
+    public void Resolve_VeryWeakMainAlwaysUsesSingleClarification()
+    {
+        var result = Resolve(
+            TechnicalParallelTestData.CreateContext(),
+            TechnicalParallelTestData.CreateEvaluation(2m, "INCORRECT"));
+
+        Assert.Equal(TechnicalInterviewDecision.Clarification, result.Decision);
+        Assert.Equal(TechnicalAttemptType.Clarification, result.NextQuestion!.AttemptType);
+    }
+
+    [Fact]
+    public void Resolve_StillVeryWeakClarificationAdvancesWithoutAnotherSubQuestion()
+    {
+        var context = TechnicalParallelTestData.CreateContext(
+            clarificationCount: 0,
+            attemptType: TechnicalAttemptType.Clarification,
+            initialMainScore: 2m);
+
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(2m, "INSUFFICIENT"));
+
+        Assert.True(result.FinalizeMainQuestion);
+        Assert.NotEqual(TechnicalInterviewDecision.Clarification, result.Decision);
+        Assert.NotEqual(TechnicalInterviewDecision.FollowUp, result.Decision);
     }
 
     [Fact]
@@ -62,6 +88,21 @@ public sealed class TechnicalInterviewDecisionArbiterTests
 
         Assert.True(result.FinalizeMainQuestion);
         Assert.Equal(6m, result.FinalMainQuestionScore);
+    }
+
+    [Fact]
+    public void Resolve_MainBelowFiveRequiresBothFollowUpsEvenWhenFirstFollowUpScoresHighly()
+    {
+        var context = TechnicalParallelTestData.CreateContext(
+            followUpCount: 0,
+            attemptType: TechnicalAttemptType.FollowUp,
+            initialMainScore: 4m,
+            requiredFollowUpCount: 2);
+
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(9m));
+
+        Assert.False(result.FinalizeMainQuestion);
+        Assert.Equal(TechnicalInterviewDecision.FollowUp, result.Decision);
     }
 
     [Fact]
@@ -179,18 +220,14 @@ public sealed class TechnicalInterviewDecisionArbiterTests
     }
 
     [Fact]
-    public void Resolve_FeedbackTimeoutDoesNotLoseEvaluationOrTransition()
+    public void Resolve_PerAnswerFeedbackRemainsDisabledWithoutLosingEvaluationOrTransition()
     {
         var result = _arbiter.Resolve(
             TechnicalParallelTestData.CreateContext(),
             TechnicalTestRubric.Create(),
-            TechnicalParallelTestData.Results(
-                feedback: TechnicalParallelTestData.Failed<TechnicalAIFeedbackDraftResponse>(
-                    TechnicalAITaskStatus.Timeout,
-                    "TIMEOUT")));
+            TechnicalParallelTestData.Results());
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.FeedbackFallbackUsed);
         Assert.NotNull(result.Score);
     }
 

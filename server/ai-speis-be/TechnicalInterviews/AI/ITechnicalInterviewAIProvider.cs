@@ -8,10 +8,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken);
 
-        Task<AIProviderResult<TechnicalAIFeedbackDraftResponse>> GenerateFeedbackDraftAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken);
-
         Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
             TechnicalAIFinalSummaryRequest request,
             CancellationToken cancellationToken);

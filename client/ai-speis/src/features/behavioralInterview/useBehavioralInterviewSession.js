@@ -17,6 +17,7 @@ const initialState = {
   currentQuestion: null,
   transcriptMessages: [],
   completionResult: null,
+  feedbackRetrying: false,
   error: null,
   conflict: null,
   resumed: false,
@@ -113,8 +114,13 @@ function reducer(state, action) {
         generalSession: action.generalSession || state.generalSession,
         currentQuestion: null,
         completionResult: action.result,
+        feedbackRetrying: false,
         error: null,
       };
+    case 'FEEDBACK_RETRYING':
+      return { ...state, feedbackRetrying: true };
+    case 'FEEDBACK_RETRY_FAILED':
+      return { ...state, feedbackRetrying: false };
     case 'CONFLICT':
       return {
         ...state,
@@ -170,6 +176,7 @@ export default function useBehavioralInterviewSession(sessionId) {
   const loadControllerRef = useRef(null);
   const submitInFlightRef = useRef(false);
   const completeInFlightRef = useRef(false);
+  const feedbackInFlightRef = useRef(false);
   const idempotencyKeysRef = useRef(new Map());
 
   const completeInterview = useCallback(async () => {
@@ -186,6 +193,23 @@ export default function useBehavioralInterviewSession(sessionId) {
       throw normalized;
     } finally {
       completeInFlightRef.current = false;
+    }
+  }, [sessionId]);
+
+  const retryFeedback = useCallback(async () => {
+    if (!sessionId || feedbackInFlightRef.current) return null;
+    feedbackInFlightRef.current = true;
+    dispatch({ type: 'FEEDBACK_RETRYING' });
+    try {
+      const result = await behavioralInterviewApi.generateFeedback(sessionId);
+      dispatch({ type: 'COMPLETED', result });
+      return result;
+    } catch (error) {
+      const normalized = normalizeError(error);
+      dispatch({ type: 'FEEDBACK_RETRY_FAILED' });
+      throw normalized;
+    } finally {
+      feedbackInFlightRef.current = false;
     }
   }, [sessionId]);
 
@@ -449,6 +473,7 @@ export default function useBehavioralInterviewSession(sessionId) {
     reload: loadRoom,
     submitAnswer,
     completeInterview,
+    retryFeedback,
     dismissError: () => dispatch({ type: 'DISMISS_ERROR' }),
   };
 }

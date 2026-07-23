@@ -353,6 +353,15 @@ namespace ai_speis_be.Models
                 .Property(a => a.ResolvedAction)
                 .HasConversion<string>();
 
+            modelBuilder.Entity<BehaviourAnswer>()
+                .HasIndex(a => a.SubmissionIdempotencyKey)
+                .IsUnique()
+                .HasFilter("[SubmissionIdempotencyKey] IS NOT NULL");
+
+            modelBuilder.Entity<BehaviourRoundResult>()
+                .HasIndex(result => result.InterviewSessionId)
+                .IsUnique();
+
             // Relationships
             modelBuilder.Entity<BehaviourSessionQuestion>()
                 .HasOne(q => q.ParentQuestion)

@@ -123,10 +123,16 @@ namespace ai_speis_be.Migrations
                     b.Property<string>("AiCriteriaDetailJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("AiEvidenceJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("AiErrorCode")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("AiMissingPoints")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AiMissingAspectsJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("AiOverallRubricScore")
@@ -144,6 +150,13 @@ namespace ai_speis_be.Migrations
                     b.Property<string>("AiStrengths")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("AnswerVersion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AudioId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int>("BehaviourSessionQuestionId")
                         .HasColumnType("int");
 
@@ -156,11 +169,38 @@ namespace ai_speis_be.Migrations
                     b.Property<string>("EvaluationStatus")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("EvaluationInputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("EvaluationLatencyMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("EvaluationModel")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int?>("EvaluationOutputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EvaluationPromptVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("EvaluationRetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("FinalQuestionScore")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("ResolvedAction")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("SttConfidence")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SubmissionIdempotencyKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("Transcript")
                         .IsRequired()
@@ -170,6 +210,10 @@ namespace ai_speis_be.Migrations
 
                     b.HasIndex("BehaviourSessionQuestionId")
                         .IsUnique();
+
+                    b.HasIndex("SubmissionIdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[SubmissionIdempotencyKey] IS NOT NULL");
 
                     b.ToTable("BehaviourAnswer");
                 });
@@ -247,6 +291,45 @@ namespace ai_speis_be.Migrations
                     b.Property<string>("CriteriaAveragesJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("FeedbackInputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("FeedbackLatencyMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("FeedbackOutputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FeedbackConcurrencyVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<int>("FeedbackRetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FinalFeedbackError")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("FinalFeedbackJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FinalFeedbackModel")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("FinalFeedbackPromptVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("FinalFeedbackStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("FinalFeedbackStartedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("InterviewSessionId")
                         .HasColumnType("int");
 
@@ -258,7 +341,8 @@ namespace ai_speis_be.Migrations
 
                     b.HasKey("BehaviourRoundResultId");
 
-                    b.HasIndex("InterviewSessionId");
+                    b.HasIndex("InterviewSessionId")
+                        .IsUnique();
 
                     b.ToTable("BehaviourRoundResult");
                 });
@@ -922,6 +1006,18 @@ namespace ai_speis_be.Migrations
 
                     b.Property<decimal?>("TechnicalFinalScore")
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("TechnicalFinalFeedbackError")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("TechnicalFinalFeedbackStartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TechnicalFinalFeedbackStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("TechnicalJobRole")
                         .HasMaxLength(200)

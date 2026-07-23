@@ -10,6 +10,8 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
         public string Model { get; init; } = "gemini-2.5-flash";
         public int MaxRetries { get; init; } = 3;
         public int TimeoutSeconds { get; init; } = 30;
+        public decimal InputTokenCostPerMillion { get; init; }
+        public decimal OutputTokenCostPerMillion { get; init; }
 
         public static BehaviouralInterviewOptions FromConfiguration(IConfiguration configuration)
         {
@@ -23,7 +25,19 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
                     "https://generativelanguage.googleapis.com/v1beta/openai/")),
                 Model = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_MODEL", "gemini-2.5-flash"),
                 MaxRetries = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_MAX_RETRIES", 3, 0, 5),
-                TimeoutSeconds = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", 30, 5, 180)
+                TimeoutSeconds = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", 30, 5, 180),
+                InputTokenCostPerMillion = GetDecimal(
+                    configuration,
+                    "BEHAVIOURAL_INTERVIEW_AI_INPUT_TOKEN_COST_PER_MILLION",
+                    0m,
+                    0m,
+                    1_000_000m),
+                OutputTokenCostPerMillion = GetDecimal(
+                    configuration,
+                    "BEHAVIOURAL_INTERVIEW_AI_OUTPUT_TOKEN_COST_PER_MILLION",
+                    0m,
+                    0m,
+                    1_000_000m)
             };
         }
 
@@ -41,6 +55,22 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
             int maximum)
         {
             return int.TryParse(configuration[key], out var parsed)
+                ? Math.Clamp(parsed, minimum, maximum)
+                : fallback;
+        }
+
+        private static decimal GetDecimal(
+            IConfiguration configuration,
+            string key,
+            decimal fallback,
+            decimal minimum,
+            decimal maximum)
+        {
+            return decimal.TryParse(
+                configuration[key],
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var parsed)
                 ? Math.Clamp(parsed, minimum, maximum)
                 : fallback;
         }

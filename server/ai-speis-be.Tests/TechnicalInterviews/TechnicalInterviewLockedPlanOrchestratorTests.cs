@@ -424,7 +424,7 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
             .Returns(TechnicalTestRubric.Create());
 
         var options = new TechnicalInterviewOptions();
-        var parallel = new Mock<ITechnicalAnswerParallelProcessor>();
+        var parallel = new Mock<ITechnicalAnswerEvaluationProcessor>();
         parallel.Setup(item => item.ProcessAsync(
                 It.IsAny<TechnicalAnswerProcessingContext>(),
                 It.IsAny<CancellationToken>()))

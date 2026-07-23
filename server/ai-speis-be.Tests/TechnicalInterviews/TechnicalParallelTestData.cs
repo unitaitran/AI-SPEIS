@@ -62,8 +62,7 @@ internal static class TechnicalParallelTestData
             MainQuestionIndex = completedMainQuestions + 1,
             TargetMainQuestionCount = targetMainQuestions,
             PromptVersions = new TechnicalPromptVersionSnapshot(
-                TechnicalPromptVersions.Evaluation,
-                TechnicalPromptVersions.Feedback),
+                TechnicalPromptVersions.Evaluation),
             UseAdaptiveRubricFramework = true,
             InitialMainScore = attemptType == TechnicalAttemptType.Main ? null : initialMainScore,
             CurrentMainBaseScore = initialMainScore,
@@ -85,22 +84,12 @@ internal static class TechnicalParallelTestData
     {
         var evaluation = TechnicalTestRubric.CreateEvaluation(score, score, score, score, score);
         evaluation.Evaluation.AnswerQuality = answerQuality;
-        evaluation.Strengths = new List<string> { "Clear dependency injection explanation" };
-        evaluation.MissingPoints = new List<string> { "Needs a concrete lifetime example" };
-        evaluation.ImprovementSuggestions = new List<string> { "Add a practical lifetime example" };
+        evaluation.Evaluation.Evidence = new List<string>
+        {
+            "dependency injection improves testability by separating construction from use"
+        };
         evaluation.DimensionEvaluations[1].MissingEvidence = new List<string> { "A deeper trade-off analysis" };
         return evaluation;
-    }
-
-    public static TechnicalAIFeedbackDraftResponse CreateFeedback()
-    {
-        return new TechnicalAIFeedbackDraftResponse
-        {
-            Summary = "The dependency injection explanation is clear but needs a concrete lifetime example.",
-            Strengths = new List<string> { "Clear explanation" },
-            MissingPoints = new List<string> { "Missing lifetime example" },
-            ImprovementSuggestions = new List<string> { "Add a concrete lifetime example" }
-        };
     }
 
     public static TechnicalAITaskOutcome<T> Fulfilled<T>(T data, long latencyMs = 20)
@@ -146,13 +135,11 @@ internal static class TechnicalParallelTestData
             errorCode);
     }
 
-    public static TechnicalParallelAIResults Results(
-        TechnicalAITaskOutcome<TechnicalAIEvaluationResponse>? evaluation = null,
-        TechnicalAITaskOutcome<TechnicalAIFeedbackDraftResponse>? feedback = null)
+    public static TechnicalAnswerEvaluationProcessingResult Results(
+        TechnicalAITaskOutcome<TechnicalAIEvaluationResponse>? evaluation = null)
     {
-        return new TechnicalParallelAIResults(
+        return new TechnicalAnswerEvaluationProcessingResult(
             evaluation ?? Fulfilled(CreateEvaluation()),
-            feedback ?? Fulfilled(CreateFeedback()),
-            new TechnicalParallelProcessingMetrics(25, 40, 15));
+            new TechnicalEvaluationProcessingMetrics(25, 25, 0));
     }
 }
