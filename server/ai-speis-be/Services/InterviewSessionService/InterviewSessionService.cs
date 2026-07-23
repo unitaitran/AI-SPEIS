@@ -575,6 +575,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 campaign.OverallScore = overallScore;
                 campaign.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
+                await SyncSkillScoresToDbAsync(campaign.UserId, campaign.InterviewCampaignId, null, metrics, campaign.CompletedAt ?? DateTime.UtcNow);
             }
             catch { }
 
@@ -595,13 +596,113 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         public async Task<List<CampaignDashboardMetricDto>> GetUserCapabilitiesAsync(int userId)
         {
+            await EnsureUserSkillScoresBackfilledAsync(userId);
+
+            var skillScores = await _context.UserSkillScores
+                .AsNoTracking()
+                .Where(s => s.UserId == userId)
+                .OrderBy(s => s.EvaluatedAt)
+                .ToListAsync();
+
+            var skillDefinitions = new[]
+            {
+                ("PROFESSIONAL_KNOWLEDGE", "Professional Knowledge", new[] { "Technical Depth", "Coding" }),
+                ("COMMUNICATION_SKILLS", "Communication Skills", new[] { "Technical Communication", "Behavioral Communication" }),
+                ("CV_UNDERSTANDING", "CV Understanding", new[] { "Behavioral Action & Ownership" }),
+                ("PROBLEM_SOLVING", "Problem Solving", new[] { "Coding", "Technical Depth" }),
+            };
+
+            var resultList = new List<CampaignDashboardMetricDto>();
+
+            foreach (var (code, name, sources) in skillDefinitions)
+            {
+                var skillHistory = skillScores
+                    .Where(s => string.Equals(s.SkillCode, code, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(s => s.EvaluatedAt)
+                    .Select(s => new SkillHistoryPointDto
+                    {
+                        SessionId = s.InterviewSessionId ?? s.InterviewCampaignId ?? 0,
+                        Title = !string.IsNullOrWhiteSpace(s.SessionTitle) ? s.SessionTitle : $"Phỏng vấn #{s.InterviewCampaignId ?? s.InterviewSessionId}",
+                        Score = s.Score,
+                        Date = s.EvaluatedAt
+                    })
+                    .ToList();
+
+                decimal? latestScore = skillHistory.Count > 0 ? skillHistory.Last().Score : null;
+
+                resultList.Add(new CampaignDashboardMetricDto
+                {
+                    Code = code,
+                    Name = name,
+                    Score = latestScore,
+                    Sources = sources.ToList(),
+                    History = skillHistory
+                });
+            }
+
+            return resultList;
+        }
+
+        private async Task SyncSkillScoresToDbAsync(
+            int userId,
+            int? campaignId,
+            int? sessionId,
+            List<CampaignDashboardMetricDto> metrics,
+            DateTime? evaluatedAt = null)
+        {
+            if (metrics == null || metrics.Count == 0) return;
+            var timestamp = evaluatedAt ?? DateTime.UtcNow;
+            var title = campaignId.HasValue ? $"Phỏng vấn #{campaignId.Value}" : (sessionId.HasValue ? $"Phiên #{sessionId.Value}" : "Đánh giá phỏng vấn");
+
+            foreach (var metric in metrics)
+            {
+                if (!metric.Score.HasValue || metric.Score.Value <= 0) continue;
+
+                var existing = await _context.UserSkillScores.FirstOrDefaultAsync(s =>
+                    s.UserId == userId
+                    && s.SkillCode == metric.Code
+                    && s.InterviewCampaignId == campaignId
+                    && s.InterviewSessionId == sessionId);
+
+                if (existing != null)
+                {
+                    existing.Score = metric.Score.Value;
+                    existing.SessionTitle = title;
+                    existing.EvaluatedAt = timestamp;
+                }
+                else
+                {
+                    _context.UserSkillScores.Add(new UserSkillScore
+                    {
+                        UserId = userId,
+                        InterviewCampaignId = campaignId,
+                        InterviewSessionId = sessionId,
+                        SkillCode = metric.Code,
+                        SkillName = metric.Name ?? metric.Code,
+                        Score = metric.Score.Value,
+                        SessionTitle = title,
+                        EvaluatedAt = timestamp,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch { }
+        }
+
+        private async Task EnsureUserSkillScoresBackfilledAsync(int userId)
+        {
+            var hasScores = await _context.UserSkillScores.AsNoTracking().AnyAsync(s => s.UserId == userId && s.Score > 0);
+            if (hasScores) return;
+
             var userCampaigns = await _context.InterviewCampaigns
                 .AsNoTracking()
                 .Where(c => c.UserId == userId && !c.IsDeleted)
                 .OrderBy(c => c.CreatedAt)
                 .ToListAsync();
-
-            var campaignMetricsList = new List<(DateTime Date, string Title, List<CampaignDashboardMetricDto> Metrics)>();
 
             foreach (var campaign in userCampaigns)
             {
@@ -623,84 +724,61 @@ namespace ai_speis_be.Services.InterviewSessionService
 
                 if (metrics != null && metrics.Any(m => m.Score.HasValue && m.Score.Value > 0))
                 {
-                    var title = $"Phỏng vấn #{campaign.InterviewCampaignId}";
-                    campaignMetricsList.Add((campaign.CompletedAt ?? campaign.CreatedAt, title, metrics));
+                    await SyncSkillScoresToDbAsync(
+                        userId,
+                        campaign.InterviewCampaignId,
+                        null,
+                        metrics,
+                        campaign.CompletedAt ?? campaign.CreatedAt);
                 }
             }
 
-            if (campaignMetricsList.Count == 0)
-            {
-                var attempts = await (
-                    from q in _context.TechnicalQuestionAttempts.AsNoTracking()
-                    join s in _context.InterviewSessions.AsNoTracking() on q.InterviewSessionId equals s.InterviewSessionId
-                    join c in _context.InterviewCampaigns.AsNoTracking() on s.InterviewCampaignId equals c.InterviewCampaignId
-                    where c.UserId == userId && !s.IsDeleted && !c.IsDeleted && (q.FinalMainScore != null || q.RawScore != null)
-                    orderby s.CreatedAt
-                    select new { s.InterviewSessionId, s.CreatedAt, Score = (q.FinalMainScore ?? q.RawScore)!.Value }
-                ).ToListAsync();
+            var hasScoresNow = await _context.UserSkillScores.AsNoTracking().AnyAsync(s => s.UserId == userId && s.Score > 0);
+            if (hasScoresNow) return;
 
-                if (attempts.Any())
+            // Deep Fallback: Query all evaluated interview sessions for this user
+            var userSessions = await (
+                from s in _context.InterviewSessions.AsNoTracking()
+                join c in _context.InterviewCampaigns.AsNoTracking() on s.InterviewCampaignId equals c.InterviewCampaignId
+                where c.UserId == userId && !s.IsDeleted && !c.IsDeleted
+                orderby s.CreatedAt
+                select new
                 {
-                    var grouped = attempts.GroupBy(a => a.InterviewSessionId);
-                    foreach (var group in grouped)
-                    {
-                        var first = group.First();
-                        var avg = Math.Round(group.Average(x => x.Score), 1);
-                        var title = $"Phiên kỹ thuật #{first.InterviewSessionId}";
-                        var sessionMetrics = new List<CampaignDashboardMetricDto>
-                        {
-                            new() { Code = "PROFESSIONAL_KNOWLEDGE", Name = "Professional Knowledge", Score = avg },
-                            new() { Code = "COMMUNICATION_SKILLS", Name = "Communication Skills", Score = avg },
-                            new() { Code = "CV_UNDERSTANDING", Name = "CV Understanding", Score = avg },
-                            new() { Code = "PROBLEM_SOLVING", Name = "Problem Solving", Score = avg },
-                        };
-                        campaignMetricsList.Add((first.CreatedAt, title, sessionMetrics));
-                    }
+                    s.InterviewSessionId,
+                    s.InterviewCampaignId,
+                    s.CreatedAt,
+                    s.TechnicalFinalScore,
+                    Attempts = s.TechnicalQuestionAttempts
+                        .Where(a => a.FinalMainScore != null || a.RawScore != null || a.InitialMainScore != null)
+                        .Select(a => (decimal?)(a.FinalMainScore ?? a.RawScore ?? a.InitialMainScore))
+                        .ToList()
                 }
-            }
+            ).ToListAsync();
 
-            var skillDefinitions = new[]
+            foreach (var session in userSessions)
             {
-                ("PROFESSIONAL_KNOWLEDGE", "Professional Knowledge", new[] { "Technical Depth", "Coding" }),
-                ("COMMUNICATION_SKILLS", "Communication Skills", new[] { "Technical Communication", "Behavioral Communication" }),
-                ("CV_UNDERSTANDING", "CV Understanding", new[] { "Behavioral Action & Ownership" }),
-                ("PROBLEM_SOLVING", "Problem Solving", new[] { "Coding", "Technical Depth" }),
-            };
-
-            var resultList = new List<CampaignDashboardMetricDto>();
-
-            foreach (var (code, name, sources) in skillDefinitions)
-            {
-                var history = new List<SkillHistoryPointDto>();
-                foreach (var entry in campaignMetricsList)
+                decimal? scoreVal = session.TechnicalFinalScore;
+                if (!scoreVal.HasValue || scoreVal.Value <= 0)
                 {
-                    var match = entry.Metrics.FirstOrDefault(m => string.Equals(m.Code, code, StringComparison.OrdinalIgnoreCase));
-                    if (match?.Score != null && match.Score.Value > 0)
+                    var validAttemptScores = session.Attempts.Where(a => a.HasValue && a.Value > 0).Select(a => a!.Value).ToList();
+                    if (validAttemptScores.Count > 0)
                     {
-                        history.Add(new SkillHistoryPointDto
-                        {
-                            SessionId = 0,
-                            Title = entry.Title,
-                            Score = match.Score.Value,
-                            Date = entry.Date
-                        });
+                        scoreVal = Math.Round(validAttemptScores.Average(), 1);
                     }
                 }
 
-                // Takes the LATEST score (most recent evaluation point)
-                decimal? latestScore = history.Count > 0 ? history.Last().Score : null;
-
-                resultList.Add(new CampaignDashboardMetricDto
+                if (scoreVal.HasValue && scoreVal.Value > 0)
                 {
-                    Code = code,
-                    Name = name,
-                    Score = latestScore,
-                    Sources = sources.ToList(),
-                    History = history
-                });
+                    var sessionMetrics = new List<CampaignDashboardMetricDto>
+                    {
+                        new() { Code = "PROFESSIONAL_KNOWLEDGE", Name = "Professional Knowledge", Score = scoreVal.Value },
+                        new() { Code = "COMMUNICATION_SKILLS", Name = "Communication Skills", Score = scoreVal.Value },
+                        new() { Code = "CV_UNDERSTANDING", Name = "CV Understanding", Score = scoreVal.Value },
+                        new() { Code = "PROBLEM_SOLVING", Name = "Problem Solving", Score = scoreVal.Value },
+                    };
+                    await SyncSkillScoresToDbAsync(userId, session.InterviewCampaignId, session.InterviewSessionId, sessionMetrics, session.CreatedAt);
+                }
             }
-
-            return resultList;
         }
 
         public async Task<InterviewCampaignDto?> GetActiveCampaignAsync(int userId)

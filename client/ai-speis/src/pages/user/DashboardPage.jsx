@@ -41,7 +41,8 @@ function DashboardPage() {
           const map = {};
           const historyMap = {};
           data.forEach((item) => {
-            const itemCode = item.code || item.Code;
+            const rawCode = item.code || item.Code;
+            const itemCode = rawCode ? String(rawCode).toUpperCase() : '';
             const itemScore = item.score ?? item.Score;
             const itemHistory = item.history || item.History || [];
             if (itemCode && itemScore != null) {
