@@ -81,12 +81,12 @@ const ResetPasswordPage = () => {
     <div className="min-h-screen w-full flex flex-col relative">
       <AuthCard 
         footerText=""
-        mascotText={t('reset_mascot')}
+        mascotText={t('reset_mascot', 'Đặt lại mật khẩu an toàn')}
       >
         <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both delay-100">
-          <h1 className="text-[32px] font-bold text-text-primary mb-2">{t('reset_title')}</h1>
+          <h1 className="text-[32px] font-bold text-text-primary mb-2">{t('reset_title', 'Đặt lại mật khẩu')}</h1>
           <p className="text-[15px] font-normal text-text-secondary">
-            {t('reset_subtitle')}
+            {t('reset_subtitle', 'Nhập mật khẩu mới cho tài khoản của bạn')}
           </p>
         </div>
 
@@ -105,7 +105,7 @@ const ResetPasswordPage = () => {
         {token && (
           <form onSubmit={handleSubmit} className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both delay-200">
             <Input
-              label={t('new_password_label')}
+              label={t('new_password_label', 'Mật khẩu mới')}
               id="newPassword"
               type="password"
               placeholder="••••••••"
@@ -115,7 +115,7 @@ const ResetPasswordPage = () => {
               disabled={loading}
             />
             <Input
-              label={t('confirm_password_label')}
+              label={t('confirm_password_label', 'Xác nhận mật khẩu mới')}
               id="confirmPassword"
               type="password"
               placeholder="••••••••"
@@ -125,14 +125,14 @@ const ResetPasswordPage = () => {
               disabled={loading}
             />
             <Button type="submit" disabled={loading}>
-              {loading ? t('processing', 'Đang xử lý...') : t('reset_button')}
+              {loading ? t('processing', 'Đang xử lý...') : t('reset_button', 'Cập nhật mật khẩu')}
             </Button>
           </form>
         )}
 
         <div className="text-center mt-6 animate-in fade-in duration-500 fill-mode-both delay-300">
           <a href="#login" className="text-[14px] font-semibold text-text-primary underline hover:text-primary transition-colors duration-200">
-            {t('back_to_login')}
+            {t('back_to_login', 'Quay lại đăng nhập')}
           </a>
         </div>
       </AuthCard>

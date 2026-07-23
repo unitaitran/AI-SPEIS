@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using ai_speis_be.Helpers;
 
 namespace ai_speis_be.Services.BackgroundWorker
 {
@@ -140,6 +141,18 @@ namespace ai_speis_be.Services.BackgroundWorker
                     await dbContext.SaveChangesAsync(stoppingToken);
                     _logger.LogWarning("CVFileId {CVFileId} rejected: confidence={Score}, reason={Reason}",
                         request.CVFileId, parsedData.CvConfidenceScore, extractedProfile.ErrorMessage);
+                    return;
+                }
+
+                // 6.5. Role Validation: Reject CVs with unsupported roles
+                if (!RoleValidationHelper.IsSupportedRole(parsedData.RoleTarget))
+                {
+                    extractedProfile.ErrorMessage = RoleValidationHelper.UnsupportedRoleErrorMessage;
+                    cvFile.Status = CVFileStatus.AnalysisFailed;
+                    dbContext.CVExtractedProfiles.Add(extractedProfile);
+                    await dbContext.SaveChangesAsync(stoppingToken);
+                    _logger.LogWarning("CVFileId {CVFileId} rejected: Role '{RoleTarget}' is not supported.",
+                        request.CVFileId, parsedData.RoleTarget);
                     return;
                 }
 

@@ -16,7 +16,8 @@ import {
   Star,
   CheckSquare,
   Building,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { useTranslation } from 'react-i18next';
@@ -81,7 +82,7 @@ function CVJDManagementPage() {
         } else if (statusStr === 'AnalysisFailed' || statusStr === 'Failed') {
           stopJdPolling();
           fetchJDHistory();
-          const errorMsg = "Đây không phải là JD/CV hoặc bạn đang upload chưa phải thông tin JD hoàn thiện. Hãy thử lại.";
+          const errorMsg = statusResp?.errorMessage || statusResp?.ErrorMessage || statusResp?.data?.errorMessage || "Đây không phải là JD hợp lệ hoặc vị trí tuyển dụng chưa được hỗ trợ. Hãy thử lại.";
           notify.error(errorMsg, { title: 'Phân tích JD thất bại' });
         }
       } catch (err) {
@@ -442,6 +443,14 @@ function CVJDManagementPage() {
             </div>
             
             <div className="p-4">
+              {/* Notice for supported roles */}
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-xs text-primary mb-4 flex items-start gap-2">
+                <Info size={18} className="shrink-0 mt-0.5" />
+                <div>
+                  <strong>Lưu ý về vị trí hỗ trợ:</strong> Hệ thống hiện chỉ hỗ trợ phân tích JD cho các vị trí: <strong>Backend Developer, Frontend Developer, Fullstack Developer, Mobile Developer, Business Analyst (BA), QA/Tester, DevOps Engineer, và Data Analyst</strong>.
+                </div>
+              </div>
+
               {/* Type selector */}
               <div className="flex bg-surface-2 p-1 rounded-lg mb-6">
                 <button 
