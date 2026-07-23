@@ -1696,16 +1696,12 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
 
         private async Task<string?> EnsureLifecycleCompletionAsync(int userId, InterviewSession session)
         {
-            if (session.Status == InterviewSessionStatus.Completed
-                && session.InterviewCampaign.Status is InterviewCampaignStatus.Completed
-                    or InterviewCampaignStatus.Cancelled
-                    or InterviewCampaignStatus.Expired)
+            if (session.Status == InterviewSessionStatus.Completed)
             {
                 return null;
             }
 
-            if (session.Status != InterviewSessionStatus.Active
-                && session.Status != InterviewSessionStatus.Completed)
+            if (session.Status != InterviewSessionStatus.Active)
             {
                 return $"Interview session is in '{session.Status}' state and cannot transition to the next round.";
             }

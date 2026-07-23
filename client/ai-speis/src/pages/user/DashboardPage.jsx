@@ -8,11 +8,17 @@ import interviewSessionService from '../../services/InterviewSessionService';
 import { beginNewInterviewCampaign } from '../../utils/interviewContext';
 
 function DashboardPage() {
-  const { t } = useTranslation('dashboard');
+  const { t, i18n } = useTranslation('dashboard');
   const [user, setUser] = useState(null);
   const [remainingInterviewQuota, setRemainingInterviewQuota] = useState(null);
   const [maxInterviewQuota, setMaxInterviewQuota] = useState(null);
   const [planName, setPlanName] = useState('Basic');
+  const [capabilities, setCapabilities] = useState([
+    { code: 'PROFESSIONAL_KNOWLEDGE', label: 'Kiến thức chuyên môn', labelEn: 'Professional Knowledge', score: 0 },
+    { code: 'COMMUNICATION_SKILLS', label: 'Kỹ năng giao tiếp', labelEn: 'Communication Skills', score: 0 },
+    { code: 'CV_UNDERSTANDING', label: 'Hiểu biết về CV', labelEn: 'CV Understanding', score: 0 },
+    { code: 'PROBLEM_SOLVING', label: 'Giải quyết vấn đề', labelEn: 'Problem Solving', score: 0 },
+  ]);
 
   useEffect(() => {
     // Try to load user from localStorage
@@ -22,6 +28,31 @@ function DashboardPage() {
         setUser(JSON.parse(userStr));
       } catch (e) { }
     }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadCapabilities = async () => {
+      try {
+        const data = await interviewSessionService.getUserCapabilities();
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const map = {};
+          data.forEach((item) => {
+            if (item.code && item.score != null) map[item.code] = Number(item.score);
+          });
+          setCapabilities([
+            { code: 'PROFESSIONAL_KNOWLEDGE', label: 'Kiến thức chuyên môn', labelEn: 'Professional Knowledge', score: map.PROFESSIONAL_KNOWLEDGE ?? 0 },
+            { code: 'COMMUNICATION_SKILLS', label: 'Kỹ năng giao tiếp', labelEn: 'Communication Skills', score: map.COMMUNICATION_SKILLS ?? 0 },
+            { code: 'CV_UNDERSTANDING', label: 'Hiểu biết về CV', labelEn: 'CV Understanding', score: map.CV_UNDERSTANDING ?? 0 },
+            { code: 'PROBLEM_SOLVING', label: 'Giải quyết vấn đề', labelEn: 'Problem Solving', score: map.PROBLEM_SOLVING ?? 0 },
+          ]);
+        }
+      } catch (err) {
+        console.log('Capabilities load info:', err?.message || err);
+      }
+    };
+    loadCapabilities();
+    return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
@@ -55,9 +86,14 @@ function DashboardPage() {
     };
   }, []);
 
+  const validScores = capabilities.filter((c) => c.score > 0);
+  const avgScore = validScores.length > 0
+    ? (validScores.reduce((sum, c) => sum + c.score, 0) / validScores.length).toFixed(1)
+    : '0.0';
+
   const stats = [
     { label: t('stats.interviews', 'BUỔI PHỎNG VẤN ĐÃ LUYỆN'), value: '12', unit: t('stats.unit_session', 'buổi'), icon: CalendarDays, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { label: t('stats.avg_score', 'ĐIỂM TRUNG BÌNH'), value: '4.5', unit: '/ 5', icon: Target, color: 'text-primary-dark', bg: 'bg-primary-xlight' },
+    { label: t('stats.avg_score', 'ĐIỂM TRUNG BÌNH'), value: avgScore, unit: '/ 10', icon: Target, color: 'text-primary-dark', bg: 'bg-primary-xlight' },
     { label: t('stats.streak', 'STREAK LUYỆN TẬP'), value: '4', unit: t('stats.unit_day', 'ngày'), icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-50' },
     { label: t('stats.quota', 'QUOTA CÒN LẠI'), value: remainingInterviewQuota ?? '—', unit: `/ ${maxInterviewQuota ?? '—'} ${t('stats.unit_times', 'lượt')}`, icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-50' },
   ];
@@ -80,14 +116,7 @@ function DashboardPage() {
     }
   ];
 
-  // Mock data for the chart (0-10 scale)
-  const skills = [
-    { label: t('chart.skill_confidence', 'Tự tin'), score: 4.2 },
-    { label: t('chart.skill_expertise', 'Chuyên môn'), score: 6.8 },
-    { label: t('chart.skill_communication', 'Giao tiếp'), score: 5.3 },
-    { label: t('chart.skill_critical', 'Phản biện'), score: 9.1 },
-    { label: t('chart.skill_language', 'Ngoại ngữ'), score: 7.5 }
-  ];
+  const isEnglish = (i18n?.language || '').toLowerCase().startsWith('en');
 
   return (
     <UserLayout>
@@ -176,7 +205,7 @@ function DashboardPage() {
           {/* Skill Progress Chart */}
           <div className="lg:col-span-8 bg-surface-2 p-6 rounded-2xl border border-border shadow-sm flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-text-primary">{t('chart.title', 'Tiến độ kỹ năng')}</h3>
+              <h3 className="text-xl font-bold text-text-primary">{t('chart.title', 'Năng lực tổng hợp')}</h3>
               <button className="text-xs font-semibold tracking-wider text-text-secondary hover:text-primary transition-colors border-b border-transparent hover:border-primary uppercase cursor-pointer">
                 {t('chart.view_details', 'XEM CHI TIẾT')}
               </button>
@@ -199,15 +228,15 @@ function DashboardPage() {
 
               {/* Bars */}
               <div className="w-full h-full flex justify-around items-end z-10 pb-8 pl-4">
-                {skills.map((skill, idx) => (
-                  <div key={idx} className="flex flex-col items-center w-1/6 relative group">
+                {capabilities.map((item, idx) => (
+                  <div key={idx} className="flex flex-col items-center w-1/4 relative group px-2">
                     {/* Tooltip */}
-                    <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-text-primary text-white text-[10px] py-1 px-2 rounded pointer-events-none">
-                      {skill.score}
+                    <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-text-primary text-white text-[11px] font-bold py-1 px-2.5 rounded shadow pointer-events-none whitespace-nowrap z-20">
+                      {item.score > 0 ? Number(item.score).toFixed(2) : '0.00'} / 10
                     </div>
                     <div
-                      className="w-full bg-gradient-to-t from-primary-light to-primary hover:from-primary hover:to-primary-dark transition-all rounded-t-md shadow-sm"
-                      style={{ height: `${(skill.score / 10) * 100}%` }}
+                      className="w-full max-w-[60px] bg-gradient-to-t from-primary-light to-primary hover:from-primary hover:to-primary-dark transition-all rounded-t-md shadow-sm"
+                      style={{ height: `${Math.max(4, (item.score / 10) * 100)}%` }}
                     ></div>
                   </div>
                 ))}
@@ -215,9 +244,9 @@ function DashboardPage() {
 
               {/* X-axis labels */}
               <div className="absolute bottom-0 left-4 right-0 flex justify-around">
-                {skills.map((skill, idx) => (
-                  <span key={idx} className="text-[11px] text-text-secondary w-1/6 text-center">
-                    {skill.label}
+                {capabilities.map((item, idx) => (
+                  <span key={idx} className="text-[11px] font-medium text-text-secondary w-1/4 text-center truncate px-1" title={isEnglish ? item.labelEn : item.label}>
+                    {isEnglish ? item.labelEn : item.label}
                   </span>
                 ))}
               </div>

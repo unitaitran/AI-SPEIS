@@ -7,6 +7,8 @@ import { getCampaignResultPath, getInterviewRoomPath } from '../../../routes/rou
 import { getActiveInterviewContext, getNextOpenSession, saveActiveInterviewContext } from '../../../utils/interviewContext';
 import notify from '../../../utils/notification';
 import UserLayout from '../../../layouts/user/UserLayout';
+import EndSessionConfirmDialog from '../../../components/technicalInterview/EndSessionConfirmDialog';
+import EvaluatingAnalysisModal from '../../../components/interviewRoom/EvaluatingAnalysisModal';
 import '../../../styles/user/CodingInterviewPage.css';
 
 // Mainstream interview languages category helper
@@ -38,6 +40,7 @@ const CodingInterviewPage = ({ sessionId }) => {
 
   const [submittedQuestionIds, setSubmittedQuestionIds] = useState(() => new Set());
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState('console'); // 'console' | 'samples'
 
   // Resizable Panes State & Refs
@@ -368,7 +371,7 @@ const CodingInterviewPage = ({ sessionId }) => {
   const isSubmission = !!submissionResult;
 
   return (
-    <UserLayout compactSidebar immersive>
+    <UserLayout hideSidebar immersive>
       <div className="coding-interview-container">
         {/* HEADER NAVBAR */}
         <div className="coding-header">
@@ -405,10 +408,10 @@ const CodingInterviewPage = ({ sessionId }) => {
             <button
               className="btn-finish-coding"
               type="button"
-              disabled={!canComplete || isCompleting}
-              onClick={handleCompleteRound}
+              disabled={isCompleting}
+              onClick={() => setIsEndConfirmOpen(true)}
             >
-              {isCompleting ? 'Đang hoàn tất...' : 'Hoàn thành bài test'}
+              {isCompleting ? 'Đang hoàn tất...' : 'Kết thúc phỏng vấn'}
             </button>
           </div>
         </div>
@@ -694,8 +697,29 @@ const CodingInterviewPage = ({ sessionId }) => {
           </div>
         </div>
       </div>
-    </div>
-  </UserLayout>
+      </div>
+      <EndSessionConfirmDialog
+        action={isEndConfirmOpen ? 'session' : null}
+        isSubmitting={isCompleting}
+        onConfirm={() => {
+          setIsEndConfirmOpen(false);
+          handleCompleteRound();
+        }}
+        onCancel={() => setIsEndConfirmOpen(false)}
+        t={(key) => {
+          const map = {
+            'activeSession.endConfirmTitle': 'Kết thúc bài phỏng vấn Coding',
+            'activeSession.endConfirmDescription': 'Bạn có chắc chắn muốn kết thúc bài phỏng vấn Coding ngay bây giờ?',
+            'activeSession.answerWarning': 'Tất cả các bài giải đã nộp sẽ được hệ thống tổng hợp và đánh giá kết quả.',
+            'activeSession.keepSession': 'Tiếp tục phỏng vấn',
+            'activeSession.confirmEnd': 'Kết thúc phỏng vấn',
+            'activeSession.back': 'Hủy',
+          };
+          return map[key] || key;
+        }}
+      />
+      <EvaluatingAnalysisModal isOpen={isCompleting} />
+    </UserLayout>
 
   );
 };

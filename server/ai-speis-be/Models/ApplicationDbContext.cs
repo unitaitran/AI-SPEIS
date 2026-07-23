@@ -179,7 +179,7 @@ namespace ai_speis_be.Models
             modelBuilder.Entity<InterviewCampaign>()
                 .ToTable(table => table.HasCheckConstraint(
                     "CK_InterviewCampaign_DurationMinutes",
-                    "[DurationMinutes] IN (10, 15, 20)"));
+                    "[DurationMinutes] >= 5 AND [DurationMinutes] <= 120"));
 
             modelBuilder.Entity<User>()
                 .ToTable(table => table.HasCheckConstraint(

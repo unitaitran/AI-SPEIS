@@ -144,6 +144,8 @@ namespace ai_speis_be.Models.DTOs
         public string? stdin { get; set; }
         public double? cpu_time_limit { get; set; }
         public int? memory_limit { get; set; }
+        public string? command_line_arguments { get; set; }
+        public string? compiler_options { get; set; }
     }
 
     /// <summary>

@@ -8,6 +8,7 @@ function UserLayout({
   children,
   compactSidebar = false,
   collapseSidebar = false,
+  hideSidebar = false,
   immersive = false,
   onBeforeNavigate,
 }) {
@@ -36,7 +37,7 @@ function UserLayout({
   return (
     <div className="flex h-screen bg-surface-1 font-sans text-text-primary overflow-hidden">
       {/* Sidebar Overlay for Mobile */}
-      {isSidebarOpen && (
+      {!hideSidebar && isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/20 z-10 lg:hidden transition-opacity"
           onClick={closeSidebar}
@@ -45,16 +46,18 @@ function UserLayout({
       )}
 
       {/* Sidebar */}
-      <UserSidebar
-        isOpen={isSidebarOpen}
-        compact={sidebarIsCompact}
-        collapsed={sidebarIsCompact}
-        onNavigate={closeSidebar}
-        onBeforeNavigate={onBeforeNavigate}
-      />
+      {!hideSidebar && (
+        <UserSidebar
+          isOpen={isSidebarOpen}
+          compact={sidebarIsCompact}
+          collapsed={sidebarIsCompact}
+          onNavigate={closeSidebar}
+          onBeforeNavigate={onBeforeNavigate}
+        />
+      )}
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarIsCompact ? 'lg:ml-[72px]' : 'lg:ml-[240px]'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${hideSidebar ? 'lg:ml-0' : sidebarIsCompact ? 'lg:ml-[72px]' : 'lg:ml-[240px]'}`}>
         {immersive ? (
           <button
             type="button"

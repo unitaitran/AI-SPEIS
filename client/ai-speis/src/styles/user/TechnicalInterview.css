@@ -1358,6 +1358,28 @@
   background: var(--primary-xlight);
 }
 
+.behavior-stage__session .technical-transcript-toggle,
+.technical-transcript-toggle--topbar {
+  align-self: flex-start;
+  margin-top: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  gap: 5px;
+  color: var(--primary-dark);
+  background: #ffffff;
+  border: 1px solid rgba(215, 227, 236, 0.9);
+  border-radius: var(--border-radius-pill);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.behavior-stage__session .technical-transcript-toggle:hover,
+.technical-transcript-toggle--topbar:hover {
+  background: var(--primary-xlight);
+  border-color: var(--primary-light);
+}
+
 .technical-transcript-backdrop {
   display: none;
 }

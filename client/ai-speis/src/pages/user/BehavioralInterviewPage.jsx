@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Bot,
+  FileText,
   Loader2,
   Pause,
   Play,
@@ -15,6 +16,7 @@ import BehavioralCompletion from '../../components/behavioralInterview/Behaviora
 import BehavioralRecorderControls from '../../components/behavioralInterview/BehavioralRecorderControls';
 import BehavioralRoomDialog from '../../components/behavioralInterview/BehavioralRoomDialog';
 import InterviewRoomShell from '../../components/interviewRoom/InterviewRoomShell';
+import EvaluatingAnalysisModal from '../../components/interviewRoom/EvaluatingAnalysisModal';
 import InterviewRoomState from '../../components/interviewRoom/InterviewRoomState';
 import InterviewRoomTranscriptPanel from '../../components/interviewRoom/InterviewRoomTranscriptPanel';
 import {
@@ -377,7 +379,6 @@ function BehavioralInterviewPage({ sessionId }) {
       onBeforeNavigate={requestNavigation}
       isTranscriptOpen={transcriptOpen}
       onCloseTranscript={() => setTranscriptOpen(false)}
-      onToggleTranscript={() => setTranscriptOpen((open) => !open)}
       transcriptCloseLabel={t('closeTranscript')}
       transcriptLabel={t('transcript')}
       transcript={(
@@ -397,13 +398,16 @@ function BehavioralInterviewPage({ sessionId }) {
         />
       )}
       dialog={(
-        <BehavioralRoomDialog
-          dialog={dialog}
-          busy={room.phase === BehavioralFlowPhase.COMPLETING}
-          onCancel={() => { setDialog(null); setPendingNavigation(null); }}
-          onConfirm={handleDialogConfirm}
-          t={t}
-        />
+        <>
+          <BehavioralRoomDialog
+            dialog={dialog}
+            busy={room.phase === BehavioralFlowPhase.COMPLETING}
+            onCancel={() => { setDialog(null); setPendingNavigation(null); }}
+            onConfirm={handleDialogConfirm}
+            t={t}
+          />
+          <EvaluatingAnalysisModal isOpen={room.phase === BehavioralFlowPhase.COMPLETING} />
+        </>
       )}
     >
       <section className="behavior-stage" aria-label={t('behavioralInterview')}>
@@ -442,6 +446,15 @@ function BehavioralInterviewPage({ sessionId }) {
                 <div className="behavior-stage__session">
                   <span>{t('behavioralInterview')}</span>
                   <strong>{room.session?.jobRole || setupDraft?.jobRole || t('interviewSession')}</strong>
+                  <button
+                    type="button"
+                    className="technical-transcript-toggle technical-transcript-toggle--topbar"
+                    onClick={() => setTranscriptOpen((open) => !open)}
+                    aria-expanded={transcriptOpen}
+                  >
+                    <FileText size={15} aria-hidden="true" />
+                    {t('transcript')}
+                  </button>
                 </div>
                 <div className="behavior-stage__top-actions">
                   <button type="button" className="behavior-stage__end" onClick={() => setDialog({ type: 'end' })}>

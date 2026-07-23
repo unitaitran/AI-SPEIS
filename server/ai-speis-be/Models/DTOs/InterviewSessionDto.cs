@@ -135,7 +135,7 @@ namespace ai_speis_be.Models.DTOs
         [Required]
         public string Mode { get; set; } = "Practice";
 
-        public int DurationMinutes { get; set; } = 10;
+        public int DurationMinutes { get; set; } = 60;
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
@@ -161,10 +161,10 @@ namespace ai_speis_be.Models.DTOs
                     new[] { nameof(Mode) });
             }
 
-            if (DurationMinutes != 10 && DurationMinutes != 15 && DurationMinutes != 20)
+            if (DurationMinutes < 5 || DurationMinutes > 120)
             {
                 yield return new ValidationResult(
-                    "DurationMinutes chỉ chấp nhận 10, 15 hoặc 20 phút.",
+                    "DurationMinutes phải từ 5 đến 120 phút (mặc định 60 phút).",
                     new[] { nameof(DurationMinutes) });
             }
 

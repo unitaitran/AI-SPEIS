@@ -33,7 +33,7 @@ namespace ai_speis_be.Models
         public InterviewMode Mode { get; set; } = InterviewMode.Practice;
 
         [Required]
-        public int DurationMinutes { get; set; } = 10;
+        public int DurationMinutes { get; set; } = 60;
 
         [Required]
         public InterviewCampaignStatus Status { get; set; } = InterviewCampaignStatus.Pending;
@@ -56,6 +56,10 @@ namespace ai_speis_be.Models
         /// </summary>
         [Range(0, 100)]
         public int? CvJdMatchScore { get; set; }
+
+        public string? DashboardMetricsJson { get; set; }
+
+        public decimal? OverallScore { get; set; }
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

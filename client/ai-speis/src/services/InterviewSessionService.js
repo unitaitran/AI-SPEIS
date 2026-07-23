@@ -102,9 +102,18 @@ const interviewSessionService = {
   }),
 
   /** GET /api/InterviewSession/active */
-  getActiveCampaign: () => request(ENDPOINTS.INTERVIEW_ACTIVE_CAMPAIGN, {
-    headers: { ...getAuthHeaders(), Accept: 'application/json' },
-  }),
+  getActiveCampaign: async () => {
+    try {
+      return await request(ENDPOINTS.INTERVIEW_ACTIVE_CAMPAIGN, {
+        headers: { ...getAuthHeaders(), Accept: 'application/json' },
+      });
+    } catch (error) {
+      if (error?.status === 404 || error?.status === 204) {
+        return null;
+      }
+      throw error;
+    }
+  },
 
   /** GET /api/InterviewSession/{id} */
   getSession: (sessionId) => request(ENDPOINTS.INTERVIEW_SESSION(sessionId), {
@@ -137,6 +146,11 @@ const interviewSessionService = {
 
   /** GET /api/InterviewSession/quota */
   getQuota: () => request(ENDPOINTS.INTERVIEW_QUOTA, {
+    headers: { ...getAuthHeaders(), Accept: 'application/json' },
+  }),
+
+  /** GET /api/InterviewSession/capabilities */
+  getUserCapabilities: () => request(ENDPOINTS.INTERVIEW_CAPABILITIES, {
     headers: { ...getAuthHeaders(), Accept: 'application/json' },
   }),
 };

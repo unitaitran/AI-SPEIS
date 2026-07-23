@@ -193,6 +193,22 @@ namespace ai_speis_be.Controllers
             return campaign == null ? NoContent() : Ok(campaign);
         }
 
+        [HttpGet("capabilities")]
+        public async Task<IActionResult> GetUserCapabilities()
+        {
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new
+                {
+                    Code = "INVALID_USER_IDENTITY",
+                    Message = "The authenticated token does not contain a valid UserId."
+                });
+            }
+
+            var capabilities = await _service.GetUserCapabilitiesAsync(userId);
+            return Ok(capabilities);
+        }
+
         [HttpPost("campaign/{campaignId:int}/cancel")]
         public async Task<IActionResult> CancelCampaign(int campaignId)
         {

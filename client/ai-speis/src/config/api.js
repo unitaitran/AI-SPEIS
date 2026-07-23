@@ -41,6 +41,7 @@ export const ENDPOINTS = {
   INTERVIEW_CAMPAIGN_CANCEL: (campaignId) => `${API_BASE_URL}/api/InterviewSession/campaign/${campaignId}/cancel`,
   INTERVIEW_CAMPAIGN_EXPIRE: (campaignId) => `${API_BASE_URL}/api/InterviewSession/campaign/${campaignId}/expire`,
   INTERVIEW_QUOTA: `${API_BASE_URL}/api/InterviewSession/quota`,
+  INTERVIEW_CAPABILITIES: `${API_BASE_URL}/api/InterviewSession/capabilities`,
   INTERVIEW_AVAILABLE_TYPES: (jdId) => `${API_BASE_URL}/api/InterviewSession/jd/${jdId}/available-types`,
   TECHNICAL_INTERVIEW_SESSIONS: `${API_BASE_URL}/api/technical-interviews/sessions`,
   TECHNICAL_INTERVIEW_SESSION: (sessionId) => `${API_BASE_URL}/api/technical-interviews/${sessionId}`,

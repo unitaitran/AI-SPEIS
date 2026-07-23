@@ -73,8 +73,6 @@ namespace ai_speis_be.Services.BackgroundWorker
             // Find premium users whose LastQuotaResetAt is over 30 days ago
             var usersToReset = await context.Users
                 .Where(u => u.IsPremium
-                            && u.PremiumExpireAt != null 
-                            && u.PremiumExpireAt > now
                             && u.LastQuotaResetAt != null 
                             && u.LastQuotaResetAt <= oneMonthAgo)
                 .ToListAsync(stoppingToken);

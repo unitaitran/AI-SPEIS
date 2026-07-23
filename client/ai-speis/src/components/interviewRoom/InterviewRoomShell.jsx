@@ -17,7 +17,7 @@ function InterviewRoomShell({
   transcriptLabel,
 }) {
   return (
-    <UserLayout compactSidebar immersive onBeforeNavigate={onBeforeNavigate}>
+    <UserLayout hideSidebar immersive onBeforeNavigate={onBeforeNavigate}>
       <div className="technical-page technical-page--room animate-pageEntrance" lang={language}>
         <div className={`technical-interview-workspace${isTranscriptOpen ? ' technical-interview-workspace--transcript-open' : ''}`}>
           {isTranscriptOpen ? (
@@ -36,17 +36,19 @@ function InterviewRoomShell({
             <div className={`technical-main-stage__body${mainFlush ? ' technical-main-stage__body--flush' : ''}`}>
               {children}
             </div>
-            <div className="technical-main-stage__actions">
-              <button
-                type="button"
-                className="technical-transcript-toggle"
-                onClick={onToggleTranscript}
-                aria-expanded={isTranscriptOpen}
-              >
-                <FileText size={18} aria-hidden="true" />
-                {transcriptLabel}
-              </button>
-            </div>
+            {onToggleTranscript ? (
+              <div className="technical-main-stage__actions">
+                <button
+                  type="button"
+                  className="technical-transcript-toggle"
+                  onClick={onToggleTranscript}
+                  aria-expanded={isTranscriptOpen}
+                >
+                  <FileText size={18} aria-hidden="true" />
+                  {transcriptLabel}
+                </button>
+              </div>
+            ) : null}
           </section>
         </div>
         {dialog}
