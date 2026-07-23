@@ -56,17 +56,10 @@ function TechnicalResultSummary({ result, t, language = 'vi' }) {
               {result.passed ? t('result.passed') : t('result.failed')}
             </span>
           )}
-          {result?.rubricVersion && (
-            <span className="technical-result-badge">
-              {t('result.rubricVersion', { version: result.rubricVersion })}
-            </span>
-          )}
         </div>
         {result?.summaryFeedback ? (
           <p className="technical-summary-feedback">{result.summaryFeedback}</p>
-        ) : (
-          <p className="technical-empty-copy">{t('result.noSummary')}</p>
-        )}
+        ) : null}
         <div className="technical-feedback-columns">
           <TechnicalResultFeedbackList title={t('result.strengths')} items={result.summaryStrengths || result.strengths} />
           <TechnicalResultFeedbackList title={t('result.areasForImprovement')} items={result.areasForImprovement} />

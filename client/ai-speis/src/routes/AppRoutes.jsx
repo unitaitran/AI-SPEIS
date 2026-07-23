@@ -39,6 +39,8 @@ function AppRoutes() {
       const email = urlParams.get('email');
       const role = urlParams.get('role');
       const imageUrl = urlParams.get('imageUrl');
+      const isPremiumParam = urlParams.get('isPremium');
+      const remainingInterviewQuotaParam = urlParams.get('remainingInterviewQuota');
 
       if (token) {
         localStorage.setItem('token', token);
@@ -47,7 +49,9 @@ function AppRoutes() {
           fullName: fullName,
           email: email,
           role: role,
-          avatar: imageUrl
+          avatar: imageUrl,
+          isPremium: isPremiumParam === 'true' || isPremiumParam === 'True',
+          remainingInterviewQuota: remainingInterviewQuotaParam ? parseInt(remainingInterviewQuotaParam, 10) : undefined
         }));
         
         const dashboardPath = getDefaultRouteForRole(role);

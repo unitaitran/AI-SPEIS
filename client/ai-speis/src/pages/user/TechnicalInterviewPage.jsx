@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
@@ -129,7 +129,6 @@ function TechnicalInterviewPage({ sessionId }) {
   const [localError, setLocalError] = useState(null);
   const [activeDraftAttempt, setActiveDraftAttempt] = useState(null);
   const [isCompleting, setIsCompleting] = useState(false);
-  const [isFinalRoundProcessing, setIsFinalRoundProcessing] = useState(false);
   const [isEndConfirmOpen, setIsEndConfirmOpen] = useState(false);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(getDefaultTranscriptVisibility);
 
@@ -252,18 +251,6 @@ function TechnicalInterviewPage({ sessionId }) {
     }
 
     setLocalError(null);
-    const currentMainIndex = Number(room.currentQuestion?.mainQuestionIndex);
-    const totalMainQuestions = Number(
-      room.currentQuestion?.totalMainQuestions
-      || room.session?.lockedMainQuestions?.length
-      || room.session?.targetMainQuestionCount,
-    );
-    setIsFinalRoundProcessing(
-      Number.isFinite(currentMainIndex)
-      && Number.isFinite(totalMainQuestions)
-      && totalMainQuestions > 0
-      && currentMainIndex >= totalMainQuestions,
-    );
     recorder.stopForSubmission();
     markCandidateProcessing(attemptId, transcript);
     room.markProcessing(attemptId);
@@ -273,11 +260,7 @@ function TechnicalInterviewPage({ sessionId }) {
         transcript,
         audioId: recorder.audioId || undefined,
       });
-      if (!response) {
-        setIsFinalRoundProcessing(false);
-        return;
-      }
-      setIsFinalRoundProcessing(false);
+      if (!response) return;
 
       markCandidateFinal(attemptId, transcript);
       clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
@@ -285,7 +268,10 @@ function TechnicalInterviewPage({ sessionId }) {
       room.applyAnswerResponse(response);
       const nextStatus = getTechnicalSessionStatus(response?.session) || response?.sessionStatus;
       if (nextStatus === TechnicalSessionStatus.COMPLETED) {
-        navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+        setIsCompleting(true);
+        setTimeout(() => {
+          navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+        }, 1200);
         return;
       }
       if (!response.nextQuestion && !response.currentQuestion && !response.question) await room.reload();
@@ -295,11 +281,13 @@ function TechnicalInterviewPage({ sessionId }) {
         markCandidateFinal(attemptId, transcript);
         clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
         recorder.reset();
-        navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+        setIsCompleting(true);
+        setTimeout(() => {
+          navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+        }, 1200);
         return;
       }
       if (recovery.state === 'ACCEPTED_NEXT_QUESTION') {
-        setIsFinalRoundProcessing(false);
         markCandidateFinal(attemptId, transcript);
         clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
         recorder.reset();
@@ -311,10 +299,26 @@ function TechnicalInterviewPage({ sessionId }) {
         return;
       }
       markCandidateError(attemptId, transcript);
-      setIsFinalRoundProcessing(false);
       setLocalError(error);
     }
   };
+
+  const autoSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      recorder.recordingStatus === RecordingStatus.READY
+      && recorder.transcript.trim()
+      && !submitMutation.isSubmitting
+      && !autoSubmittingRef.current
+    ) {
+      autoSubmittingRef.current = true;
+      handleSubmit().finally(() => {
+        autoSubmittingRef.current = false;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recorder.recordingStatus, recorder.transcript, submitMutation.isSubmitting]);
 
   const handleCompleteEarly = async () => {
     if (!resolvedSessionId || isCompleting) return;
@@ -406,7 +410,7 @@ function TechnicalInterviewPage({ sessionId }) {
     && !room.currentQuestion) {
     content = (
       <TechnicalEvaluationState
-        finalizing={isFinalRoundProcessing}
+        finalizing={false}
         t={t}
       />
     );

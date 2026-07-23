@@ -6,6 +6,7 @@ import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
 import { beginNewInterviewCampaign } from '../../utils/interviewContext';
+import SkillHistoryModal from '../../components/dashboard/SkillHistoryModal';
 
 function DashboardPage() {
   const { t, i18n } = useTranslation('dashboard');
@@ -13,6 +14,7 @@ function DashboardPage() {
   const [remainingInterviewQuota, setRemainingInterviewQuota] = useState(null);
   const [maxInterviewQuota, setMaxInterviewQuota] = useState(null);
   const [planName, setPlanName] = useState('Basic');
+  const [selectedSkillForModal, setSelectedSkillForModal] = useState(null);
   const [capabilities, setCapabilities] = useState([
     { code: 'PROFESSIONAL_KNOWLEDGE', label: 'Kiến thức chuyên môn', labelEn: 'Professional Knowledge', score: 0 },
     { code: 'COMMUNICATION_SKILLS', label: 'Kỹ năng giao tiếp', labelEn: 'Communication Skills', score: 0 },
@@ -37,14 +39,21 @@ function DashboardPage() {
         const data = await interviewSessionService.getUserCapabilities();
         if (isMounted && Array.isArray(data) && data.length > 0) {
           const map = {};
+          const historyMap = {};
           data.forEach((item) => {
-            if (item.code && item.score != null) map[item.code] = Number(item.score);
+            const itemCode = item.code || item.Code;
+            const itemScore = item.score ?? item.Score;
+            const itemHistory = item.history || item.History || [];
+            if (itemCode && itemScore != null) {
+              map[itemCode] = Number(itemScore);
+              historyMap[itemCode] = itemHistory;
+            }
           });
           setCapabilities([
-            { code: 'PROFESSIONAL_KNOWLEDGE', label: 'Kiến thức chuyên môn', labelEn: 'Professional Knowledge', score: map.PROFESSIONAL_KNOWLEDGE ?? 0 },
-            { code: 'COMMUNICATION_SKILLS', label: 'Kỹ năng giao tiếp', labelEn: 'Communication Skills', score: map.COMMUNICATION_SKILLS ?? 0 },
-            { code: 'CV_UNDERSTANDING', label: 'Hiểu biết về CV', labelEn: 'CV Understanding', score: map.CV_UNDERSTANDING ?? 0 },
-            { code: 'PROBLEM_SOLVING', label: 'Giải quyết vấn đề', labelEn: 'Problem Solving', score: map.PROBLEM_SOLVING ?? 0 },
+            { code: 'PROFESSIONAL_KNOWLEDGE', label: 'Kiến thức chuyên môn', labelEn: 'Professional Knowledge', score: map.PROFESSIONAL_KNOWLEDGE ?? 0, history: historyMap.PROFESSIONAL_KNOWLEDGE || [] },
+            { code: 'COMMUNICATION_SKILLS', label: 'Kỹ năng giao tiếp', labelEn: 'Communication Skills', score: map.COMMUNICATION_SKILLS ?? 0, history: historyMap.COMMUNICATION_SKILLS || [] },
+            { code: 'CV_UNDERSTANDING', label: 'Hiểu biết về CV', labelEn: 'CV Understanding', score: map.CV_UNDERSTANDING ?? 0, history: historyMap.CV_UNDERSTANDING || [] },
+            { code: 'PROBLEM_SOLVING', label: 'Giải quyết vấn đề', labelEn: 'Problem Solving', score: map.PROBLEM_SOLVING ?? 0, history: historyMap.PROBLEM_SOLVING || [] },
           ]);
         }
       } catch (err) {
@@ -66,7 +75,19 @@ function DashboardPage() {
           setPlanName(quota.planName || 'Basic');
         }
       } catch {
-        // The topbar and create-campaign API remain the authoritative fallback.
+        if (isMounted) {
+          try {
+            const userStr = localStorage.getItem('user');
+            const user = userStr ? JSON.parse(userStr) : null;
+            if (user?.isPremium) {
+              setPlanName('Premium');
+              setRemainingInterviewQuota((prev) => prev ?? user.remainingInterviewQuota ?? 15);
+              setMaxInterviewQuota(15);
+            }
+          } catch {
+            // Best effort fallback
+          }
+        }
       }
     };
     const handleQuotaChanged = (event) => {
@@ -206,7 +227,10 @@ function DashboardPage() {
           <div className="lg:col-span-8 bg-surface-2 p-6 rounded-2xl border border-border shadow-sm flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-text-primary">{t('chart.title', 'Năng lực tổng hợp')}</h3>
-              <button className="text-xs font-semibold tracking-wider text-text-secondary hover:text-primary transition-colors border-b border-transparent hover:border-primary uppercase cursor-pointer">
+              <button
+                className="text-xs font-semibold tracking-wider text-text-secondary hover:text-primary transition-colors border-b border-transparent hover:border-primary uppercase cursor-pointer"
+                onClick={() => setSelectedSkillForModal(capabilities[0])}
+              >
                 {t('chart.view_details', 'XEM CHI TIẾT')}
               </button>
             </div>
@@ -228,27 +252,56 @@ function DashboardPage() {
 
               {/* Bars */}
               <div className="w-full h-full flex justify-around items-end z-10 pb-8 pl-4">
-                {capabilities.map((item, idx) => (
-                  <div key={idx} className="flex flex-col items-center w-1/4 relative group px-2">
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-text-primary text-white text-[11px] font-bold py-1 px-2.5 rounded shadow pointer-events-none whitespace-nowrap z-20">
-                      {item.score > 0 ? Number(item.score).toFixed(2) : '0.00'} / 10
-                    </div>
+                {capabilities.map((item, idx) => {
+                  const numScore = Number(item.score) || 0;
+                  const fallbackAvg = Number(avgScore) || 0;
+                  const displayScore = numScore > 0 ? numScore : fallbackAvg;
+                  const barHeightPercent = Math.min(100, Math.max(6, (displayScore / 10) * 100));
+                  return (
                     <div
-                      className="w-full max-w-[60px] bg-gradient-to-t from-primary-light to-primary hover:from-primary hover:to-primary-dark transition-all rounded-t-md shadow-sm"
-                      style={{ height: `${Math.max(4, (item.score / 10) * 100)}%` }}
-                    ></div>
-                  </div>
-                ))}
+                      key={idx}
+                      className="h-full flex flex-col justify-end items-center w-1/4 relative group px-2 cursor-pointer"
+                      onClick={() => setSelectedSkillForModal({ ...item, score: displayScore })}
+                      title={isEnglish ? 'Click to view skill fluctuation line chart' : 'Bấm để xem biểu đồ đường diễn biến độ lên xuống'}
+                    >
+                      {/* Score Label above bar */}
+                      <span className="mb-1 text-[12px] font-extrabold text-[#0284c7] group-hover:scale-110 transition-transform">
+                        {displayScore > 0 ? displayScore.toFixed(1) : '0.0'}
+                      </span>
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#0f172a] text-white text-[11px] font-bold py-1 px-2.5 rounded shadow pointer-events-none whitespace-nowrap z-20">
+                        {isEnglish ? 'Click to view trend' : 'Bấm để xem chi tiết độ lên xuống'}
+                      </div>
+                      <div
+                        className="w-full max-w-[48px] rounded-t-lg transition-all duration-300 shadow-sm group-hover:brightness-110 group-hover:shadow-lg group-hover:-translate-y-1"
+                        style={{
+                          height: `${barHeightPercent}%`,
+                          background: 'linear-gradient(180deg, #38bdf8 0%, #0284c7 100%)',
+                          minHeight: '8px',
+                        }}
+                      />
+                    </div>
+                  );
+                })}
               </div>
 
               {/* X-axis labels */}
               <div className="absolute bottom-0 left-4 right-0 flex justify-around">
-                {capabilities.map((item, idx) => (
-                  <span key={idx} className="text-[11px] font-medium text-text-secondary w-1/4 text-center truncate px-1" title={isEnglish ? item.labelEn : item.label}>
-                    {isEnglish ? item.labelEn : item.label}
-                  </span>
-                ))}
+                {capabilities.map((item, idx) => {
+                  const numScore = Number(item.score) || 0;
+                  const fallbackAvg = Number(avgScore) || 0;
+                  const displayScore = numScore > 0 ? numScore : fallbackAvg;
+                  return (
+                    <span
+                      key={idx}
+                      className="text-[11px] font-medium text-text-secondary hover:text-primary-dark w-1/4 text-center truncate px-1 cursor-pointer transition-colors"
+                      title={isEnglish ? item.labelEn : item.label}
+                      onClick={() => setSelectedSkillForModal({ ...item, score: displayScore })}
+                    >
+                      {isEnglish ? item.labelEn : item.label}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -283,6 +336,11 @@ function DashboardPage() {
           </div>
         </section>
 
+        {/* Skill Trend Modal */}
+        <SkillHistoryModal
+          skill={selectedSkillForModal}
+          onClose={() => setSelectedSkillForModal(null)}
+        />
       </div>
     </UserLayout>
   );

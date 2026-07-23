@@ -117,7 +117,12 @@ namespace ai_speis_be.Services.UserService
 
         public async Task<User?> GetUserByEmailAsync(string email)
         {
-            return await _userRepository.GetUserByEmailAsync(email);
+            var user = await _userRepository.GetUserByEmailAsync(email);
+            if (user != null && user.SyncPremiumStatus(DateTime.UtcNow))
+            {
+                await _userRepository.UpdateUserAsync(user);
+            }
+            return user;
         }
         public async Task<User> CreateUserAsync(RegisterDto registerDto)
         {
@@ -282,7 +287,12 @@ namespace ai_speis_be.Services.UserService
             CancellationToken cancellationToken = default)
         {
             var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
-            return user is null ? null : MapToUserMeResponseDto(user);
+            if (user is null) return null;
+            if (user.SyncPremiumStatus(DateTime.UtcNow))
+            {
+                await _userRepository.UpdateUserAsync(user, cancellationToken);
+            }
+            return MapToUserMeResponseDto(user);
         }
 
         public async Task<UpdateProfileResult> UpdateMyProfileAsync(

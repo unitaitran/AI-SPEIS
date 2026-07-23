@@ -75,6 +75,15 @@ namespace ai_speis_be.Models.DTOs
         public string Name { get; set; } = string.Empty;
         public decimal? Score { get; set; }
         public List<string> Sources { get; set; } = new();
+        public List<SkillHistoryPointDto> History { get; set; } = new();
+    }
+
+    public sealed class SkillHistoryPointDto
+    {
+        public int SessionId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public decimal Score { get; set; }
+        public DateTime Date { get; set; }
     }
 
     public sealed class CampaignFinalFeedbackDto

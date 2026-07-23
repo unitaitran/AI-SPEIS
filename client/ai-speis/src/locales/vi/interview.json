@@ -203,7 +203,9 @@
     "starting": "Đang bắt đầu",
     "setupModalTitle": "Đang chuẩn bị phòng phỏng vấn",
     "setupModalDescription": "Vui lòng chờ trong giây lát. Hệ thống đang thiết lập môi trường và khởi tạo bộ câu hỏi AI phỏng vấn cho bạn...",
-    "setupModalTip": "Hệ thống đang tổng hợp thông tin từ CV & JD để tạo kịch bản phỏng vấn phù hợp."
+    "setupModalTip": "Hệ thống đang tổng hợp thông tin từ CV & JD để tạo kịch bản phỏng vấn phù hợp.",
+    "evaluatingAnalysisTitle": "Hệ thống đang đánh giá và phân tích",
+    "evaluatingAnalysisDescription": "Vui lòng chờ trong giây lát, hệ thống đang tổng hợp và phân tích kết quả phỏng vấn của bạn..."
   },
   "room": {
     "title": "Phỏng vấn kỹ thuật",

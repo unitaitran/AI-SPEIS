@@ -5,51 +5,94 @@ const firstNonEmptyArray = (...values) => (
   values.find((value) => Array.isArray(value) && value.length > 0) || []
 );
 
-const normalizeDimension = (dimension, maxScore) => ({
-  ...dimension,
-  maxScore: dimension.maxScore ?? maxScore,
-  evidence: dimension.evidence || dimension.strengths || [],
-  missingEvidence: dimension.missingEvidence || [],
-  incorrectClaims: dimension.incorrectClaims || [],
-});
+const scaleValueTo10 = (score, maxScore) => {
+  const numericScore = Number(score);
+  const numericMaxScore = Number(maxScore);
+  if (!Number.isFinite(numericScore)) return null;
+  if (!Number.isFinite(numericMaxScore) || numericMaxScore <= 0) return numericScore;
 
-const normalizeSubQuestion = (question, maxScore) => ({
-  ...question,
-  questionId: question.questionId ?? null,
-  questionType: getQuestionType(question),
-  content: question.content || question.question,
-  maxScore: question.maxScore ?? maxScore,
-});
+  if (numericMaxScore === 10) return Number(numericScore.toFixed(1));
 
-const normalizeMainQuestion = (question, maxScore) => ({
-  ...question,
-  questionType: TechnicalQuestionType.MAIN,
-  content: question.content || question.question,
-  initialMainScore: question.initialMainScore ?? question.score,
-  finalMainScore: question.finalMainScore ?? question.score,
-  rubricBreakdown: (question.rubricBreakdown || question.dimensions || [])
-    .map((dimension) => normalizeDimension(dimension, maxScore)),
-  subQuestionResults: (question.subQuestionResults
-    || question.subQuestions
-    || question.adaptiveHistory
-    || question.attempts
-    || []).map((subQuestion) => normalizeSubQuestion(subQuestion, maxScore)),
-  suggestions: question.suggestions || question.improvementSuggestions || [],
-  maxScore: question.maxScore ?? maxScore,
-});
+  const scaled = (numericScore / numericMaxScore) * 10;
+  return Number(Math.min(10, Math.max(0, scaled)).toFixed(1));
+};
+
+const normalizeDimension = (dimension, parentMaxScore) => {
+  const itemMax = dimension.maxScore ?? parentMaxScore ?? 5;
+  const scaledScore = scaleValueTo10(dimension.score, itemMax);
+  return {
+    ...dimension,
+    score: scaledScore,
+    maxScore: 10,
+    evidence: dimension.evidence || dimension.strengths || [],
+    missingEvidence: dimension.missingEvidence || [],
+    incorrectClaims: dimension.incorrectClaims || [],
+  };
+};
+
+const normalizeSubQuestion = (question, parentMaxScore) => {
+  const itemMax = question.maxScore ?? parentMaxScore ?? 5;
+  const rawScore = question.rawScore ?? question.score;
+  const scaledScore = scaleValueTo10(rawScore, itemMax);
+  return {
+    ...question,
+    questionId: question.questionId ?? null,
+    questionType: getQuestionType(question),
+    content: question.content || question.question,
+    rawScore: scaledScore,
+    score: scaledScore,
+    maxScore: 10,
+  };
+};
+
+const normalizeMainQuestion = (question, parentMaxScore) => {
+  const itemMax = question.maxScore ?? parentMaxScore ?? 5;
+  const initialScore = scaleValueTo10(question.initialMainScore ?? question.score, itemMax);
+  const finalScore = scaleValueTo10(question.finalMainScore ?? question.score, itemMax);
+  return {
+    ...question,
+    questionType: TechnicalQuestionType.MAIN,
+    content: question.content || question.question,
+    initialMainScore: initialScore,
+    finalMainScore: finalScore,
+    score: finalScore,
+    rubricBreakdown: (question.rubricBreakdown || question.dimensions || [])
+      .map((dimension) => normalizeDimension(dimension, itemMax)),
+    subQuestionResults: (question.subQuestionResults
+      || question.subQuestions
+      || question.adaptiveHistory
+      || question.attempts
+      || []).map((subQuestion) => normalizeSubQuestion(subQuestion, itemMax)),
+    suggestions: question.suggestions || question.improvementSuggestions || [],
+    maxScore: 10,
+  };
+};
+
+const normalizeSkill = (skill, parentMaxScore) => {
+  const itemMax = skill.maxScore ?? parentMaxScore ?? 5;
+  const scaledScore = scaleValueTo10(skill.score, itemMax);
+  return {
+    ...skill,
+    score: scaledScore,
+    maxScore: 10,
+  };
+};
 
 export const normalizeTechnicalInterviewResult = (result) => {
   if (!result) return result;
 
   const summary = result.summary || {};
-  const maxScore = result.maxScore ?? 10;
+  const rawMaxScore = result.maxScore ?? 5;
+  const technicalScore = scaleValueTo10(result.technicalScore ?? result.overallScore, rawMaxScore);
   const backendMainQuestions = result.mainQuestionResults?.length
     ? result.mainQuestionResults
     : result.mainQuestions || result.questionResults || [];
+  const rawSkills = firstNonEmptyArray(result.skillResults, result.skillScores);
+
   return {
     ...result,
-    technicalScore: result.technicalScore,
-    maxScore,
+    technicalScore,
+    maxScore: 10,
     summaryFeedback: result.summaryFeedback
       || summary.overallTechnicalAssessment
       || summary.summary
@@ -70,10 +113,10 @@ export const normalizeTechnicalInterviewResult = (result) => {
       summary.recommendationsForImprovement,
       summary.recommendedNextSteps,
     ),
-    skillResults: firstNonEmptyArray(result.skillResults, result.skillScores),
+    skillResults: rawSkills.map((skill) => normalizeSkill(skill, rawMaxScore)),
     dimensionResults: (result.dimensionResults || [])
-      .map((dimension) => normalizeDimension(dimension, maxScore)),
-    questionResults: backendMainQuestions.map((question) => normalizeMainQuestion(question, maxScore)),
+      .map((dimension) => normalizeDimension(dimension, rawMaxScore)),
+    questionResults: backendMainQuestions.map((question) => normalizeMainQuestion(question, rawMaxScore)),
   };
 };
 
