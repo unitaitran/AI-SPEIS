@@ -58,6 +58,57 @@ public sealed class TechnicalLockedQuestionPlanTests
     }
 
     [Fact]
+    public void Randomize_PreservesLockedSetAndReindexesAppearanceOrder()
+    {
+        var plan = CreatePlan(3);
+
+        var randomized = new TechnicalQuestionOrderRandomizer().Randomize(
+            plan,
+            Array.Empty<IReadOnlyList<int>>());
+
+        Assert.Equal(
+            plan.Slots.Select(slot => slot.SelectedQuestionId).OrderBy(id => id),
+            randomized.Slots.Select(slot => slot.SelectedQuestionId).OrderBy(id => id));
+        Assert.Equal(new[] { 1, 2, 3 }, randomized.Slots.Select(slot => slot.MainQuestionIndex));
+        Assert.Equal(TechnicalQuestionOrderRandomizer.StrategyVersion, randomized.QuestionOrderVersion);
+        Assert.All(randomized.Slots, slot => Assert.True(slot.IsLocked));
+    }
+
+    [Fact]
+    public void Randomize_AvoidsMostRecentOrderForTheSameLockedSet()
+    {
+        var plan = CreatePlan(3);
+        var mostRecent = plan.Slots.Select(slot => slot.SelectedQuestionId!.Value).ToArray();
+
+        var randomized = new TechnicalQuestionOrderRandomizer().Randomize(
+            plan,
+            new IReadOnlyList<int>[] { mostRecent });
+
+        Assert.False(mostRecent.SequenceEqual(
+            randomized.Slots.Select(slot => slot.SelectedQuestionId!.Value)));
+    }
+
+    [Fact]
+    public void Randomize_WhenEveryPermutationWasUsed_StillAvoidsImmediateRepeat()
+    {
+        var plan = CreatePlan(3);
+        IReadOnlyList<IReadOnlyList<int>> history = new IReadOnlyList<int>[]
+        {
+            new[] { 101, 102, 103 },
+            new[] { 101, 103, 102 },
+            new[] { 102, 101, 103 },
+            new[] { 102, 103, 101 },
+            new[] { 103, 101, 102 },
+            new[] { 103, 102, 101 }
+        };
+
+        var randomized = new TechnicalQuestionOrderRandomizer().Randomize(plan, history);
+
+        Assert.False(history[0].SequenceEqual(
+            randomized.Slots.Select(slot => slot.SelectedQuestionId!.Value)));
+    }
+
+    [Fact]
     public void ProviderContract_CannotSelectOrReplaceMainQuestions()
     {
         var methods = typeof(ITechnicalInterviewAIProvider).GetMethods()

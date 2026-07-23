@@ -2,6 +2,8 @@ using System.Text.Json;
 using System.Collections.Immutable;
 using System.Collections.Concurrent;
 using System.Data;
+using System.Security.Cryptography;
+using System.Text;
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
@@ -37,6 +39,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         private readonly ITechnicalAnswerEvaluationProcessor _evaluationProcessor;
         private readonly ITechnicalInterviewDecisionArbiter _decisionArbiter;
         private readonly ITechnicalQuestionPlanBuilder _questionPlanBuilder;
+        private readonly ITechnicalQuestionOrderRandomizer _questionOrderRandomizer;
         private readonly IJDService _jdService;
         private readonly IInterviewSessionService _sessionLifecycleService;
         private readonly TechnicalInterviewOptions _options;
@@ -52,6 +55,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             ITechnicalAnswerEvaluationProcessor evaluationProcessor,
             ITechnicalInterviewDecisionArbiter decisionArbiter,
             ITechnicalQuestionPlanBuilder questionPlanBuilder,
+            ITechnicalQuestionOrderRandomizer questionOrderRandomizer,
             IJDService jdService,
             IInterviewSessionService sessionLifecycleService,
             TechnicalInterviewOptions options,
@@ -66,6 +70,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             _evaluationProcessor = evaluationProcessor;
             _decisionArbiter = decisionArbiter;
             _questionPlanBuilder = questionPlanBuilder;
+            _questionOrderRandomizer = questionOrderRandomizer;
             _jdService = jdService;
             _sessionLifecycleService = sessionLifecycleService;
             _options = options;
@@ -241,6 +246,10 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             session.TechnicalLanguage = language;
             session.TechnicalSelectedSkillsJson = JsonSerializer.Serialize(selectedSkillsResult, JsonOptions);
             session.TechnicalCompletedMainQuestionCount = 0;
+            plan = plan with
+            {
+                SelectionContextKey = BuildSelectionContextKey(session, plan, selectedSkillsResult)
+            };
 
             var lockResult = await LockQuestionPlanAsync(
                 session,
@@ -254,7 +263,15 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     lockResult.ErrorCode ?? "QUESTION_PLAN_LOCK_FAILED",
                     lockResult.Message ?? "All main questions could not be locked atomically.");
             }
-            session.TechnicalQuestionPlanJson = TechnicalQuestionPlanSerializer.Serialize(lockResult.Plan!);
+            var previousOrders = await GetPreviousQuestionOrdersAsync(
+                userId,
+                session,
+                lockResult.Plan!,
+                cancellationToken);
+            var randomizedPlan = _questionOrderRandomizer.Randomize(
+                lockResult.Plan!,
+                previousOrders);
+            session.TechnicalQuestionPlanJson = TechnicalQuestionPlanSerializer.Serialize(randomizedPlan);
             session.TechnicalConcurrencyVersion++;
             session.UpdatedAt = DateTime.UtcNow;
 
@@ -1952,6 +1969,154 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         {
             public bool IsSuccess => Plan is not null;
         }
+
+        private async Task<IReadOnlyList<IReadOnlyList<int>>> GetPreviousQuestionOrdersAsync(
+            int userId,
+            InterviewSession currentSession,
+            TechnicalQuestionPlan currentPlan,
+            CancellationToken cancellationToken)
+        {
+            var history = await _context.InterviewSessions
+                .AsNoTracking()
+                .Where(session =>
+                    session.InterviewSessionId != currentSession.InterviewSessionId
+                    && session.InterviewCampaign.UserId == userId
+                    && session.InterviewRoundType == InterviewRoundType.Technical
+                    && session.TechnicalQuestionPlanJson != null)
+                .OrderByDescending(session => session.TechnicalStartedAt ?? session.CreatedAt)
+                .Take(100)
+                .Select(session => new
+                {
+                    PlanJson = session.TechnicalQuestionPlanJson!,
+                    session.TechnicalLanguage,
+                    session.TechnicalJobRole,
+                    session.TechnicalExperienceLevel,
+                    session.TechnicalSelectedSkillsJson,
+                    session.TechnicalMatchBand,
+                    session.Difficulty,
+                    session.QuestionCount,
+                    session.InterviewCampaign.Mode,
+                    session.InterviewCampaign.CVExtractedProfileId,
+                    session.InterviewCampaign.JDExtractedProfileId
+                })
+                .ToListAsync(cancellationToken);
+
+            var previousOrders = new List<IReadOnlyList<int>>();
+            foreach (var item in history)
+            {
+                TechnicalQuestionPlan previousPlan;
+                try
+                {
+                    previousPlan = TechnicalQuestionPlanSerializer.DeserializeRequired(item.PlanJson);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+                catch (InvalidOperationException)
+                {
+                    continue;
+                }
+
+                if (!previousPlan.Slots.All(slot => slot.IsLocked))
+                    continue;
+
+                var sameVersionedContext = !string.IsNullOrWhiteSpace(previousPlan.SelectionContextKey)
+                    && string.Equals(
+                        previousPlan.SelectionContextKey,
+                        currentPlan.SelectionContextKey,
+                        StringComparison.Ordinal);
+                var sameLegacyContext = string.IsNullOrWhiteSpace(previousPlan.SelectionContextKey)
+                    && item.CVExtractedProfileId == currentSession.InterviewCampaign.CVExtractedProfileId
+                    && item.JDExtractedProfileId == currentSession.InterviewCampaign.JDExtractedProfileId
+                    && item.Mode == currentSession.InterviewCampaign.Mode
+                    && item.Difficulty == currentSession.Difficulty
+                    && item.QuestionCount == currentPlan.TargetMainQuestionCount
+                    && item.TechnicalMatchBand == currentPlan.MatchBand
+                    && ContextValueEquals(
+                        item.TechnicalLanguage,
+                        currentSession.TechnicalLanguage)
+                    && ContextValueEquals(
+                        item.TechnicalJobRole,
+                        currentSession.TechnicalJobRole)
+                    && ContextValueEquals(
+                        item.TechnicalExperienceLevel,
+                        currentSession.TechnicalExperienceLevel)
+                    && ContextValuesEqual(
+                        DeserializeList(item.TechnicalSelectedSkillsJson),
+                        DeserializeList(currentSession.TechnicalSelectedSkillsJson));
+                if (!sameVersionedContext && !sameLegacyContext)
+                    continue;
+
+                previousOrders.Add(previousPlan.Slots
+                    .OrderBy(slot => slot.MainQuestionIndex)
+                    .Select(slot => slot.SelectedQuestionId!.Value)
+                    .ToArray());
+            }
+
+            return previousOrders;
+        }
+
+        private static string BuildSelectionContextKey(
+            InterviewSession session,
+            TechnicalQuestionPlan plan,
+            IReadOnlyCollection<string> selectedSkills)
+        {
+            var campaign = session.InterviewCampaign;
+            var jd = campaign.JDExtractedProfile;
+            var payload = JsonSerializer.Serialize(new
+            {
+                version = "technical-question-selection-context-v1",
+                mode = campaign.Mode.ToString(),
+                language = NormalizeContextValue(session.TechnicalLanguage),
+                role = NormalizeContextValue(session.TechnicalJobRole),
+                experience = NormalizeContextValue(session.TechnicalExperienceLevel),
+                configuredDifficulty = session.Difficulty.ToString(),
+                matchBand = plan.MatchBand.ToString(),
+                plan.TargetMainQuestionCount,
+                selectedSkills = NormalizeContextValues(selectedSkills),
+                cvSkills = NormalizeContextValues(
+                    campaign.CVExtractedProfile.Skills.Select(skill => skill.SkillName)),
+                requiredJdSkills = NormalizeContextValues(
+                    TechnicalQuestionMetadata.ParseStringArray(jd.RequiredSkills)),
+                niceToHaveJdSkills = NormalizeContextValues(
+                    TechnicalQuestionMetadata.ParseStringArray(jd.NiceToHaveSkills)),
+                slots = plan.Slots
+                    .OrderBy(slot => slot.MainQuestionIndex)
+                    .Select(slot => new
+                    {
+                        source = slot.SourceType.ToString(),
+                        skill = NormalizeContextValue(slot.TargetSkill),
+                        subskill = NormalizeContextValue(slot.TargetSubskill),
+                        difficulty = slot.PlannedDifficulty.ToString(),
+                        objective = slot.EvaluationObjective.ToString()
+                    })
+                    .ToArray()
+            }, JsonOptions);
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
+        }
+
+        private static bool ContextValueEquals(string? left, string? right) =>
+            string.Equals(
+                NormalizeContextValue(left),
+                NormalizeContextValue(right),
+                StringComparison.Ordinal);
+
+        private static bool ContextValuesEqual(
+            IEnumerable<string> left,
+            IEnumerable<string> right) =>
+            NormalizeContextValues(left).SequenceEqual(NormalizeContextValues(right));
+
+        private static string NormalizeContextValue(string? value) =>
+            value?.Trim().ToUpperInvariant() ?? string.Empty;
+
+        private static string[] NormalizeContextValues(IEnumerable<string> values) =>
+            values
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(NormalizeContextValue)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
 
         private async Task<TechnicalPlanLockResult> EnsureLockedPlanAsync(
             InterviewSession session,

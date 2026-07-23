@@ -12,57 +12,172 @@ namespace ai_speis_be.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "AnswerVersion",
-                table: "BehaviourAnswer",
-                type: "int",
-                nullable: false,
-                defaultValue: 1);
+            // An earlier branch shipped
+            // 20260722190000_OptimizeInterviewEvaluationAndRoundFeedback and was
+            // later replaced without a compensating migration. Some databases
+            // therefore already contain a subset of these columns and indexes.
+            // Reconcile both schemas so this migration also works on a clean DB.
+            migrationBuilder.Sql("""
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'AnswerVersion') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [AnswerVersion] int NOT NULL
+                        CONSTRAINT [DF_BehaviourAnswer_AnswerVersion] DEFAULT (1);
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'AudioId') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [AudioId] nvarchar(200) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'SubmissionIdempotencyKey') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [SubmissionIdempotencyKey] nvarchar(128) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'AiEvidenceJson') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [AiEvidenceJson] nvarchar(max) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'AiMissingAspectsJson') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [AiMissingAspectsJson] nvarchar(max) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'FinalQuestionScore') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [FinalQuestionScore] decimal(18,2) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'EvaluationModel') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [EvaluationModel] nvarchar(120) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'EvaluationPromptVersion') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [EvaluationPromptVersion] nvarchar(80) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'EvaluationInputTokens') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [EvaluationInputTokens] int NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'EvaluationOutputTokens') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [EvaluationOutputTokens] int NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'EvaluationLatencyMs') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [EvaluationLatencyMs] bigint NULL;
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'EvaluationRetryCount') IS NULL
+                    ALTER TABLE [dbo].[BehaviourAnswer] ADD [EvaluationRetryCount] int NOT NULL
+                        CONSTRAINT [DF_BehaviourAnswer_EvaluationRetryCount] DEFAULT (0);
 
-            migrationBuilder.AddColumn<string>(name: "AudioId", table: "BehaviourAnswer", type: "nvarchar(200)", maxLength: 200, nullable: true);
-            migrationBuilder.AddColumn<string>(name: "SubmissionIdempotencyKey", table: "BehaviourAnswer", type: "nvarchar(128)", maxLength: 128, nullable: true);
-            migrationBuilder.AddColumn<string>(name: "AiEvidenceJson", table: "BehaviourAnswer", type: "nvarchar(max)", nullable: true);
-            migrationBuilder.AddColumn<string>(name: "AiMissingAspectsJson", table: "BehaviourAnswer", type: "nvarchar(max)", nullable: true);
-            migrationBuilder.AddColumn<decimal>(name: "FinalQuestionScore", table: "BehaviourAnswer", type: "decimal(18,2)", nullable: true);
-            migrationBuilder.AddColumn<string>(name: "EvaluationModel", table: "BehaviourAnswer", type: "nvarchar(120)", maxLength: 120, nullable: true);
-            migrationBuilder.AddColumn<string>(name: "EvaluationPromptVersion", table: "BehaviourAnswer", type: "nvarchar(80)", maxLength: 80, nullable: true);
-            migrationBuilder.AddColumn<int>(name: "EvaluationInputTokens", table: "BehaviourAnswer", type: "int", nullable: true);
-            migrationBuilder.AddColumn<int>(name: "EvaluationOutputTokens", table: "BehaviourAnswer", type: "int", nullable: true);
-            migrationBuilder.AddColumn<long>(name: "EvaluationLatencyMs", table: "BehaviourAnswer", type: "bigint", nullable: true);
-            migrationBuilder.AddColumn<int>(name: "EvaluationRetryCount", table: "BehaviourAnswer", type: "int", nullable: false, defaultValue: 0);
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FinalFeedbackJson') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FinalFeedbackJson] nvarchar(max) NULL;
 
-            migrationBuilder.AddColumn<string>(name: "FinalFeedbackJson", table: "BehaviourRoundResult", type: "nvarchar(max)", nullable: true);
-            migrationBuilder.AddColumn<string>(name: "FinalFeedbackStatus", table: "BehaviourRoundResult", type: "nvarchar(30)", maxLength: 30, nullable: false, defaultValue: "NOT_STARTED");
-            migrationBuilder.AddColumn<DateTime>(name: "FinalFeedbackStartedAt", table: "BehaviourRoundResult", type: "datetime2", nullable: true);
-            migrationBuilder.AddColumn<int>(name: "FeedbackConcurrencyVersion", table: "BehaviourRoundResult", type: "int", nullable: false, defaultValue: 0);
-            migrationBuilder.AddColumn<string>(name: "FinalFeedbackModel", table: "BehaviourRoundResult", type: "nvarchar(120)", maxLength: 120, nullable: true);
-            migrationBuilder.AddColumn<string>(name: "FinalFeedbackPromptVersion", table: "BehaviourRoundResult", type: "nvarchar(80)", maxLength: 80, nullable: true);
-            migrationBuilder.AddColumn<int>(name: "FeedbackInputTokens", table: "BehaviourRoundResult", type: "int", nullable: true);
-            migrationBuilder.AddColumn<int>(name: "FeedbackOutputTokens", table: "BehaviourRoundResult", type: "int", nullable: true);
-            migrationBuilder.AddColumn<long>(name: "FeedbackLatencyMs", table: "BehaviourRoundResult", type: "bigint", nullable: true);
-            migrationBuilder.AddColumn<int>(name: "FeedbackRetryCount", table: "BehaviourRoundResult", type: "int", nullable: false, defaultValue: 0);
-            migrationBuilder.AddColumn<string>(name: "FinalFeedbackError", table: "BehaviourRoundResult", type: "nvarchar(100)", maxLength: 100, nullable: true);
+                -- The superseded migration stored this status as an enum/int.
+                -- Replace it with the string status expected by the current model.
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FinalFeedbackStatus') IS NULL
+                BEGIN
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FinalFeedbackStatus] nvarchar(30) NOT NULL
+                        CONSTRAINT [DF_BehaviourRoundResult_FinalFeedbackStatus] DEFAULT (N'NOT_STARTED');
+                END
+                ELSE IF EXISTS (
+                    SELECT 1
+                    FROM sys.columns c
+                    WHERE c.object_id = OBJECT_ID(N'dbo.BehaviourRoundResult')
+                      AND c.name = N'FinalFeedbackStatus'
+                      AND TYPE_NAME(c.user_type_id) <> N'nvarchar')
+                BEGIN
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FinalFeedbackStatus_New] nvarchar(30) NULL;
+                    EXEC(N'UPDATE [dbo].[BehaviourRoundResult]
+                           SET [FinalFeedbackStatus_New] = CASE [FinalFeedbackStatus]
+                               WHEN 1 THEN N''PROCESSING''
+                               WHEN 2 THEN N''COMPLETED''
+                               WHEN 3 THEN N''FAILED''
+                               ELSE N''NOT_STARTED''
+                           END');
 
-            migrationBuilder.AddColumn<string>(name: "TechnicalFinalFeedbackStatus", table: "InterviewSession", type: "nvarchar(30)", maxLength: 30, nullable: false, defaultValue: "NOT_STARTED");
-            migrationBuilder.AddColumn<DateTime>(name: "TechnicalFinalFeedbackStartedAt", table: "InterviewSession", type: "datetime2", nullable: true);
-            migrationBuilder.AddColumn<string>(name: "TechnicalFinalFeedbackError", table: "InterviewSession", type: "nvarchar(100)", maxLength: 100, nullable: true);
+                    DECLARE @FinalStatusDefault sysname;
+                    SELECT @FinalStatusDefault = dc.name
+                    FROM sys.default_constraints dc
+                    JOIN sys.columns c
+                      ON c.object_id = dc.parent_object_id
+                     AND c.column_id = dc.parent_column_id
+                    WHERE dc.parent_object_id = OBJECT_ID(N'dbo.BehaviourRoundResult')
+                      AND c.name = N'FinalFeedbackStatus';
+                    IF @FinalStatusDefault IS NOT NULL
+                    BEGIN
+                        DECLARE @DropFinalStatusDefault nvarchar(max) =
+                            N'ALTER TABLE [dbo].[BehaviourRoundResult] DROP CONSTRAINT ' +
+                            QUOTENAME(@FinalStatusDefault);
+                        EXEC sp_executesql @DropFinalStatusDefault;
+                    END;
 
-            migrationBuilder.DropIndex(
-                name: "IX_BehaviourRoundResult_InterviewSessionId",
-                table: "BehaviourRoundResult");
+                    ALTER TABLE [dbo].[BehaviourRoundResult] DROP COLUMN [FinalFeedbackStatus];
+                    EXEC sp_rename
+                        N'dbo.BehaviourRoundResult.FinalFeedbackStatus_New',
+                        N'FinalFeedbackStatus',
+                        N'COLUMN';
+                    ALTER TABLE [dbo].[BehaviourRoundResult]
+                        ALTER COLUMN [FinalFeedbackStatus] nvarchar(30) NOT NULL;
+                    ALTER TABLE [dbo].[BehaviourRoundResult]
+                        ADD CONSTRAINT [DF_BehaviourRoundResult_FinalFeedbackStatus]
+                        DEFAULT (N'NOT_STARTED') FOR [FinalFeedbackStatus];
+                END;
 
-            migrationBuilder.CreateIndex(
-                name: "IX_BehaviourRoundResult_InterviewSessionId",
-                table: "BehaviourRoundResult",
-                column: "InterviewSessionId",
-                unique: true);
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FinalFeedbackStartedAt') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FinalFeedbackStartedAt] datetime2 NULL;
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FeedbackConcurrencyVersion') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FeedbackConcurrencyVersion] int NOT NULL
+                        CONSTRAINT [DF_BehaviourRoundResult_FeedbackConcurrencyVersion] DEFAULT (0);
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FinalFeedbackModel') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FinalFeedbackModel] nvarchar(120) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FinalFeedbackPromptVersion') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FinalFeedbackPromptVersion] nvarchar(80) NULL;
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FeedbackInputTokens') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FeedbackInputTokens] int NULL;
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FeedbackOutputTokens') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FeedbackOutputTokens] int NULL;
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FeedbackLatencyMs') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FeedbackLatencyMs] bigint NULL;
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FeedbackRetryCount') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FeedbackRetryCount] int NOT NULL
+                        CONSTRAINT [DF_BehaviourRoundResult_FeedbackRetryCount] DEFAULT (0);
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FinalFeedbackError') IS NULL
+                    ALTER TABLE [dbo].[BehaviourRoundResult] ADD [FinalFeedbackError] nvarchar(100) NULL;
 
-            migrationBuilder.CreateIndex(
-                name: "IX_BehaviourAnswer_SubmissionIdempotencyKey",
-                table: "BehaviourAnswer",
-                column: "SubmissionIdempotencyKey",
-                unique: true,
-                filter: "[SubmissionIdempotencyKey] IS NOT NULL");
+                IF COL_LENGTH(N'dbo.BehaviourRoundResult', N'FeedbackError') IS NOT NULL
+                    EXEC(N'UPDATE [dbo].[BehaviourRoundResult]
+                           SET [FinalFeedbackError] =
+                               COALESCE([FinalFeedbackError], LEFT([FeedbackError], 100))');
+
+                IF COL_LENGTH(N'dbo.InterviewSession', N'TechnicalFinalFeedbackStatus') IS NULL
+                    ALTER TABLE [dbo].[InterviewSession] ADD [TechnicalFinalFeedbackStatus] nvarchar(30) NOT NULL
+                        CONSTRAINT [DF_InterviewSession_TechnicalFinalFeedbackStatus] DEFAULT (N'NOT_STARTED');
+                IF COL_LENGTH(N'dbo.InterviewSession', N'TechnicalFinalFeedbackStartedAt') IS NULL
+                    ALTER TABLE [dbo].[InterviewSession] ADD [TechnicalFinalFeedbackStartedAt] datetime2 NULL;
+                IF COL_LENGTH(N'dbo.InterviewSession', N'TechnicalFinalFeedbackError') IS NULL
+                    ALTER TABLE [dbo].[InterviewSession] ADD [TechnicalFinalFeedbackError] nvarchar(100) NULL;
+
+                IF COL_LENGTH(N'dbo.InterviewSession', N'TechnicalFeedbackStatus') IS NOT NULL
+                    EXEC(N'UPDATE [dbo].[InterviewSession]
+                           SET [TechnicalFinalFeedbackStatus] =
+                               CASE [TechnicalFeedbackStatus]
+                                   WHEN 1 THEN N''PROCESSING''
+                                   WHEN 2 THEN N''COMPLETED''
+                                   WHEN 3 THEN N''FAILED''
+                                   ELSE N''NOT_STARTED''
+                               END');
+                IF COL_LENGTH(N'dbo.InterviewSession', N'TechnicalFeedbackError') IS NOT NULL
+                    EXEC(N'UPDATE [dbo].[InterviewSession]
+                           SET [TechnicalFinalFeedbackError] =
+                               COALESCE([TechnicalFinalFeedbackError],
+                                        LEFT([TechnicalFeedbackError], 100))');
+                IF COL_LENGTH(N'dbo.BehaviourAnswer', N'EvaluationError') IS NOT NULL
+                   AND COL_LENGTH(N'dbo.BehaviourAnswer', N'AiErrorCode') IS NOT NULL
+                    EXEC(N'UPDATE [dbo].[BehaviourAnswer]
+                           SET [AiErrorCode] =
+                               COALESCE([AiErrorCode], [EvaluationError])');
+
+                IF EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE object_id = OBJECT_ID(N'dbo.BehaviourRoundResult')
+                      AND name = N'IX_BehaviourRoundResult_InterviewSessionId'
+                      AND is_unique = 0)
+                    DROP INDEX [IX_BehaviourRoundResult_InterviewSessionId]
+                        ON [dbo].[BehaviourRoundResult];
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE object_id = OBJECT_ID(N'dbo.BehaviourRoundResult')
+                      AND name = N'IX_BehaviourRoundResult_InterviewSessionId')
+                    CREATE UNIQUE INDEX [IX_BehaviourRoundResult_InterviewSessionId]
+                        ON [dbo].[BehaviourRoundResult] ([InterviewSessionId]);
+
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE object_id = OBJECT_ID(N'dbo.BehaviourAnswer')
+                      AND name = N'IX_BehaviourAnswer_SubmissionIdempotencyKey')
+                    CREATE UNIQUE INDEX [IX_BehaviourAnswer_SubmissionIdempotencyKey]
+                        ON [dbo].[BehaviourAnswer] ([SubmissionIdempotencyKey])
+                        WHERE [SubmissionIdempotencyKey] IS NOT NULL;
+                """);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

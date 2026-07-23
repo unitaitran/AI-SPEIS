@@ -46,7 +46,9 @@ namespace ai_speis_be.TechnicalInterviews.Planning
         int PlannedJdQuestionCount,
         string Version,
         ImmutableArray<TechnicalQuestionPlanSlot> Slots,
-        int TargetMainQuestionCount = 3)
+        int TargetMainQuestionCount = 3,
+        string? SelectionContextKey = null,
+        string? QuestionOrderVersion = null)
     {
         public const int RequiredSlotCount = 3;
 
