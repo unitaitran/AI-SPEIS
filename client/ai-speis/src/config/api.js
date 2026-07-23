@@ -62,6 +62,8 @@ export const ENDPOINTS = {
   SAVED_QUESTIONS_SAVE: (id) => `${API_BASE_URL}/api/SavedQuestions/${id}`,
   SAVED_QUESTIONS_UNSAVE: (id) => `${API_BASE_URL}/api/SavedQuestions/${id}`,
   ADMIN_USERS: `${API_BASE_URL}/api/admin/users`,
+  ADMIN_USER_STATS: `${API_BASE_URL}/api/admin/users/stats`,
+  ADMIN_DASHBOARD: `${API_BASE_URL}/api/admin/dashboard`,
   ADMIN_USER_LOCK: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/lock`,
   ADMIN_USER_UNLOCK: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/unlock`,
   ADMIN_USER_ROLE: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/role`,

@@ -22,5 +22,6 @@ namespace ai_speis_be.Repositories.UserRepo
             CancellationToken cancellationToken = default);
         Task<User?> GetUserByPasswordResetTokenAsync(string token);
         Task<User?> GetUserByPhoneNumberAsync(string phoneNumber);
+        Task<AdminUserStatsDto> GetUserStatsAsync(CancellationToken cancellationToken = default);
     }
 }

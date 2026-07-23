@@ -31,6 +31,15 @@ namespace ai_speis_be.Models.DTOs
         [StringLength(20, ErrorMessage = "Trạng thái không được vượt quá 20 ký tự.")]
         public string? Status { get; set; }
 
+        [StringLength(100, ErrorMessage = "Loại câu hỏi không được vượt quá 100 ký tự.")]
+        public string? QuestionType { get; set; }
+
+        [StringLength(200, ErrorMessage = "Tech stack không được vượt quá 200 ký tự.")]
+        public string? TechStack { get; set; }
+
+        [StringLength(500, ErrorMessage = "Tags không được vượt quá 500 ký tự.")]
+        public string? Tags { get; set; }
+
         public IEnumerable<ValidationResult> Validate(
             ValidationContext validationContext)
         {
@@ -59,7 +68,7 @@ namespace ai_speis_be.Models.DTOs
                 !Enum.IsDefined(typeof(QuestionDifficultyEnum), Difficulty.Value))
             {
                 yield return new ValidationResult(
-                    "Độ khó phải là Easy, Medium hoặc Hard.",
+                    "Độ khó phải là Easy, Medium, Hard hoặc Expert.",
                     new[] { nameof(Difficulty) });
             }
 
@@ -169,7 +178,25 @@ namespace ai_speis_be.Models.DTOs
         [StringLength(100, ErrorMessage = "Vị trí mục tiêu không được vượt quá 100 ký tự.")]
         public string? RoleTarget { get; set; }
 
+        [StringLength(200, ErrorMessage = "Tech stack không được vượt quá 200 ký tự.")]
+        public string? TechStack { get; set; }
+
+        [StringLength(100, ErrorMessage = "Loại câu hỏi không được vượt quá 100 ký tự.")]
+        public string? InterviewType { get; set; }
+
+        [StringLength(500, ErrorMessage = "Tags không được vượt quá 500 ký tự.")]
+        public string? Tags { get; set; }
+
         public QuestionDifficultyEnum? Difficulty { get; set; }
+
+        [StringLength(20, ErrorMessage = "Trạng thái không được vượt quá 20 ký tự.")]
+        public string? Status { get; set; }
+
+        [StringLength(50, ErrorMessage = "SortBy không được vượt quá 50 ký tự.")]
+        public string? SortBy { get; set; }
+
+        [StringLength(10, ErrorMessage = "SortDirection không được vượt quá 10 ký tự.")]
+        public string? SortDirection { get; set; }
 
         public bool IncludeDeleted { get; set; } = false;
     }
@@ -200,8 +227,13 @@ namespace ai_speis_be.Models.DTOs
         public string QuestionContent { get; set; } = string.Empty;
         public string SuggestedAnswer { get; set; } = string.Empty;
         public QuestionDifficultyEnum Difficulty { get; set; }
+        public string Role { get; set; } = string.Empty;
         public string RoleTarget { get; set; } = string.Empty;
         public string Major { get; set; } = string.Empty;
+        public string InterviewType { get; set; } = string.Empty;
+        public string QuestionType { get; set; } = string.Empty;
+        public string TechStack { get; set; } = string.Empty;
+        public string Tags { get; set; } = string.Empty;
         public bool IsDeleted { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
@@ -218,8 +250,13 @@ namespace ai_speis_be.Models.DTOs
         public string QuestionContent { get; set; } = string.Empty;
         public string SuggestedAnswer { get; set; } = string.Empty;
         public QuestionDifficultyEnum Difficulty { get; set; }
+        public string Role { get; set; } = string.Empty;
         public string RoleTarget { get; set; } = string.Empty;
         public string Major { get; set; } = string.Empty;
+        public string InterviewType { get; set; } = string.Empty;
+        public string QuestionType { get; set; } = string.Empty;
+        public string TechStack { get; set; } = string.Empty;
+        public string Tags { get; set; } = string.Empty;
         public bool IsDeleted { get; set; } = false;
         public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }

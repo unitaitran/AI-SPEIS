@@ -22,6 +22,9 @@ import {
   FileText,
   CreditCard,
   Activity,
+  Crown,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 import { userService } from '../../../services/UserService';
 import { getAvatarUrl } from '../../../routes/auth';
@@ -58,6 +61,10 @@ function UserManagementPage() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [roleModal, setRoleModal] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
+
+  // Stats state
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
   const startIndex = totalUsers === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -136,6 +143,17 @@ function UserManagementPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Fetch stats once on mount
+  useEffect(() => {
+    let cancelled = false;
+    setStatsLoading(true);
+    userService.getUserStats()
+      .then((data) => { if (!cancelled) setStats(data); })
+      .catch(() => { if (!cancelled) setStats(null); })
+      .finally(() => { if (!cancelled) setStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Handle filter changes
   const handleFilterChange = (e) => {
@@ -337,37 +355,14 @@ function UserManagementPage() {
   }, [currentPage, totalPages]);
 
   // Status badge component
-  const StatusBadge = ({ status }) => {
-    const normalizedStatus = (() => {
-      if (typeof status === 'boolean') {
-        return status ? 'active' : 'locked';
-      }
-
-      if (typeof status === 'string') {
-        return status.trim().toLowerCase();
-      }
-
-      return '';
-    })();
-
-    const statusMap = {
-      active: {
-        className: 'status-badge status-active',
-        label: t('active'),
-      },
-      locked: {
-        className: 'status-badge status-locked',
-        label: t('locked'),
-      },
-    };
-
-    const config = statusMap[normalizedStatus] || statusMap.active;
-
-    return (
-      <span className={config.className}>
-        {config.label}
-      </span>
-    );
+  const StatusBadge = ({ user }) => {
+    if (user.isLocked) {
+      return <span className="status-badge status-locked">{t('locked')}</span>;
+    }
+    if (user.accountStatus === 'Active' || user.status === true) {
+      return <span className="status-badge status-active">{t('active')}</span>;
+    }
+    return <span className="status-badge status-locked">{t('locked')}</span>;
   };
 
   // Skeleton loading component
@@ -600,14 +595,23 @@ function UserManagementPage() {
                       <CreditCard size={16} className="info-icon" />
                       <div className="info-content">
                         <span className="info-label">{t('package')}</span>
-                        <span className="info-value package-highlight">{detailUser.package || '-'}</span>
+                        <span className="info-value package-highlight">
+                          {detailUser.isPremium ? t('packagePremium', 'Premium') : t('packageFree', 'Free')}
+                          {detailUser.premiumExpireAt && (
+                            <small className="premium-expires">
+                              {' '}{t('premiumExpires', { date: new Date(detailUser.premiumExpireAt).toLocaleDateString() })}
+                            </small>
+                          )}
+                        </span>
                       </div>
                     </div>
                     <div className="info-item">
                       <Activity size={16} className="info-icon" />
                       <div className="info-content">
                         <span className="info-label">{t('quota')}</span>
-                        <span className="info-value quota-highlight">{detailUser.quota || '-'}</span>
+                        <span className="info-value quota-highlight">
+                          {detailUser.remainingInterviewQuota ?? '-'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -856,6 +860,29 @@ function UserManagementPage() {
       </div>
 
       <div className="page-content">
+        {/* Stats Cards */}
+        <div className="stats-cards-grid">
+          {[
+            { key: 'statsTotalUsers', value: stats?.totalUsers, icon: Users, color: 'primary' },
+            { key: 'statsPremiumUsers', value: stats?.premiumUsers, icon: Crown, color: 'warning' },
+            { key: 'statsFreeUsers', value: stats?.freeUsers, icon: CreditCard, color: 'info' },
+            { key: 'statsActiveUsers', value: stats?.activeUsers, icon: UserCheck, color: 'success' },
+            { key: 'statsLockedUsers', value: stats?.lockedUsers, icon: UserX, color: 'danger' },
+          ].map(({ key, value, icon: Icon, color }) => (
+            <div key={key} className={`stats-card stats-card--${color}`}>
+              <div className="stats-card__icon">
+                <Icon size={20} />
+              </div>
+              <div className="stats-card__body">
+                <span className="stats-card__value">
+                  {statsLoading ? '—' : (value ?? '—')}
+                </span>
+                <span className="stats-card__label">{t(key)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Batch Action Bar */}
         {selectedUsers.size > 0 && (
           <div className="batch-action-bar">
@@ -1047,15 +1074,21 @@ function UserManagementPage() {
                           <td className="col-role">
                             <span className="role-badge">{user.role || '-'}</span>
                           </td>
-                          <td className="col-package">{user.package || '-'}</td>
-                          <td className="col-quota">{user.quota || '-'}</td>
+                          <td className="col-package">
+                            {user.isPremium
+                              ? <span className="package-badge package-premium">{t('packagePremium', 'Premium')}</span>
+                              : <span className="package-badge package-free">{t('packageFree', 'Free')}</span>}
+                          </td>
+                          <td className="col-quota">
+                            {user.remainingInterviewQuota ?? '-'}
+                          </td>
                           <td className="col-date">
                             {registerDateVal
                               ? new Date(registerDateVal).toLocaleDateString()
                               : '-'}
                           </td>
                           <td className="col-status">
-                            <StatusBadge status={user.status} />
+                            <StatusBadge user={user} />
                           </td>
                           <td className="col-actions">
                             <div className="action-buttons">
@@ -1085,16 +1118,16 @@ function UserManagementPage() {
                               <button
                                 className="action-btn"
                                 type="button"
-                                title={user.status ? t('lockUser') : t('unlockUser')}
-                                aria-label={user.status ? t('lockUser') : t('unlockUser')}
+                                title={user.isLocked ? t('unlockUser') : t('lockUser')}
+                                aria-label={user.isLocked ? t('unlockUser') : t('lockUser')}
                                 onClick={() => {
                                   setConfirmAction({
-                                    type: user.status ? 'lockUser' : 'unlockUser',
+                                    type: user.isLocked ? 'unlockUser' : 'lockUser',
                                     user: user
                                   });
                                 }}
                               >
-                                {user.status ? <Lock size={18} /> : <Unlock size={18} />}
+                                {user.isLocked ? <Unlock size={18} /> : <Lock size={18} />}
                               </button>
                             </div>
                           </td>

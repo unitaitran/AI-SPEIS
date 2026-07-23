@@ -52,6 +52,13 @@ const buildQueryString = (params) => {
     }
   }
 
+  if (params.package) {
+    const pkg = params.package.toLowerCase();
+    if (pkg === 'premium' || pkg === 'free') {
+      query.set('Package', pkg);
+    }
+  }
+
   if (params.sortBy) {
     const mappedSortBy = sortByMap[params.sortBy];
     if (mappedSortBy) {
@@ -214,6 +221,36 @@ export const userService = {
 
   batchAssignPackage: async () => {
     throw new Error('Batch assign package is not supported by the current backend API');
+  },
+
+  getUserStats: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Authentication token not found');
+
+    const response = await fetch(ENDPOINTS.ADMIN_USER_STATS, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    return parseJsonResponse(response);
+  },
+
+  getDashboard: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Authentication token not found');
+
+    const response = await fetch(ENDPOINTS.ADMIN_DASHBOARD, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    return parseJsonResponse(response);
   },
 };
 

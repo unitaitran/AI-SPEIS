@@ -90,5 +90,15 @@
   "genericError": "Có lỗi xảy ra",
   "confirmChangeRole": "Bạn có chắc chắn muốn thay đổi role của \"{{userName}}\" thành \"{{newRoleLabel}}\" không?",
   "emailVerification": "Xác minh email",
-  "breadcrumbAdmin": "Quản trị"
+  "breadcrumbAdmin": "Quản trị",
+  "statsTotalUsers": "Tổng người dùng",
+  "statsPremiumUsers": "Người dùng Premium",
+  "statsFreeUsers": "Người dùng Miễn phí",
+  "statsActiveUsers": "Đang hoạt động",
+  "statsLockedUsers": "Đã khóa",
+  "statsLoadError": "Không thể tải thống kê",
+  "packagePremium": "Premium",
+  "packageFree": "Miễn phí",
+  "quotaLabel": "Còn {{used}} phiên",
+  "premiumExpires": "Hết hạn: {{date}}"
 }

@@ -411,6 +411,9 @@ namespace ai_speis_be.Services.UserService
             return true;
         }
 
+        public Task<AdminUserStatsDto> GetUserStatsAsync(CancellationToken cancellationToken = default)
+            => _userRepository.GetUserStatsAsync(cancellationToken);
+
         // ── Private helpers ────────────────────────────────────────────────────
 
         private static UserMeResponseDto MapToUserMeResponseDto(User user) => new()

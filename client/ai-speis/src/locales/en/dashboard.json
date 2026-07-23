@@ -101,6 +101,7 @@
     "difficulty_easy": "Easy",
     "difficulty_medium": "Medium",
     "difficulty_hard": "Hard",
+    "difficulty_expert": "Expert",
     "showing_results": "Showing {{start}}-{{end}} of {{total}} results",
     "sort_label": "Sort by:",
     "sort_popular": "Most Popular",

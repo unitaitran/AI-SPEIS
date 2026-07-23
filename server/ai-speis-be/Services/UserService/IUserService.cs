@@ -48,5 +48,6 @@ namespace ai_speis_be.Services.UserService
             int userId,
             string roleName,
             CancellationToken cancellationToken = default);
+        Task<AdminUserStatsDto> GetUserStatsAsync(CancellationToken cancellationToken = default);
     }
 }

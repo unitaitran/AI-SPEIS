@@ -39,6 +39,17 @@ namespace ai_speis_be.Repositories.UserRepo
                 users = users.Where(user => user.Status == query.Status.Value);
             }
 
+            if (!string.IsNullOrWhiteSpace(query.Package))
+            {
+                var pkg = query.Package.Trim().ToLowerInvariant();
+                users = pkg switch
+                {
+                    "premium" => users.Where(user => user.IsPremium),
+                    "free" => users.Where(user => !user.IsPremium),
+                    _ => users
+                };
+            }
+
             var totalItems = await users.CountAsync(cancellationToken);
             var orderedUsers = ApplySorting(users, query.SortBy, query.SortDirection);
 
@@ -60,6 +71,9 @@ namespace ai_speis_be.Repositories.UserRepo
                         : user.Status
                             ? UserAccountStatus.Active
                             : UserAccountStatus.PendingActivation,
+                    IsPremium = user.IsPremium,
+                    Package = user.IsPremium ? "premium" : "free",
+                    RemainingInterviewQuota = user.RemainingInterviewQuota,
                     CreatedAt = user.CreatedAt,
                     UpdatedAt = user.UpdatedAt
                 })
@@ -105,6 +119,10 @@ namespace ai_speis_be.Repositories.UserRepo
                     EmailConfirmedAt = user.EmailConfirmedAt,
                     HasPassword = user.PasswordHash != null &&
                         user.PasswordHash != string.Empty,
+                    IsPremium = user.IsPremium,
+                    Package = user.IsPremium ? "premium" : "free",
+                    RemainingInterviewQuota = user.RemainingInterviewQuota,
+                    PremiumExpireAt = user.PremiumExpireAt,
                     CreatedAt = user.CreatedAt,
                     UpdatedAt = user.UpdatedAt,
                     ImageUrl = user.ImageUrl,
@@ -222,6 +240,23 @@ namespace ai_speis_be.Repositories.UserRepo
             return await _context.Users
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.PasswordResetToken == token);
+        }
+
+        public async Task<AdminUserStatsDto> GetUserStatsAsync(CancellationToken cancellationToken = default)
+        {
+            var totalUsers = await _context.Users.CountAsync(cancellationToken);
+            var premiumUsers = await _context.Users.CountAsync(u => u.IsPremium, cancellationToken);
+            var lockedUsers = await _context.Users.CountAsync(u => u.IsLocked, cancellationToken);
+            var activeUsers = await _context.Users.CountAsync(u => !u.IsLocked && u.Status, cancellationToken);
+
+            return new AdminUserStatsDto
+            {
+                TotalUsers = totalUsers,
+                PremiumUsers = premiumUsers,
+                FreeUsers = totalUsers - premiumUsers,
+                ActiveUsers = activeUsers,
+                LockedUsers = lockedUsers,
+            };
         }
 
         public async Task<User?> GetUserByPhoneNumberAsync(string phoneNumber)

@@ -22,10 +22,11 @@ namespace ai_speis_be.Repositories.QuestionRepo
                 _context.Questions.AsNoTracking(),
                 query);
 
+            questions = ApplyAdminSorting(questions, query);
+
             var totalItems = await questions.CountAsync(cancellationToken);
 
             var items = await questions
-                .OrderBy(q => q.QuestionId)
                 .Skip((query.PageNumber - 1) * query.PageSize)
                 .Take(query.PageSize)
                 .ToListAsync(cancellationToken);
@@ -101,18 +102,100 @@ namespace ai_speis_be.Repositories.QuestionRepo
                 .Where(q => !q.IsDeleted && !string.IsNullOrEmpty(q.Major))
                 .Select(q => q.Major)
                 .Distinct()
+                .OrderBy(q => q)
                 .ToListAsync(cancellationToken);
 
             var roles = await _context.Questions
                 .Where(q => !q.IsDeleted && !string.IsNullOrEmpty(q.RoleTarget))
                 .Select(q => q.RoleTarget)
                 .Distinct()
+                .OrderBy(q => q)
                 .ToListAsync(cancellationToken);
+
+            var interviewTypes = await _context.Questions
+                .Where(q => !q.IsDeleted && !string.IsNullOrEmpty(q.QuestionType))
+                .Select(q => q.QuestionType)
+                .Distinct()
+                .OrderBy(q => q)
+                .ToListAsync(cancellationToken);
+
+            var techStacks = await _context.Questions
+                .Where(q => !q.IsDeleted && !string.IsNullOrEmpty(q.Skill))
+                .Select(q => q.Skill!)
+                .Distinct()
+                .OrderBy(q => q)
+                .ToListAsync(cancellationToken);
+
+            var tags = await _context.Questions
+                .Where(q => !q.IsDeleted && !string.IsNullOrEmpty(q.KeywordTags))
+                .Select(q => q.KeywordTags!)
+                .Distinct()
+                .OrderBy(q => q)
+                .ToListAsync(cancellationToken);
+
+            var difficulties = await _context.Questions
+                .Where(q => !q.IsDeleted)
+                .Select(q => q.Difficulty.ToString())
+                .Distinct()
+                .OrderBy(q => q)
+                .ToListAsync(cancellationToken);
+
+            var hasInactive = await _context.Questions
+                .AnyAsync(q => q.IsDeleted, cancellationToken);
+
+            var statuses = hasInactive
+                ? new List<string> { "Active", "Inactive" }
+                : new List<string> { "Active" };
 
             return new QuestionFiltersDto
             {
                 Majors = majors,
-                RoleTargets = roles
+                RoleTargets = roles,
+                Difficulties = difficulties,
+                InterviewTypes = interviewTypes,
+                TechStacks = techStacks,
+                Tags = tags,
+                Statuses = statuses
+            };
+        }
+
+        private static IQueryable<Question> ApplyAdminSorting(
+            IQueryable<Question> questions,
+            AdminQuestionQueryDto query)
+        {
+            var sortBy = Normalize(query.SortBy)?.ToLowerInvariant();
+            var sortDirection = Normalize(query.SortDirection)?.ToLowerInvariant();
+            var desc = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+
+            return sortBy switch
+            {
+                "question" or "questioncontent" => desc
+                    ? questions.OrderByDescending(q => q.QuestionContent).ThenByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.QuestionContent).ThenBy(q => q.QuestionId),
+                "role" or "roletarget" => desc
+                    ? questions.OrderByDescending(q => q.RoleTarget).ThenByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.RoleTarget).ThenBy(q => q.QuestionId),
+                "major" => desc
+                    ? questions.OrderByDescending(q => q.Major).ThenByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.Major).ThenBy(q => q.QuestionId),
+                "difficulty" => desc
+                    ? questions.OrderByDescending(q => q.Difficulty).ThenByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.Difficulty).ThenBy(q => q.QuestionId),
+                "techstack" => desc
+                    ? questions.OrderByDescending(q => q.Skill).ThenByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.Skill).ThenBy(q => q.QuestionId),
+                "interviewtype" => desc
+                    ? questions.OrderByDescending(q => q.QuestionType).ThenByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.QuestionType).ThenBy(q => q.QuestionId),
+                "status" => desc
+                    ? questions.OrderByDescending(q => q.IsDeleted).ThenByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.IsDeleted).ThenBy(q => q.QuestionId),
+                "createdat" or "createddate" => desc
+                    ? questions.OrderByDescending(q => q.CreatedAt).ThenByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.CreatedAt).ThenBy(q => q.QuestionId),
+                _ => desc
+                    ? questions.OrderByDescending(q => q.QuestionId)
+                    : questions.OrderBy(q => q.QuestionId)
             };
         }
 
@@ -352,6 +435,20 @@ namespace ai_speis_be.Repositories.QuestionRepo
             var keyword = Normalize(query.Keyword);
             var major = Normalize(query.Major);
             var roleTarget = Normalize(query.RoleTarget);
+            var techStack = Normalize(query.TechStack);
+            var interviewType = Normalize(query.InterviewType);
+            var tags = Normalize(query.Tags);
+            var status = Normalize(query.Status);
+
+            if (string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
+            {
+                query.IncludeDeleted = false;
+            }
+            else if (string.Equals(status, "inactive", StringComparison.OrdinalIgnoreCase))
+            {
+                query.IncludeDeleted = true;
+                questions = questions.Where(q => q.IsDeleted);
+            }
 
             questions = WhereIf(
                 questions,
@@ -364,7 +461,25 @@ namespace ai_speis_be.Repositories.QuestionRepo
                 q => q.QuestionContent.Contains(keyword!) ||
                     q.SuggestedAnswer.Contains(keyword!) ||
                     q.Major.Contains(keyword!) ||
-                    q.RoleTarget.Contains(keyword!));
+                    q.RoleTarget.Contains(keyword!) ||
+                    (q.Skill != null && q.Skill.Contains(keyword!)) ||
+                    (q.QuestionType != null && q.QuestionType.Contains(keyword!)) ||
+                    (q.KeywordTags != null && q.KeywordTags.Contains(keyword!)));
+
+            questions = WhereIf(
+                questions,
+                techStack is not null,
+                q => q.Skill != null && q.Skill.Contains(techStack!));
+
+            questions = WhereIf(
+                questions,
+                interviewType is not null,
+                q => q.QuestionType != null && q.QuestionType.Contains(interviewType!));
+
+            questions = WhereIf(
+                questions,
+                tags is not null,
+                q => q.KeywordTags != null && q.KeywordTags.Contains(tags!));
 
             questions = WhereIf(
                 questions,

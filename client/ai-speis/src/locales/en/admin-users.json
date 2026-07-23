@@ -90,5 +90,15 @@
   "genericError": "Something went wrong",
   "confirmChangeRole": "Are you sure you want to change the role of \"{{userName}}\" to \"{{newRoleLabel}}\"?",
   "emailVerification": "Email Verification",
-  "breadcrumbAdmin": "Admin"
+  "breadcrumbAdmin": "Admin",
+  "statsTotalUsers": "Total Users",
+  "statsPremiumUsers": "Premium Users",
+  "statsFreeUsers": "Free Users",
+  "statsActiveUsers": "Active Users",
+  "statsLockedUsers": "Locked Users",
+  "statsLoadError": "Could not load stats",
+  "packagePremium": "Premium",
+  "packageFree": "Free",
+  "quotaLabel": "{{used}} sessions left",
+  "premiumExpires": "Expires: {{date}}"
 }

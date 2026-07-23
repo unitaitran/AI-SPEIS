@@ -101,6 +101,7 @@
     "difficulty_easy": "Dễ",
     "difficulty_medium": "Trung bình",
     "difficulty_hard": "Khó",
+    "difficulty_expert": "Chuyên gia",
     "showing_results": "Hiển thị {{start}}-{{end}} của {{total}} kết quả",
     "sort_label": "Sắp xếp:",
     "sort_popular": "Phổ biến nhất",

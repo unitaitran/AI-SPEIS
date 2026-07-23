@@ -14,6 +14,12 @@ import {
 import UserLayout from '../../layouts/user/UserLayout';
 import { ENDPOINTS } from '../../config/api';
 import notify from '../../utils/notification';
+import {
+  getDifficultyLabel,
+  getDifficultyBadgeClass,
+  normalizeDifficulty,
+  DIFFICULTY_KEYS,
+} from '../../utils/difficulty';
 
 function QuestionsPage() {
   const { t, i18n } = useTranslation('dashboard');
@@ -208,18 +214,7 @@ function QuestionsPage() {
 
   // Map difficulty to text
   const getDifficultyText = (diff) => {
-    if (diff === 'Easy' || diff === 0) return t('questions.difficulty_easy', 'Dễ');
-    if (diff === 'Medium' || diff === 1) return t('questions.difficulty_medium', 'Trung bình');
-    if (diff === 'Hard' || diff === 2) return t('questions.difficulty_hard', 'Khó');
-    return diff;
-  };
-
-  // Map difficulty to color classes
-  const getDifficultyBadgeClass = (diff) => {
-    if (diff === 'Easy' || diff === 0) return 'bg-success-light/35 text-success border-success/20';
-    if (diff === 'Medium' || diff === 1) return 'bg-warning-light/35 text-warning border-warning/20';
-    if (diff === 'Hard' || diff === 2) return 'bg-error-light/35 text-error border-error/20';
-    return 'bg-surface-3 text-text-secondary border-border';
+    return getDifficultyLabel(diff, t);
   };
 
   // Filter and Search logic
@@ -234,10 +229,7 @@ function QuestionsPage() {
 
     // 3. Difficulty Filter
     const matchesDifficulty = selectedDifficulties.length === 0 || selectedDifficulties.some(d => {
-      if (d === 'Easy') return q.difficulty === 'Easy' || q.difficulty === 0;
-      if (d === 'Medium') return q.difficulty === 'Medium' || q.difficulty === 1;
-      if (d === 'Hard') return q.difficulty === 'Hard' || q.difficulty === 2;
-      return false;
+      return normalizeDifficulty(q.difficulty) === normalizeDifficulty(d);
     });
 
     // 4. Saved Filter
@@ -411,7 +403,7 @@ function QuestionsPage() {
                 </button>
                 <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFilters.difficulty ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                   <div className="p-4 space-y-3">
-                    {['Easy', 'Medium', 'Hard'].map(d => (
+                    {DIFFICULTY_KEYS.map(d => (
                       <label key={d} className="flex items-center text-xs font-semibold text-text-secondary cursor-pointer hover:text-primary-dark transition-colors">
                         <input
                           type="checkbox"
@@ -421,12 +413,7 @@ function QuestionsPage() {
                         />
                         <span>{getDifficultyText(d)}</span>
                         <span className="ml-auto text-[10px] text-text-disabled font-bold bg-surface-3 px-2 py-0.5 rounded border border-border/20">
-                          {questions.filter(q => {
-                            if (d === 'Easy') return q.difficulty === 'Easy' || q.difficulty === 0;
-                            if (d === 'Medium') return q.difficulty === 'Medium' || q.difficulty === 1;
-                            if (d === 'Hard') return q.difficulty === 'Hard' || q.difficulty === 2;
-                            return false;
-                          }).length}
+                          {questions.filter(q => normalizeDifficulty(q.difficulty) === normalizeDifficulty(d)).length}
                         </span>
                       </label>
                     ))}

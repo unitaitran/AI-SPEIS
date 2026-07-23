@@ -70,8 +70,14 @@ export const questionService = {
     if (params.keyword) queryParams.append('Keyword', params.keyword);
     if (params.major && params.major !== 'all') queryParams.append('Major', params.major);
     if (params.roleTarget && params.roleTarget !== 'all') queryParams.append('RoleTarget', params.roleTarget);
+    if (params.techStack && params.techStack !== 'all') queryParams.append('TechStack', params.techStack);
+    if (params.interviewType && params.interviewType !== 'all') queryParams.append('InterviewType', params.interviewType);
+    if (params.tags && params.tags !== 'all') queryParams.append('Tags', params.tags);
+    if (params.status && params.status !== 'all') queryParams.append('Status', params.status);
     if (params.difficulty && params.difficulty !== 'all') queryParams.append('Difficulty', params.difficulty);
     if (params.includeDeleted) queryParams.append('IncludeDeleted', params.includeDeleted);
+    if (params.sortBy) queryParams.append('SortBy', params.sortBy);
+    if (params.sortDirection) queryParams.append('SortDirection', params.sortDirection);
 
     const queryString = queryParams.toString();
     const url = queryString ? `${ENDPOINTS.ADMIN_QUESTIONS}?${queryString}` : ENDPOINTS.ADMIN_QUESTIONS;

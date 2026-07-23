@@ -35,6 +35,10 @@ namespace ai_speis_be.Models.DTOs
 
         public bool? Status { get; set; }
 
+        /// <summary>Filter by subscription package: "premium" or "free".</summary>
+        [StringLength(50)]
+        public string? Package { get; set; }
+
         public AdminUserSortBy SortBy { get; set; } = AdminUserSortBy.CreatedAt;
 
         public SortDirection SortDirection { get; set; } = SortDirection.Desc;
@@ -51,6 +55,9 @@ namespace ai_speis_be.Models.DTOs
         public bool Status { get; set; }
         public bool IsLocked { get; set; }
         public string AccountStatus { get; set; } = string.Empty;
+        public bool IsPremium { get; set; }
+        public string Package { get; set; } = string.Empty;
+        public int RemainingInterviewQuota { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
@@ -71,11 +78,24 @@ namespace ai_speis_be.Models.DTOs
         public int? LockedByUserId { get; init; }
         public DateTime? EmailConfirmedAt { get; init; }
         public bool HasPassword { get; init; }
+        public bool IsPremium { get; init; }
+        public string Package { get; init; } = string.Empty;
+        public int RemainingInterviewQuota { get; init; }
+        public DateTime? PremiumExpireAt { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public string? ImageUrl { get; init; }
         public AdminUserProfileDto? Profile { get; init; }
         public IReadOnlyList<AdminUserCVFileDto> CVFiles { get; init; } = Array.Empty<AdminUserCVFileDto>();
+    }
+
+    public sealed class AdminUserStatsDto
+    {
+        public int TotalUsers { get; init; }
+        public int PremiumUsers { get; init; }
+        public int FreeUsers { get; init; }
+        public int ActiveUsers { get; init; }
+        public int LockedUsers { get; init; }
     }
 
     public sealed class AdminUserCVFileDto

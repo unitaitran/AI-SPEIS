@@ -72,6 +72,109 @@
   margin: 0 !important;
 }
 
+/* ========== Stats Cards ========== */
+.stats-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--spacing-md);
+}
+
+@media (max-width: 1280px) {
+  .stats-cards-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .stats-cards-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .stats-cards-grid { grid-template-columns: 1fr; }
+}
+
+.stats-card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--box-shadow-sm);
+  transition: box-shadow var(--transition-smooth), transform var(--transition-smooth);
+}
+
+.stats-card:hover {
+  box-shadow: var(--box-shadow);
+  transform: translateY(-2px);
+}
+
+.stats-card__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.stats-card--primary .stats-card__icon { background: rgba(111, 182, 232, 0.15); color: var(--primary); }
+.stats-card--warning .stats-card__icon { background: rgba(248, 184, 60, 0.15); color: #c8861a; }
+.stats-card--info    .stats-card__icon { background: rgba(100, 149, 237, 0.15); color: #4a7dd4; }
+.stats-card--success .stats-card__icon { background: rgba(72, 199, 142, 0.15); color: var(--success); }
+.stats-card--danger  .stats-card__icon { background: rgba(250, 119, 119, 0.15); color: var(--danger); }
+
+.stats-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stats-card__value {
+  font-size: var(--heading-3, 1.4rem);
+  font-weight: var(--fw-bold, 700);
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.stats-card__label {
+  font-size: var(--body-sm, 0.8rem);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ========== Package badge ========== */
+.package-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+
+.package-premium {
+  background: rgba(248, 184, 60, 0.15);
+  color: #a06600;
+  border: 1px solid rgba(248, 184, 60, 0.4);
+}
+
+.package-free {
+  background: rgba(111, 182, 232, 0.1);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.premium-expires {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
 /* ========== Batch Action Bar ========== */
 .batch-action-bar {
   display: flex;

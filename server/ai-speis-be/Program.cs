@@ -133,6 +133,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ai_speis_be.Repositories.DashboardRepo.IDashboardRepository, ai_speis_be.Repositories.DashboardRepo.DashboardRepository>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailSender, EmailService>();
 builder.Services.AddScoped<ICVRepository, CVRepository>();

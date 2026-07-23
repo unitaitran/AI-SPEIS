@@ -116,6 +116,9 @@ namespace ai_speis_be.Services.QuestionService
                 Difficulty = request.Difficulty!.Value,
                 RoleTarget = request.GetRoleTarget(),
                 Major = request.GetMajor(),
+                QuestionType = string.IsNullOrWhiteSpace(request.QuestionType) ? "Technical" : request.QuestionType.Trim(),
+                Skill = string.IsNullOrWhiteSpace(request.TechStack) ? null : request.TechStack.Trim(),
+                KeywordTags = string.IsNullOrWhiteSpace(request.Tags) ? null : request.Tags.Trim(),
                 IsDeleted = isDeleted,
                 CreatedAt = now,
                 UpdatedAt = null,
@@ -342,6 +345,9 @@ namespace ai_speis_be.Services.QuestionService
             question.Difficulty = request.Difficulty!.Value;
             question.RoleTarget = request.GetRoleTarget();
             question.Major = request.GetMajor();
+            question.QuestionType = string.IsNullOrWhiteSpace(request.QuestionType) ? question.QuestionType : request.QuestionType.Trim();
+            question.Skill = string.IsNullOrWhiteSpace(request.TechStack) ? null : request.TechStack.Trim();
+            question.KeywordTags = string.IsNullOrWhiteSpace(request.Tags) ? null : request.Tags.Trim();
             question.UpdatedAt = now;
 
             if (status == AdminQuestionStatus.Inactive)
@@ -926,8 +932,13 @@ namespace ai_speis_be.Services.QuestionService
                 QuestionContent = question.QuestionContent,
                 SuggestedAnswer = question.SuggestedAnswer,
                 Difficulty = question.Difficulty,
-                RoleTarget = question.RoleTarget,
-                Major = question.Major,
+                Role = question.RoleTarget ?? string.Empty,
+                RoleTarget = question.RoleTarget ?? string.Empty,
+                Major = question.Major ?? string.Empty,
+                InterviewType = question.QuestionType ?? string.Empty,
+                QuestionType = question.QuestionType ?? string.Empty,
+                TechStack = question.Skill ?? string.Empty,
+                Tags = question.KeywordTags ?? string.Empty,
                 IsDeleted = question.IsDeleted,
                 Status = GetQuestionStatus(question),
                 CreatedAt = question.CreatedAt,
@@ -946,8 +957,13 @@ namespace ai_speis_be.Services.QuestionService
                 QuestionContent = question.QuestionContent,
                 SuggestedAnswer = question.SuggestedAnswer,
                 Difficulty = question.Difficulty,
-                RoleTarget = question.RoleTarget,
-                Major = question.Major,
+                Role = question.RoleTarget ?? string.Empty,
+                RoleTarget = question.RoleTarget ?? string.Empty,
+                Major = question.Major ?? string.Empty,
+                InterviewType = question.QuestionType ?? string.Empty,
+                QuestionType = question.QuestionType ?? string.Empty,
+                TechStack = question.Skill ?? string.Empty,
+                Tags = question.KeywordTags ?? string.Empty,
                 IsDeleted = question.IsDeleted,
                 Status = GetQuestionStatus(question),
                 CreatedAt = question.CreatedAt,

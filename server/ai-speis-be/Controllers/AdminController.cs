@@ -1,5 +1,6 @@
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models.Enums;
+using ai_speis_be.Repositories.DashboardRepo;
 using ai_speis_be.Services.QuestionService;
 using ai_speis_be.Services.UserService;
 using Microsoft.AspNetCore.Authorization;
@@ -15,13 +16,32 @@ namespace ai_speis_be.Controllers
     {
         private readonly IUserService _userService;
         private readonly IQuestionService _questionService;
+        private readonly IDashboardRepository _dashboardRepository;
 
         public AdminController(
             IUserService userService,
-            IQuestionService questionService)
+            IQuestionService questionService,
+            IDashboardRepository dashboardRepository)
         {
             _userService = userService;
             _questionService = questionService;
+            _dashboardRepository = dashboardRepository;
+        }
+
+        [HttpGet("dashboard")]
+        [ProducesResponseType(typeof(AdminDashboardDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<AdminDashboardDto>> GetDashboard(CancellationToken cancellationToken)
+        {
+            var data = await _dashboardRepository.GetDashboardStatsAsync(cancellationToken);
+            return Ok(data);
+        }
+
+        [HttpGet("users/stats")]
+        [ProducesResponseType(typeof(AdminUserStatsDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<AdminUserStatsDto>> GetUserStats(CancellationToken cancellationToken)
+        {
+            var stats = await _userService.GetUserStatsAsync(cancellationToken);
+            return Ok(stats);
         }
 
         [HttpGet("users")]
