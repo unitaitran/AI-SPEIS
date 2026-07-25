@@ -7,23 +7,17 @@ namespace ai_speis_be.Tests.TechnicalInterviews;
 public sealed class TechnicalRubricProviderTests
 {
     [Fact]
-    public void GetRequired_LoadsVersionedDocumentRubricConfiguration()
+    public void GetRequired_LoadsZeroToTenRubricWithStablePerformanceBands()
     {
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(item => item.ContentRootPath).Returns(Path.GetFullPath("..\\ai-speis-be"));
         var provider = new TechnicalRubricProvider(environment.Object);
 
-        var rubric = provider.GetRequired("technical-rubric-v1");
+        var rubric = provider.GetRequired("technical-rubric-v2");
 
         Assert.Equal(5, rubric.Dimensions.Count);
         Assert.Equal(1m, rubric.Dimensions.Sum(item => item.Weight));
-        Assert.Equal("Xuất sắc", rubric.GetPerformanceBand(4.50m).Name);
-        Assert.Equal("Kém", rubric.GetPerformanceBand(1.49m).Name);
-        Assert.Equal("EXCELLENT", rubric.GetPerformanceBandCode(5m));
-        Assert.Equal("GOOD", rubric.GetPerformanceBandCode(4m));
-        Assert.Equal("FAIR", rubric.GetPerformanceBandCode(3m));
-        Assert.Equal("WEAK", rubric.GetPerformanceBandCode(2m));
-        Assert.Equal("POOR", rubric.GetPerformanceBandCode(1m));
+        Assert.Equal(10m, rubric.MaximumScore);
     }
 
     [Fact]

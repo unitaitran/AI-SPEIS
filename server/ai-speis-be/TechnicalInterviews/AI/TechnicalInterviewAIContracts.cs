@@ -31,7 +31,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public List<string> Evidence { get; set; } = new();
     }
 
-    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class TechnicalAIEvaluationResponse
     {
         public TechnicalAIEvaluationPayload Evaluation { get; set; } = new();
@@ -64,7 +63,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public IReadOnlyList<object> SkillResults { get; init; } = Array.Empty<object>();
     }
 
-    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class TechnicalAIFinalSummaryResponse
     {
         public string OverallTechnicalAssessment { get; set; } = string.Empty;

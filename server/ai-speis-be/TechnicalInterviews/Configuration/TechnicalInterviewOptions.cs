@@ -11,7 +11,7 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         public int CandidatePoolSize { get; init; } = 20;
         public int MaxTranscriptCharacters { get; init; } = 12_000;
         public string RubricVersion { get; init; } = "technical-rubric-v2";
-        public string PracticeRubricVersion { get; init; } = "technical-rubric-v1";
+        public string PracticeRubricVersion { get; init; } = "technical-rubric-v2";
         public string ScoringPolicyVersion { get; init; } = "technical-scoring-v2";
         public string QuestionPlanVersion { get; init; } = "technical-question-plan-v1";
         public string AdaptiveRuleVersion { get; init; } = "technical-rubric-bank-v2";
@@ -44,7 +44,7 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                 CandidatePoolSize = GetInt(configuration, "TECHNICAL_INTERVIEW_CANDIDATE_POOL_SIZE", 20, 1, 100),
                 MaxTranscriptCharacters = GetInt(configuration, "TECHNICAL_INTERVIEW_MAX_TRANSCRIPT_CHARACTERS", 12_000, 100, 50_000),
                 RubricVersion = Get(configuration, "TECHNICAL_INTERVIEW_RUBRIC_VERSION", "technical-rubric-v2"),
-                PracticeRubricVersion = Get(configuration, "TECHNICAL_INTERVIEW_PRACTICE_RUBRIC_VERSION", "technical-rubric-v1"),
+                PracticeRubricVersion = Get(configuration, "TECHNICAL_INTERVIEW_PRACTICE_RUBRIC_VERSION", "technical-rubric-v2"),
                 ScoringPolicyVersion = Get(configuration, "TECHNICAL_INTERVIEW_SCORING_POLICY_VERSION", "technical-scoring-v2"),
                 QuestionPlanVersion = Get(configuration, "TECHNICAL_INTERVIEW_QUESTION_PLAN_VERSION", "technical-question-plan-v1"),
                 AdaptiveRuleVersion = Get(configuration, "TECHNICAL_INTERVIEW_ADAPTIVE_RULE_VERSION", "technical-rubric-bank-v2"),

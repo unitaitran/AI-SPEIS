@@ -67,7 +67,7 @@ const audioService = {
       try {
         const errorData = await response.json();
         errorMessage = errorData.Message || errorData.message || errorMessage;
-      } catch (e) {}
+      } catch (e) { }
       throw new Error(errorMessage);
     }
     return response.json();

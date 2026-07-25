@@ -24,9 +24,11 @@ import behavioralInterviewApi from '../../services/behavioralInterviewApi';
 import interviewSessionService from '../../services/InterviewSessionService';
 import { calculateAccuracy } from '../../utils/stringUtils';
 import {
+  clearActiveInterviewContext,
   getActiveInterviewContext,
   getInterviewSetupDraft,
   getNextPendingSession,
+  notifyInterviewQuotaChanged,
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
 import '../../styles/user/DeviceReadinessCheckPage.css';
@@ -253,6 +255,7 @@ function DeviceReadinessCheckPage() {
   const [liveTranscript, setLiveTranscript] = useState('');
   const [contextError, setContextError] = useState('');
   const [isStartingSession, setIsStartingSession] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const recordingChunksRef = useRef([]);
   const speechRecognitionRef = useRef(null);
   const activeStreamRef = useRef(null);
@@ -690,6 +693,24 @@ function DeviceReadinessCheckPage() {
     }
   };
 
+  const handleBack = async () => {
+    setIsCancelling(true);
+    try {
+      const activeCtx = interviewContext || getActiveInterviewContext();
+      const campaignId = activeCtx?.campaign?.interviewCampaignId;
+      if (campaignId) {
+        const cancelledCampaign = await interviewSessionService.cancelCampaign(campaignId).catch(() => null);
+        if (cancelledCampaign?.remainingInterviewQuota !== undefined) {
+          notifyInterviewQuotaChanged(cancelledCampaign);
+        }
+      }
+    } finally {
+      clearActiveInterviewContext();
+      setIsCancelling(false);
+      navigate(USER_ROUTES.INTERVIEW_SETUP);
+    }
+  };
+
   const handleCopySample = async () => {
     if (!navigator.clipboard) return;
 
@@ -844,10 +865,20 @@ function DeviceReadinessCheckPage() {
             <button
               type="button"
               className="device-secondary-button"
-              onClick={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
+              onClick={handleBack}
+              disabled={isCancelling || isStartingSession}
             >
-              <ArrowLeft size={18} />
-              {t('common.back')}
+              {isCancelling ? (
+                <>
+                  <Loader2 size={18} className="device-spin" />
+                  {t('common.back')}
+                </>
+              ) : (
+                <>
+                  <ArrowLeft size={18} />
+                  {t('common.back')}
+                </>
+              )}
             </button>
             <button
               type="button"

@@ -8,6 +8,7 @@ using ai_speis_be.DTOs.JdParsing;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using ai_speis_be.Services.GeminiAiParsingService;
+using ai_speis_be.Helpers;
 
 namespace ai_speis_be.Services.JDService
 {
@@ -239,6 +240,8 @@ namespace ai_speis_be.Services.JDService
 
             var profile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
             if (profile == null) return false;
+
+            if (!RoleValidationHelper.IsSupportedRole(request.RoleTarget, request.JobTitle)) return false;
 
             profile.JobTitle = request.JobTitle;
             profile.ExperienceLevel = request.ExperienceLevel;

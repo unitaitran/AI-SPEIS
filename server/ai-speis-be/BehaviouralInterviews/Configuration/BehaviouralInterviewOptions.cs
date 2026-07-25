@@ -7,9 +7,9 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
         public string Provider { get; init; } = "external";
         public string ApiKey { get; init; } = string.Empty;
         public string BaseUrl { get; init; } = "https://generativelanguage.googleapis.com/v1beta/openai/"; // Default to Gemini's OpenAI-compatible endpoint
-        public string Model { get; init; } = "gemini-2.5-flash";
+        public string Model { get; init; } = "gemini-3.5-flash";
         public int MaxRetries { get; init; } = 3;
-        public int TimeoutSeconds { get; init; } = 30;
+        public int TimeoutSeconds { get; init; } = 90;
         public decimal InputTokenCostPerMillion { get; init; }
         public decimal OutputTokenCostPerMillion { get; init; }
 
@@ -23,9 +23,9 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
                     configuration,
                     "BEHAVIOURAL_INTERVIEW_AI_BASE_URL",
                     "https://generativelanguage.googleapis.com/v1beta/openai/")),
-                Model = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_MODEL", "gemini-2.5-flash"),
+                Model = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_MODEL", "gemini-3.5-flash"),
                 MaxRetries = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_MAX_RETRIES", 3, 0, 5),
-                TimeoutSeconds = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", 30, 5, 180),
+                TimeoutSeconds = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", 90, 5, 180),
                 InputTokenCostPerMillion = GetDecimal(
                     configuration,
                     "BEHAVIOURAL_INTERVIEW_AI_INPUT_TOKEN_COST_PER_MILLION",
