@@ -107,9 +107,11 @@ namespace ai_speis_be.BehaviouralInterviews.AI
 
                     if (!response.IsSuccessStatusCode)
                     {
+                        var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
                         _logger.LogWarning(
-                            "Behavioural Interview AI returned HTTP {StatusCode}.",
-                            (int)response.StatusCode);
+                            "Behavioural Interview AI returned HTTP {StatusCode}. Body: {Body}",
+                            (int)response.StatusCode,
+                            errorBody);
                         return Failure<T>(stopwatch, startedAt, MapHttpError(response.StatusCode), attempt);
                     }
 

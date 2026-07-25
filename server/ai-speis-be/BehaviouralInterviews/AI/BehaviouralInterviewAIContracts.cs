@@ -92,8 +92,6 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public string ReasonSummary { get; set; } = string.Empty;
     }
 
-    [System.Text.Json.Serialization.JsonUnmappedMemberHandling(
-        System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed class BehaviouralAIEvaluationResponse
     {
         public List<BehaviouralAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
@@ -124,8 +122,6 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public IReadOnlyList<object> MainQuestionResults { get; init; } = Array.Empty<object>();
     }
 
-    [System.Text.Json.Serialization.JsonUnmappedMemberHandling(
-        System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed class BehaviouralAIFinalSummaryResponse
     {
         public string OverallBehavioralAssessment { get; set; } = string.Empty;
