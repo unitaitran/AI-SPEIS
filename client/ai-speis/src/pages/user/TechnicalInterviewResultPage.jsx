@@ -6,7 +6,6 @@ import TechnicalQuestionBreakdown from '../../components/technicalInterview/Tech
 import TechnicalRecommendations from '../../components/technicalInterview/TechnicalRecommendations';
 import TechnicalResultSummary from '../../components/technicalInterview/TechnicalResultSummary';
 import TechnicalRubricBreakdown from '../../components/technicalInterview/TechnicalRubricBreakdown';
-import TechnicalSkillBreakdown from '../../components/technicalInterview/TechnicalSkillBreakdown';
 import { getTechnicalInterviewErrorKey } from '../../features/technicalInterview/technicalInterviewErrors';
 import useTechnicalInterviewResult from '../../features/technicalInterview/useTechnicalInterviewResult';
 import UserLayout from '../../layouts/user/UserLayout';
@@ -129,7 +128,6 @@ function TechnicalInterviewResultPage({ sessionId }) {
         {result.dimensionResults?.length > 0 && (
           <TechnicalRubricBreakdown dimensions={result.dimensionResults} t={t} />
         )}
-        <TechnicalSkillBreakdown skills={result.skillResults} t={t} />
         <TechnicalQuestionBreakdown questions={result.questionResults} t={t} />
         <TechnicalRecommendations recommendations={result.recommendations} t={t} />
       </div>

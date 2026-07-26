@@ -44,7 +44,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public required ImmutableArray<TechnicalAnswerContext> PreviousAnswers { get; init; }
         public required ImmutableArray<string> RemainingMissingEvidence { get; init; }
         public ImmutableArray<string> CollectedEvidence { get; init; } = ImmutableArray<string>.Empty;
-        public ImmutableArray<string> PreviousIncorrectClaims { get; init; } = ImmutableArray<string>.Empty;
         public ImmutableArray<decimal> PreviousAttemptScores { get; init; } = ImmutableArray<decimal>.Empty;
         public required string JobRole { get; init; }
         public required string ExperienceLevel { get; init; }

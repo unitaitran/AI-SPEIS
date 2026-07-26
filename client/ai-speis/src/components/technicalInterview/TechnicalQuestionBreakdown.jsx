@@ -120,7 +120,6 @@ function TechnicalQuestionBreakdown({ questions, t }) {
                 <div className="technical-feedback-columns">
                   <TechnicalResultFeedbackList title={t('result.strengths')} items={question.strengths} />
                   <TechnicalResultFeedbackList title={t('result.missingPoints')} items={question.missingPoints || question.missingEvidence} />
-                  <TechnicalResultFeedbackList title={t('result.incorrectClaims')} items={question.incorrectClaims} />
                   <TechnicalResultFeedbackList title={t('result.suggestions')} items={question.suggestions || question.improvementSuggestions} />
                 </div>
                 {question.feedbackSummary && (

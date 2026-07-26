@@ -18,23 +18,17 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public string RubricCode { get; set; } = string.Empty;
         public List<string> Evidence { get; set; } = new();
         public List<string> MissingEvidence { get; set; } = new();
-        public List<string> IncorrectClaims { get; set; } = new();
         public decimal SuggestedScore { get; set; }
-        public string SuggestedLevel { get; set; } = string.Empty;
-        public string ReasonSummary { get; set; } = string.Empty;
     }
 
     public sealed class TechnicalAIEvaluationPayload
     {
-        public string AnswerQuality { get; set; } = string.Empty;
         public List<TechnicalAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
-        public List<string> Evidence { get; set; } = new();
     }
 
     public sealed class TechnicalAIEvaluationResponse
     {
         public TechnicalAIEvaluationPayload Evaluation { get; set; } = new();
-        public decimal Confidence { get; set; }
 
         // Source-compatible aliases for existing scoring code and legacy tests. They
         // are ignored by JSON so the provider contract remains the evaluation-only v8 schema.
@@ -68,16 +62,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public string OverallTechnicalAssessment { get; set; } = string.Empty;
         public List<string> Strengths { get; set; } = new();
         public List<string> KnowledgeGaps { get; set; } = new();
-        public string ReasoningAndApplicationAssessment { get; set; } = string.Empty;
-        public string CommunicationAssessment { get; set; } = string.Empty;
-        public List<TechnicalAIPerformanceBySkill> PerformanceBySkill { get; set; } = new();
         public List<string> RecommendationsForImprovement { get; set; } = new();
-    }
-
-    public sealed class TechnicalAIPerformanceBySkill
-    {
-        public string Skill { get; set; } = string.Empty;
-        public string Assessment { get; set; } = string.Empty;
     }
 
     public sealed class AIProviderResult<T>

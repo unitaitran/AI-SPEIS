@@ -36,11 +36,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             TechnicalRubricDefinition rubric,
             IReadOnlyList<TechnicalAnswerContext> answerContext)
         {
-            if (evaluation.Confidence is < 0m or > 1m)
-            {
-                return Invalid("INVALID_CONFIDENCE");
-            }
-
             var expectedCodes = rubric.Dimensions
                 .Select(item => item.Code)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -55,12 +50,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 return Invalid("INVALID_RUBRIC_CODES");
             }
 
-            if (string.IsNullOrWhiteSpace(evaluation.Evaluation.AnswerQuality)
-                || !AnswerQualities.Contains(evaluation.Evaluation.AnswerQuality.Trim()))
-            {
-                return Invalid("INVALID_ANSWER_QUALITY");
-            }
-
             var transcript = NormalizeEvidence(string.Join(" ", answerContext.Select(item => item.Answer)));
             foreach (var dimension in evaluation.DimensionEvaluations)
             {
@@ -68,14 +57,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                     || dimension.SuggestedScore > rubric.MaximumScore)
                 {
                     return Invalid("SCORE_OUT_OF_RANGE");
-                }
-
-                if (!string.Equals(
-                    dimension.SuggestedLevel,
-                    rubric.GetLevelCode(dimension.SuggestedScore),
-                    StringComparison.OrdinalIgnoreCase))
-                {
-                    return Invalid("LEVEL_SCORE_MISMATCH");
                 }
 
                 if (dimension.SuggestedScore > rubric.EvidenceRequiredWhenScoreAbove
@@ -87,12 +68,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 if (dimension.Evidence.Any(evidence => !IsGroundedEvidence(evidence, transcript)))
                 {
                     return Invalid("EVIDENCE_NOT_IN_ANSWER");
-                }
-
-                if (string.IsNullOrWhiteSpace(dimension.ReasonSummary)
-                    || dimension.ReasonSummary.Length > 1_000)
-                {
-                    return Invalid("INVALID_REASON_SUMMARY");
                 }
             }
 

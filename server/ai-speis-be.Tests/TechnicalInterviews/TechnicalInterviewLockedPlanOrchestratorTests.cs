@@ -226,7 +226,7 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
     {
         using var context = TestDbContextFactory.Create();
         SeedRealSession(context);
-        var evaluation = TechnicalParallelTestData.CreateEvaluation(2m, "AMBIGUOUS");
+        var evaluation = TechnicalParallelTestData.CreateEvaluation(2m);
         foreach (var dimension in evaluation.DimensionEvaluations)
         {
             dimension.Evidence = new List<string> { "khong ro" };

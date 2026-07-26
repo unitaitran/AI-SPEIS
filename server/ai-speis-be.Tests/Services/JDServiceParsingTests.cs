@@ -157,6 +157,7 @@ namespace ai_speis_be.Tests.Services
             {
                 JobTitle = "Updated Title",
                 ExperienceLevel = "Junior",
+                RoleTarget = "Backend",
                 RequiredSkills = new List<string> { "Java" },
                 NiceToHaveSkills = new List<string>(),
                 Responsibilities = "Coding",

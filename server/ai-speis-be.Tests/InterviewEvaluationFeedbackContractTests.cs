@@ -26,7 +26,6 @@ public sealed class InterviewEvaluationFeedbackContractTests
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.DoesNotContain("GenerateFeedbackDraftAsync", technicalProviderMethods);
-        Assert.Contains("AnswerQuality", technicalPayload);
         Assert.Contains("DimensionEvaluations", technicalPayload);
         Assert.Contains("Evidence", technicalPayload);
         Assert.DoesNotContain("Strengths", technicalPayload);
@@ -72,8 +71,6 @@ public sealed class InterviewEvaluationFeedbackContractTests
 
         Assert.Contains("OverallTechnicalAssessment", technical);
         Assert.Contains("KnowledgeGaps", technical);
-        Assert.Contains("ReasoningAndApplicationAssessment", technical);
-        Assert.Contains("PerformanceBySkill", technical);
         Assert.Contains("RecommendationsForImprovement", technical);
 
         Assert.Contains("OverallBehavioralAssessment", behavioural);

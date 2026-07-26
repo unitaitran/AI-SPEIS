@@ -460,7 +460,25 @@ namespace ai_speis_be.Services.InterviewSessionService
                         group.Average(dimension => dimension.FinalScore));
                 }
 
-                var score = CampaignResultCalculator.Round(technicalSession.TechnicalFinalScore ?? 0m);
+                var completedMainAttempts = await _context.TechnicalQuestionAttempts
+                    .Where(a => a.InterviewSessionId == technicalSession.InterviewSessionId
+                        && a.QuestionType == TechnicalAttemptType.Main
+                        && a.FinalMainScore.HasValue)
+                    .ToListAsync();
+
+                var calculatedScore = completedMainAttempts.Count > 0
+                    ? CampaignResultCalculator.Round(completedMainAttempts.Average(a => a.FinalMainScore!.Value))
+                    : 0m;
+                var score = calculatedScore > 0m
+                    ? calculatedScore
+                    : CampaignResultCalculator.Round(technicalSession.TechnicalFinalScore ?? 0m);
+
+                if (score > 0m && technicalSession.TechnicalFinalScore != score)
+                {
+                    technicalSession.TechnicalFinalScore = score;
+                    technicalSession.TechnicalPerformanceBand = CampaignResultCalculator.GetPerformanceBand(score);
+                    await _context.SaveChangesAsync();
+                }
                 rounds.Add(new CampaignRoundResultDto
                 {
                     InterviewSessionId = technicalSession.InterviewSessionId,

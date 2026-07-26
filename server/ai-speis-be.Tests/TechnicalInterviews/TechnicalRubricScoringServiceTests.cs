@@ -104,15 +104,12 @@ internal static class TechnicalTestRubric
     {
         return new TechnicalAIEvaluationResponse
         {
-            Evaluation = new TechnicalAIEvaluationPayload { AnswerQuality = "PARTIAL" },
-            Confidence = 0.9m,
+            Evaluation = new TechnicalAIEvaluationPayload(),
             DimensionEvaluations = Codes.Select((code, index) => new TechnicalAIDimensionEvaluation
             {
                 RubricCode = code,
                 SuggestedScore = scores[index],
-                SuggestedLevel = $"SCORE_{Math.Round(scores[index], 0, MidpointRounding.AwayFromZero)}",
-                Evidence = new List<string> { "dependency injection" },
-                ReasonSummary = "Short validated reason."
+                Evidence = new List<string> { "dependency injection" }
             }).ToList()
         };
     }
