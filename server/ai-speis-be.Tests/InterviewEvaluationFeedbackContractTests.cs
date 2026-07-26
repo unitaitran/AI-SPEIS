@@ -74,9 +74,8 @@ public sealed class InterviewEvaluationFeedbackContractTests
         Assert.Contains("RecommendationsForImprovement", technical);
 
         Assert.Contains("OverallBehavioralAssessment", behavioural);
-        Assert.Contains("StarStructureAssessment", behavioural);
-        Assert.Contains("OwnershipAndImpactAssessment", behavioural);
-        Assert.Contains("CompetencyFit", behavioural);
+        Assert.Contains("Strengths", behavioural);
+        Assert.Contains("Weaknesses", behavioural);
         Assert.Contains("RecommendationsForImprovement", behavioural);
     }
 

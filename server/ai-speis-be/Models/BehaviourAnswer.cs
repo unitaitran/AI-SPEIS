@@ -30,13 +30,8 @@ namespace ai_speis_be.Models
         // Chi tiết AI nhận xét từng tiêu chí (JSON). 
         // Ví dụ: {"situation": {"score": 4, "evidence": "Mô tả rõ ràng khó khăn dự án", "missing": "Chưa nhắc đến timeline"}}
         public string? AiCriteriaDetailJson { get; set; }
-        public string? AiEvidenceJson { get; set; }
-        public string? AiMissingAspectsJson { get; set; }
-        public int? AiOverallRubricScore { get; set; }
-        public BehaviourAnswerQuality? AiAnswerQuality { get; set; }
         public string? AiStrengths { get; set; }
         public string? AiMissingPoints { get; set; }
-        public BehaviourResolvedAction? AiRecommendedAction { get; set; }
         public BehaviourResolvedAction? ResolvedAction { get; set; }
         public decimal? ComputedScore { get; set; }
         public decimal? FinalQuestionScore { get; set; }

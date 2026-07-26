@@ -2318,6 +2318,45 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     usedLegacyAttemptIds.Add(matchingAttempt.AttemptId);
             }
 
+            Dictionary<int, Question>? aiSelectedBySlot = null;
+            if (!preserveLegacyAttempts && plan.Slots.All(slot => slot.LockedQuestion is null))
+            {
+                var candidatePool = new List<Question>();
+                foreach (var slot in plan.Slots.OrderBy(item => item.MainQuestionIndex))
+                {
+                    var selectionContext = BuildLockedSelectionContext(session, plan, slot, locked);
+                    var pool = await _selectionService.PreparePoolAsync(selectionContext, cancellationToken);
+                    foreach (var c in pool.Candidates)
+                    {
+                        if (!candidatePool.Any(existing => existing.QuestionId == c.QuestionId))
+                        {
+                            candidatePool.Add(c);
+                        }
+                    }
+                }
+
+                if (candidatePool.Count >= 3)
+                {
+                    var baseContext = BuildLockedSelectionContext(session, plan, plan.Slots[0], locked);
+                    var aiSelected = await _selectionService.SelectMainQuestionsWithAIAsync(
+                        baseContext,
+                        candidatePool,
+                        plan.PlannedCvQuestionCount,
+                        plan.PlannedJdQuestionCount,
+                        cancellationToken);
+
+                    if (aiSelected is not null && aiSelected.Count == plan.Slots.Length)
+                    {
+                        aiSelectedBySlot = new Dictionary<int, Question>();
+                        var slotsOrdered = plan.Slots.OrderBy(item => item.MainQuestionIndex).ToList();
+                        for (int i = 0; i < slotsOrdered.Count; i++)
+                        {
+                            aiSelectedBySlot[slotsOrdered[i].MainQuestionIndex] = aiSelected[i];
+                        }
+                    }
+                }
+            }
+
             foreach (var slot in plan.Slots.OrderBy(item => item.MainQuestionIndex))
             {
                 TechnicalLockedMainQuestionSnapshot? snapshot = slot.LockedQuestion;
@@ -2351,37 +2390,50 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
                 if (snapshot is null)
                 {
-                    var selectionContext = BuildLockedSelectionContext(session, plan, slot, locked);
-                    var pool = await _selectionService.PreparePoolAsync(selectionContext, cancellationToken);
-                    var question = pool.Candidates.FirstOrDefault(item =>
-                        !usedQuestionIds.Contains(item.QuestionId)
-                        && !reservedQuestionIds.Contains(item.QuestionId));
-                    if (question is null)
+                    if (aiSelectedBySlot is not null && aiSelectedBySlot.TryGetValue(slot.MainQuestionIndex, out var aiChosen))
                     {
-                        return new TechnicalPlanLockResult(
-                            null,
-                            pool.ErrorCode ?? "NO_PLAN_SLOT_CANDIDATE",
-                            $"No unique Technical question can be locked for Main slot {slot.MainQuestionIndex} "
-                            + $"(source={slot.SourceType}, skill={slot.TargetSkill}, difficulty={slot.PlannedDifficulty}, "
-                            + $"role={session.TechnicalJobRole}, experience={session.TechnicalExperienceLevel}, "
-                            + $"language={session.TechnicalLanguage}, relaxation={pool.Relaxation}).");
+                        snapshot = CreateLockedSnapshot(
+                            slot,
+                            aiChosen,
+                            rubric,
+                            lockedAt,
+                            session.TechnicalLanguage ?? session.InterviewCampaign.Language,
+                            plan.Version);
                     }
+                    else
+                    {
+                        var selectionContext = BuildLockedSelectionContext(session, plan, slot, locked);
+                        var pool = await _selectionService.PreparePoolAsync(selectionContext, cancellationToken);
+                        var question = pool.Candidates.FirstOrDefault(item =>
+                            !usedQuestionIds.Contains(item.QuestionId)
+                            && !reservedQuestionIds.Contains(item.QuestionId));
+                        if (question is null)
+                        {
+                            return new TechnicalPlanLockResult(
+                                null,
+                                pool.ErrorCode ?? "NO_PLAN_SLOT_CANDIDATE",
+                                $"No unique Technical question can be locked for Main slot {slot.MainQuestionIndex} "
+                                + $"(source={slot.SourceType}, skill={slot.TargetSkill}, difficulty={slot.PlannedDifficulty}, "
+                                + $"role={session.TechnicalJobRole}, experience={session.TechnicalExperienceLevel}, "
+                                + $"language={session.TechnicalLanguage}, relaxation={pool.Relaxation}).");
+                        }
 
-                    if (!TechnicalQuestionMetadata.FuzzyMatches(question.Skill ?? string.Empty, slot.TargetSkill)
-                        || question.Difficulty != slot.PlannedDifficulty)
-                    {
-                        return new TechnicalPlanLockResult(
-                            null,
-                            "LOCKED_QUESTION_PLAN_MISMATCH",
-                            $"The candidate for Main slot {slot.MainQuestionIndex} does not satisfy its locked skill and difficulty.");
+                        if (!TechnicalQuestionMetadata.FuzzyMatches(question.Skill ?? string.Empty, slot.TargetSkill)
+                            || question.Difficulty != slot.PlannedDifficulty)
+                        {
+                            return new TechnicalPlanLockResult(
+                                null,
+                                "LOCKED_QUESTION_PLAN_MISMATCH",
+                                $"The candidate for Main slot {slot.MainQuestionIndex} does not satisfy its locked skill and difficulty.");
+                        }
+                        snapshot = CreateLockedSnapshot(
+                            slot,
+                            question,
+                            rubric,
+                            lockedAt,
+                            session.TechnicalLanguage ?? session.InterviewCampaign.Language,
+                            plan.Version);
                     }
-                    snapshot = CreateLockedSnapshot(
-                        slot,
-                        question,
-                        rubric,
-                        lockedAt,
-                        session.TechnicalLanguage ?? session.InterviewCampaign.Language,
-                        plan.Version);
                 }
 
                 if (!IsCompleteLockedSnapshot(snapshot)

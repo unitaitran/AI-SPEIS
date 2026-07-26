@@ -21,9 +21,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
         string expected)
     {
         var repository = new Mock<IQuestionRepoitory>();
-        var service = new TechnicalQuestionSelectionService(
-            repository.Object,
-            new TechnicalInterviewOptions());
+        var service = CreateService(repository.Object);
 
         var result = await service.SelectBankSubQuestionAsync(
             CreateLockedSnapshot(),
@@ -45,9 +43,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
         var repository = new Mock<IQuestionRepoitory>();
         repository.Setup(item => item.GetQuestionByIdAsync(42, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Question?)null);
-        var service = new TechnicalQuestionSelectionService(
-            repository.Object,
-            new TechnicalInterviewOptions());
+        var service = CreateService(repository.Object);
         var legacySnapshot = CreateLockedSnapshot() with
         {
             ClarificationQuestion = null,
@@ -79,7 +75,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
                 It.IsAny<TechnicalQuestionCandidateQuery>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(candidates);
-        var service = new TechnicalQuestionSelectionService(
+        var service = CreateService(
             repository.Object,
             new TechnicalInterviewOptions { CandidatePoolSize = 20 });
 
@@ -107,7 +103,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
                 It.IsAny<TechnicalQuestionCandidateQuery>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(candidates);
-        var service = new TechnicalQuestionSelectionService(
+        var service = CreateService(
             repository.Object,
             new TechnicalInterviewOptions { CandidatePoolSize = 20 });
 
@@ -148,7 +144,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
                 It.IsAny<TechnicalQuestionCandidateQuery>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(candidates);
-        var service = new TechnicalQuestionSelectionService(
+        var service = CreateService(
             repository.Object,
             new TechnicalInterviewOptions());
 
@@ -190,7 +186,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
                 It.Is<TechnicalQuestionCandidateQuery>(query => query.ExperienceLevels.Count == 0),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { CreateQuestion(30, "Docker") });
-        var service = new TechnicalQuestionSelectionService(
+        var service = CreateService(
             repository.Object,
             new TechnicalInterviewOptions());
 
@@ -259,5 +255,121 @@ public sealed class TechnicalQuestionSelectionServiceTests
             "Bank clarification",
             "Bank follow-up 1",
             "Bank follow-up 2");
+    }
+
+    [Fact]
+    public async Task SelectMainQuestionsWithAIAsync_ReturnsOrderedQuestionsWhenAiSucceeds()
+    {
+        var repository = new Mock<IQuestionRepoitory>();
+        var aiProvider = new Mock<ITechnicalInterviewAIProvider>();
+        aiProvider.Setup(item => item.SelectQuestionsAsync(It.IsAny<TechnicalAISelectionRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AIProviderResult<TechnicalAISelectionResponse>
+            {
+                Success = true,
+                Data = new TechnicalAISelectionResponse
+                {
+                    SelectedQuestions = new List<TechnicalAISelectedQuestion>
+                    {
+                        new() { QuestionId = 30, Order = 1 },
+                        new() { QuestionId = 10, Order = 2 },
+                        new() { QuestionId = 20, Order = 3 }
+                    },
+                    CoveredSkills = new List<string> { "C#", "Docker", "Database" }
+                }
+            });
+
+        var aiResolver = new Mock<ITechnicalInterviewAIProviderResolver>();
+        aiResolver.Setup(item => item.Resolve()).Returns(aiProvider.Object);
+
+        var validator = new TechnicalAIResponseValidator();
+        var logger = new Mock<Microsoft.Extensions.Logging.ILogger<TechnicalQuestionSelectionService>>();
+        var service = new TechnicalQuestionSelectionService(
+            repository.Object,
+            aiResolver.Object,
+            validator,
+            new TechnicalInterviewOptions(),
+            logger.Object);
+
+        var candidates = new[]
+        {
+            CreateQuestion(10, "Docker"),
+            CreateQuestion(20, "Database"),
+            CreateQuestion(30, "C#")
+        };
+
+        var context = new TechnicalSelectionContext
+        {
+            Language = "vi",
+            JobRole = "Backend Developer",
+            ExperienceLevel = "Junior",
+            CvSkills = new[] { "C#" },
+            JdSkills = new[] { "Docker", "Database" }
+        };
+
+        var result = await service.SelectMainQuestionsWithAIAsync(context, candidates, 1, 2, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(3, result!.Count);
+        Assert.Equal(30, result[0].QuestionId);
+        Assert.Equal(10, result[1].QuestionId);
+        Assert.Equal(20, result[2].QuestionId);
+    }
+
+    [Fact]
+    public async Task SelectMainQuestionsWithAIAsync_ReturnsNullAndFallsBackWhenAiFails()
+    {
+        var repository = new Mock<IQuestionRepoitory>();
+        var aiProvider = new Mock<ITechnicalInterviewAIProvider>();
+        aiProvider.Setup(item => item.SelectQuestionsAsync(It.IsAny<TechnicalAISelectionRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AIProviderResult<TechnicalAISelectionResponse>
+            {
+                Success = false,
+                ErrorCode = "AI_TIMEOUT"
+            });
+
+        var aiResolver = new Mock<ITechnicalInterviewAIProviderResolver>();
+        aiResolver.Setup(item => item.Resolve()).Returns(aiProvider.Object);
+
+        var validator = new TechnicalAIResponseValidator();
+        var logger = new Mock<Microsoft.Extensions.Logging.ILogger<TechnicalQuestionSelectionService>>();
+        var service = new TechnicalQuestionSelectionService(
+            repository.Object,
+            aiResolver.Object,
+            validator,
+            new TechnicalInterviewOptions(),
+            logger.Object);
+
+        var candidates = new[]
+        {
+            CreateQuestion(10, "Docker"),
+            CreateQuestion(20, "Database"),
+            CreateQuestion(30, "C#")
+        };
+
+        var context = new TechnicalSelectionContext
+        {
+            Language = "vi",
+            JobRole = "Backend Developer",
+            ExperienceLevel = "Junior"
+        };
+
+        var result = await service.SelectMainQuestionsWithAIAsync(context, candidates, 1, 2, CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    private static TechnicalQuestionSelectionService CreateService(
+        IQuestionRepoitory repository,
+        TechnicalInterviewOptions? options = null)
+    {
+        var aiResolver = new Mock<ITechnicalInterviewAIProviderResolver>();
+        var validator = new TechnicalAIResponseValidator();
+        var logger = new Mock<Microsoft.Extensions.Logging.ILogger<TechnicalQuestionSelectionService>>();
+        return new TechnicalQuestionSelectionService(
+            repository,
+            aiResolver.Object,
+            validator,
+            options ?? new TechnicalInterviewOptions(),
+            logger.Object);
     }
 }

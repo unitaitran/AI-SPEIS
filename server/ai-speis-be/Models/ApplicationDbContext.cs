@@ -345,12 +345,6 @@ namespace ai_speis_be.Models
 
             // Enum Conversions for BehaviourAnswer
             modelBuilder.Entity<BehaviourAnswer>()
-                .Property(a => a.AiAnswerQuality)
-                .HasConversion<string>();
-            modelBuilder.Entity<BehaviourAnswer>()
-                .Property(a => a.AiRecommendedAction)
-                .HasConversion<string>();
-            modelBuilder.Entity<BehaviourAnswer>()
                 .Property(a => a.ResolvedAction)
                 .HasConversion<string>();
 

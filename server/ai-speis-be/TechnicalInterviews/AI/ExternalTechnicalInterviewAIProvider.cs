@@ -35,6 +35,19 @@ namespace ai_speis_be.TechnicalInterviews.AI
 
         public string ProviderName => "external";
 
+        public Task<AIProviderResult<TechnicalAISelectionResponse>> SelectQuestionsAsync(
+            TechnicalAISelectionRequest request,
+            CancellationToken cancellationToken)
+        {
+            var prompt = TechnicalPromptFactory.Selection(request);
+            return CallAsync<TechnicalAISelectionResponse>(
+                prompt.System,
+                prompt.User,
+                _options.TimeoutSeconds * 1_000,
+                _options.MaxRetries,
+                cancellationToken);
+        }
+
         public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken)

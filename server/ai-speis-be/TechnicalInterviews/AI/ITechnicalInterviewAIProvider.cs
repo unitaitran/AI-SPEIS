@@ -4,6 +4,10 @@ namespace ai_speis_be.TechnicalInterviews.AI
     {
         string ProviderName { get; }
 
+        Task<AIProviderResult<TechnicalAISelectionResponse>> SelectQuestionsAsync(
+            TechnicalAISelectionRequest request,
+            CancellationToken cancellationToken);
+
         Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken);

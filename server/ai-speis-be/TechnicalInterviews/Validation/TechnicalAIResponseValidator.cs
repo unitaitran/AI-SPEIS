@@ -6,6 +6,10 @@ using ai_speis_be.TechnicalInterviews.Rubrics;
 
 namespace ai_speis_be.TechnicalInterviews.Validation
 {
+    public sealed record TechnicalSelectionValidationResult(
+        bool IsValid,
+        string? ErrorCode);
+
     public sealed record TechnicalEvaluationValidationResult(
         bool IsValid,
         string? ErrorCode);
@@ -13,6 +17,11 @@ namespace ai_speis_be.TechnicalInterviews.Validation
     public interface ITechnicalAIResponseValidator
     {
         bool IsValidSelection(int selectedQuestionId, IReadOnlySet<int> candidateIds);
+
+        TechnicalSelectionValidationResult ValidateSelection(
+            TechnicalAISelectionResponse selection,
+            TechnicalAISelectionConstraints constraints,
+            IReadOnlySet<int> poolQuestionIds);
 
         TechnicalEvaluationValidationResult ValidateEvaluation(
             TechnicalAIEvaluationResponse evaluation,
@@ -29,6 +38,30 @@ namespace ai_speis_be.TechnicalInterviews.Validation
         public bool IsValidSelection(int selectedQuestionId, IReadOnlySet<int> candidateIds)
         {
             return selectedQuestionId > 0 && candidateIds.Contains(selectedQuestionId);
+        }
+
+        public TechnicalSelectionValidationResult ValidateSelection(
+            TechnicalAISelectionResponse selection,
+            TechnicalAISelectionConstraints constraints,
+            IReadOnlySet<int> poolQuestionIds)
+        {
+            var selected = selection.SelectedQuestions;
+            if (selected.Count != constraints.RequiredQuestionCount)
+            {
+                return new TechnicalSelectionValidationResult(false, "WRONG_QUESTION_COUNT");
+            }
+
+            if (selected.Select(item => item.QuestionId).Distinct().Count() != selected.Count)
+            {
+                return new TechnicalSelectionValidationResult(false, "DUPLICATE_QUESTION_ID");
+            }
+
+            if (selected.Any(item => !poolQuestionIds.Contains(item.QuestionId)))
+            {
+                return new TechnicalSelectionValidationResult(false, "QUESTION_NOT_IN_POOL");
+            }
+
+            return new TechnicalSelectionValidationResult(true, null);
         }
 
         public TechnicalEvaluationValidationResult ValidateEvaluation(
