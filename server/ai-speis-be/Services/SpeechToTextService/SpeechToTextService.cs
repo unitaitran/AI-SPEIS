@@ -23,6 +23,114 @@ namespace ai_speis_be.Services.SpeechToTextService
             _logger = logger;
         }
 
+        public async Task<string> RecognizeSpeechWebSocketAsync(
+            System.Net.WebSockets.WebSocket webSocket,
+            string languageCode = "vi-VN",
+            CancellationToken cancellationToken = default)
+        {
+            var finalSegments = new List<string>();
+            string latestInterimTranscript = string.Empty;
+
+            try
+            {
+                var client = await CreateClientAsync();
+
+                var projectId = Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT")
+                    ?? throw new InvalidOperationException("GOOGLE_CLOUD_PROJECT is not set.");
+                var region = Environment.GetEnvironmentVariable("GOOGLE_CLOUD_SPEECH_REGION") ?? "us";
+                var recognizerName = $"projects/{projectId}/locations/{region}/recognizers/_";
+
+                var recognitionConfig = new RecognitionConfig
+                {
+                    Model = "chirp_3",
+                    LanguageCodes = { string.IsNullOrWhiteSpace(languageCode) ? "vi-VN" : languageCode.Trim() },
+                    AutoDecodingConfig = new AutoDetectDecodingConfig(),
+                    Features = new RecognitionFeatures
+                    {
+                        EnableAutomaticPunctuation = true,
+                    },
+                };
+
+                using var stream = client.StreamingRecognize(callSettings: CallSettings.FromCancellationToken(cancellationToken));
+
+                // Start a task to read responses from Google
+                var responseTask = Task.Run(async () =>
+                {
+                    var responses = stream.GetResponseStream();
+                    while (await responses.MoveNextAsync(cancellationToken))
+                    {
+                        foreach (var result in responses.Current.Results)
+                        {
+                            if (result.Alternatives == null || result.Alternatives.Count == 0) continue;
+                            var transcript = result.Alternatives[0].Transcript?.Trim();
+                            if (string.IsNullOrWhiteSpace(transcript)) continue;
+
+                            if (result.IsFinal)
+                                finalSegments.Add(transcript);
+                            else
+                                latestInterimTranscript = transcript;
+                        }
+                    }
+                }, cancellationToken);
+
+                // Initial config message
+                await stream.WriteAsync(new StreamingRecognizeRequest
+                {
+                    Recognizer = recognizerName,
+                    StreamingConfig = new StreamingRecognitionConfig
+                    {
+                        Config = recognitionConfig,
+                        StreamingFeatures = new StreamingRecognitionFeatures
+                        {
+                            InterimResults = false,
+                        },
+                    },
+                });
+
+                // Receive chunks from client WebSocket
+                var buffer = new byte[1024 * 32];
+                while (webSocket.State == System.Net.WebSockets.WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+                {
+                    var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                    
+                    if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
+                    {
+                        await stream.WriteCompleteAsync();
+                        break;
+                    }
+                    else if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Text)
+                    {
+                        var textMsg = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        if (textMsg == "STOP")
+                        {
+                            await stream.WriteCompleteAsync();
+                            break;
+                        }
+                    }
+                    else if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Binary)
+                    {
+                        // Write audio chunk to Google STT
+                        await stream.WriteAsync(new StreamingRecognizeRequest
+                        {
+                            Audio = ByteString.CopyFrom(buffer, 0, result.Count),
+                        });
+                    }
+                }
+
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    await responseTask;
+                }
+
+                return finalSegments.Count > 0 ? string.Join(" ", finalSegments) : latestInterimTranscript;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error streaming speech to text via WebSocket.");
+                throw;
+            }
+        }
+
         public async Task<string> RecognizeSpeechAsync(
             IFormFile audioFile,
             string languageCode = "vi-VN",

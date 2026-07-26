@@ -31,6 +31,39 @@ namespace ai_speis_be.Controllers
             _logger = logger;
         }
 
+        [HttpGet("stream-stt")]
+        public async Task StreamStt([FromQuery] string languageCode = "vi-VN")
+        {
+            if (HttpContext.WebSockets.IsWebSocketRequest)
+            {
+                using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
+                
+                try
+                {
+                    var transcript = await _speechToTextService.RecognizeSpeechWebSocketAsync(webSocket, languageCode, HttpContext.RequestAborted);
+                    
+                    if (webSocket.State == System.Net.WebSockets.WebSocketState.Open)
+                    {
+                        var resultBytes = System.Text.Encoding.UTF8.GetBytes(transcript);
+                        await webSocket.SendAsync(new ArraySegment<byte>(resultBytes), System.Net.WebSockets.WebSocketMessageType.Text, true, CancellationToken.None);
+                        await webSocket.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "Transcription finished", CancellationToken.None);
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    _logger.LogError(ex, "Error in WebSocket STT");
+                    if (webSocket.State == System.Net.WebSockets.WebSocketState.Open)
+                    {
+                        await webSocket.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.InternalServerError, "Error transcribing", CancellationToken.None);
+                    }
+                }
+            }
+            else
+            {
+                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            }
+        }
+
         [HttpPost("speech-to-text")]
         [Authorize]
         [Consumes("multipart/form-data")]

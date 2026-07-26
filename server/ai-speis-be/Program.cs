@@ -345,6 +345,7 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+app.UseWebSockets();
 
 // Catch Google OAuth Correlation failed errors and redirect gracefully
 app.Use(async (context, next) =>

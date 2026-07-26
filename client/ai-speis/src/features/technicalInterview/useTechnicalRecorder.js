@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import audioService from '../../services/AudioService';
+import { ENDPOINTS } from '../../config/api';
 import { RecordingStatus, SttStatus } from './technicalInterview.types';
 
 const stopStream = (stream) => {
@@ -31,6 +32,7 @@ export default function useTechnicalRecorder(language = 'vi') {
   const requestIdRef = useRef(0);
   const recognitionRef = useRef(null);
   const transcriptRef = useRef('');
+  const wsRef = useRef(null);
 
   useEffect(() => {
     transcriptRef.current = transcript;
@@ -87,6 +89,13 @@ export default function useTechnicalRecorder(language = 'vi') {
     recorderRef.current = null;
     stopStream(streamRef.current);
     streamRef.current = null;
+    
+    if (wsRef.current) {
+      if (wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+      wsRef.current = null;
+    }
   }, [clearTimer]);
 
   useEffect(() => {
@@ -130,8 +139,33 @@ export default function useTechnicalRecorder(language = 'vi') {
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       recorderRef.current = recorder;
 
+      // Connect to WebSocket
+      const wsUrl = `${ENDPOINTS.AUDIO_SPEECH_TO_TEXT_WS}?languageCode=${language === 'en' ? 'en-US' : 'vi-VN'}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        if (mountedRef.current && event.data) {
+          setTranscript(event.data);
+          setSttStatus(SttStatus.COMPLETED);
+          setRecordingStatus(RecordingStatus.READY);
+        }
+      };
+
+      ws.onerror = () => {
+        if (mountedRef.current && sttStatus === SttStatus.PROCESSING) {
+          setSttStatus(SttStatus.FAILED);
+          setSttError(new Error('WEBSOCKET_ERROR'));
+        }
+      };
+
       recorder.ondataavailable = (event) => {
-        if (event.data?.size) chunksRef.current.push(event.data);
+        if (event.data?.size) {
+          chunksRef.current.push(event.data);
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(event.data);
+          }
+        }
       };
 
       recorder.onstop = async () => {
@@ -155,7 +189,11 @@ export default function useTechnicalRecorder(language = 'vi') {
           : null;
         if (blob) setAudioBlob(blob);
 
-        if (blob) {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send("STOP");
+          // The WS onmessage will handle setting the final status
+        } else if (blob) {
+          // Fallback if WS failed/closed
           try {
             await transcribe(blob, requestId);
           } catch { /* The retained audio can be transcribed again. */ }
