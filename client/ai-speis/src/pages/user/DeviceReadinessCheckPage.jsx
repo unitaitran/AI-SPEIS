@@ -19,6 +19,7 @@ import InterviewProgressStepper from '../../components/user/InterviewProgressSte
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { getCodingInterviewRoomPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { ENDPOINTS } from '../../config/api';
 import audioService from '../../services/AudioService';
 import behavioralInterviewApi from '../../services/behavioralInterviewApi';
 import interviewSessionService from '../../services/InterviewSessionService';
@@ -263,6 +264,7 @@ function DeviceReadinessCheckPage() {
   const activeAudioContextRef = useRef(null);
   const voiceActivityFrameRef = useRef(null);
   const runIdRef = useRef(0);
+  const wsRef = useRef(null);
 
   useEffect(() => {
     const sessions = interviewContext?.campaign?.sessions || [];
@@ -295,6 +297,12 @@ function DeviceReadinessCheckPage() {
     }
     stopMediaStream(activeStreamRef.current);
     activeStreamRef.current = null;
+    if (wsRef.current) {
+      if (wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+      wsRef.current = null;
+    }
   }, []);
 
   const updateCheck = useCallback((id, nextCheck) => {
@@ -358,9 +366,50 @@ function DeviceReadinessCheckPage() {
         watchVoiceActivity();
       }
 
+      const wsUrl = `${ENDPOINTS.AUDIO_SPEECH_TO_TEXT_WS}?languageCode=${interviewLanguage === 'en' ? 'en-US' : 'vi-VN'}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        const resultText = event.data || '';
+        setTranscript(resultText);
+        const acc = calculateAccuracy(sampleText, resultText);
+        setAccuracy(acc);
+
+        if (acc >= 70) {
+          updateCheck('recording', {
+            status: CHECK_STATUS.PASSED,
+            detail: t('device.accuracyPassed', { accuracy: acc }),
+            meta: t('common.passed'),
+          });
+          setMessage({ type: 'success', text: t('device.allPassed') });
+        } else {
+          updateCheck('recording', {
+            status: CHECK_STATUS.FAILED,
+            detail: t('device.accuracyFailed', { accuracy: acc }),
+            meta: t('common.failed'),
+          });
+          setMessage({ type: 'error', text: t('device.readAgain') });
+        }
+        setIsChecking(false);
+      };
+
+      ws.onerror = () => {
+        updateCheck('recording', {
+          status: CHECK_STATUS.FAILED,
+          detail: t('device.serverError', { message: 'WebSocket Error' }),
+          meta: t('common.failed'),
+        });
+        setMessage({ type: 'error', text: t('device.sttFailed') });
+        setIsChecking(false);
+      };
+
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           recordingChunksRef.current.push(event.data);
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(event.data);
+          }
         }
       };
 
@@ -380,42 +429,46 @@ function DeviceReadinessCheckPage() {
            return;
         }
 
-        const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
         setMessage({ type: 'info', text: t('device.checkingAccuracy') });
         
-        try {
-          const { transcript: resultText } = await audioService.checkSpeechToText(
-            blob,
-            interviewLanguage === 'en' ? 'en-US' : 'vi-VN',
-          );
-          setTranscript(resultText);
-          const acc = calculateAccuracy(sampleText, resultText);
-          setAccuracy(acc);
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send("STOP");
+        } else {
+          const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
+          try {
+            const { transcript: resultText } = await audioService.checkSpeechToText(
+              blob,
+              interviewLanguage === 'en' ? 'en-US' : 'vi-VN',
+            );
+            setTranscript(resultText);
+            const acc = calculateAccuracy(sampleText, resultText);
+            setAccuracy(acc);
 
-          if (acc >= 70) {
-            updateCheck('recording', {
-              status: CHECK_STATUS.PASSED,
-              detail: t('device.accuracyPassed', { accuracy: acc }),
-              meta: t('common.passed'),
-            });
-            setMessage({ type: 'success', text: t('device.allPassed') });
-          } else {
+            if (acc >= 70) {
+              updateCheck('recording', {
+                status: CHECK_STATUS.PASSED,
+                detail: t('device.accuracyPassed', { accuracy: acc }),
+                meta: t('common.passed'),
+              });
+              setMessage({ type: 'success', text: t('device.allPassed') });
+            } else {
+              updateCheck('recording', {
+                status: CHECK_STATUS.FAILED,
+                detail: t('device.accuracyFailed', { accuracy: acc }),
+                meta: t('common.failed'),
+              });
+              setMessage({ type: 'error', text: t('device.readAgain') });
+            }
+          } catch (error) {
             updateCheck('recording', {
               status: CHECK_STATUS.FAILED,
-              detail: t('device.accuracyFailed', { accuracy: acc }),
+              detail: t('device.serverError', { message: error.message }),
               meta: t('common.failed'),
             });
-            setMessage({ type: 'error', text: t('device.readAgain') });
+            setMessage({ type: 'error', text: t('device.sttFailed') });
+          } finally {
+            setIsChecking(false);
           }
-        } catch (error) {
-          updateCheck('recording', {
-            status: CHECK_STATUS.FAILED,
-            detail: t('device.serverError', { message: error.message }),
-            meta: t('common.failed'),
-          });
-          setMessage({ type: 'error', text: t('device.sttFailed') });
-        } finally {
-          setIsChecking(false);
         }
       };
 

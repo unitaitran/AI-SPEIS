@@ -10,5 +10,10 @@ namespace ai_speis_be.Services.SpeechToTextService
             IFormFile audioFile,
             string languageCode = "vi-VN",
             CancellationToken cancellationToken = default);
+
+        Task<string> RecognizeSpeechWebSocketAsync(
+            System.Net.WebSockets.WebSocket webSocket,
+            string languageCode = "vi-VN",
+            CancellationToken cancellationToken = default);
     }
 }
