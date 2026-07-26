@@ -7,7 +7,7 @@ namespace ai_speis_be.Tests.TechnicalInterviews;
 public sealed class TechnicalRubricProviderTests
 {
     [Fact]
-    public void GetRequired_LoadsZeroToTenRubricWithStablePerformanceBands()
+    public void GetRequired_LoadsFiveDimensionsWithUnitWeightTotal()
     {
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(item => item.ContentRootPath).Returns(Path.GetFullPath("..\\ai-speis-be"));

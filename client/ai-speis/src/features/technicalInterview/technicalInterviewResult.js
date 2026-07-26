@@ -25,8 +25,8 @@ const normalizeDimension = (dimension, parentMaxScore) => {
     score: scaledScore,
     maxScore: 10,
     evidence: dimension.evidence || dimension.strengths || [],
-    missingEvidence: dimension.missingEvidence || [],
-    incorrectClaims: dimension.incorrectClaims || [],
+    missingEvidence: [...(dimension.missingEvidence || []), ...(dimension.incorrectClaims || [])],
+    incorrectClaims: [],
   };
 };
 
@@ -68,16 +68,6 @@ const normalizeMainQuestion = (question, parentMaxScore) => {
   };
 };
 
-const normalizeSkill = (skill, parentMaxScore) => {
-  const itemMax = skill.maxScore ?? parentMaxScore ?? 5;
-  const scaledScore = scaleValueTo10(skill.score, itemMax);
-  return {
-    ...skill,
-    score: scaledScore,
-    maxScore: 10,
-  };
-};
-
 export const normalizeTechnicalInterviewResult = (result) => {
   if (!result) return result;
 
@@ -87,7 +77,6 @@ export const normalizeTechnicalInterviewResult = (result) => {
   const backendMainQuestions = result.mainQuestionResults?.length
     ? result.mainQuestionResults
     : result.mainQuestions || result.questionResults || [];
-  const rawSkills = firstNonEmptyArray(result.skillResults, result.skillScores);
 
   return {
     ...result,
@@ -113,7 +102,6 @@ export const normalizeTechnicalInterviewResult = (result) => {
       summary.recommendationsForImprovement,
       summary.recommendedNextSteps,
     ),
-    skillResults: rawSkills.map((skill) => normalizeSkill(skill, rawMaxScore)),
     dimensionResults: (result.dimensionResults || [])
       .map((dimension) => normalizeDimension(dimension, rawMaxScore)),
     questionResults: backendMainQuestions.map((question) => normalizeMainQuestion(question, rawMaxScore)),

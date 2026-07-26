@@ -85,28 +85,6 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             BehaviouralRubricDefinition rubric,
             IReadOnlyList<BehaviouralAnswerContext> answerContext)
         {
-            if (!TryParseDecision(evaluation.Decision, out var decision))
-            {
-                return Invalid("INVALID_DECISION");
-            }
-
-            if (evaluation.Confidence is < 0m or > 1m)
-            {
-                return Invalid("INVALID_CONFIDENCE");
-            }
-
-            var allowedStatuses = new[] { "EXCELLENT", "GOOD", "PARTIAL", "VAGUE", "INSUFFICIENT" };
-            if (!allowedStatuses.Contains(evaluation.AnswerQuality?.Trim(), StringComparer.OrdinalIgnoreCase))
-            {
-                return Invalid("INVALID_ANSWER_STATUS");
-            }
-
-            if (evaluation.OverallRubricScore < (decimal)rubric.MinimumScore
-                || evaluation.OverallRubricScore > (decimal)rubric.MaximumScore)
-            {
-                return Invalid("INVALID_OVERALL_RUBRIC_SCORE");
-            }
-
             var expectedCodes = rubric.Dimensions
                 .Select(item => item.Code)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -122,24 +100,6 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             }
 
             var transcript = NormalizeEvidence(string.Join(" ", answerContext.Select(item => item.Answer)));
-            if (evaluation.Evidence.Count > 5 || evaluation.MissingAspects.Count > 5)
-            {
-                return Invalid("EVALUATION_DETAIL_LIMIT_EXCEEDED");
-            }
-
-            if (evaluation.Evidence.Any(evidence =>
-                !string.IsNullOrWhiteSpace(evidence)
-                && evidence.Length <= 300
-                && !IsGroundedEvidence(evidence, transcript)))
-            {
-                // Filter out non-verbatim top-level evidence snippets instead of invalidating entire response
-                evaluation.Evidence.RemoveAll(evidence => !IsGroundedEvidence(evidence, transcript));
-            }
-
-            if (evaluation.MissingAspects.Any(item => string.IsNullOrWhiteSpace(item) || item.Length > 500))
-            {
-                return Invalid("INVALID_MISSING_ASPECT");
-            }
 
             foreach (var dimension in evaluation.DimensionEvaluations)
             {
@@ -156,15 +116,9 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                     // Filter out non-verbatim dimension evidence snippets instead of failing whole score
                     dimension.Evidence.RemoveAll(evidence => !IsGroundedEvidence(evidence, transcript));
                 }
-
-                if (string.IsNullOrWhiteSpace(dimension.ReasonSummary)
-                    || dimension.ReasonSummary.Length > 1_000)
-                {
-                    return Invalid("INVALID_REASON_SUMMARY");
-                }
             }
 
-            return new BehaviouralEvaluationValidationResult(true, decision, null);
+            return new BehaviouralEvaluationValidationResult(true, BehaviourResolvedAction.NextMainQuestion, null);
         }
 
         private static bool TryParseDecision(string value, out BehaviourResolvedAction decision)

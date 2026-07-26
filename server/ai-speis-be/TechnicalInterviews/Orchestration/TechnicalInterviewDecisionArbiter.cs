@@ -33,7 +33,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         bool EvaluationFallbackUsed,
         bool QuestionFallbackUsed,
         long CriticalPathLatencyMs,
-        TechnicalInterviewDecision? AiSuggestedAction,
         string DecisionReason,
         string? OverrideReason,
         decimal RawScore,
@@ -234,7 +233,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 evaluationFallbackUsed,
                 questionFallbackUsed,
                 criticalPath,
-                null,
                 decisionReason,
                 overrideReason,
                 score.FinalOverallScore,
@@ -353,18 +351,14 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             bool canClarify,
             bool canFollowUp)
         {
-            var ambiguous = evaluation.Evaluation.AnswerQuality.Contains("AMBIG", StringComparison.OrdinalIgnoreCase)
-                || evaluation.Evaluation.AnswerQuality.Contains("UNCLEAR", StringComparison.OrdinalIgnoreCase)
-                || evaluation.Evaluation.AnswerQuality.Contains("NON_RESPONSIVE", StringComparison.OrdinalIgnoreCase)
-                || evaluation.Evaluation.AnswerQuality.Contains("UNVERIFIED", StringComparison.OrdinalIgnoreCase);
+            var ambiguous = score < 3m && evaluation.DimensionEvaluations.All(item => item.Evidence.Count == 0);
             if (score < 3m && ambiguous && canClarify)
                 return TechnicalInterviewDecision.Clarification;
             if (score < 5m && canFollowUp)
                 return TechnicalInterviewDecision.FollowUp;
             if (score < 8m
                 && canFollowUp
-                && evaluation.DimensionEvaluations.Any(item =>
-                    item.MissingEvidence.Count > 0 || item.IncorrectClaims.Count > 0))
+                && evaluation.DimensionEvaluations.Any(item => item.MissingEvidence.Count > 0))
             {
                 return TechnicalInterviewDecision.FollowUp;
             }
@@ -373,9 +367,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
         private static bool HasInsufficientEvidenceToFinalize(TechnicalAIEvaluationResponse evaluation)
         {
-            return evaluation.Confidence < 0.35m
-                || (evaluation.DimensionEvaluations.Any(item => item.MissingEvidence.Count > 0)
-                    && evaluation.DimensionEvaluations.All(item => item.Evidence.Count == 0));
+            return evaluation.DimensionEvaluations.Any(item => item.MissingEvidence.Count > 0)
+                && evaluation.DimensionEvaluations.All(item => item.Evidence.Count == 0);
         }
 
         private static string ResolveDecisionReason(
@@ -487,7 +480,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 false,
                 false,
                 results.Evaluation.LatencyMs,
-                null,
                 "RUBRIC_RULE_RESOLUTION_FAILED",
                 null,
                 score?.FinalOverallScore ?? 0m,

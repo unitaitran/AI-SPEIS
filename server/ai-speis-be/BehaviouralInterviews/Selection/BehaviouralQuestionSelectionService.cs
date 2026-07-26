@@ -29,8 +29,6 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
     {
         public required Question Question { get; init; }
         public int Order { get; init; }
-        public string? SelectionReason { get; init; }
-        public string? EvaluationGoal { get; init; }
     }
 
     public sealed class BehaviouralQuestionSelectionResult
@@ -41,7 +39,6 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
         public string? ErrorCode { get; init; }
         public string Relaxation { get; init; } = "none";
         public IReadOnlyList<string> CoveredSkills { get; init; } = Array.Empty<string>();
-        public string? SelectionSummary { get; init; }
     }
 
     public sealed class BehaviouralQuestionSelectionService : IBehaviouralQuestionSelectionService
@@ -135,9 +132,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
                         .Select((item, index) => new BehaviouralSelectedQuestion
                         {
                             Question = candidatesById[item.QuestionId],
-                            Order = index + 1,
-                            SelectionReason = item.SelectionReason,
-                            EvaluationGoal = item.EvaluationGoal
+                            Order = index + 1
                         })
                         .ToList();
 
@@ -147,8 +142,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
                         AIResult = aiResult,
                         FallbackUsed = false,
                         Relaxation = relaxation,
-                        CoveredSkills = aiResult.Data.CoveredSkills,
-                        SelectionSummary = aiResult.Data.SelectionSummary
+                        CoveredSkills = aiResult.Data.CoveredSkills
                     };
                 }
 
@@ -356,9 +350,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
                 .Select((question, index) => new BehaviouralSelectedQuestion
                 {
                     Question = question,
-                    Order = index + 1,
-                    SelectionReason = "Rule-based fallback: phân bổ CV/JD theo match score, ưu tiên must-have competency và đa dạng skill.",
-                    EvaluationGoal = question.Skill is null ? null : $"Đánh giá competency {question.Skill}."
+                    Order = index + 1
                 })
                 .ToList();
         }

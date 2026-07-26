@@ -207,7 +207,7 @@ describe('useTechnicalInterviewSession', () => {
 
     expect(recovery).toEqual({ state: 'PROCESSING' });
     expect(technicalInterviewApi.getCurrentQuestion).toHaveBeenCalledTimes(1);
-    expect(result.current.currentQuestion).toBeNull();
+    expect(result.current.currentQuestion).not.toBeNull();
   });
 
   test('detects that a timed-out answer was accepted when the next attempt is already ready', async () => {

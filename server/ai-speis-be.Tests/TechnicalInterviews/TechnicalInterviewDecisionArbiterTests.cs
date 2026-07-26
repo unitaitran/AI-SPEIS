@@ -28,11 +28,10 @@ public sealed class TechnicalInterviewDecisionArbiterTests
     {
         var result = Resolve(
             TechnicalParallelTestData.CreateContext(),
-            TechnicalParallelTestData.CreateEvaluation(2m, "AMBIGUOUS"));
+            TechnicalParallelTestData.CreateEvaluation(2m));
 
         Assert.Equal(TechnicalInterviewDecision.Clarification, result.Decision);
         Assert.Equal(TechnicalAttemptType.Clarification, result.NextQuestion!.AttemptType);
-        Assert.Null(result.AiSuggestedAction);
         Assert.Equal("RUBRIC_RULE_LOW_SCORE_CLARIFICATION", result.DecisionReason);
         Assert.Null(result.OverrideReason);
     }
@@ -42,7 +41,7 @@ public sealed class TechnicalInterviewDecisionArbiterTests
     {
         var result = Resolve(
             TechnicalParallelTestData.CreateContext(),
-            TechnicalParallelTestData.CreateEvaluation(2m, "INCORRECT"));
+            TechnicalParallelTestData.CreateEvaluation(2m));
 
         Assert.Equal(TechnicalInterviewDecision.Clarification, result.Decision);
         Assert.Equal(TechnicalAttemptType.Clarification, result.NextQuestion!.AttemptType);
@@ -56,7 +55,7 @@ public sealed class TechnicalInterviewDecisionArbiterTests
             attemptType: TechnicalAttemptType.Clarification,
             initialMainScore: 2m);
 
-        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(2m, "INSUFFICIENT"));
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(2m));
 
         Assert.True(result.FinalizeMainQuestion);
         Assert.NotEqual(TechnicalInterviewDecision.Clarification, result.Decision);
@@ -113,10 +112,9 @@ public sealed class TechnicalInterviewDecisionArbiterTests
             attemptType: TechnicalAttemptType.FollowUp,
             initialMainScore: 3m);
 
-        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(2m, "AMBIGUOUS"));
+        var result = Resolve(context, TechnicalParallelTestData.CreateEvaluation(2m));
 
         Assert.NotEqual(TechnicalInterviewDecision.Clarification, result.Decision);
-        Assert.Null(result.AiSuggestedAction);
     }
 
     [Fact]

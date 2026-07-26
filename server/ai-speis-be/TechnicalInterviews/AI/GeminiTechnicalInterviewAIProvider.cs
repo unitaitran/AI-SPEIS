@@ -16,6 +16,11 @@ namespace ai_speis_be.TechnicalInterviews.AI
 
         public string ProviderName => "gemini";
 
+        public Task<AIProviderResult<TechnicalAISelectionResponse>> SelectQuestionsAsync(
+            TechnicalAISelectionRequest request,
+            CancellationToken cancellationToken) =>
+            _transport.SelectQuestionsAsync(request, cancellationToken);
+
         public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken) =>
