@@ -135,7 +135,11 @@ namespace ai_speis_be.Services.CVService
             }
 
             var cvDeleted = await _cvRepository.DeleteCVAsync(cv.CVFileId);
-            return (true, null); 
+            if (!cvDeleted)
+            {
+                return (false, "Không thể xóa file CV. Vui lòng thử lại.");
+            }
+            return (true, null);
         }
 
         public async Task<CVDto?> GetMyCVAsync(int userId)

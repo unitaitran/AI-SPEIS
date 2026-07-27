@@ -16,6 +16,13 @@ const handleResponse = async (response) => {
     }
     throw new Error(message);
   }
+
+  // Handle empty responses (e.g. 204 No Content)
+  const contentType = response.headers.get('Content-Type') || '';
+  if (response.status === 204 || !contentType.includes('application/json')) {
+    return null;
+  }
+
   return response.json();
 };
 
