@@ -15,6 +15,8 @@ import InterviewSetupPage from '../pages/user/InterviewSetupPage';
 import InterviewModePage from '../pages/user/InterviewModePage';
 import PackagesPage from '../pages/user/PackagesPage';
 import PaymentResultPage from '../pages/user/PaymentResultPage';
+import InterviewHistoryPage from '../pages/user/InterviewHistoryPage';
+import InterviewReviewPage from '../pages/user/InterviewReviewPage';
 
 function UserRoutes({ pathname }) {
   const isInterviewRoomRoute = pathname === USER_ROUTES.INTERVIEW_ROOM
@@ -25,6 +27,8 @@ function UserRoutes({ pathname }) {
     || pathname.startsWith(`${USER_ROUTES.INTERVIEW_RESULT}/`);
   const isCampaignResultRoute = pathname === USER_ROUTES.CAMPAIGN_RESULT
     || pathname.startsWith(`${USER_ROUTES.CAMPAIGN_RESULT}/`);
+  const isInterviewReviewRoute = pathname.startsWith(`${USER_ROUTES.INTERVIEW_REVIEW}/`)
+    && pathname.endsWith('/review');
   const getRouteId = (basePath) => {
     if (!pathname.startsWith(`${basePath}/`)) return null;
     const routeId = pathname.slice(basePath.length + 1).split('/')[0];
@@ -38,6 +42,7 @@ function UserRoutes({ pathname }) {
     pathname === USER_ROUTES.CV ||
     pathname === USER_ROUTES.CV_DETAIL ||
     pathname === USER_ROUTES.QUESTIONS ||
+    pathname === USER_ROUTES.INTERVIEW_HISTORY ||
     pathname === USER_ROUTES.INTERVIEW_MODE ||
     pathname === USER_ROUTES.INTERVIEW_SETUP ||
     pathname === USER_ROUTES.DEVICE_CHECK ||
@@ -45,6 +50,7 @@ function UserRoutes({ pathname }) {
     isCodingInterviewRoomRoute ||
     isInterviewResultRoute ||
     isCampaignResultRoute ||
+    isInterviewReviewRoute ||
     pathname === USER_ROUTES.PAYMENT_RESULT;
 
   useEffect(() => {
@@ -75,6 +81,14 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.QUESTIONS) {
     return <QuestionsPage />;
+  }
+
+  if (pathname === USER_ROUTES.INTERVIEW_HISTORY) {
+    return <InterviewHistoryPage />;
+  }
+
+  if (isInterviewReviewRoute) {
+    return <InterviewReviewPage sessionId={getRouteId(USER_ROUTES.INTERVIEW_REVIEW)} />;
   }
 
   if (pathname === USER_ROUTES.INTERVIEW_MODE) {

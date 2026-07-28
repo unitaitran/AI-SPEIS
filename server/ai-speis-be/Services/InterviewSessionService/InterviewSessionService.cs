@@ -841,7 +841,12 @@ namespace ai_speis_be.Services.InterviewSessionService
                 lifecycleChanged |= ExpireIfDue(campaign, user, now);
             if (lifecycleChanged) await _context.SaveChangesAsync();
             var quota = await GetQuotaMetadataAsync(user, now);
-            return campaigns.Select(campaign => MapCampaignToResponse(campaign, quota)).ToList();
+            var behaviourCompletedCounts = await GetBehaviourCompletedMainQuestionCountsAsync(
+                campaigns.Select(campaign => campaign.InterviewCampaignId));
+
+            return campaigns
+                .Select(campaign => MapCampaignToResponse(campaign, quota, behaviourCompletedCounts))
+                .ToList();
         }
 
         public async Task<AvailableRoundsDto?> GetAvailableRoundsAsync(int userId, int jdId)
@@ -1190,7 +1195,25 @@ namespace ai_speis_be.Services.InterviewSessionService
             }
         }
 
-        private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign, QuotaMetadata? quota = null)
+        private async Task<IReadOnlyDictionary<int, int>> GetBehaviourCompletedMainQuestionCountsAsync(
+            IEnumerable<int> campaignIds)
+        {
+            var ids = campaignIds.Distinct().ToList();
+            if (ids.Count == 0) return new Dictionary<int, int>();
+
+            return await _context.BehaviourSessionQuestions
+                .AsNoTracking()
+                .Where(question => ids.Contains(question.BehaviourQuestionSet.InterviewSession.InterviewCampaignId)
+                    && question.QuestionType == BehaviourQuestionType.Main
+                    && question.Status == BehaviourQuestionStatus.Answered)
+                .GroupBy(question => question.BehaviourQuestionSet.InterviewSessionId)
+                .ToDictionaryAsync(group => group.Key, group => group.Count());
+        }
+
+        private InterviewCampaignDto MapCampaignToResponse(
+            InterviewCampaign campaign,
+            QuotaMetadata? quota = null,
+            IReadOnlyDictionary<int, int>? behaviourCompletedCounts = null)
         {
             var metadata = quota ?? new QuotaMetadata(campaign.User?.RemainingInterviewQuota ?? 0, BasicInterviewQuota, "Free");
             return new InterviewCampaignDto
@@ -1216,12 +1239,19 @@ namespace ai_speis_be.Services.InterviewSessionService
                     .Where(session => !session.IsDeleted)
                     .OrderBy(session => GetRoundOrder(session.InterviewRoundType))
                     .ThenBy(session => session.InterviewSessionId)
-                    .Select(MapToResponse)
+                    .Select(session => MapToResponse(
+                        session,
+                        behaviourCompletedCounts is not null
+                        && behaviourCompletedCounts.TryGetValue(session.InterviewSessionId, out var completedCount)
+                            ? completedCount
+                            : null))
                     .ToList()
             };
         }
 
-        private static InterviewSessionDto MapToResponse(InterviewSession session)
+        private static InterviewSessionDto MapToResponse(
+            InterviewSession session,
+            int? behaviourCompletedMainQuestionCount = null)
         {
             return new InterviewSessionDto
             {
@@ -1233,7 +1263,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                 Status = session.Status.ToString(),
                 CreatedAt = AsUtc(session.CreatedAt),
                 UpdatedAt = AsUtc(session.UpdatedAt),
-                CompletedQuestionCount = session.TechnicalCompletedMainQuestionCount
+                CompletedQuestionCount = session.InterviewRoundType == InterviewRoundType.Behavior
+                    ? behaviourCompletedMainQuestionCount ?? 0
+                    : session.TechnicalCompletedMainQuestionCount
             };
         }
 

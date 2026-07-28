@@ -11,6 +11,8 @@ export const USER_ROUTES = {
   CV: '/user/cv-management',
   CV_DETAIL: '/user/cv',
   QUESTIONS: '/user/questions',
+  INTERVIEW_HISTORY: '/user/interview-history',
+  INTERVIEW_REVIEW: '/user/interview-history',
   INTERVIEW_MODE: '/user/interview/mode',
   INTERVIEW_SETUP: '/user/interview/setup',
   DEVICE_CHECK: '/user/interview/device-check',
@@ -27,6 +29,12 @@ export const getInterviewRoomPath = (sessionId) => (
 
 export const getInterviewResultPath = (sessionId) => (
   sessionId ? `${USER_ROUTES.INTERVIEW_RESULT}/${encodeURIComponent(sessionId)}` : USER_ROUTES.INTERVIEW_RESULT
+);
+
+export const getInterviewReviewPath = (sessionId) => (
+  sessionId
+    ? `${USER_ROUTES.INTERVIEW_REVIEW}/${encodeURIComponent(sessionId)}/review`
+    : USER_ROUTES.INTERVIEW_HISTORY
 );
 
 export const getCampaignResultPath = (campaignId) => (
