@@ -5,6 +5,10 @@ namespace ai_speis_be.Models.DTOs.Payment
         public int PaymentId { get; set; }
         public int UserId { get; set; }
         public int PackageId { get; set; }
+        public int? PriceId { get; set; }
+        public decimal OriginalAmount { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public int RewardPointsUsed { get; set; }
         public decimal Amount { get; set; }
         public string OrderCode { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;

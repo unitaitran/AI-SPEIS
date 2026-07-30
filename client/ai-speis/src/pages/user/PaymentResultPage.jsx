@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, AlertTriangle, RefreshCw, ArrowRight } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
@@ -10,15 +9,14 @@ import '../../styles/user/PaymentResultPage.css';
 
 function PaymentResultPage() {
   const { t } = useTranslation('packages');
-  const [searchParams] = useSearchParams();
   const [status, setStatus] = useState('processing'); // processing, success, error
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     const verifyPayment = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
       const orderId = searchParams.get('orderId');
       const resultCode = searchParams.get('resultCode');
-      const momoMessage = searchParams.get('message');
 
       if (!orderId) {
         setStatus('error');
@@ -27,8 +25,16 @@ function PaymentResultPage() {
       }
 
       if (resultCode && resultCode !== '0') {
-        setStatus('error');
-        setMessage(momoMessage || t('paymentFailed', 'Thanh toán không thành công. Vui lòng thử lại.'));
+        try {
+          // The backend queries MoMo before persisting Cancelled/Failed. The
+          // resultCode in the browser URL is not trusted as payment evidence.
+          await paymentService.verifyPaymentResult(orderId, resultCode);
+        } catch {
+          // Terminal unsuccessful results use a non-2xx response after the
+          // backend has attempted reconciliation.
+        } finally {
+          navigate(`${USER_ROUTES.PACKAGES}?purchase=true`, { replace: true });
+        }
         return;
       }
 
@@ -53,10 +59,10 @@ function PaymentResultPage() {
     };
 
     verifyPayment();
-  }, [searchParams]);
+  }, [t]);
 
   const handleRetry = () => {
-    navigate(USER_ROUTES.PACKAGES);
+    navigate(`${USER_ROUTES.PACKAGES}?purchase=true`);
   };
 
   const handleGoToDashboard = () => {
@@ -100,8 +106,8 @@ function PaymentResultPage() {
               <button onClick={handleRetry} className="result-action-btn primary-btn mb-3">
                 {t('retry', 'Thử lại')}
               </button>
-              <button onClick={handleGoToDashboard} className="result-action-btn secondary-btn">
-                {t('backHome', 'Về trang chủ')}
+              <button onClick={handleRetry} className="result-action-btn secondary-btn">
+                {t('backToPlans', 'Quay lại trang gói')}
               </button>
             </div>
           )}
