@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "AI-SPEIS | Luyện phỏng vấn IT với AI"
+    "title": "AI-SPEIS | Nền tảng Luyện Phỏng vấn IT Cá nhân hóa bằng AI"
   },
   "aria": {
     "navigation": "Điều hướng chính",
@@ -10,206 +10,248 @@
   },
   "nav": {
     "home": "Trang chủ",
+    "demo": "Trải nghiệm",
     "features": "Tính năng",
     "flow": "Quy trình",
-    "personalization": "Cá nhân hóa",
-    "community": "Cộng đồng",
+    "comparison": "So sánh",
     "pricing": "Bảng giá",
     "faq": "Hỏi đáp"
   },
   "buttons": {
     "login": "Đăng nhập",
-    "startInterview": "Bắt đầu luyện tập",
+    "startInterview": "Bắt đầu miễn phí",
+    "tryDemo": "Dùng thử Simulator",
     "howItWorks": "Xem cách hoạt động",
     "viewFeatures": "Xem tính năng",
     "language": "Ngôn ngữ",
-    "createAccount": "Tạo tài khoản",
-    "contactSales": "Liên hệ Sales",
-    "register": "Đăng ký"
+    "createAccount": "Tạo tài khoản ngay",
+    "contactSales": "Liên hệ Tư vấn",
+    "register": "Đăng ký trải nghiệm"
   },
   "footer": {
-    "about": "Về chúng tôi",
-    "features": "Tính năng",
-    "support": "Hỗ trợ",
-    "contact": "Liên hệ",
-    "social": "Mạng xã hội"
+    "tagline": "Nền tảng luyện phỏng vấn AI thế hệ mới cá nhân hóa theo CV & JD cho cộng đồng IT.",
+    "product": "Sản phẩm",
+    "resources": "Tài nguyên & Pháp lý",
+    "contactTitle": "Liên hệ & Kết nối",
+    "email": "support@ai-speis.com",
+    "location": "Đà Nẵng, Việt Nam",
+    "mascotBadge": "✨ AI Assistant 24/7",
+    "features": "Tính năng cốt lõi",
+    "pricing": "Bảng giá gói",
+    "faq": "Câu hỏi thường gặp",
+    "terms": "Điều khoản dịch vụ",
+    "privacy": "Chính sách bảo mật",
+    "contact": "Liên hệ hỗ trợ",
+    "rights": "Tất cả các quyền được bảo lưu.",
+    "madeWith": "Made with ❤️ for IT Candidates"
   },
   "hero": {
-    "tag": "LUYỆN PHỎNG VẤN AI CHO SINH VIÊN",
-    "title": "Luyện phỏng vấn IT với AI cá nhân hóa theo CV",
-    "text": "AI-SPEIS giúp bạn luyện nói trong môi trường an toàn, nhận phản hồi rõ ràng, theo dõi tiến bộ và chuẩn bị tốt hơn cho phỏng vấn thực tế.",
-    "cards": [
-      { "label": "Cá nhân hóa", "value": "CV · vai trò mục tiêu · khoảng trống kỹ năng" },
-      { "label": "Chế độ luyện tập", "value": "Phỏng vấn mô phỏng, bản ghi, phản hồi" },
-      { "label": "Động lực", "value": "Chuỗi ngày, huy hiệu, tiến độ" }
+    "badge": "✨ Nền tảng Luyện Phỏng vấn AI Thế Hệ Mới",
+    "title": "Bứt Phá Phỏng Vấn IT Với AI Cá Nhân Hóa Theo CV & JD",
+    "text": "Luyện phỏng vấn Hành vi, Kỹ thuật và Coding 24/7 trong môi trường an toàn. Nhận phản hồi chuyên sâu theo Rubric Doanh nghiệp ngay lập tức.",
+    "metrics": [
+      { "number": "98.4%", "label": "Ứng viên tự tin hơn sau 3 buổi" },
+      { "number": "15,000+", "label": "Lượt phỏng vấn đã thực hiện" },
+      { "number": "3 Phút", "label": "Nhận báo cáo Rubric chi tiết" }
     ]
   },
   "mascot": {
-    "status": "Phòng phỏng vấn đã sẵn sàng",
-    "note": "AI sẽ hỏi theo CV, vai trò mục tiêu và mức độ tự tin của bạn."
+    "status": "Phòng phỏng vấn AI sẵn sàng 24/7",
+    "note": "AI sẽ phỏng vấn dựa trên CV, vị trí tuyển dụng và mức độ tự tin của bạn."
   },
-  "highlights": [
-    { "title": "Bám theo CV", "text": "Câu hỏi và phản hồi cá nhân hóa" },
-    { "title": "Luồng nhẹ nhàng", "text": "Rõ bước, ít xao nhãng, không gây áp lực" },
-    { "title": "Đọc lại dễ dàng", "text": "Bản ghi, rubric, tiến độ và bước tiếp theo" }
-  ],
-  "sections": {
-    "features": {
-      "kicker": "Tính năng cốt lõi",
-      "title": "Một trải nghiệm luyện phỏng vấn rõ ràng, hiệu quả",
-      "text": "Mỗi màn hình đều tập trung vào việc giúp sinh viên hiểu mình cần làm gì tiếp theo: nộp CV, bắt đầu phỏng vấn, đọc bản ghi, xem phản hồi và quay lại luyện tiếp.",
-      "cards": [
-        {
-          "title": "Tải CV và hồ sơ",
-          "description": "Nhập CV, chọn mục tiêu nghề nghiệp và để hệ thống cá nhân hóa câu hỏi ngay từ bước đầu."
-        },
-        {
-          "title": "Phỏng vấn AI mô phỏng",
-          "description": "Luyện tập theo vai trò, độ khó và ngôn ngữ với chuỗi câu hỏi bám sát thực tế tuyển dụng."
-        },
-        {
-          "title": "Bản ghi và đánh giá",
-          "description": "Xem lại bản ghi, phát hiện khoảng trống câu trả lời và chỉnh nội dung theo từng vòng luyện."
-        },
-        {
-          "title": "Phản hồi có thể hành động",
-          "description": "Chấm theo rubric, hiển thị điểm mạnh, điểm cần cải thiện và ưu tiên việc cần làm tiếp theo."
-        },
-        {
-          "title": "Theo dõi tiến độ",
-          "description": "Lịch sử luyện tập, chuỗi ngày, thành tựu và biểu đồ tiến bộ giúp bạn nhìn thấy sự cải thiện rõ ràng."
-        },
-        {
-          "title": "Cộng đồng đồng hành",
-          "description": "Tham gia nhóm luyện tập, chia sẻ kinh nghiệm, nhận voucher và tài nguyên cho mùa tuyển dụng."
-        }
-      ]
+  "simulator": {
+    "badge": "INTERACTIVE SIMULATOR",
+    "title": "Trải nghiệm trước tính năng của AI-SPEIS",
+    "subtitle": "Bấm chọn các tab dưới đây để khám phá giao diện phòng luyện phỏng vấn thông minh.",
+    "tabs": {
+      "cv": "1. Cá nhân hóa CV & JD",
+      "voice": "2. Phỏng vấn Voice AI",
+      "coding": "3. Coding Sandbox"
     },
-    "flow": {
-      "kicker": "Quy trình 6 bước",
-      "title": "Đi từ chuẩn bị đến phản hồi trong một luồng học tập duy nhất",
-      "text": "Trang được thiết kế như một đường đi rõ ràng: bạn không bị lạc trong quá nhiều nút bấm, mà luôn nhìn thấy bước tiếp theo.",
-      "steps": [
-        {
-          "title": "1. Tải CV và chọn mục tiêu",
-          "text": "Bắt đầu bằng CV, vị trí ứng tuyển và bộ kỹ năng bạn muốn cải thiện."
-        },
-        {
-          "title": "2. AI tạo bộ câu hỏi",
-          "text": "Hệ thống sinh câu hỏi theo CV, kỹ năng và mức độ phù hợp với vị trí."
-        },
-        {
-          "title": "3. Luyện nói trong phòng phỏng vấn",
-          "text": "Ghi âm bằng Mic, nghe AI phản hồi bằng Voice và luyện nhiều vòng an toàn."
-        },
-        {
-          "title": "4. Xem bản ghi và lỗi thường gặp",
-          "text": "Mỗi câu trả lời được lưu lại để bạn dễ đọc, dò lỗi và chỉnh nội dung."
-        },
-        {
-          "title": "5. Nhận phản hồi theo rubric",
-          "text": "Điểm số và nhận xét được chia theo tiêu chí, giúp bạn biết sửa ở đâu trước."
-        },
-        {
-          "title": "6. Theo dõi tiến bộ dài hạn",
-          "text": "Tổng hợp chuỗi ngày, biểu đồ và thành tích để bạn duy trì động lực luyện tập."
-        }
-      ]
+    "cvDemo": {
+      "uploading": "Đã phân tích CV: Senior_Frontend_Dev.pdf",
+      "matchScore": "Độ tương thích CV/JD:",
+      "strengths": "Điểm mạnh: React, TypeScript, TailwindCSS, REST API",
+      "gaps": "Khoảng trống: System Design, State Management Optimization"
     },
-    "personalization": {
-      "kicker": "Cá nhân hóa",
-      "title": "Cá nhân hóa theo CV, mục tiêu nghề nghiệp và điểm cần cải thiện",
-      "text": "AI-SPEIS dùng CV và vai trò mục tiêu để tinh chỉnh bộ câu hỏi, giọng điệu phản hồi và checklist luyện tập. Người dùng mới có thể bắt đầu nhanh, còn người đã quen sẽ đi sâu vào các vòng luyện tập nâng cao.",
-      "rows": [
-        "Bảng điều khiển theo dõi lịch sử, điểm số và chuỗi ngày",
-        "Danh sách câu hỏi theo chủ đề và độ khó",
-        "Tìm nhanh bản ghi, lỗi phổ biến và gợi ý sửa"
-      ]
+    "voiceDemo": {
+      "aiQuestion": "AI Interviewer: 'Bạn xử lý bài toán Render Optimization trong React như thế nào khi ứng dụng có hàng ngàn bản ghi?'",
+      "speakingStatus": "Ứng viên đang trả lời qua Voice Micro...",
+      "liveScore": "Real-time AI Audio Spectrum & Waveform Active"
     },
-    "community": {
-      "kicker": "Cộng đồng & hỗ trợ",
-      "title": "Hệ sinh thái hỗ trợ để bạn luyện tập đều đặn",
-      "cards": [
-        {
-          "title": "Nhắc lịch luyện tập",
-          "text": "Thiết lập nhắc nhở để duy trì nhịp luyện đều trước ngày phỏng vấn."
-        },
-        {
-          "title": "Mốc tiến bộ rõ ràng",
-          "text": "Mỗi lần luyện xong đều có milestone để bạn nhìn thấy sự tiến bộ của mình."
-        },
-        {
-          "title": "Giữ chuỗi ngày ổn định",
-          "text": "Động lực được thiết kế nhẹ nhàng, không gây áp lực hay quá nhiều trò chơi hóa."
-        },
-        {
-          "title": "Học theo lộ trình",
-          "text": "Bắt đầu từ CV, đến câu hỏi, rồi bản ghi và phản hồi theo từng lớp kỹ năng."
-        }
-      ],
-      "pills": {
-        "achievement": "Thành tựu sẵn sàng",
-        "voucher": "Voucher và ưu đãi học tập",
-        "progress": "Tóm tắt tiến độ"
-      }
-    },
-    "interviewRoom": {
-      "kicker": "Không gian phỏng vấn",
-      "title": "Không gian luyện phỏng vấn tối giản, tập trung và dễ theo dõi",
-      "text": "Màn hình luyện tập giữ bố cục trung tâm, hiển thị bản ghi, nút ghi âm, voice output, phản hồi theo rubric và trạng thái tiến độ trong cùng một khung nhìn.",
-      "tools": [
-        "Ghi âm câu trả lời",
-        "AI đọc câu hỏi",
-        "Bản ghi và báo cáo",
-        "Nhắc tiến độ",
-        "Tính năng cao cấp"
-      ]
-    },
-    "cta": {
-      "kicker": "Bắt đầu ngay",
-      "title": "Sẵn sàng thử một buổi phỏng vấn mô phỏng đầu tiên?",
-      "text": "Tải CV, chọn vị trí mong muốn và để AI-SPEIS tạo ra vòng luyện tập đầu tiên cho bạn."
-    },
-    "pricing": {
-      "kicker": "Bảng giá",
-      "title": "Gói dành cho người học",
-      "text": "Chọn một gói để mở khóa thêm các tính năng luyện tập.",
-      "freeTitle": "Miễn phí",
-      "free": "Trải nghiệm cơ bản với số lượt phỏng vấn giới hạn mỗi tháng.",
-      "proTitle": "Pro",
-      "pro": "15 lượt luyện tập mỗi chu kỳ 30 ngày, phân tích chi tiết và các tính năng AI nâng cao.",
-      "enterpriseTitle": "Doanh nghiệp",
-      "enterprise": "Dành cho tổ chức, tùy chỉnh số lượng lớn và API tích hợp."
-    },
-    "testimonials": {
-      "kicker": "Nhận xét",
-      "title": "Người dùng nói gì về chúng tôi",
-      "items": [
-        {
-          "name": "Nguyễn Văn A",
-          "role": "Sinh viên IT",
-          "text": "Tuyệt vời! Giúp mình tự tin hơn hẳn khi phỏng vấn thực tế."
-        },
-        {
-          "name": "Trần Thị B",
-          "role": "Frontend Developer",
-          "text": "Phản hồi từ AI rất sát với những gì nhà tuyển dụng mong muốn."
-        }
-      ]
-    },
-    "faq": {
-      "kicker": "Câu hỏi thường gặp",
-      "title": "Giải đáp thắc mắc",
-      "items": [
-        {
-          "q": "AI-SPEIS có miễn phí không?",
-          "a": "Có, chúng tôi cung cấp gói miễn phí với các tính năng cơ bản."
-        },
-        {
-          "q": "Dữ liệu của tôi có được bảo mật không?",
-          "a": "Hoàn toàn bảo mật. CV và bản ghi âm của bạn chỉ dùng để cá nhân hóa bài tập."
-        }
-      ]
+    "codingDemo": {
+      "lang": "Ngôn ngữ: JavaScript (Node.js 18)",
+      "fn": "function twoSum(nums, target) {",
+      "sampleOutput": "▶ Test Case 1: [2,7,11,15], target=9 ➔ Accepted (Time: 24ms, Memory: 42MB)"
     }
+  },
+  "bento": {
+    "badge": "TÍNH NĂNG VƯỢT TRỘI",
+    "title": "Hệ thống luyện phỏng vấn toàn diện nhất cho IT Candidates",
+    "subtitle": "Kết hợp giữa Trí tuệ nhân tạo và Rubric chuẩn tuyển dụng thực tế.",
+    "card1": {
+      "tag": "Cá nhân hóa 100%",
+      "title": "Phân tích CV & JD Bằng AI Thế Hệ Mới",
+      "desc": "Không dùng câu hỏi chung chung. AI quét CV và mô tả công việc (JD) để sinh câu hỏi sát với vị trí tuyển dụng thực tế của bạn."
+    },
+    "card2": {
+      "tag": "Voice STT & TTS",
+      "title": "Giao Tiếp Giọng Nói Tự Nhiên 24/7",
+      "desc": "Tự do chọn ngôn ngữ Tiếng Việt hoặc Tiếng Anh. AI nghe, hiểu và phản hồi giọng nói tự nhiên như phỏng vấn viên thật."
+    },
+    "card3": {
+      "tag": "Rubric Doanh Nghiệp",
+      "title": "Chấm Điểm & Phân Tích Đa Chiều",
+      "desc": "Đánh giá chi tiết 5 tiêu chí: Độ chính xác kiến thức, Khả năng giao tiếp, Cấu trúc câu trả lời, Sự tự tin và Xử lý tình huống."
+    },
+    "card4": {
+      "tag": "Judge0 Sandbox",
+      "title": "Môi Trường Coding Thực Hành Đa Ngôn Ngữ",
+      "desc": "Tích hợp Monaco Editor và Sandbox Judge0 chấm điểm ngay lập tức cho C, C++, Java, C#, Python, JavaScript."
+    },
+    "card5": {
+      "tag": "Báo cáo Tiến độ",
+      "title": "Theo Dõi Chuỗi Ngày & Sự Cải Thiện",
+      "desc": "Biểu đồ trực quan hóa tiến trình nâng cao điểm số qua từng tuần phỏng vấn, giúp bạn luôn duy trì động lực."
+    }
+  },
+  "flow": {
+    "badge": "QUY TRÌNH 4 BƯỚC",
+    "title": "Chỉ 4 bước đơn giản để sẵn sàng cho phỏng vấn thực tế",
+    "subtitle": "Thiết kế tối giản giúp bạn tập trung luyện tập không rào cản.",
+    "steps": [
+      {
+        "num": "01",
+        "title": "Tải CV & Nhập vị trí ứng tuyển",
+        "desc": "Tải file CV PDF của bạn và nhập mô tả công việc (JD) của vị trí mơ ước."
+      },
+      {
+        "num": "02",
+        "title": "AI Phân tích & Sinh Bộ Câu Hỏi",
+        "desc": "AI bóc tách kỹ năng, phát hiện khoảng trống và tạo kịch bản phỏng vấn bám sát."
+      },
+      {
+        "num": "03",
+        "title": "Thực chiến Phỏng vấn Nói & Code",
+        "desc": "Trả lời bằng giọng nói qua Mic hoặc gõ mã giải thuật trực tiếp trên màn hình."
+      },
+      {
+        "num": "04",
+        "title": "Nhận Phản hồi Rubric & Lộ trình",
+        "desc": "Đọc nhận xét chi tiết, biết rõ lỗi cần sửa và theo dõi sự tiến bộ hàng ngày."
+      }
+    ]
+  },
+  "comparison": {
+    "badge": "SO SÁNH VƯỢT TRỘI",
+    "title": "Vì sao AI-SPEIS là lựa chọn tối ưu cho bạn?",
+    "subtitle": "So sánh sự hiệu quả giữa AI-SPEIS và các phương pháp phỏng vấn truyền thống.",
+    "headers": ["Tiêu chí", "Pramp / Peer-to-Peer", "Mentor / Human Mock", "AI-SPEIS Platform"],
+    "rows": [
+      { "feature": "Thời gian & Tính sẵn sàng", "p2p": "Phụ thuộc lịch người khác", "mentor": "Phải đặt lịch trước nhiều ngày", "aispeis": "Luyện tức thì 24/7" },
+      { "feature": "Cá nhân hóa theo CV & JD", "p2p": "Không (Đề cố định)", "mentor": "Tùy thuộc Mentor", "aispeis": "Cá nhân hóa 100% bằng AI" },
+      { "feature": "Bộ câu hỏi & Môi trường", "p2p": "Chỉ có Coding hoặc Behavioral", "mentor": "Không cố định", "aispeis": "Trọn vẹn Behavioral + Tech + Coding" },
+      { "feature": "Tiêu chuẩn đánh giá", "p2p": "Nhận xét tự do của bạn tập", "mentor": "Cảm tính từng cá nhân", "aispeis": "Rubric Tuyển dụng Doanh nghiệp" },
+      { "feature": "Chi phí duy trì", "p2p": "Mất công phỏng vấn lại cho bạn", "mentor": "Rất đắt ($50 - $150/buổi)", "aispeis": "Miễn phí + Gói Pro tiết kiệm" }
+    ]
+  },
+  "pricing": {
+    "badge": "BẢNG GIÁ MINH BẠCH",
+    "title": "Chọn gói phù hợp với mục tiêu của bạn",
+    "subtitle": "Đầu tư nhỏ cho cơ hội sự nghiệp lớn.",
+    "popularBadge": "TIẾT KIỆM NHẤT (-15%)",
+    "monthly": "/ tháng",
+    "yearly": "/ năm",
+    "yearlyDiscount": "Tiết kiệm -15% so với gói tháng x12",
+    "free": {
+      "title": "Gói Cơ Bản (Free)",
+      "price": "0 VNĐ",
+      "desc": "Trải nghiệm cơ bản cho người mới bắt đầu.",
+      "features": [
+        "3 lượt phỏng vấn dùng thử miễn phí",
+        "Phân tích CV cơ bản",
+        "Đánh giá kỹ năng tổng quan",
+        "Hỗ trợ 2 ngôn ngữ (Vi/En)"
+      ],
+      "cta": "Bắt đầu miễn phí"
+    },
+    "proMonthly": {
+      "title": "Premium 1 Tháng",
+      "price": "59.000 VNĐ",
+      "desc": "Luyện tập linh hoạt theo tháng.",
+      "features": [
+        "15 lượt phỏng vấn mỗi chu kỳ 30 ngày",
+        "Phân tích & Đánh giá chuyên sâu",
+        "Làm mới 15 lượt sau mỗi 30 ngày",
+        "Phỏng vấn Voice AI & Judge0 Sandbox",
+        "Báo cáo Rubric Doanh nghiệp chi tiết"
+      ],
+      "cta": "Đăng ký gói Tháng"
+    },
+    "proYearly": {
+      "title": "Premium 1 Năm",
+      "price": "599.000 VNĐ",
+      "desc": "Lựa chọn tiết kiệm nhất cho mùa tuyển dụng.",
+      "features": [
+        "15 lượt phỏng vấn mỗi chu kỳ 30 ngày",
+        "Làm mới 15 lượt ưu tiên mỗi tháng",
+        "Báo cáo kỹ năng nâng cao",
+        "Phỏng vấn Voice AI & Judge0 Sandbox",
+        "Khấu hao -15% so với gói Tháng x12",
+        "Lưu lịch sử & Xuất báo cáo PDF"
+      ],
+      "cta": "Đăng ký gói 1 Năm"
+    }
+  },
+  "testimonials": {
+    "badge": "ĐÁNH GIÁ TỪ ỨNG VIÊN",
+    "title": "Hơn 10,000+ sinh viên và lập trình viên đã thành công",
+    "items": [
+      {
+        "name": "Nguyễn Minh Tuấn",
+        "role": "Software Engineer @ Tech Global",
+        "avatar": "MT",
+        "text": "AI-SPEIS giúp mình khắc phục hoàn toàn tâm lý run khi phỏng vấn Tiếng Anh. Nhận xét Rubric cực kỳ sát với câu hỏi thực tế của nhà tuyển dụng!"
+      },
+      {
+        "name": "Trần Thu Hà",
+        "role": "Frontend Developer @ FPT Software",
+        "avatar": "TH",
+        "text": "Tính năng bóc tách CV rồi hỏi sâu vào kiến thức React làm mình bất ngờ. Vừa phỏng vấn vừa code trực tiếp trên Judge0 cực mượt!"
+      },
+      {
+        "name": "Lê Hoàng Nam",
+        "role": "Junior Backend Dev",
+        "avatar": "HN",
+        "text": "Nhờ luyện chuỗi 7 ngày trên AI-SPEIS mà mình đã đỗ offer thực tập mơ ước. Cảm ơn đội ngũ phát triển rất nhiều!"
+      }
+    ]
+  },
+  "faq": {
+    "badge": "CÂU HỎI THƯỜNG GẶP",
+    "title": "Mọi thắc mắc của bạn đều có lời giải",
+    "items": [
+      {
+        "q": "AI-SPEIS có thực sự cá nhân hóa theo CV của tôi không?",
+        "a": "Có! AI-SPEIS sử dụng các mô hình LLM tiên tiến để trích xuất từng kỹ năng, dự án và kinh nghiệm trong CV PDF của bạn, từ đó đặt các câu hỏi phỏng vấn xoáy sâu vào hồ sơ của riêng bạn."
+      },
+      {
+        "q": "Tôi có cần cài đặt phần mềm gì không?",
+        "a": "Không cần. AI-SPEIS chạy 100% trên trình duyệt web. Bạn chỉ cần micro và kết nối internet để bắt đầu phỏng vấn."
+      },
+      {
+        "q": "Coding Sandbox hỗ trợ những ngôn ngữ lập trình nào?",
+        "a": "Hệ thống hỗ trợ C, C++, Java, C#, Python và JavaScript/Node.js qua hạ tầng biên dịch Judge0 Sandbox cực nhanh."
+      },
+      {
+        "q": "Tôi có thể hủy gói Pro bất cứ lúc nào không?",
+        "a": "Hoàn toàn có thể. Bạn có thể quản lý và hủy gia hạn gói bất cứ lúc nào trong trang Cài đặt tài khoản."
+      }
+    ]
+  },
+  "ctaBanner": {
+    "title": "Sẵn sàng chinh phục buổi phỏng vấn mơ ước?",
+    "subtitle": "Tải CV lên và bắt đầu phiên phỏng vấn mô phỏng đầu tiên của bạn chỉ trong 60 giây.",
+    "button": "Bắt đầu luyện tập ngay"
   }
 }

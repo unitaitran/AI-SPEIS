@@ -33,16 +33,28 @@ namespace ai_speis_be.Services.Judge0Service
 
             var client = _httpClientFactory.CreateClient("Judge0");
 
-            var batchRequest = new Judge0BatchRequest { submissions = submissions };
+            // Encode source_code and stdin into Base64 for safety against special characters and multiline breaks
+            var encodedSubmissions = submissions.Select(s => new Judge0SubmissionRequest
+            {
+                source_code = EncodeBase64(s.source_code),
+                language_id = s.language_id,
+                stdin = !string.IsNullOrEmpty(s.stdin) ? EncodeBase64(s.stdin) : s.stdin,
+                cpu_time_limit = s.cpu_time_limit,
+                memory_limit = s.memory_limit,
+                command_line_arguments = s.command_line_arguments,
+                compiler_options = s.compiler_options
+            }).ToList();
+
+            var batchRequest = new Judge0BatchRequest { submissions = encodedSubmissions };
             var jsonContent = JsonSerializer.Serialize(batchRequest, JsonOptions);
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
             _logger.LogInformation(
-                "Gửi batch submission đến Judge0: {Count} test cases",
+                "Gửi batch submission (Base64 encoded) đến Judge0: {Count} test cases",
                 submissions.Count);
 
             // Step 1: POST batch submission -> Nhận danh sách token [{ "token": "..." }]
-            var response = await client.PostAsync("/submissions/batch", content, cancellationToken);
+            var response = await client.PostAsync("/submissions/batch?base64_encoded=true", content, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -65,11 +77,12 @@ namespace ai_speis_be.Services.Judge0Service
             }
 
             var tokenList = string.Join(",", tokenResponses.Select(t => t.token));
-            var getUrl = $"/submissions/batch?tokens={tokenList}&fields=stdout,stderr,compile_output,message,time,memory,token,status";
+            var getUrl = $"/submissions/batch?tokens={tokenList}&base64_encoded=true&fields=stdout,stderr,compile_output,message,time,memory,token,status";
 
             // Step 2: Poll GET batch endpoint cho đến khi tất cả các submission hoàn thành (status.id > 2)
-            const int maxAttempts = 30; // max 9 seconds (30 * 300ms)
-            const int delayMs = 300;
+            // Budget: 120 * 500ms = 60s (enough for 10s cpu_time + compilation + overhead)
+            const int maxAttempts = 120;
+            const int delayMs = 500;
 
             for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
@@ -101,7 +114,18 @@ namespace ai_speis_be.Services.Judge0Service
                             .ToDictionary(s => s.token!);
 
                         return tokenResponses
-                            .Select(t => dict.TryGetValue(t.token, out var sub) ? sub : new Judge0SubmissionResponse())
+                            .Select(t =>
+                            {
+                                if (dict.TryGetValue(t.token, out var sub))
+                                {
+                                    sub.stdout = DecodeBase64(sub.stdout);
+                                    sub.stderr = DecodeBase64(sub.stderr);
+                                    sub.compile_output = DecodeBase64(sub.compile_output);
+                                    sub.message = DecodeBase64(sub.message);
+                                    return sub;
+                                }
+                                return new Judge0SubmissionResponse();
+                            })
                             .ToList();
                     }
                 }
@@ -110,6 +134,27 @@ namespace ai_speis_be.Services.Judge0Service
             }
 
             throw new TimeoutException("Thời gian chờ phản hồi từ Judge0 quá lâu.");
+        }
+
+        private static string EncodeBase64(string plainText)
+        {
+            if (string.IsNullOrEmpty(plainText)) return string.Empty;
+            byte[] plainTextBytes = Encoding.UTF8.GetBytes(plainText);
+            return Convert.ToBase64String(plainTextBytes);
+        }
+
+        private static string? DecodeBase64(string? base64EncodedData)
+        {
+            if (string.IsNullOrWhiteSpace(base64EncodedData)) return base64EncodedData;
+            try
+            {
+                byte[] base64EncodedBytes = Convert.FromBase64String(base64EncodedData);
+                return Encoding.UTF8.GetString(base64EncodedBytes);
+            }
+            catch
+            {
+                return base64EncodedData;
+            }
         }
 
         public async Task<List<Judge0LanguageDto>> GetLanguagesAsync(

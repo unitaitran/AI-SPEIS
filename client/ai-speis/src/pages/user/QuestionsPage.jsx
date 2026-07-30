@@ -48,7 +48,16 @@ function QuestionsPage() {
   const [searchInputValue, setSearchInputValue] = useState('');
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [selectedDifficulties, setSelectedDifficulties] = useState([]);
+  const [selectedLanguages, setSelectedLanguages] = useState(() => [
+    i18n.language.startsWith('vi') ? 'vi' : 'en'
+  ]);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+
+  // Sync auto-tick of language filter when system language changes
+  useEffect(() => {
+    const sysLang = i18n.language.startsWith('vi') ? 'vi' : 'en';
+    setSelectedLanguages([sysLang]);
+  }, [i18n.language]);
 
   const [sortOption] = useState('popular'); // popular, newest
 
@@ -60,7 +69,8 @@ function QuestionsPage() {
   const [expandedQuestionIds, setExpandedQuestionIds] = useState([]);
   const [expandedFilters, setExpandedFilters] = useState({
     role: true,
-    difficulty: true
+    difficulty: true,
+    language: true
   });
 
   // Fetch Questions and Saved Questions on Mount
@@ -227,6 +237,7 @@ function QuestionsPage() {
     // 1. Search keyword
     const matchesSearch = !searchInputValue ||
       q.questionContent.toLowerCase().includes(searchInputValue.toLowerCase()) ||
+      (q.expectedKeyPoints && q.expectedKeyPoints.toLowerCase().includes(searchInputValue.toLowerCase())) ||
       (q.suggestedAnswer && q.suggestedAnswer.toLowerCase().includes(searchInputValue.toLowerCase()));
 
     // 2. Role Filter
@@ -240,10 +251,18 @@ function QuestionsPage() {
       return false;
     });
 
-    // 4. Saved Filter
+    // 4. Language Filter
+    const matchesLanguage = selectedLanguages.length === 0 || selectedLanguages.some(lang => {
+      const qLang = (q.language || '').toLowerCase();
+      if (lang === 'vi') return qLang === 'vi' || qLang === 'vietnamese' || !qLang;
+      if (lang === 'en') return qLang === 'en' || qLang === 'english';
+      return qLang === lang;
+    });
+
+    // 5. Saved Filter
     const matchesBookmark = !showSavedOnly || savedQuestionIds.includes(q.questionId);
 
-    return matchesSearch && matchesRole && matchesDifficulty && matchesBookmark;
+    return matchesSearch && matchesRole && matchesDifficulty && matchesLanguage && matchesBookmark;
   });
 
   // Sort logic
@@ -367,7 +386,63 @@ function QuestionsPage() {
             {/* Left Sidebar Filter Column - Sticky with top offset matching the sticky header height */}
             <aside className="lg:col-span-1 space-y-4 sticky top-[93px] self-start">
 
-              {/* Filter 1: VỊ TRÍ (Role) */}
+              {/* 1. Mascot Studying Banner */}
+              <div className="flex flex-col items-center text-center relative py-2">
+                {/* Speech Bubble Above Mascot */}
+                <div className="relative bg-primary-xlight text-primary-dark border border-primary-light/50 px-4 py-2.5 rounded-xl text-xs font-bold leading-relaxed max-w-[90%] mb-3.5 shadow-sm">
+                  {/* Bubble tail arrow pointing down */}
+                  <div className="absolute bottom-[-5px] left-1/2 transform -translate-x-1/2 rotate-45 w-2.5 h-2.5 bg-primary-xlight border-r border-b border-primary-light/50"></div>
+                  {isVi ? 'Cùng ôn tập câu hỏi nhé!' : "Let's study questions!"}
+                </div>
+
+                <img
+                  src="/studying_mascot.jpg"
+                  alt="Studying Mascot"
+                  className="w-48 h-48 object-cover rounded-full border-2 border-primary/20 shadow-md"
+                />
+              </div>
+
+              {/* 2. NGÔN NGỮ */}
+              <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm">
+                <button
+                  onClick={() => toggleFilterSection('language')}
+                  className="w-full px-4 py-3.5 flex items-center justify-between bg-surface-1 border-b border-border text-sm font-bold text-text-primary uppercase tracking-wider cursor-pointer"
+                >
+                  <span>{t('questions.filter_language', 'Ngôn ngữ')}</span>
+                  <ChevronDown size={16} className={`transition-transform duration-300 transform ${expandedFilters.language ? 'rotate-180' : ''}`} />
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFilters.language ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="p-4 space-y-3">
+                    {[
+                      { code: 'vi', label: t('questions.lang_vi', 'Tiếng Việt'), flag: '🇻🇳' },
+                      { code: 'en', label: t('questions.lang_en', 'Tiếng Anh'), flag: '🇬🇧' }
+                    ].map(lang => (
+                      <label key={lang.code} className="flex items-center text-xs font-semibold text-text-secondary cursor-pointer hover:text-primary-dark transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedLanguages.includes(lang.code)}
+                          onChange={() => handleCheckboxChange(lang.code, selectedLanguages, setSelectedLanguages)}
+                          className="mr-2.5 accent-primary h-4.5 w-4.5 rounded border-border-strong"
+                        />
+                        <span className="flex items-center gap-1.5">
+                          <span>{lang.flag}</span>
+                          <span>{lang.label}</span>
+                        </span>
+                        <span className="ml-auto text-[10px] text-text-disabled font-bold bg-surface-3 px-2 py-0.5 rounded border border-border/20">
+                          {questions.filter(q => {
+                            const qLang = (q.language || '').toLowerCase();
+                            if (lang.code === 'vi') return qLang === 'vi' || qLang === 'vietnamese' || !qLang;
+                            if (lang.code === 'en') return qLang === 'en' || qLang === 'english';
+                            return false;
+                          }).length}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. VỊ TRÍ (Role) */}
               <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm">
                 <button
                   onClick={() => toggleFilterSection('role')}
@@ -400,7 +475,7 @@ function QuestionsPage() {
                 </div>
               </div>
 
-              {/* Filter 2: ĐỘ KHÓ */}
+              {/* 4. ĐỘ KHÓ */}
               <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm">
                 <button
                   onClick={() => toggleFilterSection('difficulty')}
@@ -432,22 +507,6 @@ function QuestionsPage() {
                     ))}
                   </div>
                 </div>
-              </div>
-
-              {/* Mascot Studying Banner */}
-              <div className="flex flex-col items-center text-center relative py-2">
-                {/* Speech Bubble Above Mascot */}
-                <div className="relative bg-primary-xlight text-primary-dark border border-primary-light/50 px-4 py-2.5 rounded-xl text-xs font-bold leading-relaxed max-w-[90%] mb-3.5 shadow-sm">
-                  {/* Bubble tail arrow pointing down */}
-                  <div className="absolute bottom-[-5px] left-1/2 transform -translate-x-1/2 rotate-45 w-2.5 h-2.5 bg-primary-xlight border-r border-b border-primary-light/50"></div>
-                  "Let's study question!"
-                </div>
-
-                <img
-                  src="/studying_mascot.jpg"
-                  alt="Studying Mascot"
-                  className="w-48 h-48 object-cover rounded-full border-2 border-primary/20 shadow-md"
-                />
               </div>
             </aside>
 
@@ -489,6 +548,9 @@ function QuestionsPage() {
                               <span className={`px-3 py-1 text-xs font-bold border rounded-md ${getDifficultyBadgeClass(q.difficulty)}`}>
                                 {getDifficultyText(q.difficulty)}
                               </span>
+                              <span className="px-2.5 py-1 text-xs font-bold bg-surface-3 text-text-secondary border border-border/80 rounded-md flex items-center gap-1">
+                                {(q.language || '').toLowerCase() === 'en' || (q.language || '').toLowerCase() === 'english' ? '🇬🇧 EN' : '🇻🇳 VI'}
+                              </span>
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">
@@ -529,7 +591,7 @@ function QuestionsPage() {
                         </div>
 
                         {/* Expandable answer panel - Slide down effect */}
-                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[300px] opacity-100 mt-4 pt-4 border-t border-border/50' : 'max-h-0 opacity-0'}`}>
+                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[800px] opacity-100 mt-4 pt-4 border-t border-border/50' : 'max-h-0 opacity-0'}`}>
                           {isExpanded && (
                             <div className="space-y-2">
                               <div className="flex items-center gap-1.5">
@@ -538,8 +600,8 @@ function QuestionsPage() {
                                   {t('questions.ai_suggested_answer', 'Gợi ý trả lời (Tips)')}
                                 </h4>
                               </div>
-                              <p className="text-sm text-text-secondary leading-relaxed bg-primary-xlight/20 border border-dashed border-primary-light/50 p-3.5 rounded-xl font-semibold">
-                                {q.suggestedAnswer || t('questions.no_suggested_answer', 'Chưa có gợi ý trả lời')}
+                              <p className="text-sm text-text-primary leading-relaxed bg-primary-xlight/20 border border-dashed border-primary-light/50 p-3.5 rounded-xl font-medium whitespace-pre-line">
+                                {q.expectedKeyPoints || q.expectedKeyPoint || q.expected_key_points || q.suggestedAnswer || t('questions.no_suggested_answer', 'Chưa có gợi ý trả lời')}
                               </p>
                             </div>
                           )}

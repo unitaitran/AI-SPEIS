@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "AI-SPEIS | AI interview practice"
+    "title": "AI-SPEIS | Personalized AI IT Interview Platform"
   },
   "aria": {
     "navigation": "Primary navigation",
@@ -10,206 +10,248 @@
   },
   "nav": {
     "home": "Home",
+    "demo": "Experience",
     "features": "Features",
     "flow": "Flow",
-    "personalization": "Personalization",
-    "community": "Community",
+    "comparison": "Comparison",
     "pricing": "Pricing",
     "faq": "FAQ"
   },
   "buttons": {
     "login": "Log in",
-    "startInterview": "Start Interview",
-    "howItWorks": "See how it works",
-    "viewFeatures": "View features",
+    "startInterview": "Get Started Free",
+    "tryDemo": "Try Simulator",
+    "howItWorks": "How It Works",
+    "viewFeatures": "View Features",
     "language": "Language",
-    "createAccount": "Create account",
+    "createAccount": "Create Account",
     "contactSales": "Contact Sales",
     "register": "Register"
   },
   "footer": {
-    "about": "About",
-    "features": "Features",
-    "support": "Support",
-    "contact": "Contact",
-    "social": "Social"
+    "tagline": "Next-generation AI mock interview platform personalized from your CV & JD for the tech community.",
+    "product": "Product",
+    "resources": "Resources & Legal",
+    "contactTitle": "Contact & Social",
+    "email": "support@ai-speis.com",
+    "location": "Da Nang, Vietnam",
+    "mascotBadge": "✨ AI Assistant 24/7",
+    "features": "Core Features",
+    "pricing": "Pricing Plans",
+    "faq": "FAQ",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "contact": "Support Contact",
+    "rights": "All rights reserved by AI-SPEIS.",
+    "madeWith": "Made with ❤️ for IT Candidates"
   },
   "hero": {
-    "tag": "AI INTERVIEW PRACTICE FOR USERS",
-    "title": "Practice IT interviews with AI personalized from your CV",
-    "text": "AI-SPEIS helps you practice in a safe environment, receive clear feedback, track progress, and prepare better for real interviews.",
-    "cards": [
-      { "label": "Personalized", "value": "CV · target role · skill gaps" },
-      { "label": "Practice mode", "value": "Mock interview, transcript, feedback" },
-      { "label": "Motivation", "value": "Streaks, badges, progress timeline" }
+    "badge": "✨ Next-Gen AI Mock Interview Platform",
+    "title": "Master IT Interviews With AI Personalized From Your CV & JD",
+    "text": "Practice Behavioral, Technical, and Coding rounds 24/7 in a safe environment. Get detailed rubric feedback from enterprise AI in seconds.",
+    "metrics": [
+      { "number": "98.4%", "label": "Candidates gain confidence after 3 rounds" },
+      { "number": "15,000+", "label": "Mock interview sessions completed" },
+      { "number": "3 Mins", "label": "Instant detailed Rubric report" }
     ]
   },
   "mascot": {
-    "status": "Interview room ready",
-    "note": "AI will ask based on your CV, target role, and confidence level."
+    "status": "AI Interview room ready 24/7",
+    "note": "AI will interview based on your CV, target role, and confidence level."
   },
-  "highlights": [
-    { "title": "CV-aware", "text": "Personalized questions and feedback" },
-    { "title": "Low-anxiety flow", "text": "Clear steps, calm guidance, no clutter" },
-    { "title": "Easy review", "text": "Transcript, rubric, progress and next steps" }
-  ],
-  "sections": {
-    "features": {
-      "kicker": "Core features",
-      "title": "A clear, effective interview practice experience",
-      "text": "Every screen focuses on helping students understand the next action: upload a CV, start an interview, read the transcript, review feedback, and practice again.",
-      "cards": [
-        {
-          "title": "Upload CV and profile",
-          "description": "Import your CV, choose a target role, and let the system personalize questions from the start."
-        },
-        {
-          "title": "AI mock interviews",
-          "description": "Practice by role, difficulty, and language with question sets close to real hiring scenarios."
-        },
-        {
-          "title": "Transcript and review",
-          "description": "Revisit your transcript, spot answer gaps, and refine your content after each round."
-        },
-        {
-          "title": "Actionable feedback",
-          "description": "Rubric-based scoring highlights strengths, gaps, and the next improvements to focus on."
-        },
-        {
-          "title": "Progress tracking",
-          "description": "History, streaks, achievements, and progress charts help you see improvement clearly."
-        },
-        {
-          "title": "Supportive community",
-          "description": "Join practice groups, share tips, and get vouchers and resources for recruiting season."
-        }
-      ]
+  "simulator": {
+    "badge": "INTERACTIVE SIMULATOR",
+    "title": "Experience AI-SPEIS in Action",
+    "subtitle": "Click through the tabs below to preview the smart mock interview room.",
+    "tabs": {
+      "cv": "1. CV & JD Intelligence",
+      "voice": "2. Voice AI Interviewer",
+      "coding": "3. Coding Sandbox"
     },
-    "flow": {
-      "kicker": "6-step flow",
-      "title": "From preparation to feedback in one learning flow",
-      "text": "The page is designed like a clear path so you never get lost in too many buttons and always know the next step.",
-      "steps": [
-        {
-          "title": "1. Upload your CV and choose a goal",
-          "text": "Start with your CV, target position, and skills you want to improve."
-        },
-        {
-          "title": "2. Let AI generate the question set",
-          "text": "The system creates questions based on your CV, skills, and role fit."
-        },
-        {
-          "title": "3. Practice in the interview room",
-          "text": "Record with Mic, hear AI prompts with Voice, and practice safely through repeated rounds."
-        },
-        {
-          "title": "4. Review transcripts and common mistakes",
-          "text": "Every answer is saved so you can review, inspect mistakes, and refine your response."
-        },
-        {
-          "title": "5. Get rubric-based feedback",
-          "text": "Scores and notes are grouped by criteria so you know what to fix first."
-        },
-        {
-          "title": "6. Track long-term progress",
-          "text": "Streaks, charts, and milestones help you keep the practice habit going."
-        }
-      ]
+    "cvDemo": {
+      "uploading": "Parsed CV: Senior_Frontend_Dev.pdf",
+      "matchScore": "CV/JD Match Score:",
+      "strengths": "Strengths: React, TypeScript, TailwindCSS, REST API",
+      "gaps": "Focus Gaps: System Design, State Management Optimization"
     },
-    "personalization": {
-      "kicker": "Personalization",
-      "title": "Personalized by CV, target role, and improvement gaps",
-      "text": "AI-SPEIS uses your CV and target role to tune the question set, feedback tone, and practice checklist. New users can start quickly, while experienced users can go deeper into advanced practice loops.",
-      "rows": [
-        "Dashboard for history, scores, and streaks",
-        "Questions by topic and difficulty",
-        "Quick search for transcripts, common mistakes, and fixes"
-      ]
+    "voiceDemo": {
+      "aiQuestion": "AI Interviewer: 'How do you approach Render Optimization in React when dealing with thousands of records?'",
+      "speakingStatus": "Candidate responding via Voice Mic...",
+      "liveScore": "Real-time AI Audio Spectrum & Waveform Active"
     },
-    "community": {
-      "kicker": "Community & support",
-      "title": "A support system to help you practice consistently",
-      "cards": [
-        {
-          "title": "Practice reminders",
-          "text": "Set reminders to keep a steady practice rhythm before interview day."
-        },
-        {
-          "title": "Clear milestones",
-          "text": "Every session adds a milestone so you can see your own progress."
-        },
-        {
-          "title": "Healthy streaks",
-          "text": "Motivation is gentle, not stressful, and avoids excessive gamification."
-        },
-        {
-          "title": "Guided learning path",
-          "text": "Move from CV, to questions, to transcript and feedback, step by step."
-        }
-      ],
-      "pills": {
-        "achievement": "Achievement ready",
-        "voucher": "Voucher and study perks",
-        "progress": "Progress snapshot"
-      }
-    },
-    "interviewRoom": {
-      "kicker": "Interview room",
-      "title": "A minimal interview room that is focused and easy to follow",
-      "text": "The practice screen keeps a centered layout with transcript, recording controls, voice output, rubric feedback, and progress status in one view.",
-      "tools": [
-        "Answer recording",
-        "AI question readout",
-        "Transcript and report",
-        "Progress reminders",
-        "Premium tools"
-      ]
-    },
-    "cta": {
-      "kicker": "Get started",
-      "title": "Ready to try your first mock interview session?",
-      "text": "Upload your CV, choose your target role, and let AI-SPEIS generate your first practice round."
-    },
-    "pricing": {
-      "kicker": "Pricing",
-      "title": "Plans for learners",
-      "text": "Choose a plan to unlock more practice features.",
-      "freeTitle": "Free",
-      "free": "Basic experience with limited mock interviews per month.",
-      "proTitle": "Pro",
-      "pro": "15 practice attempts per fixed 30-day cycle, detailed analytics, and advanced AI features.",
-      "enterpriseTitle": "Enterprise",
-      "enterprise": "For organizations, bulk customization, and API integration."
-    },
-    "testimonials": {
-      "kicker": "Testimonials",
-      "title": "What our users say",
-      "items": [
-        {
-          "name": "Alex N.",
-          "role": "IT Student",
-          "text": "Awesome! It helped me gain a lot of confidence for real interviews."
-        },
-        {
-          "name": "Sarah T.",
-          "role": "Frontend Developer",
-          "text": "The AI feedback is exactly what real recruiters are looking for."
-        }
-      ]
-    },
-    "faq": {
-      "kicker": "FAQ",
-      "title": "Frequently Asked Questions",
-      "items": [
-        {
-          "q": "Is AI-SPEIS free to use?",
-          "a": "Yes, we offer a free plan with basic features."
-        },
-        {
-          "q": "Is my data secure?",
-          "a": "Absolutely secure. Your CV and recordings are only used to personalize your practice."
-        }
-      ]
+    "codingDemo": {
+      "lang": "Language: JavaScript (Node.js 18)",
+      "fn": "function twoSum(nums, target) {",
+      "sampleOutput": "▶ Test Case 1: [2,7,11,15], target=9 ➔ Accepted (Time: 24ms, Memory: 42MB)"
     }
+  },
+  "bento": {
+    "badge": "POWERFUL FEATURES",
+    "title": "The Most Comprehensive AI Interview System for Candidates",
+    "subtitle": "Combining Cutting-edge Artificial Intelligence with Real Hiring Rubrics.",
+    "card1": {
+      "tag": "100% Personalized",
+      "title": "CV & JD AI Parsing Engine",
+      "desc": "No generic static questions. AI scans your PDF resume and target Job Description to generate tailored interview scenarios."
+    },
+    "card2": {
+      "tag": "Voice STT & TTS",
+      "title": "Natural 24/7 Voice Conversations",
+      "desc": "Speak freely in English or Vietnamese. Natural AI voice listens, understands, and responds like a real interviewer."
+    },
+    "card3": {
+      "tag": "Enterprise Rubric",
+      "title": "Multi-dimensional Rubric Scoring",
+      "desc": "In-depth scoring across 5 criteria: Knowledge accuracy, Communication clarity, Answer structure, Confidence, and Problem solving."
+    },
+    "card4": {
+      "tag": "Judge0 Sandbox",
+      "title": "Multi-Language Live Coding Sandbox",
+      "desc": "Embedded Monaco Editor with Judge0 backend runner for C, C++, Java, C#, Python, and JavaScript."
+    },
+    "card5": {
+      "tag": "Progress Analytics",
+      "title": "Streak Tracking & Growth Charts",
+      "desc": "Visualized progress charts keep track of your score improvement week by week so you stay motivated."
+    }
+  },
+  "flow": {
+    "badge": "4-STEP FLOW",
+    "title": "4 Simple Steps to Get Interview Ready",
+    "subtitle": "Streamlined design lets you focus on practicing without friction.",
+    "steps": [
+      {
+        "num": "01",
+        "title": "Upload CV & Select Target Role",
+        "desc": "Upload your resume PDF and paste the Job Description of your dream role."
+      },
+      {
+        "num": "02",
+        "title": "AI Generates Custom Scenario",
+        "desc": "AI extracts skills, identifies gaps, and generates relevant interview questions."
+      },
+      {
+        "num": "03",
+        "title": "Practice Speaking & Coding",
+        "desc": "Answer out loud via Mic or write solution algorithms directly in the browser."
+      },
+      {
+        "num": "04",
+        "title": "Get Rubric Feedback & Action Plan",
+        "desc": "Review detailed notes, know exact areas to fix, and track daily progress."
+      }
+    ]
+  },
+  "comparison": {
+    "badge": "WHY CHOOSE US",
+    "title": "Why AI-SPEIS is Your Best Choice",
+    "subtitle": "Comparing AI-SPEIS with traditional interview preparation methods.",
+    "headers": ["Feature", "Pramp / Peer-to-Peer", "Mentor / Human Mock", "AI-SPEIS Platform"],
+    "rows": [
+      { "feature": "Availability & Scheduling", "p2p": "Depends on peer schedule", "mentor": "Book days in advance", "aispeis": "Instant 24/7 Practice" },
+      { "feature": "CV & JD Personalization", "p2p": "None (Static questions)", "mentor": "Depends on Mentor", "aispeis": "100% AI Personalized" },
+      { "feature": "Interview Modules", "p2p": "Coding or Behavioral only", "mentor": "Inconsistent", "aispeis": "Behavioral + Tech + Coding" },
+      { "feature": "Scoring Standard", "p2p": "Peer informal notes", "mentor": "Subjective opinion", "aispeis": "Enterprise Rubric Matrix" },
+      { "feature": "Cost & Sustainability", "p2p": "Must interview others back", "mentor": "Expensive ($50 - $150/hr)", "aispeis": "Free Tier + Affordable Pro" }
+    ]
+  },
+  "pricing": {
+    "badge": "TRANSPARENT PRICING",
+    "title": "Choose the Plan That Fits Your Goals",
+    "subtitle": "Small investment for a huge career milestone.",
+    "popularBadge": "BEST VALUE (-15%)",
+    "monthly": "/ month",
+    "yearly": "/ year",
+    "yearlyDiscount": "Save -15% vs monthly x12",
+    "free": {
+      "title": "Basic Tier (Free)",
+      "price": "0 VND",
+      "desc": "Basic practice experience for beginners.",
+      "features": [
+        "3 free trial mock sessions",
+        "Basic CV analysis",
+        "General skill assessment",
+        "Dual language support (En/Vi)"
+      ],
+      "cta": "Get Started Free"
+    },
+    "proMonthly": {
+      "title": "Premium 1 Month",
+      "price": "59,000 VND",
+      "desc": "Flexible month-by-month practice.",
+      "features": [
+        "15 mock sessions per 30-day cycle",
+        "Deep AI analysis & evaluation",
+        "Refresh 15 sessions every 30 days",
+        "Voice AI & Judge0 Sandbox",
+        "Detailed Enterprise Rubric report"
+      ],
+      "cta": "Subscribe 1 Month"
+    },
+    "proYearly": {
+      "title": "Premium 1 Year",
+      "price": "599,000 VND",
+      "desc": "Most cost-effective choice for recruitment season.",
+      "features": [
+        "15 mock sessions per 30-day cycle",
+        "Priority monthly 15-quota refresh",
+        "Advanced skill performance report",
+        "Voice AI & Judge0 Sandbox",
+        "-15% amortized savings vs 12x monthly",
+        "History saving & PDF export"
+      ],
+      "cta": "Subscribe 1 Year"
+    }
+  },
+  "testimonials": {
+    "badge": "SUCCESS STORIES",
+    "title": "Over 10,000+ Students & Engineers Have Succeeded",
+    "items": [
+      {
+        "name": "Michael T.",
+        "role": "Software Engineer @ Tech Global",
+        "avatar": "MT",
+        "text": "AI-SPEIS completely eliminated my anxiety during English technical interviews. The Rubric feedback was spot on!"
+      },
+      {
+        "name": "Sarah H.",
+        "role": "Frontend Developer @ FPT Software",
+        "avatar": "SH",
+        "text": "The CV parsing feature blew me away by asking deep React questions. Live coding in the Judge0 Sandbox was seamless!"
+      },
+      {
+        "name": "David L.",
+        "role": "Junior Backend Dev",
+        "avatar": "DL",
+        "text": "Thanks to my 7-day streak on AI-SPEIS, I landed my dream internship offer. Thank you team!"
+      }
+    ]
+  },
+  "faq": {
+    "badge": "FREQUENTLY ASKED QUESTIONS",
+    "title": "Everything You Need to Know",
+    "items": [
+      {
+        "q": "Is AI-SPEIS really personalized to my resume?",
+        "a": "Yes! AI-SPEIS uses advanced LLM models to parse your skills, projects, and experiences from your PDF resume to generate tailored interview questions."
+      },
+      {
+        "q": "Do I need to install any software?",
+        "a": "No. AI-SPEIS runs 100% in your browser. All you need is a microphone and an internet connection."
+      },
+      {
+        "q": "What languages does the Coding Sandbox support?",
+        "a": "It supports C, C++, Java, C#, Python, and JavaScript/Node.js powered by a fast Judge0 Sandbox backend."
+      },
+      {
+        "q": "Can I cancel my Pro subscription anytime?",
+        "a": "Absolutely. You can manage or cancel your subscription at any time from your Account Settings."
+      }
+    ]
+  },
+  "ctaBanner": {
+    "title": "Ready to Ace Your Dream Job Interview?",
+    "subtitle": "Upload your resume and launch your first mock interview session in just 60 seconds.",
+    "button": "Start Practicing Now"
   }
 }

@@ -85,7 +85,10 @@
     "no_questions_desc": "Please try changing your search query or filter checkboxes.",
     "confirm_delete_bookmark": "Are you sure you want to remove this bookmark?",
     "filter_saved": "Saved",
-    "filter_unsaved": "Unsaved"
+    "filter_unsaved": "Unsaved",
+    "filter_language": "Language",
+    "lang_vi": "Vietnamese",
+    "lang_en": "English"
   },
   "mycv": {
     "title": "My CV",
