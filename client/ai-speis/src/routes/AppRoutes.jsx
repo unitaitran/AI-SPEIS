@@ -32,7 +32,7 @@ function AppRoutes() {
     if (hash.startsWith('#/packages/payment-result')) {
       const queryIndex = hash.indexOf('?');
       const queryString = queryIndex >= 0 ? hash.slice(queryIndex) : '';
-      const target = `${USER_ROUTES.PAYMENT_RESULT}${queryString}`;
+      const target = `${USER_ROUTES.PACKAGES}${queryString}`;
 
       window.history.replaceState(null, '', target);
       setPathname(target.split('?')[0]);

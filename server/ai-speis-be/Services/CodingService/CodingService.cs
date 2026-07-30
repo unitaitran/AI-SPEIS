@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using ai_speis_be.Services.CodingService.Helpers;
 using System.Text.Json;
 using ai_speis_be.Services.CodingService.Selection;
+using ai_speis_be.Services.CodingService.Harness;
 
 namespace ai_speis_be.Services.CodingService
 {
@@ -21,6 +22,7 @@ namespace ai_speis_be.Services.CodingService
         private readonly ICodingRepository _repository;
         private readonly IJudge0Service _judge0Service;
         private readonly ICodingQuestionSelectionService _selectionService;
+        private readonly ICodingHarnessEngine _harnessEngine;
         private readonly ApplicationDbContext _context;
         private readonly ILogger<CodingService> _logger;
 
@@ -28,12 +30,14 @@ namespace ai_speis_be.Services.CodingService
             ICodingRepository repository,
             IJudge0Service judge0Service,
             ICodingQuestionSelectionService selectionService,
+            ICodingHarnessEngine harnessEngine,
             ApplicationDbContext context,
             ILogger<CodingService> logger)
         {
             _repository = repository;
             _judge0Service = judge0Service;
             _selectionService = selectionService;
+            _harnessEngine = harnessEngine;
             _context = context;
             _logger = logger;
         }
@@ -96,10 +100,31 @@ namespace ai_speis_be.Services.CodingService
             if (testCases.Count == 0)
                 return (false, "Câu hỏi chưa có test case nào.", null);
 
-            string wrappedSourceCode = WrapCodeWithHarness(request.SourceCode, request.LanguageId, question);
+            string wrappedSourceCode = _harnessEngine.WrapCode(request.SourceCode, request.LanguageId, question.FunctionName ?? "solution");
 
-            int targetMemory = request.LanguageId == 62 ? Math.Max(question.MemoryLimit, 256000) : question.MemoryLimit;
-            int safeMemoryLimit = Math.Clamp(targetMemory <= 0 ? 256000 : targetMemory, 1000, 512000);
+            // Memory & CPU limits per language runtime:
+            // RLIMIT_AS limits VIRTUAL memory (not physical RSS).
+            // JVM/CLR allocate ~1-2GB virtual via mmap even for small heaps.
+            // V8 reserves ~500MB-1GB virtual for code/heap regions.
+            // - Java/C# (JVM/CLR): 2GB virtual (2048000 KB)
+            // - JS/Node.js (V8):   1GB virtual (1024000 KB)
+            // - Python/C/C++:      512MB virtual (512000 KB)
+            bool isJava = request.LanguageId == 62 || request.LanguageId == 91;
+            bool isCsharp = request.LanguageId == 51 || request.LanguageId == 92;
+            bool isJavaScript = request.LanguageId == 63 || request.LanguageId == 93;
+            bool isHeavyRuntime = isJava || isCsharp;
+            bool isInterpretedOrJIT = isHeavyRuntime || isJavaScript;
+
+            int defaultMemoryKb = isHeavyRuntime ? 2048000 : (isJavaScript ? 1024000 : 512000);
+            int? safeMemoryLimit = Math.Clamp(
+                question.MemoryLimit <= 0 ? defaultMemoryKb : Math.Max(question.MemoryLimit, defaultMemoryKb),
+                1000, 2048000);
+
+            // Interpreted/JIT languages need more CPU time (V8/JVM startup overhead)
+            double defaultTimeLimit = isInterpretedOrJIT ? 10.0 : 5.0;
+            double safeTimeLimit = Math.Max(
+                question.TimeLimit <= 0 ? defaultTimeLimit : question.TimeLimit,
+                defaultTimeLimit);
 
             // 3. Tạo batch submissions gửi đến Judge0
             var judge0Requests = testCases.Select(tc => new Judge0SubmissionRequest
@@ -107,9 +132,10 @@ namespace ai_speis_be.Services.CodingService
                 source_code = wrappedSourceCode,
                 language_id = request.LanguageId,
                 stdin = tc.Input ?? "",
-                cpu_time_limit = question.TimeLimit,
+                cpu_time_limit = safeTimeLimit,
                 memory_limit = safeMemoryLimit,
-                command_line_arguments = request.LanguageId == 62 ? "-Xms64m -Xmx128m" : null
+                compiler_options = null,
+                command_line_arguments = null
             }).ToList();
 
             List<Judge0SubmissionResponse> judge0Results;
@@ -221,6 +247,20 @@ namespace ai_speis_be.Services.CodingService
             submission.MaxMemoryKb = maxMemoryKb;
             submission.Status = overallStatus;
             submission.SubmissionTestCaseResults = testCaseResults;
+
+            // Debug: Log chi tiết lỗi compile/runtime cho debugging
+            if (overallStatus != "Accepted")
+            {
+                foreach (var tcr in testCaseResults.Where(r => r.Status != "Accepted").Take(2))
+                {
+                    if (!string.IsNullOrEmpty(tcr.CompileOutput))
+                        _logger.LogWarning("Judge0 CompileOutput (TC {TestCaseId}): {Output}",
+                            tcr.TestCaseId, tcr.CompileOutput.Length > 500 ? tcr.CompileOutput[..500] : tcr.CompileOutput);
+                    if (!string.IsNullOrEmpty(tcr.Stderr))
+                        _logger.LogWarning("Judge0 Stderr (TC {TestCaseId}): {Output}",
+                            tcr.TestCaseId, tcr.Stderr.Length > 500 ? tcr.Stderr[..500] : tcr.Stderr);
+                }
+            }
 
             // 5. Lưu vào database (bỏ qua nếu là test mode hoặc isTestRun)
             if (request.InterviewSessionId > 0 && !isTestRun)
@@ -445,86 +485,6 @@ namespace ai_speis_be.Services.CodingService
                     };
                 }).ToList()
             };
-        }
-
-        /// <summary>
-        /// Tự động bọc (wrap) code của thí sinh bằng Test Harness Driver tương ứng với ngôn ngữ.
-        /// Đảm bảo hàm tự động đọc JSON stdin, gọi fnName(...) và in kết quả stdout.
-        /// </summary>
-        private static string WrapCodeWithHarness(string sourceCode, int languageId, CodingQuestion question)
-        {
-            if (string.IsNullOrWhiteSpace(sourceCode) || question == null)
-                return sourceCode;
-
-            string fnName = question.FunctionName ?? "solution";
-
-            // Python (71)
-            if (languageId == 71)
-            {
-                if (sourceCode.Contains("__main__") || sourceCode.Contains("sys.stdin.read"))
-                    return sourceCode;
-
-                var harness = $@"
-
-# --- AUTOMATIC TEST HARNESS ---
-if __name__ == '__main__':
-    import sys, json
-    __raw_input = sys.stdin.read().strip()
-    if __raw_input:
-        try:
-            __data = json.loads(__raw_input)
-            if isinstance(__data, dict):
-                __res = {fnName}(**__data)
-            elif isinstance(__data, list):
-                __res = {fnName}(*__data)
-            else:
-                __res = {fnName}(__raw_input)
-            
-            if isinstance(__res, (dict, list)):
-                print(json.dumps(__res, separators=(',', ':')))
-            else:
-                print(__res)
-        except Exception as __e:
-            import traceback
-            sys.stderr.write(str(__e) + '\n' + traceback.format_exc())
-";
-                return sourceCode + harness;
-            }
-
-            // JavaScript / Node.js (63)
-            if (languageId == 63)
-            {
-                if (sourceCode.Contains("process.stdin") || sourceCode.Contains("readFileSync"))
-                    return sourceCode;
-
-                var harness = $@"
-
-// --- AUTOMATIC TEST HARNESS ---
-if (typeof process !== 'undefined') {{
-  try {{
-    const fs = require('fs');
-    const inputStr = fs.readFileSync(0, 'utf-8').trim();
-    if (inputStr) {{
-      const data = JSON.parse(inputStr);
-      let res;
-      if (typeof data === 'object' && !Array.isArray(data) && data !== null) {{
-        res = {fnName}(...Object.values(data));
-      }} else if (Array.isArray(data)) {{
-        res = {fnName}(...data);
-      }} else {{
-        res = {fnName}(data);
-      }}
-      console.log(typeof res === 'object' ? JSON.stringify(res) : res);
-    }}
-  }} catch (err) {{
-    console.error(err);
-  }}
-}}
-";
-                return sourceCode + harness;
-            }
-
-            return sourceCode;
         }
 
         /// <summary>

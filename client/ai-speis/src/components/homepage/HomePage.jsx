@@ -1,43 +1,37 @@
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import '../../i18n';
 import '../../styles/user/HomePage.css';
 import Navbar from './sections/Navbar';
 import Hero from './sections/Hero';
-import TrustedSection from './sections/TrustedSection';
-import FeaturesSection from './sections/FeaturesSection';
+import MetricsStrip from './sections/MetricsStrip';
+import InteractiveSimulator from './sections/InteractiveSimulator';
+import BentoFeatures from './sections/BentoFeatures';
 import WorkflowSection from './sections/WorkflowSection';
-import TestimonialsSection from './sections/TestimonialsSection';
+import ComparisonMatrix from './sections/ComparisonMatrix';
 import PricingSection from './sections/PricingSection';
+import TestimonialsSection from './sections/TestimonialsSection';
 import FAQSection from './sections/FAQSection';
 import CTASection from './sections/CTASection';
 import Footer from './sections/Footer';
 
-function HomePage({ currentHash, onToggleLanguage }) {
-  const { t, i18n } = useTranslation('homepage');
-
-  const readArray = (key) => {
-    const value = t(key, { returnObjects: true });
-    return Array.isArray(value) ? value : [];
-  };
-
-  const heroCards = readArray('hero.cards');
-  const featureCards = readArray('sections.features.cards');
-  const flowSteps = readArray('sections.flow.steps');
-  const testimonials = readArray('sections.testimonials.items');
-  const faqItems = readArray('sections.faq.items');
-
+function HomePage({ currentHash = '', onToggleLanguage, t: propT, i18n: propI18n }) {
+  const { t: hookT, i18n: hookI18n } = useTranslation('homepage');
+  const t = propT || hookT;
+  const i18n = propI18n || hookI18n;
   return (
     <div className="home-page-shell">
       <Navbar currentHash={currentHash} onToggleLanguage={onToggleLanguage} t={t} i18n={i18n} />
 
       <main className="home-page-content">
-        <Hero heroCards={heroCards} t={t} />
-        <TrustedSection t={t} />
-        <FeaturesSection featureCards={featureCards} t={t} />
-        <WorkflowSection flowSteps={flowSteps} t={t} />
-        <TestimonialsSection testimonials={testimonials} t={t} />
-        <PricingSection t={t} />
-        <FAQSection faqItems={faqItems} t={t} />
+        <Hero t={t} />
+        <MetricsStrip t={t} />
+        <InteractiveSimulator t={t} />
+        <BentoFeatures t={t} />
+        <WorkflowSection t={t} />
+        <ComparisonMatrix t={t} />
+        <PricingSection t={t} i18n={i18n} />
+        <TestimonialsSection t={t} />
+        <FAQSection t={t} />
         <CTASection t={t} />
       </main>
 

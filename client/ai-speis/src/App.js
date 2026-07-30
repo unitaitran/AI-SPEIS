@@ -108,7 +108,7 @@ function App() {
 
   return (
     <>
-      <HomePage currentHash={currentHash} onToggleLanguage={toggleLanguage} />
+      <HomePage currentHash={currentHash} onToggleLanguage={toggleLanguage} t={t} i18n={i18n} />
 
       {showLoggedInPopup && (
         <div className="homepage-popup-overlay" onClick={handleGoToDashboard}>

@@ -26,6 +26,7 @@ using ai_speis_be.Services.SpeechToTextService;
 using ai_speis_be.Services.TextToSpeechService;
 using ai_speis_be.Repositories.CodingRepo;
 using ai_speis_be.Services.CodingService;
+using ai_speis_be.Services.CodingService.Harness;
 using ai_speis_be.Services.CodingService.Selection;
 using ai_speis_be.Services.Judge0Service;
 using ai_speis_be.Repositories.PaymentRepo;
@@ -185,6 +186,7 @@ builder.Services.AddHttpClient("Judge0", client =>
 builder.Services.AddScoped<IJudge0Service, Judge0Service>();
 builder.Services.AddScoped<ICodingRepository, CodingRepository>();
 builder.Services.AddScoped<ICodingQuestionSelectionService, CodingQuestionSelectionService>();
+builder.Services.AddSingleton<ICodingHarnessEngine, CodingHarnessEngine>();
 builder.Services.AddScoped<ICodingService, CodingService>();
 // Register Behavioural Interview Components
 var behaviouralOptions = BehaviouralInterviewOptions.FromConfiguration(builder.Configuration);

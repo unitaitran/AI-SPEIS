@@ -190,6 +190,9 @@ namespace ai_speis_be.Models.DTOs
 
         [StringLength(20, ErrorMessage = "Độ khó không được vượt quá 20 ký tự.")]
         public string? Difficulty { get; set; }
+
+        [StringLength(10, ErrorMessage = "Ngôn ngữ không được vượt quá 10 ký tự.")]
+        public string? Language { get; set; }
     }
 
     public sealed class AdminQuestionListItemDto
@@ -198,10 +201,12 @@ namespace ai_speis_be.Models.DTOs
         public string QuestionCode => $"Q-{QuestionId}";
         public int UserId { get; set; }
         public string QuestionContent { get; set; } = string.Empty;
+        public string? ExpectedKeyPoints { get; set; }
         public string SuggestedAnswer { get; set; } = string.Empty;
         public QuestionDifficultyEnum Difficulty { get; set; }
         public string RoleTarget { get; set; } = string.Empty;
         public string Major { get; set; } = string.Empty;
+        public string? Language { get; set; }
         public bool IsDeleted { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
@@ -216,11 +221,12 @@ namespace ai_speis_be.Models.DTOs
         public string QuestionCode => $"Q-{QuestionId}";
         public int UserId { get; set; }
         public string QuestionContent { get; set; } = string.Empty;
-        [System.Text.Json.Serialization.JsonIgnore]
+        public string? ExpectedKeyPoints { get; set; }
         public string SuggestedAnswer { get; set; } = string.Empty;
         public QuestionDifficultyEnum Difficulty { get; set; }
         public string RoleTarget { get; set; } = string.Empty;
         public string Major { get; set; } = string.Empty;
+        public string? Language { get; set; }
         public bool IsDeleted { get; set; } = false;
         public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }

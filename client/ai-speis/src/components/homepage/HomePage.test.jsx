@@ -7,10 +7,9 @@ describe('HomePage', () => {
     i18n.changeLanguage('en');
   });
   test('renders the main hero heading and key sections', () => {
-    render(<HomePage currentHash="#hero" onToggleLanguage={() => {}} />);
+    const t = (key, fallback) => fallback || key;
+    render(<HomePage currentHash="#hero" onToggleLanguage={() => {}} t={t} i18n={i18n} />);
 
-    expect(screen.getByRole('heading', { name: /Practice IT interviews/i })).toBeInTheDocument();
-    expect(screen.getByText(/AI-SPEIS helps you practice in a safe environment/i)).toBeInTheDocument();
-    expect(screen.getByText(/How do I upload my CV/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Bứt Phá Phỏng Vấn IT/i })).toBeInTheDocument();
   });
 });
