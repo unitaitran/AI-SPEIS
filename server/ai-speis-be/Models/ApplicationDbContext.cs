@@ -27,6 +27,16 @@ namespace ai_speis_be.Models
         public DbSet<CodingSubmission> CodingSubmissions { get; set; } = null!;
         public DbSet<SubmissionTestCaseResult> SubmissionTestCaseResults { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
+        public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; } = null!;
+        public DbSet<SubscriptionPrice> SubscriptionPrices { get; set; } = null!;
+        public DbSet<PlanFeature> PlanFeatures { get; set; } = null!;
+        public DbSet<UserSubscription> UserSubscriptions { get; set; } = null!;
+        public DbSet<SubscriptionTerm> SubscriptionTerms { get; set; } = null!;
+        public DbSet<QuotaPeriod> QuotaPeriods { get; set; } = null!;
+        public DbSet<QuotaTransaction> QuotaTransactions { get; set; } = null!;
+        public DbSet<RewardAccount> RewardAccounts { get; set; } = null!;
+        public DbSet<RewardTransaction> RewardTransactions { get; set; } = null!;
+        public DbSet<RewardRule> RewardRules { get; set; } = null!;
         public DbSet<FastCheckResult> FastCheckResults { get; set; } = null!;
 
         // Behavioural Round Models
@@ -187,6 +197,11 @@ namespace ai_speis_be.Models
                     "CK_User_RemainingInterviewQuota",
                     "[RemainingInterviewQuota] >= 0"));
 
+            modelBuilder.Entity<User>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_User_FreeInterviewQuotaRemaining",
+                    "[FreeInterviewQuotaRemaining] >= 0 AND [FreeInterviewQuotaRemaining] <= 3"));
+
             modelBuilder.Entity<InterviewCampaign>()
                 .HasOne(c => c.CVExtractedProfile)
                 .WithMany()
@@ -322,6 +337,179 @@ namespace ai_speis_be.Models
                 .WithMany()
                 .HasForeignKey(payment => payment.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Payment>()
+                .HasOne(payment => payment.SubscriptionPrice)
+                .WithMany()
+                .HasForeignKey(payment => payment.PriceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Payment>()
+                .HasIndex(payment => payment.ProviderTransactionId)
+                .IsUnique()
+                .HasFilter("[ProviderTransactionId] IS NOT NULL");
+
+            modelBuilder.Entity<SubscriptionPlan>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_SubscriptionPlan_InterviewQuota",
+                    "[InterviewQuota] >= 0"));
+
+            modelBuilder.Entity<SubscriptionPlan>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_SubscriptionPlan_QuotaResetDays",
+                    "[QuotaResetDays] IS NULL OR [QuotaResetDays] > 0"));
+
+            modelBuilder.Entity<SubscriptionPrice>()
+                .HasOne(price => price.Plan)
+                .WithMany(plan => plan.Prices)
+                .HasForeignKey(price => price.PlanId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SubscriptionPrice>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_SubscriptionPrice_Amount",
+                    "[Amount] >= 0"));
+
+            modelBuilder.Entity<PlanFeature>()
+                .HasOne(feature => feature.Plan)
+                .WithMany(plan => plan.Features)
+                .HasForeignKey(feature => feature.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserSubscription>()
+                .HasOne(subscription => subscription.User)
+                .WithOne()
+                .HasForeignKey<UserSubscription>(subscription => subscription.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserSubscription>()
+                .HasOne(subscription => subscription.Plan)
+                .WithMany()
+                .HasForeignKey(subscription => subscription.PlanId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SubscriptionTerm>()
+                .HasOne(term => term.UserSubscription)
+                .WithMany(subscription => subscription.Terms)
+                .HasForeignKey(term => term.UserSubscriptionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SubscriptionTerm>()
+                .HasOne(term => term.Price)
+                .WithMany()
+                .HasForeignKey(term => term.PriceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SubscriptionTerm>()
+                .HasIndex(term => term.SourcePaymentId)
+                .IsUnique()
+                .HasFilter("[SourcePaymentId] IS NOT NULL");
+
+            modelBuilder.Entity<QuotaPeriod>()
+                .HasOne(period => period.UserSubscription)
+                .WithMany(subscription => subscription.QuotaPeriods)
+                .HasForeignKey(period => period.UserSubscriptionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<QuotaPeriod>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_QuotaPeriod_Values",
+                    "[QuotaLimit] >= 0 AND [UsedQuota] >= 0 AND [ReservedQuota] >= 0 AND [UsedQuota] + [ReservedQuota] <= [QuotaLimit]"));
+
+            modelBuilder.Entity<QuotaTransaction>()
+                .HasOne(transaction => transaction.QuotaPeriod)
+                .WithMany(period => period.Transactions)
+                .HasForeignKey(transaction => transaction.QuotaPeriodId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<RewardAccount>()
+                .HasOne(account => account.User)
+                .WithOne()
+                .HasForeignKey<RewardAccount>(account => account.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<RewardAccount>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_RewardAccount_Points",
+                    "[AvailablePoints] >= 0 AND [ReservedPoints] >= 0 AND [LifetimeEarnedPoints] >= 0"));
+
+            modelBuilder.Entity<RewardTransaction>()
+                .HasOne(transaction => transaction.Account)
+                .WithMany(account => account.Transactions)
+                .HasForeignKey(transaction => transaction.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            modelBuilder.Entity<SubscriptionPlan>().HasData(
+                new SubscriptionPlan
+                {
+                    PlanId = 1,
+                    Code = "FREE",
+                    Name = "Gói Cơ Bản",
+                    Description = "3 lượt phỏng vấn miễn phí.",
+                    InterviewQuota = 3,
+                    QuotaResetDays = null,
+                    IsFree = true,
+                    DisplayOrder = 1,
+                    IsActive = true,
+                    CreatedAt = seedDate
+                },
+                new SubscriptionPlan
+                {
+                    PlanId = 2,
+                    Code = "PREMIUM",
+                    Name = "Premium",
+                    Description = "15 lượt phỏng vấn, làm mới sau mỗi 30 ngày.",
+                    InterviewQuota = 15,
+                    QuotaResetDays = 30,
+                    IsFree = false,
+                    DisplayOrder = 2,
+                    IsActive = true,
+                    CreatedAt = seedDate
+                });
+
+            modelBuilder.Entity<SubscriptionPrice>().HasData(
+                new SubscriptionPrice
+                {
+                    PriceId = 1,
+                    PlanId = 2,
+                    BillingCycle = Enums.BillingCycle.Monthly,
+                    BillingCycleCount = 1,
+                    Amount = 59000m,
+                    Currency = "VND",
+                    EffectiveFrom = seedDate,
+                    IsActive = true,
+                    CreatedAt = seedDate
+                },
+                new SubscriptionPrice
+                {
+                    PriceId = 2,
+                    PlanId = 2,
+                    BillingCycle = Enums.BillingCycle.Yearly,
+                    BillingCycleCount = 1,
+                    Amount = 599000m,
+                    Currency = "VND",
+                    EffectiveFrom = seedDate,
+                    IsActive = true,
+                    CreatedAt = seedDate
+                });
+
+            modelBuilder.Entity<PlanFeature>().HasData(
+                new PlanFeature { PlanFeatureId = 1, PlanId = 1, FeatureCode = "BASIC_AI_INTERVIEW", DisplayOrder = 1, IsEnabled = true },
+                new PlanFeature { PlanFeatureId = 2, PlanId = 1, FeatureCode = "GENERAL_SKILL_ASSESSMENT", DisplayOrder = 2, IsEnabled = true },
+                new PlanFeature { PlanFeatureId = 3, PlanId = 2, FeatureCode = "COMPREHENSIVE_AI_INTERVIEW", DisplayOrder = 1, IsEnabled = true },
+                new PlanFeature { PlanFeatureId = 4, PlanId = 2, FeatureCode = "ADVANCED_ANALYSIS", DisplayOrder = 2, IsEnabled = true },
+                new PlanFeature { PlanFeatureId = 5, PlanId = 2, FeatureCode = "QUOTA_REFRESH_30_DAYS", DisplayOrder = 3, IsEnabled = true });
+
+            modelBuilder.Entity<RewardRule>().HasData(new RewardRule
+            {
+                RewardRuleId = 1,
+                PointValueVnd = 1,
+                PointsExpire = false,
+                AllowFullPaymentByPoints = true,
+                IsActive = true,
+                EffectiveFrom = seedDate
+            });
 
             // ==========================================
             // Behavioural Round Configurations

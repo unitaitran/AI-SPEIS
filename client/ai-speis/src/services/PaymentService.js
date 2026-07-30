@@ -16,14 +16,16 @@ const parseJsonResponse = async (response) => {
       : { message: await response.text() };
 
     const message = body?.message || body?.Message || body?.title || body?.Title || 'Payment request failed';
-    throw new Error(message);
+    const error = new Error(message);
+    error.code = body?.code || body?.Code;
+    throw error;
   }
 
   return response.json();
 };
 
 const paymentService = {
-  createPayment: async (packageId = 1) => {
+  createPayment: async (priceId, useRewardPoints = false) => {
     const token = getToken();
     const response = await fetch(ENDPOINTS.PAYMENT_CREATE, {
       method: 'POST',
@@ -32,7 +34,7 @@ const paymentService = {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify({ packageId }),
+      body: JSON.stringify({ priceId, useRewardPoints }),
     });
 
     return parseJsonResponse(response);

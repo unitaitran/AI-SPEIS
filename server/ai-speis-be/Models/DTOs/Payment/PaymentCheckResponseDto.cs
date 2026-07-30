@@ -6,6 +6,10 @@ namespace ai_speis_be.Models.DTOs.Payment
         public string Status { get; set; } = string.Empty;
         public decimal Amount { get; set; }
         public int PackageId { get; set; }
+        public int? PriceId { get; set; }
+        public decimal OriginalAmount { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public int RewardPointsUsed { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ExpiresAt { get; set; }
         public DateTime? PaidAt { get; set; }

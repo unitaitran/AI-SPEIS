@@ -209,7 +209,7 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
                 <Lock size={20} className="text-primary-dark" />
               </div>
               <h4 className="text-sm font-semibold text-text-primary mb-1">{t('sidebar.upgrade_pro', 'Nâng cấp Pro')}</h4>
-              <p className="text-xs text-text-secondary mb-3">{t('sidebar.unlock_desc', 'Mở khóa không giới hạn lượt phỏng vấn AI.')}</p>
+              <p className="text-xs text-text-secondary mb-3">{t('sidebar.unlock_desc', 'Nhận 15 lượt phỏng vấn AI mỗi chu kỳ 30 ngày.')}</p>
               <button
                 className="w-full bg-text-primary hover:bg-black text-white text-xs font-semibold py-2 px-4 rounded transition-colors cursor-pointer"
                 onClick={() => {
