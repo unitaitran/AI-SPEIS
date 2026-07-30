@@ -75,6 +75,11 @@ const request = async (url, options = {}) => {
 };
 
 const interviewSessionService = {
+  /** GET /api/InterviewSession */
+  getMyCampaigns: () => request(ENDPOINTS.INTERVIEW_SESSIONS, {
+    headers: { ...getAuthHeaders(), Accept: 'application/json' },
+  }),
+
   /** GET /api/InterviewSession/jd/{jdId}/available-types */
   getAvailableTypes: (jdId) => request(ENDPOINTS.INTERVIEW_AVAILABLE_TYPES(jdId), {
     headers: { ...getAuthHeaders(), Accept: 'application/json' },

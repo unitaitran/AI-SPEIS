@@ -19,7 +19,7 @@ const MENU_GROUPS = [
     label: 'LUYỆN TẬP',
     items: [
       { id: 'questions', label: 'Câu hỏi', icon: Database, path: USER_ROUTES.QUESTIONS },
-      { id: 'history', label: 'Lịch sử phỏng vấn', icon: Clock, path: '#history' },
+      { id: 'history', label: 'Lịch sử phỏng vấn', icon: Clock, path: USER_ROUTES.INTERVIEW_HISTORY },
     ]
   },
   {
@@ -110,6 +110,7 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
       path !== USER_ROUTES.DASHBOARD &&
       path !== USER_ROUTES.CV &&
       path !== USER_ROUTES.QUESTIONS &&
+      path !== USER_ROUTES.INTERVIEW_HISTORY &&
       path !== USER_ROUTES.PACKAGES
     ) {
       notify.info(t('common_feature_developing', 'Tính năng đang phát triển'), {
