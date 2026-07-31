@@ -48,4 +48,7 @@ export const getCodingInterviewRoomPath = (sessionId) => (
 export const AUTHENTICATED_ADMIN_ROUTES = {
   ROOT: '/admin',
   DASHBOARD: '/admin/dashboard',
+  USERS: '/admin/users',
+  QUESTIONS: '/admin/questions',
+  SUBSCRIPTION: '/admin/subscription',
 };
