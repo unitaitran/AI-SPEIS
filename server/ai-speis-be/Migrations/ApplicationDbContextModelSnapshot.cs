@@ -1773,6 +1773,16 @@ namespace ai_speis_be.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PlanId"));
 
+                    b.Property<bool>("AdvancedAnalyticsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AiTier")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("ADVANCED");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1795,6 +1805,9 @@ namespace ai_speis_be.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsFree")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPopular")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
@@ -1830,6 +1843,8 @@ namespace ai_speis_be.Migrations
                         new
                         {
                             PlanId = 1,
+                            AdvancedAnalyticsEnabled = false,
+                            AiTier = "STANDARD",
                             Code = "FREE",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "3 lượt phỏng vấn miễn phí.",
@@ -1837,12 +1852,15 @@ namespace ai_speis_be.Migrations
                             InterviewQuota = 3,
                             IsActive = true,
                             IsFree = true,
+                            IsPopular = false,
                             Name = "Gói Cơ Bản",
                             RowVersion = new byte[0]
                         },
                         new
                         {
                             PlanId = 2,
+                            AdvancedAnalyticsEnabled = true,
+                            AiTier = "ADVANCED",
                             Code = "PREMIUM",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "15 lượt phỏng vấn, làm mới sau mỗi 30 ngày.",
@@ -1850,6 +1868,7 @@ namespace ai_speis_be.Migrations
                             InterviewQuota = 15,
                             IsActive = true,
                             IsFree = false,
+                            IsPopular = true,
                             Name = "Premium",
                             QuotaResetDays = 30,
                             RowVersion = new byte[0]

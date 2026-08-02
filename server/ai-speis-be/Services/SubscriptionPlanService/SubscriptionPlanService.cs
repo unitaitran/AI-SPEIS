@@ -54,6 +54,9 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             if (request.IsFree && request.QuotaResetDays.HasValue)
                 return (false, "Gói Free không được cấu hình chu kỳ reset quota.", null);
 
+            if (!TryNormalizeFeatureDrafts(request.Features, out var featureDrafts, out var featureError))
+                return (false, featureError, null);
+
             var plan = new SubscriptionPlan
             {
                 Code = code,
@@ -67,7 +70,14 @@ namespace ai_speis_be.Services.SubscriptionPlanService
                 AiTier = NormalizeAiTier(request.AiTier),
                 AdvancedAnalyticsEnabled = request.AdvancedAnalyticsEnabled ?? false,
                 IsPopular = request.IsPopular ?? false,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Features = featureDrafts.Select(feature => new PlanFeature
+                {
+                    FeatureCode = feature.FeatureCode,
+                    LimitValue = feature.LimitValue,
+                    DisplayOrder = feature.DisplayOrder,
+                    IsEnabled = feature.IsEnabled,
+                }).ToList()
             };
             _context.SubscriptionPlans.Add(plan);
             await _context.SaveChangesAsync(cancellationToken);
@@ -91,6 +101,9 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             if (request.IsFree && request.QuotaResetDays.HasValue)
                 return (false, "Gói Free không được cấu hình chu kỳ reset quota.", null);
 
+            if (!TryNormalizeFeatureDrafts(request.Features, out var featureDrafts, out var featureError))
+                return (false, featureError, null);
+
             plan.Code = code;
             plan.Name = request.Name.Trim();
             plan.Description = request.Description?.Trim();
@@ -101,6 +114,7 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             plan.AiTier = NormalizeAiTier(request.AiTier);
             plan.AdvancedAnalyticsEnabled = request.AdvancedAnalyticsEnabled ?? plan.AdvancedAnalyticsEnabled;
             plan.IsPopular = request.IsPopular ?? plan.IsPopular;
+            SyncFeatures(plan, featureDrafts);
             if (request.IsActive.HasValue)
             {
                 plan.IsActive = request.IsActive.Value;
@@ -304,6 +318,98 @@ namespace ai_speis_be.Services.SubscriptionPlanService
         };
 
         private static string NormalizeCode(string code) => code.Trim().ToUpperInvariant();
+        private static string NormalizeFeatureCode(string? featureCode) => string.IsNullOrWhiteSpace(featureCode) ? string.Empty : featureCode.Trim().ToUpperInvariant();
+
+        private static bool TryNormalizeFeatureDrafts(
+            IEnumerable<PlanFeatureUpsertRequestDto>? featureDrafts,
+            out List<PlanFeatureUpsertRequestDto> normalizedDrafts,
+            out string? error)
+        {
+            normalizedDrafts = new List<PlanFeatureUpsertRequestDto>();
+            error = null;
+
+            if (featureDrafts is null)
+            {
+                return true;
+            }
+
+            var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var draft in featureDrafts)
+            {
+                var normalizedCode = NormalizeFeatureCode(draft.FeatureCode);
+                if (string.IsNullOrWhiteSpace(normalizedCode))
+                {
+                    continue;
+                }
+
+                if (!seenCodes.Add(normalizedCode))
+                {
+                    error = $"Tính năng '{normalizedCode}' bị trùng.";
+                    return false;
+                }
+
+                normalizedDrafts.Add(new PlanFeatureUpsertRequestDto
+                {
+                    PlanFeatureId = draft.PlanFeatureId,
+                    FeatureCode = normalizedCode,
+                    LimitValue = draft.LimitValue,
+                    DisplayOrder = draft.DisplayOrder,
+                    IsEnabled = draft.IsEnabled,
+                });
+            }
+
+            return true;
+        }
+
+        private static void SyncFeatures(SubscriptionPlan plan, IReadOnlyList<PlanFeatureUpsertRequestDto> featureDrafts)
+        {
+            var existingById = plan.Features.Where(feature => feature.PlanFeatureId > 0).ToDictionary(feature => feature.PlanFeatureId);
+            var existingByCode = plan.Features
+                .GroupBy(feature => NormalizeFeatureCode(feature.FeatureCode), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+            var nextFeatures = new List<PlanFeature>(featureDrafts.Count);
+
+            foreach (var draft in featureDrafts)
+            {
+                PlanFeature? feature = null;
+
+                if (draft.PlanFeatureId.HasValue && existingById.TryGetValue(draft.PlanFeatureId.Value, out var existingByIdFeature))
+                {
+                    feature = existingByIdFeature;
+                }
+                else if (existingByCode.TryGetValue(draft.FeatureCode, out var existingByCodeFeature))
+                {
+                    feature = existingByCodeFeature;
+                }
+
+                feature ??= new PlanFeature
+                {
+                    PlanId = plan.PlanId,
+                    FeatureCode = draft.FeatureCode,
+                };
+
+                feature.FeatureCode = draft.FeatureCode;
+                feature.LimitValue = draft.LimitValue;
+                feature.DisplayOrder = draft.DisplayOrder;
+                feature.IsEnabled = draft.IsEnabled;
+
+                if (!plan.Features.Contains(feature))
+                {
+                    plan.Features.Add(feature);
+                }
+
+                nextFeatures.Add(feature);
+            }
+
+            var featuresToRemove = plan.Features.Where(existing => !nextFeatures.Contains(existing)).ToList();
+            foreach (var feature in featuresToRemove)
+            {
+                plan.Features.Remove(feature);
+            }
+        }
+
         private static string NormalizeAiTier(string? aiTier)
         {
             var normalized = string.IsNullOrWhiteSpace(aiTier) ? "ADVANCED" : aiTier.Trim().ToUpperInvariant();

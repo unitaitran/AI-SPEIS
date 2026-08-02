@@ -27,9 +27,6 @@ import viInterview from './locales/vi/interview.json';
 import enPackages from './locales/en/packages.json';
 import viPackages from './locales/vi/packages.json';
 
-import enAdminSubscription from './locales/en/admin-subscription.json';
-import viAdminSubscription from './locales/vi/admin-subscription.json';
-
 import enCvjd from './locales/en/cvjd.json';
 import viCvjd from './locales/vi/cvjd.json';
 

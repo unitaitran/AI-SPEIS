@@ -5,6 +5,19 @@ import notify from '../../../utils/notification';
 
 const PAGE_SIZE = 3;
 
+let featureClientKeySeed = 0;
+
+const createFeatureClientKey = () => `feature-${featureClientKeySeed += 1}`;
+
+const createEmptyFeatureDraft = (displayOrder = 1) => ({
+  clientKey: createFeatureClientKey(),
+  planFeatureId: null,
+  featureCode: '',
+  limitValue: '',
+  displayOrder,
+  isEnabled: true,
+});
+
 const emptyPlan = {
   planId: null,
   code: '',
@@ -24,7 +37,7 @@ const emptyPlan = {
   billingCycleCount: 1,
   effectiveFrom: '',
   effectiveTo: '',
-  features: [''],
+  features: [createEmptyFeatureDraft()],
 };
 
 const authHeaders = () => ({
@@ -82,8 +95,15 @@ const normalizeMonitoring = (payload) => {
 const normalizePlanForm = (plan) => {
   const primaryPrice = (plan?.prices || [])[0] || {};
   const features = Array.isArray(plan?.features) && plan.features.length > 0
-    ? plan.features.map((feature) => String(feature || ''))
-    : [''];
+    ? plan.features.map((feature, index) => ({
+      clientKey: feature.planFeatureId ? `feature-${feature.planFeatureId}` : createFeatureClientKey(),
+      planFeatureId: feature.planFeatureId ?? null,
+      featureCode: feature.featureCode || '',
+      limitValue: feature.limitValue ?? '',
+      displayOrder: feature.displayOrder ?? index + 1,
+      isEnabled: Boolean(feature.isEnabled),
+    }))
+    : [createEmptyFeatureDraft()];
 
   return {
     ...emptyPlan,
@@ -458,10 +478,14 @@ function SubscriptionManagementPage() {
     });
   }, [language, t]);
 
-  const updateFeature = (index, value) => {
+  const updateFeature = (index, field, value) => {
     setPlanForm((current) => ({
       ...current,
-      features: current.features.map((feature, featureIndex) => (featureIndex === index ? value : feature)),
+      features: current.features.map((feature, featureIndex) => (
+        featureIndex === index
+          ? { ...feature, [field]: value }
+          : feature
+      )),
     }));
   };
 
@@ -469,13 +493,13 @@ function SubscriptionManagementPage() {
     setPlanForm((current) => ({
       ...current,
       features: current.features.length === 1
-        ? ['']
+        ? [createEmptyFeatureDraft()]
         : current.features.filter((_, featureIndex) => featureIndex !== index),
     }));
   };
 
   const addFeatureField = () => {
-    setPlanForm((current) => ({ ...current, features: [...current.features, ''] }));
+    setPlanForm((current) => ({ ...current, features: [...current.features, createEmptyFeatureDraft(current.features.length + 1)] }));
   };
 
   const buildPlanPayload = () => ({
@@ -492,6 +516,15 @@ function SubscriptionManagementPage() {
     advancedAnalyticsEnabled: Boolean(planForm.advancedAnalyticsEnabled),
     isPopular: Boolean(planForm.isPopular),
     isActive: Boolean(planForm.isActive),
+    features: planForm.features
+      .map((feature, index) => ({
+        planFeatureId: feature.planFeatureId || null,
+        featureCode: String(feature.featureCode || '').trim().toUpperCase(),
+        limitValue: feature.limitValue === '' || feature.limitValue == null ? null : Number(feature.limitValue),
+        displayOrder: feature.displayOrder === '' || feature.displayOrder == null ? index + 1 : Number(feature.displayOrder),
+        isEnabled: Boolean(feature.isEnabled),
+      }))
+      .filter((feature) => feature.featureCode),
   });
 
   const buildPricePayload = () => ({
@@ -1027,13 +1060,57 @@ function SubscriptionManagementPage() {
                     <h3 className="text-base font-bold text-[var(--primary-dark)]">{t('modal.features')}</h3>
                     <button type="button" className="text-xs font-bold text-[var(--primary-dark)] hover:underline" onClick={addFeatureField}>{t('modal.addFeature')}</button>
                   </div>
-                  <div className="max-h-40 space-y-2 overflow-y-auto pr-2">
+                  <div className="max-h-72 space-y-3 overflow-y-auto pr-2">
                     {planForm.features.map((feature, index) => (
-                      <div key={`${feature}-${index}`} className="flex items-center gap-2">
-                        <input value={feature} onChange={(event) => updateFeature(index, event.target.value)} className="flex-1 rounded-xl border border-[var(--primary-light)] text-xs" type="text" />
-                        <button type="button" className="text-[var(--error)]" onClick={() => removeFeature(index)}>
-                          <MaterialIcon className="text-[20px]">delete</MaterialIcon>
-                        </button>
+                      <div key={feature.clientKey} className="rounded-2xl border border-[var(--primary-light)] bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <p className="text-sm font-bold text-[var(--text-primary)]">{t('modal.featureItem', { index: index + 1 })}</p>
+                          <button type="button" className="text-[var(--error)]" onClick={() => removeFeature(index)}>
+                            <MaterialIcon className="text-[20px]">delete</MaterialIcon>
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                            {t('modal.featureCode')}
+                            <input
+                              value={feature.featureCode}
+                              onChange={(event) => updateFeature(index, 'featureCode', event.target.value.toUpperCase())}
+                              className="mt-1 w-full rounded-xl border border-[var(--primary-light)] text-xs"
+                              type="text"
+                              placeholder={t('modal.featureCodePlaceholder')}
+                            />
+                          </label>
+                          <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                            {t('modal.featureLimit')}
+                            <input
+                              type="number"
+                              min="0"
+                              value={feature.limitValue}
+                              onChange={(event) => updateFeature(index, 'limitValue', event.target.value)}
+                              className="mt-1 w-full rounded-xl border border-[var(--primary-light)] text-xs"
+                              placeholder={t('modal.featureLimitPlaceholder')}
+                            />
+                          </label>
+                          <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                            {t('modal.featureOrder')}
+                            <input
+                              type="number"
+                              min="1"
+                              value={feature.displayOrder}
+                              onChange={(event) => updateFeature(index, 'displayOrder', event.target.value)}
+                              className="mt-1 w-full rounded-xl border border-[var(--primary-light)] text-xs"
+                            />
+                          </label>
+                          <label className="flex items-center justify-between rounded-xl border border-dashed border-[var(--primary-light)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]">
+                            <span>{t('modal.featureEnabled')}</span>
+                            <input
+                              type="checkbox"
+                              checked={feature.isEnabled}
+                              onChange={(event) => updateFeature(index, 'isEnabled', event.target.checked)}
+                              className="rounded text-[var(--primary-dark)]"
+                            />
+                          </label>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1053,10 +1130,19 @@ function SubscriptionManagementPage() {
                       <span className="ml-1 text-sm text-[var(--text-secondary)]">{planForm.currency || 'VND'} / {getBillingCycleKey(planForm.billingCycle) === 'yearly' ? t('modal.cycleShortYearly') : getBillingCycleKey(planForm.billingCycle) === 'quarterly' ? t('modal.cycleShortQuarterly') : t('modal.cycleShortMonthly')}</span>
                     </div>
                     <ul className="mt-6 space-y-3">
-                      {planForm.features.filter(Boolean).length > 0 ? planForm.features.filter(Boolean).map((feature, index) => (
-                        <li key={`${feature}-${index}`} className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                          <MaterialIcon className="text-[18px] text-[var(--primary-dark)]">check_circle</MaterialIcon>
-                          {feature}
+                      {planForm.features.filter((feature) => String(feature.featureCode || '').trim()).length > 0 ? planForm.features.filter((feature) => String(feature.featureCode || '').trim()).map((feature, index) => (
+                        <li key={feature.clientKey} className="flex items-start gap-2 text-sm text-[var(--text-primary)]">
+                          <MaterialIcon className="mt-0.5 text-[18px] text-[var(--primary-dark)]">check_circle</MaterialIcon>
+                          <div>
+                            <p className="font-semibold">{feature.featureCode}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {feature.limitValue === '' || feature.limitValue == null
+                                ? t('fields.unlimited')
+                                : `${t('fields.quota')}: ${feature.limitValue}`}
+                              {' • '}
+                              {feature.isEnabled ? t('modal.featureEnabled') : t('modal.featureDisabled')}
+                            </p>
+                          </div>
                         </li>
                       )) : (
                         <li className="text-sm text-[var(--text-secondary)]">{t('fields.notAvailable')}</li>
