@@ -17,6 +17,8 @@ import enAdminUsers from './locales/en/admin-users.json';
 import viAdminUsers from './locales/vi/admin-users.json';
 import enAdminDashboard from './locales/en/admin-dashboard.json';
 import viAdminDashboard from './locales/vi/admin-dashboard.json';
+import enAdminSubscription from './locales/en/admin-subscription.json';
+import viAdminSubscription from './locales/vi/admin-subscription.json';
 import enQuestionBank from './locales/en/questionBank.json';
 import viQuestionBank from './locales/vi/questionBank.json';
 import enInterview from './locales/en/interview.json';

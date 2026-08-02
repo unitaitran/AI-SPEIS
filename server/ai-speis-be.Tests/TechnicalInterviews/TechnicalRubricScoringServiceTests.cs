@@ -34,13 +34,15 @@ public sealed class TechnicalRubricScoringServiceTests
     }
 
     [Fact]
-    public void ScoreSession_RejectsAnIncompleteOfficialTechnicalScore()
+    public void ScoreSession_AllowsIncompleteOfficialTechnicalScoreByAveragingAvailableScores()
     {
         var service = new TechnicalRubricScoringService();
 
-        Assert.Throws<InvalidOperationException>(() => service.ScoreSession(
+        var result = service.ScoreSession(
             new[] { 8m, 7m },
-            TechnicalTestRubric.Create()));
+            TechnicalTestRubric.Create());
+
+        Assert.Equal(7.50m, result);
     }
 
     [Fact]

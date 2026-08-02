@@ -32,6 +32,13 @@ namespace ai_speis_be.Models
 
         public bool IsActive { get; set; } = true;
 
+        [Required, MaxLength(20)]
+        public string AiTier { get; set; } = "ADVANCED";
+
+        public bool AdvancedAnalyticsEnabled { get; set; }
+
+        public bool IsPopular { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }
