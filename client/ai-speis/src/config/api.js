@@ -86,5 +86,14 @@ export const ENDPOINTS = {
   CODING_SUBMIT: `${API_BASE_URL}/api/coding/submit`,
   CODING_SUBMISSION_HISTORY: (sessionId, questionId) => `${API_BASE_URL}/api/coding/submissions/${sessionId}/${questionId}`,
   CODING_LANGUAGES: `${API_BASE_URL}/api/coding/languages`,
+  ADMIN_GOOGLE_QUOTA: `${API_BASE_URL}/api/google/quota`,
+  ADMIN_GOOGLE_DASHBOARD: `${API_BASE_URL}/api/admin/google/dashboard`,
+  ADMIN_PAYMENTS: `${API_BASE_URL}/api/admin/payments`,
+  ADMIN_PAYMENTS_STATISTICS: `${API_BASE_URL}/api/admin/payments/statistics`,
+  ADMIN_PAYMENTS_RECENT: `${API_BASE_URL}/api/admin/payments/recent`,
+  ADMIN_PAYMENTS_EXPORT: `${API_BASE_URL}/api/admin/payments/export`,
+  ADMIN_PAYMENTS_VERIFY: (id) => `${API_BASE_URL}/api/admin/payments/${id}/verify`,
+  ADMIN_PAYMENT_DETAIL: (id) => `${API_BASE_URL}/api/admin/payments/${id}`,
+  ADMIN_DASHBOARD: `${API_BASE_URL}/api/admin/dashboard`,
 };
 
