@@ -6,7 +6,7 @@ import { ADMIN_MENU_ITEMS } from '../../../constants/adminMenu';
 import { navigate } from '../../../routes/navigation';
 
 function AdminSidebar({ isOpen, pathname, onNavigate }) {
-  const { t, i18n } = useTranslation(['admin-dashboard', 'admin-users']);
+  const { t, i18n } = useTranslation(['admin-dashboard', 'admin-users', 'admin-subscription']);
 
   const handleMenuClick = (event, path) => {
     event.preventDefault();

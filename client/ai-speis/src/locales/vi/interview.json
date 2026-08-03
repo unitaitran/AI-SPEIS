@@ -379,6 +379,52 @@
     "retryFeedback": "Thử tạo lại phản hồi cuối",
     "generatingFeedback": "Đang tạo phản hồi..."
   },
+  "feedback": {
+    "title": "Báo cáo đánh giá AI",
+    "subtitle": "Ý kiến của bạn sẽ giúp cải thiện chất lượng đánh giá của AI. Phản hồi này chỉ được dùng để cải thiện mô hình AI và rubric chấm điểm.",
+    "reportButton": "Báo cáo phản hồi AI",
+    "scopeLabel": "Bạn muốn báo cáo nội dung nào?",
+    "scopeHelper": "Phạm vi phản hồi",
+    "categoryLabel": "Danh mục",
+    "categoryGroupAria": "Danh mục phản hồi",
+    "questionSelectorLabel": "Chọn câu hỏi",
+    "questionSelectorPlaceholder": "Chọn một câu hỏi",
+    "questionItem": "Câu hỏi {{index}}",
+    "commentLabel": "Mô tả chi tiết",
+    "commentPlaceholder": "Hãy mô tả đánh giá của AI chưa chính xác...",
+    "consentLabel": "Tôi hiểu phản hồi này sẽ được nhóm phát triển xem xét để cải thiện hệ thống AI.",
+    "cancel": "Hủy",
+    "submit": "Gửi phản hồi",
+    "submitting": "Đang gửi...",
+    "toastSuccess": "Gửi phản hồi thành công.",
+    "toastError": "Không thể gửi phản hồi. Vui lòng thử lại.",
+    "apiNotImplemented": "API chưa được triển khai. Backend hiện chưa hỗ trợ tính năng này.",
+    "emptyResult": "Chưa có dữ liệu đánh giá.",
+    "scopeOptions": {
+      "overallEvaluation": "Toàn bộ đánh giá",
+      "overallScore": "Tổng điểm",
+      "specificQuestion": "Một câu hỏi cụ thể",
+      "specificFeedback": "Một nhận xét cụ thể"
+    },
+    "categoryOptions": {
+      "incorrectScore": "Điểm chưa chính xác",
+      "incorrectFeedback": "Nhận xét chưa chính xác",
+      "hallucination": "AI đưa thông tin không đúng",
+      "bias": "Đánh giá thiên vị",
+      "unclearExplanation": "Giải thích chưa rõ ràng",
+      "grammarIssue": "Lỗi ngữ pháp",
+      "missingFeedback": "Thiếu nhận xét",
+      "offensive": "Nội dung không phù hợp",
+      "other": "Khác"
+    },
+    "validation": {
+      "scopeRequired": "Trường này là bắt buộc.",
+      "categoryRequired": "Vui lòng chọn ít nhất một danh mục.",
+      "questionRequired": "Trường này là bắt buộc.",
+      "commentRequired": "Vui lòng nhập mô tả.",
+      "consentRequired": "Vui lòng xác nhận đồng ý."
+    }
+  },
   "behavioralRoom": {
     "behavioralInterview": "Phỏng vấn hành vi",
     "interviewSession": "Phiên phỏng vấn",

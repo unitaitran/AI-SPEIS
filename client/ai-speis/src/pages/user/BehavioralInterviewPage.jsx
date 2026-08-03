@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Bot,
   FileText,
+  Flag,
   Loader2,
   Pause,
   Play,
@@ -13,6 +14,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import BehavioralCompletion from '../../components/behavioralInterview/BehavioralCompletion';
+import FeedbackModal from '../../components/feedback/FeedbackModal';
 import BehavioralRecorderControls from '../../components/behavioralInterview/BehavioralRecorderControls';
 import BehavioralRoomDialog from '../../components/behavioralInterview/BehavioralRoomDialog';
 import InterviewRoomShell from '../../components/interviewRoom/InterviewRoomShell';
@@ -28,7 +30,9 @@ import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio
 import useTechnicalRecorder from '../../features/technicalInterview/useTechnicalRecorder';
 import { navigate } from '../../routes/navigation';
 import { getCampaignResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { submitEvaluationFeedback } from '../../services/aiEvaluationFeedbackApi';
 import interviewSessionService from '../../services/InterviewSessionService';
+import notify from '../../utils/notification';
 import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
@@ -68,6 +72,10 @@ function BehavioralInterviewPage({ sessionId }) {
     lng: interviewLanguage,
     defaultValue: options.defaultValue || key,
   }), [interviewLanguage, translate]);
+  const tf = useCallback((key, options = {}) => translate(key, {
+    ...options,
+    lng: interviewLanguage,
+  }), [interviewLanguage, translate]);
 
   const recorder = useTechnicalRecorder(interviewLanguage);
   const questionAudio = useQuestionAudio({
@@ -88,6 +96,8 @@ function BehavioralInterviewPage({ sessionId }) {
   const [localError, setLocalError] = useState(null);
   const [feedbackRetryError, setFeedbackRetryError] = useState(null);
   const [latestCampaign, setLatestCampaign] = useState(initialContext?.campaign || null);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const previousQuestionRef = useRef(null);
   const hydratingDraftRef = useRef(false);
 
@@ -122,6 +132,28 @@ function BehavioralInterviewPage({ sessionId }) {
       : [];
     return [...restored, ...draft];
   }, [isSubmitting, recorder.transcript, room.currentQuestion?.sessionQuestionId, room.transcriptMessages, t]);
+  const completionResult = room.completionResult;
+  const hasCompletionEvaluation = Boolean(
+    completionResult
+    && (
+      completionResult.overallScore != null
+      || completionResult.summary?.overallBehavioralAssessment
+      || completionResult.summary?.executiveSummary
+      || completionResult.mainQuestions?.length
+    )
+  );
+  const behavioralEvaluationId = completionResult?.evaluationId
+    ?? completionResult?.behavioralEvaluationId
+    ?? completionResult?.resultId
+    ?? null;
+  const behavioralFeedbackQuestions = useMemo(() => (
+    Array.isArray(completionResult?.mainQuestions)
+      ? completionResult.mainQuestions.map((question, index) => ({
+        id: question?.sessionQuestionId ?? question?.mainQuestionIndex ?? index + 1,
+        label: tf('feedback.questionItem', { index: question?.mainQuestionIndex || index + 1 }),
+      }))
+      : []
+  ), [completionResult?.mainQuestions, tf]);
 
   useEffect(() => {
     const currentId = room.currentQuestion?.sessionQuestionId || null;
@@ -320,6 +352,23 @@ function BehavioralInterviewPage({ sessionId }) {
     }
   };
 
+  const handleSubmitFeedback = async (payload) => {
+    setIsSubmittingFeedback(true);
+    try {
+      await submitEvaluationFeedback(payload);
+      setIsFeedbackModalOpen(false);
+      notify.success(tf('feedback.toastSuccess'));
+    } catch (submitError) {
+      if (Number(submitError?.status) === 404) {
+        notify.warning(tf('feedback.apiNotImplemented'));
+      } else {
+        notify.error(tf('feedback.toastError'));
+      }
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
   const renderLoading = () => {
     const copyKey = PHASE_COPY[room.phase] || 'preparingQuestion';
     return <InterviewRoomState title={t(copyKey)} description={t(`${copyKey}Description`)} />;
@@ -424,6 +473,19 @@ function BehavioralInterviewPage({ sessionId }) {
                 feedbackError={feedbackRetryError}
                 t={t}
               />
+              {hasCompletionEvaluation ? (
+                <div className="technical-feedback-report">
+                  <button
+                    type="button"
+                    className="technical-report-button"
+                    onClick={() => setIsFeedbackModalOpen(true)}
+                    aria-label={tf('feedback.reportButton')}
+                  >
+                    <Flag size={16} aria-hidden="true" />
+                    {tf('feedback.reportButton')}
+                  </button>
+                </div>
+              ) : null}
               {localError ? (
                 <div className="behavior-inline-error" role="alert">
                   <AlertCircle size={18} />
@@ -541,6 +603,18 @@ function BehavioralInterviewPage({ sessionId }) {
             renderLoading()
           )}
       </section>
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => {
+          if (!isSubmittingFeedback) setIsFeedbackModalOpen(false);
+        }}
+        onSubmit={handleSubmitFeedback}
+        isSubmitting={isSubmittingFeedback}
+        questions={behavioralFeedbackQuestions}
+        interviewSessionId={resolvedSessionId}
+        evaluationId={behavioralEvaluationId}
+        t={tf}
+      />
     </InterviewRoomShell>
   );
 }

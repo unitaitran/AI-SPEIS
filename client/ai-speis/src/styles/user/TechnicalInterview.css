@@ -563,6 +563,40 @@
   gap: var(--spacing-lg);
 }
 
+.technical-feedback-report {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.technical-report-button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md);
+  color: var(--error);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--border-radius-md);
+  font: inherit;
+  font-size: var(--button-size);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.technical-report-button:hover {
+  color: var(--error);
+  border-color: var(--error);
+  background: var(--error-light);
+}
+
+.technical-report-button:focus-visible {
+  outline: none;
+  box-shadow: var(--box-shadow-glow);
+}
+
 .technical-result-summary {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.7fr);
@@ -984,6 +1018,7 @@
 
   .technical-room-header__actions,
   .technical-secondary-button,
+  .technical-report-button,
   .technical-ready__actions,
   .technical-error-state__actions {
     width: 100%;

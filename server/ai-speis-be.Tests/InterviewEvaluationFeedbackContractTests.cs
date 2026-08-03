@@ -27,12 +27,21 @@ public sealed class InterviewEvaluationFeedbackContractTests
 
         Assert.DoesNotContain("GenerateFeedbackDraftAsync", technicalProviderMethods);
         Assert.Contains("DimensionEvaluations", technicalPayload);
-        Assert.Contains("Evidence", technicalPayload);
+        Assert.Contains(nameof(TechnicalAIDimensionEvaluation.Evidence), typeof(TechnicalAIDimensionEvaluation)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase));
         Assert.DoesNotContain("Strengths", technicalPayload);
         Assert.DoesNotContain("ImprovementSuggestions", technicalPayload);
 
-        Assert.Contains("Evidence", behaviouralPayload);
-        Assert.Contains("MissingAspects", behaviouralPayload);
+        Assert.Contains(nameof(BehaviouralAIDimensionEvaluation.Evidence), typeof(BehaviouralAIDimensionEvaluation)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase));
+        Assert.Contains(nameof(BehaviouralAIDimensionEvaluation.MissingEvidence), typeof(BehaviouralAIDimensionEvaluation)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase));
         Assert.DoesNotContain("Strengths", behaviouralPayload);
         Assert.DoesNotContain("MissingPoints", behaviouralPayload);
         Assert.DoesNotContain("Recommendations", behaviouralPayload);

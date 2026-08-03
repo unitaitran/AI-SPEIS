@@ -359,6 +359,11 @@ namespace ai_speis_be.Models
                     "CK_SubscriptionPlan_QuotaResetDays",
                     "[QuotaResetDays] IS NULL OR [QuotaResetDays] > 0"));
 
+            modelBuilder.Entity<SubscriptionPlan>()
+                .Property(plan => plan.AiTier)
+                .HasDefaultValue("ADVANCED")
+                .HasMaxLength(20);
+
             modelBuilder.Entity<SubscriptionPrice>()
                 .HasOne(price => price.Plan)
                 .WithMany(plan => plan.Prices)
@@ -452,6 +457,9 @@ namespace ai_speis_be.Models
                     IsFree = true,
                     DisplayOrder = 1,
                     IsActive = true,
+                    AiTier = "STANDARD",
+                    AdvancedAnalyticsEnabled = false,
+                    IsPopular = false,
                     CreatedAt = seedDate
                 },
                 new SubscriptionPlan
@@ -465,6 +473,9 @@ namespace ai_speis_be.Models
                     IsFree = false,
                     DisplayOrder = 2,
                     IsActive = true,
+                    AiTier = "ADVANCED",
+                    AdvancedAnalyticsEnabled = true,
+                    IsPopular = true,
                     CreatedAt = seedDate
                 });
 

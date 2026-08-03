@@ -11,13 +11,11 @@ public sealed class PublicQuestionDtoSecurityTests
         var dto = new QuestionResponseDto
         {
             QuestionId = 1,
-            QuestionContent = "Question",
-            SuggestedAnswer = "Secret expected answer"
+            QuestionContent = "Question"
         };
 
         var json = JsonSerializer.Serialize(dto);
 
-        Assert.DoesNotContain("SuggestedAnswer", json, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Secret expected answer", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("ExpectedAnswer", json, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -17,6 +17,8 @@ import enAdminUsers from './locales/en/admin-users.json';
 import viAdminUsers from './locales/vi/admin-users.json';
 import enAdminDashboard from './locales/en/admin-dashboard.json';
 import viAdminDashboard from './locales/vi/admin-dashboard.json';
+import enAdminSubscription from './locales/en/admin-subscription.json';
+import viAdminSubscription from './locales/vi/admin-subscription.json';
 import enQuestionBank from './locales/en/questionBank.json';
 import viQuestionBank from './locales/vi/questionBank.json';
 import enInterview from './locales/en/interview.json';
@@ -36,6 +38,7 @@ const resources = {
     dashboard: enDashboard,
     'admin-users': enAdminUsers,
     'admin-dashboard': enAdminDashboard,
+    'admin-subscription': enAdminSubscription,
     questionBank: enQuestionBank,
     interview: enInterview,
     packages: enPackages,
@@ -48,6 +51,7 @@ const resources = {
     dashboard: viDashboard,
     'admin-users': viAdminUsers,
     'admin-dashboard': viAdminDashboard,
+    'admin-subscription': viAdminSubscription,
     questionBank: viQuestionBank,
     interview: viInterview,
     packages: viPackages,
@@ -63,7 +67,7 @@ i18n
     fallbackLng: 'vi',
     supportedLngs: ['vi', 'en'],
     defaultNS: 'homepage',
-    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'questionBank', 'interview', 'packages', 'cvjd'],
+    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'admin-subscription', 'questionBank', 'interview', 'packages', 'cvjd'],
     interpolation: {
       escapeValue: false,
     },

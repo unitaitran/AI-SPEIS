@@ -82,7 +82,7 @@ internal static class TechnicalParallelTestData
         decimal score = 9m)
     {
         var evaluation = TechnicalTestRubric.CreateEvaluation(score, score, score, score, score);
-        evaluation.Evaluation.Evidence = new List<string>
+        evaluation.Evaluation.DimensionEvaluations[0].Evidence = new List<string>
         {
             "dependency injection improves testability by separating construction from use"
         };
