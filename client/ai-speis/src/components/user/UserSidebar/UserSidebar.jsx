@@ -39,7 +39,7 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
       try {
         const u = JSON.parse(userStr);
         return Boolean(u?.isPremium || u?.IsPremium);
-      } catch (e) {}
+      } catch (e) { }
     }
     return false;
   });
@@ -64,7 +64,7 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
             u.isPremium = isPrem;
             localStorage.setItem('user', JSON.stringify(u));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     };
 
@@ -229,10 +229,10 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
       <div className={`shrink-0 bg-surface-2 border-t border-border ${compact ? 'p-2 lg:p-3' : 'p-4'}`}>
         <button
           className={`w-full bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 text-white text-sm font-semibold py-3 rounded transition-all shadow-sm cursor-pointer flex items-center justify-center ${compact ? 'lg:px-0 px-4' : 'px-4'}`}
-            onClick={() => {
-              if (onBeforeNavigate?.(USER_ROUTES.INTERVIEW_MODE) === false) return;
-              beginNewInterviewCampaign();
-              navigate(USER_ROUTES.INTERVIEW_MODE);
+          onClick={() => {
+            if (onBeforeNavigate?.(USER_ROUTES.INTERVIEW_MODE) === false) return;
+            beginNewInterviewCampaign();
+            navigate(USER_ROUTES.INTERVIEW_MODE);
             if (onNavigate) onNavigate();
           }}
         >

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   RefreshCw,
@@ -16,6 +16,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   FileSpreadsheet,
   Activity,
   PieChart as PieIcon,
@@ -226,7 +228,28 @@ export default function PaymentManagementPage() {
     }
   };
 
+  const setPageSize = (value) => {
+    setPage(1);
+    setPageSize(Number(value));
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
+
+  const pageButtons = useMemo(() => {
+    const buttons = [];
+    if (totalPages <= 7) {
+      for (let p = 1; p <= totalPages; p += 1) buttons.push(p);
+      return buttons;
+    }
+    const leftBound = Math.max(2, page - 2);
+    const rightBound = Math.min(totalPages - 1, page + 2);
+    buttons.push(1);
+    if (leftBound > 2) buttons.push('start-ellipsis');
+    for (let p = leftBound; p <= rightBound; p += 1) buttons.push(p);
+    if (rightBound < totalPages - 1) buttons.push('end-ellipsis');
+    buttons.push(totalPages);
+    return buttons;
+  }, [page, totalPages]);
 
   return (
     <div className="admin-dashboard-page payment-page">
@@ -556,30 +579,86 @@ export default function PaymentManagementPage() {
           </tbody>
         </table>
 
-        {/* Pagination */}
-        <div className="payment-pagination">
-          <div>
-            {t('showingPagination', { page, totalPages, total: totalCount })}
+        {/* Pagination Bar */}
+        <div className="pagination">
+          <div className="pagination-info">
+            <span>
+              Hiển thị {totalCount === 0 ? 0 : (page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalCount)} trên tổng số {totalCount} giao dịch
+            </span>
+            <div className="page-size-selector">
+              <label>Số lượng mỗi trang:</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="page-size-select"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              className="payment-page__btn"
-              style={{ padding: '6px 12px' }}
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-              type="button"
-            >
-              <ChevronLeft size={16} /> {t('btnPrevPage', 'Trang trước')}
-            </button>
-            <button
-              className="payment-page__btn"
-              style={{ padding: '6px 12px' }}
-              disabled={page >= totalPages}
-              onClick={() => setPage(page + 1)}
-              type="button"
-            >
-              {t('btnNextPage', 'Trang sau')} <ChevronRight size={16} />
-            </button>
+
+          <div className="pagination-buttons">
+            <div className="pagination-desktop">
+              <button
+                className="pagination-btn"
+                type="button"
+                disabled={page === 1}
+                onClick={() => setPage(1)}
+                title="Trang đầu"
+              >
+                <ChevronsLeft size={18} />
+              </button>
+              <button
+                className="pagination-btn"
+                type="button"
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                title="Trang trước"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              {pageButtons.map((button, index) =>
+                button === 'start-ellipsis' || button === 'end-ellipsis' ? (
+                  <span key={`ellipsis-${index}`} className="pagination-ellipsis">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={button}
+                    className={`pagination-btn ${page === button ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => setPage(button)}
+                  >
+                    {button}
+                  </button>
+                )
+              )}
+
+              <button
+                className="pagination-btn"
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                title="Trang sau"
+              >
+                <ChevronRight size={18} />
+              </button>
+              <button
+                className="pagination-btn"
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage(totalPages)}
+                title="Trang cuối"
+              >
+                <ChevronsRight size={18} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
