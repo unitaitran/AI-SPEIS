@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, RefreshCw, Save } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { API_BASE_URL } from '../../../config/api';
 import notify from '../../../utils/notification';
 
@@ -20,6 +21,7 @@ async function api(path, options = {}) {
 const emptyPlan = { code: '', name: '', description: '', interviewQuota: 15, quotaResetDays: 30, isFree: false, displayOrder: 10 };
 
 export default function SubscriptionManagementPage() {
+  const { t } = useTranslation('admin-dashboard');
   const [plans, setPlans] = useState([]);
   const [monitoring, setMonitoring] = useState(null);
   const [drafts, setDrafts] = useState({});
@@ -61,7 +63,7 @@ export default function SubscriptionManagementPage() {
           displayOrder: Number(plan.displayOrder),
         }),
       });
-      notify.success('Đã lưu cấu hình gói.');
+      notify.success(t('planSaved', 'Đã lưu cấu hình gói.'));
       await load();
     } catch (error) { notify.error(error.message); }
   };
@@ -79,7 +81,7 @@ export default function SubscriptionManagementPage() {
           effectiveTo: price.effectiveTo,
         }),
       });
-      notify.success('Đã cập nhật giá.');
+      notify.success(t('priceUpdated', 'Đã cập nhật giá.'));
       await load();
     } catch (error) { notify.error(error.message); }
   };
@@ -140,25 +142,28 @@ export default function SubscriptionManagementPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-3xl font-bold text-text-primary">Subscription Plan & Pricing</h1><p className="text-text-secondary">UC-29: cấu hình cấp gói; không điều chỉnh quota từng user.</p></div>
+        <div>
+          <h1 className="text-3xl font-bold text-text-primary">{t('subTitle', 'Subscription Plan & Pricing')}</h1>
+          <p className="text-text-secondary">{t('subDesc', 'UC-29: Cấu hình cấp gói; không điều chỉnh quota từng user.')}</p>
+        </div>
         <div className="flex gap-2">
           <button onClick={load} className="rounded-xl border border-border p-3"><RefreshCw size={18} className={busy ? 'animate-spin' : ''} /></button>
-          <button onClick={() => setShowCreate(!showCreate)} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 font-bold text-white"><Plus size={18} /> Thêm gói</button>
+          <button onClick={() => setShowCreate(!showCreate)} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 font-bold text-white"><Plus size={18} /> {t('addPlan', 'Thêm gói')}</button>
         </div>
       </div>
 
       {monitoring && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          ['Premium đang hoạt động', monitoring.activePremiumUsers],
-          ['Quota đã dùng', `${monitoring.quota.usedQuota}/${monitoring.quota.totalQuota}`],
-          ['Đơn đã thanh toán', monitoring.payments.paidOrders],
-          ['Doanh thu VND', Number(monitoring.payments.revenueVnd).toLocaleString('vi-VN')],
+          [t('activePremium', 'Premium đang hoạt động'), monitoring.activePremiumUsers],
+          [t('usedQuota', 'Quota đã dùng'), `${monitoring.quota.usedQuota}/${monitoring.quota.totalQuota}`],
+          [t('paidOrders', 'Đơn đã thanh toán'), monitoring.payments.paidOrders],
+          [t('revenueVnd', 'Doanh thu VND'), Number(monitoring.payments.revenueVnd).toLocaleString('vi-VN')],
         ].map(([label, value]) => <div key={label} className="rounded-2xl border border-border bg-surface-1 p-5"><p className="text-xs text-text-secondary uppercase">{label}</p><p className="mt-2 text-2xl font-bold text-text-primary">{value}</p></div>)}
       </div>}
 
       {showCreate && <div className="rounded-2xl border border-border bg-surface-1 p-5 grid md:grid-cols-3 gap-3">
         {['code', 'name', 'description', 'interviewQuota', 'quotaResetDays', 'displayOrder'].map((key) => <input key={key} value={newPlan[key] ?? ''} onChange={(e) => setNewPlan({ ...newPlan, [key]: e.target.value })} placeholder={key} className="rounded-xl border border-border bg-surface-2 px-3 py-2" />)}
-        <button onClick={createPlan} className="rounded-xl bg-primary px-4 py-2 font-bold text-white">Tạo gói</button>
+        <button onClick={createPlan} className="rounded-xl bg-primary px-4 py-2 font-bold text-white">{t('createPlanBtn', 'Tạo gói')}</button>
       </div>}
 
       <div className="space-y-5">
@@ -166,19 +171,19 @@ export default function SubscriptionManagementPage() {
           const plan = drafts[sourcePlan.planId] || sourcePlan;
           return <section key={plan.planId} className="rounded-2xl border border-border bg-surface-1 p-5 shadow-sm">
             <div className="grid md:grid-cols-6 gap-3 items-end">
-              {[['code', 'Mã'], ['name', 'Tên'], ['interviewQuota', 'Quota'], ['quotaResetDays', 'Reset (ngày)'], ['displayOrder', 'Thứ tự']].map(([key, label]) => <label key={key} className="text-xs text-text-secondary">{label}<input disabled={plan.isFree && key === 'quotaResetDays'} value={plan[key] ?? ''} onChange={(e) => updateDraft(plan.planId, key, e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-text-primary" /></label>)}
-              <button onClick={() => savePlan(plan.planId)} className="inline-flex justify-center gap-2 rounded-xl bg-primary px-3 py-2 font-bold text-white"><Save size={17} /> Lưu</button>
+              {[['code', t('codeLabel', 'Mã')], ['name', t('nameLabel', 'Tên')], ['interviewQuota', t('quotaLabel', 'Quota')], ['quotaResetDays', t('resetDaysLabel', 'Reset (ngày)')], ['displayOrder', t('orderLabel', 'Thứ tự')]].map(([key, label]) => <label key={key} className="text-xs text-text-secondary">{label}<input disabled={plan.isFree && key === 'quotaResetDays'} value={plan[key] ?? ''} onChange={(e) => updateDraft(plan.planId, key, e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-text-primary" /></label>)}
+              <button onClick={() => savePlan(plan.planId)} className="inline-flex justify-center gap-2 rounded-xl bg-primary px-3 py-2 font-bold text-white"><Save size={17} /> {t('saveBtn', 'Lưu')}</button>
             </div>
-            <div className="mt-3 flex items-center gap-3"><span className="text-sm">{plan.isActive ? 'Đang hoạt động' : 'Đã tắt'}</span><button disabled={plan.isFree} onClick={() => toggleStatus('plan', plan.planId, plan.isActive)} className="rounded-lg border border-border px-3 py-1 text-sm">{plan.isActive ? 'Tắt gói' : 'Kích hoạt'}</button></div>
+            <div className="mt-3 flex items-center gap-3"><span className="text-sm">{plan.isActive ? t('statusActive', 'Đang hoạt động') : t('statusInactive', 'Đã tắt')}</span><button disabled={plan.isFree} onClick={() => toggleStatus('plan', plan.planId, plan.isActive)} className="rounded-lg border border-border px-3 py-1 text-sm">{plan.isActive ? t('disablePlan', 'Tắt gói') : t('enablePlan', 'Kích hoạt')}</button></div>
             {!plan.isFree && <div className="mt-5 border-t border-border pt-4 space-y-3">
               {(plan.prices || []).map((price) => <div key={price.priceId} className="grid md:grid-cols-5 gap-3 items-end rounded-xl bg-surface-2 p-3">
-                <strong>{price.billingCycle === 2 ? 'Năm' : 'Tháng'}</strong>
-                <label className="text-xs">Giá VND<input type="number" value={price.amount} onChange={(e) => updatePriceDraft(plan.planId, price.priceId, 'amount', e.target.value)} className="mt-1 w-full rounded-lg border border-border px-3 py-2" /></label>
-                <label className="text-xs">Hiệu lực từ<input value={price.effectiveFrom} onChange={(e) => updatePriceDraft(plan.planId, price.priceId, 'effectiveFrom', e.target.value)} className="mt-1 w-full rounded-lg border border-border px-3 py-2" /></label>
-                <button onClick={() => savePrice(price)} className="rounded-lg bg-primary px-3 py-2 text-white">Lưu giá</button>
-                <button onClick={() => toggleStatus('price', price.priceId, price.isActive)} className="rounded-lg border border-border px-3 py-2">{price.isActive ? 'Tắt giá' : 'Bật giá'}</button>
+                <strong>{price.billingCycle === 2 ? t('year', 'Năm') : t('month', 'Tháng')}</strong>
+                <label className="text-xs">{t('priceVnd', 'Giá VND')}<input type="number" value={price.amount} onChange={(e) => updatePriceDraft(plan.planId, price.priceId, 'amount', e.target.value)} className="mt-1 w-full rounded-lg border border-border px-3 py-2" /></label>
+                <label className="text-xs">{t('effectiveFrom', 'Hiệu lực từ')}<input value={price.effectiveFrom} onChange={(e) => updatePriceDraft(plan.planId, price.priceId, 'effectiveFrom', e.target.value)} className="mt-1 w-full rounded-lg border border-border px-3 py-2" /></label>
+                <button onClick={() => savePrice(price)} className="rounded-lg bg-primary px-3 py-2 text-white">{t('savePrice', 'Lưu giá')}</button>
+                <button onClick={() => toggleStatus('price', price.priceId, price.isActive)} className="rounded-lg border border-border px-3 py-2">{price.isActive ? t('disablePrice', 'Tắt giá') : t('enablePrice', 'Bật giá')}</button>
               </div>)}
-              <div className="flex gap-2"><button onClick={() => addPrice(plan.planId, 1)} className="rounded-lg border border-border px-3 py-2 text-sm">+ Giá tháng</button><button onClick={() => addPrice(plan.planId, 2)} className="rounded-lg border border-border px-3 py-2 text-sm">+ Giá năm</button></div>
+              <div className="flex gap-2"><button onClick={() => addPrice(plan.planId, 1)} className="rounded-lg border border-border px-3 py-2 text-sm">{t('addMonthlyPrice', '+ Giá tháng')}</button><button onClick={() => addPrice(plan.planId, 2)} className="rounded-lg border border-border px-3 py-2 text-sm">{t('addYearlyPrice', '+ Giá năm')}</button></div>
             </div>}
           </section>;
         })}

@@ -1,0 +1,695 @@
+/* ============================================================
+   AI Usage Page — Google Cloud Quota Monitor
+   ============================================================ */
+
+/* ── Page entrance ──────────────────────────────────────────── */
+@keyframes aiUsageFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes aiUsageCardPop {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes aiUsageShimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes aiUsagePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+@keyframes aiUsageProgressFill {
+  from { width: 0; }
+}
+
+@keyframes aiUsageSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.ai-usage-page {
+  animation: aiUsageFadeIn 0.5s ease forwards;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.ai-usage-page__header {
+  margin-bottom: 32px;
+}
+
+.ai-usage-page__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.ai-usage-page__breadcrumb .separator {
+  color: var(--text-disabled);
+}
+
+.ai-usage-page__header-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .ai-usage-page__header-row {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.ai-usage-page__title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin: 0 0 8px;
+}
+
+@media (min-width: 768px) {
+  .ai-usage-page__title {
+    font-size: 32px;
+  }
+}
+
+.ai-usage-page__subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.ai-usage-page__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.ai-usage-page__timestamp {
+  font-size: 11px;
+  color: var(--text-disabled);
+  white-space: nowrap;
+}
+
+.ai-usage-page__refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(111, 182, 232, 0.25);
+  white-space: nowrap;
+}
+
+.ai-usage-page__refresh-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(111, 182, 232, 0.35);
+}
+
+.ai-usage-page__refresh-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.ai-usage-page__refresh-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ai-usage-page__refresh-btn .spinning {
+  animation: aiUsageSpin 1s linear infinite;
+}
+
+/* ── Summary Cards ──────────────────────────────────────────── */
+.ai-usage-page__summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+@media (min-width: 640px) {
+  .ai-usage-page__summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1100px) {
+  .ai-usage-page__summary-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.ai-usage-summary-card {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: 0 2px 4px rgba(31, 45, 61, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: aiUsageCardPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.ai-usage-summary-card:nth-child(1) { animation-delay: 0ms; }
+.ai-usage-summary-card:nth-child(2) { animation-delay: 80ms; }
+.ai-usage-summary-card:nth-child(3) { animation-delay: 160ms; }
+.ai-usage-summary-card:nth-child(4) { animation-delay: 240ms; }
+
+.ai-usage-summary-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(111, 182, 232, 0.3);
+  box-shadow: 0 8px 24px rgba(31, 45, 61, 0.10);
+}
+
+.ai-usage-summary-card__icon-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.ai-usage-summary-card__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  transition: transform 0.3s ease;
+}
+
+.ai-usage-summary-card:hover .ai-usage-summary-card__icon {
+  transform: scale(1.1);
+}
+
+.ai-usage-summary-card__icon--blue {
+  background: linear-gradient(135deg, var(--primary-xlight), rgba(111, 182, 232, 0.25));
+  color: var(--primary-dark);
+}
+
+.ai-usage-summary-card__icon--amber {
+  background: linear-gradient(135deg, var(--warning-light), rgba(244, 182, 74, 0.25));
+  color: #b8860b;
+}
+
+.ai-usage-summary-card__icon--green {
+  background: linear-gradient(135deg, var(--success-light), rgba(76, 175, 143, 0.25));
+  color: #2d8a6a;
+}
+
+.ai-usage-summary-card__icon--purple {
+  background: linear-gradient(135deg, #f0e6ff, rgba(138, 97, 214, 0.2));
+  color: #7c3aed;
+}
+
+.ai-usage-summary-card__badge {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.ai-usage-summary-card__badge--success {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.ai-usage-summary-card__badge--warning {
+  background: var(--warning-light);
+  color: #b8860b;
+}
+
+.ai-usage-summary-card__badge--info {
+  background: var(--info-light);
+  color: var(--info);
+}
+
+.ai-usage-summary-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.ai-usage-summary-card__label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ── Table Section ──────────────────────────────────────────── */
+.ai-usage-page__table-section {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: 0 2px 4px rgba(31, 45, 61, 0.05);
+  overflow: hidden;
+  animation: aiUsageCardPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: 320ms;
+}
+
+.ai-usage-page__table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-usage-page__table-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ai-usage-page__table-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.ai-usage-page__table-wrap {
+  overflow-x: auto;
+}
+
+.ai-usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ai-usage-table thead {
+  background: var(--surface-3);
+}
+
+.ai-usage-table th {
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ai-usage-table td {
+  padding: 14px 20px;
+  border-top: 1px solid rgba(215, 227, 236, 0.5);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.ai-usage-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.ai-usage-table tbody tr:hover {
+  background: rgba(111, 182, 232, 0.04);
+}
+
+/* ── Service name cell ──────────────────────────────────────── */
+.ai-usage-svc-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-usage-svc-name__title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-usage-svc-name__metric {
+  font-size: 11px;
+  color: var(--text-disabled);
+  font-family: var(--font-family-mono);
+}
+
+/* ── Status badge ───────────────────────────────────────────── */
+.ai-usage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.ai-usage-status--healthy {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.ai-usage-status--warning {
+  background: var(--warning-light);
+  color: #b8860b;
+}
+
+.ai-usage-status--critical {
+  background: var(--error-light);
+  color: var(--error);
+}
+
+.ai-usage-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ai-usage-status--critical .ai-usage-status__dot {
+  animation: aiUsagePulse 1.5s ease-in-out infinite;
+}
+
+/* ── Progress bar ───────────────────────────────────────────── */
+.ai-usage-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 180px;
+}
+
+.ai-usage-progress__bar-wrap {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+  position: relative;
+}
+
+.ai-usage-progress__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  animation: aiUsageProgressFill 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: width 0.5s ease;
+}
+
+.ai-usage-progress__bar-fill--green {
+  background: linear-gradient(90deg, #4CAF8F, #38d9a9);
+}
+
+.ai-usage-progress__bar-fill--amber {
+  background: linear-gradient(90deg, #F4B64A, #ffa94d);
+}
+
+.ai-usage-progress__bar-fill--red {
+  background: linear-gradient(90deg, #E76F6F, #ff6b6b);
+}
+
+.ai-usage-progress__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 48px;
+  text-align: right;
+}
+
+/* ── Numeric cells ──────────────────────────────────────────── */
+.ai-usage-num {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+}
+
+.ai-usage-num--limit {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-usage-num--usage {
+  color: var(--text-secondary);
+}
+
+.ai-usage-num--remaining {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.ai-usage-unit {
+  font-size: 11px;
+  color: var(--text-disabled);
+  font-family: var(--font-family-mono);
+}
+
+/* ── Loading skeleton ───────────────────────────────────────── */
+.ai-usage-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-1) 50%, var(--surface-3) 75%);
+  background-size: 200% 100%;
+  animation: aiUsageShimmer 1.5s ease-in-out infinite;
+}
+
+.ai-usage-skeleton--card {
+  height: 120px;
+  border-radius: 16px;
+}
+
+.ai-usage-skeleton--row {
+  height: 56px;
+  margin: 8px 20px;
+  border-radius: 8px;
+}
+
+/* ── Empty state ────────────────────────────────────────────── */
+.ai-usage-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.ai-usage-empty__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary-xlight), rgba(111, 182, 232, 0.15));
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  margin-bottom: 16px;
+}
+
+.ai-usage-empty__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.ai-usage-empty__desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 400px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Error state ────────────────────────────────────────────── */
+.ai-usage-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px;
+  border-radius: 12px;
+  background: var(--error-light);
+  border: 1px solid rgba(231, 111, 111, 0.2);
+  margin-bottom: 24px;
+  animation: aiUsageFadeIn 0.3s ease;
+}
+
+.ai-usage-error__icon {
+  flex-shrink: 0;
+  color: var(--error);
+  margin-top: 2px;
+}
+
+.ai-usage-error__text {
+  flex: 1;
+}
+
+.ai-usage-error__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--error);
+  margin: 0 0 4px;
+}
+
+.ai-usage-error__desc {
+  font-size: 13px;
+  color: #a35050;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Project ID badge ───────────────────────────────────────── */
+.ai-usage-project-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--surface-3);
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-family: var(--font-family-mono);
+}
+
+.ai-usage-project-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+/* ── Cloud Cost Section ─────────────────────────────────────── */
+.ai-usage-cost-section {
+  margin-bottom: 36px;
+  animation: aiUsageCardPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: 260ms;
+}
+
+.ai-usage-cost-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ai-usage-cost-section__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.ai-usage-cost-section__badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  background: var(--primary-xlight);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+/* Charts Grid */
+.ai-usage-cost-charts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+@media (min-width: 900px) {
+  .ai-usage-cost-charts {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ai-usage-chart-card {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 24px;
+  box-shadow: 0 2px 4px rgba(31, 45, 61, 0.05);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.ai-usage-chart-card:hover {
+  border-color: rgba(111, 182, 232, 0.3);
+  box-shadow: 0 8px 24px rgba(31, 45, 61, 0.08);
+}
+
+.ai-usage-chart-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-usage-chart-card__body {
+  flex: 1;
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Empty State Card inside Cost Section */
+.ai-usage-cost-empty {
+  border-radius: 16px;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-1);
+  padding: 36px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-usage-cost-empty__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--surface-3);
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.ai-usage-cost-empty__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.ai-usage-cost-empty__desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 480px;
+  margin: 0;
+  line-height: 1.5;
+}
+
