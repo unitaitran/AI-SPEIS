@@ -7,6 +7,7 @@ namespace ai_speis_be.Models.Enums
         Expired = 2,
         Failed = 3,
         PaidByReward = 4,
-        Cancelled = 5
+        Cancelled = 5,
+        Refunded = 6
     }
 }

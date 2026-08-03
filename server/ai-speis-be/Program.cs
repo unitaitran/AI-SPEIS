@@ -3,6 +3,7 @@ using ai_speis_be.Models;
 using ai_speis_be.Repositories.UserRepo;
 using ai_speis_be.Repositories.CVRepo;
 using ai_speis_be.Services.UserService;
+using ai_speis_be.Services.AdminDashboardService;
 using ai_speis_be.Services.TokenService;
 using ai_speis_be.Services.EmailService;
 using ai_speis_be.Services.CVService;
@@ -220,6 +221,17 @@ builder.Services.AddScoped<ITechnicalAnswerEvaluationProcessor, TechnicalAnswerE
 builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
+
+// Google Cloud Quota & Billing Cost Monitoring
+builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.GoogleQuotaConfig>();
+builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.IGoogleQuotaService,
+    ai_speis_be.Services.GoogleQuotaService.GoogleQuotaService>();
+builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.ICloudCostService,
+    ai_speis_be.Services.GoogleQuotaService.CloudCostService>();
+
+// Admin Payment Service
+builder.Services.AddScoped<ai_speis_be.Services.AdminPaymentService.IAdminPaymentService, ai_speis_be.Services.AdminPaymentService.AdminPaymentService>();
+builder.Services.AddScoped<IAdminDashboardService, ai_speis_be.Services.AdminDashboardService.AdminDashboardService>();
 
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest

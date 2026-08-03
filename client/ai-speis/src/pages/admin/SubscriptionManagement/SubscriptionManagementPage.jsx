@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, RefreshCw, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { API_BASE_URL } from '../../../config/api';
 import notify from '../../../utils/notification';
@@ -424,6 +425,24 @@ function SubscriptionManagementPage() {
     setPriceErrors({});
     setIsModalOpen(true);
     notify.success(t('duplicatePlanSuccess'));
+  const savePlan = async (planId) => {
+    const plan = drafts[planId];
+    try {
+      await api(`/api/admin/subscription-plans/${planId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          code: plan.code,
+          name: plan.name,
+          description: plan.description,
+          interviewQuota: Number(plan.interviewQuota),
+          quotaResetDays: plan.isFree ? null : Number(plan.quotaResetDays),
+          isFree: plan.isFree,
+          displayOrder: Number(plan.displayOrder),
+        }),
+      });
+      notify.success(t('planSaved', 'Đã lưu cấu hình gói.'));
+      await load();
+    } catch (error) { notify.error(error.message); }
   };
 
   const openDrawer = (planId) => {
