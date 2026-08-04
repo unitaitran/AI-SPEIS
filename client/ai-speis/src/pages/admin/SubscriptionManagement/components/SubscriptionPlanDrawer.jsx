@@ -68,22 +68,6 @@ function SubscriptionPlanDrawer({ open, plan, onClose }) {
         </section>
 
         <section className="mt-6">
-          <h3 className="text-sm font-semibold text-text-primary">{t('drawer.features')}</h3>
-          {Array.isArray(plan.features) && plan.features.length > 0 ? (
-            <ul className="mt-2 space-y-2">
-              {plan.features.map((feature) => (
-                <li key={feature.planFeatureId || feature.featureCode} className="rounded-xl border border-border bg-surface-1 p-3 text-sm">
-                  <p className="font-medium text-text-primary">{feature.featureCode}</p>
-                  <p className="text-text-secondary">{t('drawer.limit')}: {feature.limitValue ?? '—'} | {t('drawer.status')}: {feature.isEnabled ? t('drawer.enabled') : t('drawer.disabled')}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 rounded-xl border border-border bg-surface-1 p-3 text-sm text-text-secondary">{t('drawer.noFeatures')}</p>
-          )}
-        </section>
-
-        <section className="mt-6">
           <h3 className="text-sm font-semibold text-text-primary">{t('drawer.pricing')}</h3>
           {Array.isArray(plan.prices) && plan.prices.length > 0 ? (
             <div className="mt-2 overflow-hidden rounded-xl border border-border">
