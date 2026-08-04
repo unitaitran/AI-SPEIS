@@ -23,8 +23,10 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         public int ReliabilityMinimumQuestionCount { get; init; } = 5;
         public int ReliabilityFollowUpLimit { get; init; } = 2;
         public int GlobalConcurrencyLimit { get; init; } = 10;
-        public int EvaluationTimeoutMs { get; init; } = 15_000;
+        public int EvaluationTimeoutMs { get; init; } = 120_000;
         public int EvaluationMaxRetries { get; init; } = 1;
+        public string OllamaBaseUrl { get; init; } = "http://localhost:11434/v1/";
+        public string OllamaModel { get; init; } = string.Empty;
         public decimal InputTokenCostPerMillion { get; init; }
         public decimal OutputTokenCostPerMillion { get; init; }
 
@@ -39,7 +41,12 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                     configuration,
                     "TECHNICAL_INTERVIEW_AI_BASE_URL",
                     "https://generativelanguage.googleapis.com/v1beta/openai/")),
-                TimeoutSeconds = GetInt(configuration, "TECHNICAL_INTERVIEW_AI_TIMEOUT_SECONDS", 30, 5, 180),
+                OllamaBaseUrl = EnsureTrailingSlash(Get(
+                    configuration,
+                    "OLLAMA_BASE_URL",
+                    "http://localhost:11434/v1/")),
+                OllamaModel = Get(configuration, "OLLAMA_MODEL", string.Empty),
+                TimeoutSeconds = GetInt(configuration, "TECHNICAL_INTERVIEW_AI_TIMEOUT_SECONDS", 180, 5, 300),
                 MaxRetries = GetInt(configuration, "TECHNICAL_INTERVIEW_AI_MAX_RETRIES", 2, 0, 5),
                 CandidatePoolSize = GetInt(configuration, "TECHNICAL_INTERVIEW_CANDIDATE_POOL_SIZE", 20, 1, 100),
                 MaxTranscriptCharacters = GetInt(configuration, "TECHNICAL_INTERVIEW_MAX_TRANSCRIPT_CHARACTERS", 12_000, 100, 50_000),
@@ -58,7 +65,7 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                 ReliabilityMinimumQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_MINIMUM_COUNT", 5, 3, 20),
                 ReliabilityFollowUpLimit = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_LIMIT", 2, 0, 6),
                 GlobalConcurrencyLimit = GetInt(configuration, "TECHNICAL_AI_GLOBAL_CONCURRENCY_LIMIT", 10, 1, 100),
-                EvaluationTimeoutMs = GetInt(configuration, "TECHNICAL_AI_EVALUATION_TIMEOUT_MS", 15_000, 1_000, 180_000),
+                EvaluationTimeoutMs = GetInt(configuration, "TECHNICAL_AI_EVALUATION_TIMEOUT_MS", 120_000, 1_000, 300_000),
                 EvaluationMaxRetries = GetInt(configuration, "TECHNICAL_AI_EVALUATION_MAX_RETRIES", 1, 0, 3),
                 InputTokenCostPerMillion = GetDecimal(
                     configuration,

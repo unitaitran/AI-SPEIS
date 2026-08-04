@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Adaptive CV Interview Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 980px; margin: 32px auto; padding: 0 18px; line-height: 1.5; background: #f6f7f9; }
+    .card { background: white; border: 1px solid #ddd; border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+    textarea, select, input { width: 100%; box-sizing: border-box; padding: 10px; margin: 6px 0 12px; }
+    textarea { min-height: 160px; }
+    button { padding: 10px 16px; cursor: pointer; margin-right: 8px; }
+    button:disabled { cursor: wait; opacity: .65; }
+    .hidden { display: none; }
+    .badge { display: inline-block; border: 1px solid #999; border-radius: 999px; padding: 3px 9px; margin-right: 6px; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #f3f3f3; padding: 12px; border-radius: 8px; }
+    .score { font-size: 30px; font-weight: bold; }
+    .status { min-height: 1.5em; margin: 12px 0 0; color: #1f4f8a; }
+    .error { min-height: 1.5em; margin: 12px 0 0; color: #b42318; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>Demo phỏng vấn thích ứng theo CV</h1>
+  <p>Tối đa 3 câu chính. Hệ thống tự hỏi follow-up dựa trên điểm chấm của câu trả lời.</p>
+
+  <section id="setup" class="card">
+    <h2>1. Cấu hình phiên phỏng vấn</h2>
+    <div class="grid">
+      <div>
+        <label>Loại phỏng vấn</label>
+        <select id="interviewType">
+          <option value="technical">Technical</option>
+          <option value="behavioral">Behavioral</option>
+        </select>
+      </div>
+      <div>
+        <label>Số câu chính</label>
+        <select id="mainCount">
+          <option value="3">3</option>
+          <option value="2">2</option>
+          <option value="1">1</option>
+        </select>
+      </div>
+      <div>
+        <label>Follow-up tối đa mỗi câu</label>
+        <select id="maxFollowups">
+          <option value="2">2</option>
+          <option value="1">1</option>
+          <option value="0">0</option>
+        </select>
+      </div>
+      <div>
+        <label>Ngôn ngữ</label>
+        <select id="language">
+          <option value="vi">Tiếng Việt</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </div>
+    <label>Structured CV JSON</label>
+    <textarea id="cvJson"></textarea>
+    <button id="sampleBtn">Nạp CV mẫu</button>
+    <button id="startBtn">Bắt đầu phỏng vấn</button>
+    <p id="setupStatus" class="status" role="status" aria-live="polite"></p>
+    <p id="setupError" class="error" role="alert"></p>
+  </section>
+
+  <section id="interview" class="card hidden">
+    <h2>2. Phỏng vấn</h2>
+    <p id="progress"></p>
+    <div>
+      <span id="kindBadge" class="badge"></span>
+      <span id="difficultyBadge" class="badge"></span>
+      <span id="skillBadge" class="badge"></span>
+    </div>
+    <h3 id="questionText"></h3>
+    <textarea id="answerText" placeholder="Nhập câu trả lời của ứng viên..."></textarea>
+    <button id="answerBtn">Gửi câu trả lời</button>
+    <p id="answerStatus" class="status" role="status" aria-live="polite"></p>
+    <p id="answerError" class="error" role="alert"></p>
+  </section>
+
+  <section id="feedback" class="card hidden">
+    <h2>Đánh giá lượt vừa trả lời</h2>
+    <div class="score"><span id="latestScore"></span>/5</div>
+    <p id="decision"></p>
+    <div class="grid">
+      <div><h3>Điểm mạnh</h3><ul id="strengths"></ul></div>
+      <div><h3>Cần cải thiện</h3><ul id="improvements"></ul></div>
+    </div>
+    <details><summary>Xem điểm từng tiêu chí</summary><pre id="criterionScores"></pre></details>
+  </section>
+
+  <section id="result" class="card hidden">
+    <h2>3. Kết quả phiên phỏng vấn</h2>
+    <div class="score"><span id="sectionScore"></span>/5</div>
+    <div id="resultItems"></div>
+    <button onclick="location.reload()">Demo lại</button>
+  </section>
+
+<script>
+const sampleCv = {
+  candidate_id: "demo-01",
+  role_target: "Backend Developer Intern",
+  education: [{ school: "FPT University", major: "Software Engineering", graduation_year: "2026" }],
+  experience: [],
+  projects: [{
+    name: "AI Interview System",
+    role: "Backend Developer",
+    technology_stack: "Python, FastAPI, Qdrant, Ollama",
+    summary: "Xây dựng hệ thống sinh câu hỏi phỏng vấn theo CV và chấm câu trả lời theo rubric.",
+    duration: "3 months"
+  }],
+  skills: [
+    { name: "Python", category: "Language", source: "CV" },
+    { name: "FastAPI", category: "Framework", source: "CV" },
+    { name: "Qdrant", category: "Database", source: "CV" },
+    { name: "RAG", category: "AI", source: "CV" }
+  ],
+  strengths: "Có kinh nghiệm xây dựng API và tích hợp mô hình AI.",
+  weaknesses: "Kinh nghiệm triển khai production còn hạn chế."
+};
+
+let sessionId = null;
+const $ = id => document.getElementById(id);
+
+async function requestJson(url, options, timeoutMs = 190000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || `Yêu cầu thất bại (HTTP ${response.status})`);
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Hết thời gian chờ phản hồi. Hãy kiểm tra Ollama và thử lại.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function setList(id, values) {
+  $(id).innerHTML = "";
+  (values || []).forEach(value => {
+    const li = document.createElement("li");
+    li.textContent = value;
+    $(id).appendChild(li);
+  });
+}
+
+function renderQuestion(data) {
+  const q = data.current_question;
+  if (!q) return;
+  $("interview").classList.remove("hidden");
+  $("progress").textContent = `Đã hoàn thành ${data.progress.completed_main_questions}/${data.progress.total_main_questions} câu chính`;
+  $("kindBadge").textContent = q.kind === "main" ? "Câu chính" : "Follow-up";
+  $("difficultyBadge").textContent = q.difficulty || "";
+  $("skillBadge").textContent = q.skill_or_competency || "";
+  $("questionText").textContent = q.question;
+  $("answerText").value = "";
+  $("answerText").focus();
+}
+
+function renderEvaluation(data) {
+  const e = data.latest_evaluation;
+  if (!e) return;
+  $("feedback").classList.remove("hidden");
+  $("latestScore").textContent = Number(e.weighted_score).toFixed(2);
+  $("decision").textContent = `${data.decision.action}: ${data.decision.reason}`;
+  setList("strengths", e.strengths);
+  setList("improvements", e.improvements);
+  $("criterionScores").textContent = JSON.stringify(e.scores, null, 2);
+}
+
+function renderResult(data) {
+  $("interview").classList.add("hidden");
+  $("result").classList.remove("hidden");
+  $("sectionScore").textContent = Number(data.section_score || 0).toFixed(2);
+  $("resultItems").innerHTML = "";
+  (data.results || []).forEach((item, index) => {
+    const box = document.createElement("div");
+    box.innerHTML = `<hr><h3>Câu chính ${index + 1}: ${item.main_question.question}</h3>
+      <p>Follow-up đã hỏi: ${item.followups_asked}</p>
+      <p>Điểm cuối câu: <strong>${Number(item.final_score).toFixed(2)}/5</strong></p>`;
+    $("resultItems").appendChild(box);
+  });
+}
+
+$("sampleBtn").onclick = () => {
+  $("cvJson").value = JSON.stringify(sampleCv, null, 2);
+};
+
+$("startBtn").onclick = async () => {
+  $("setupError").textContent = "";
+  $("setupStatus").textContent = "";
+  $("startBtn").disabled = true;
+  try {
+    const cv = JSON.parse($("cvJson").value);
+    $("setupStatus").textContent = "Đang tạo câu hỏi theo CV. Lần đầu có thể mất khoảng một phút…";
+    const data = await requestJson("/interviews/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cv_profile: cv,
+        interview_type: $("interviewType").value,
+        language: $("language").value,
+        main_question_count: Number($("mainCount").value),
+        max_followups_per_question: Number($("maxFollowups").value)
+      })
+    });
+    sessionId = data.session_id;
+    $("setup").classList.add("hidden");
+    renderQuestion(data);
+  } catch (error) {
+    $("setupError").textContent = error.message;
+  } finally {
+    $("startBtn").disabled = false;
+    $("setupStatus").textContent = "";
+  }
+};
+
+$("answerBtn").onclick = async () => {
+  $("answerError").textContent = "";
+  $("answerStatus").textContent = "";
+  const answer = $("answerText").value.trim();
+  if (!answer) { $("answerError").textContent = "Hãy nhập câu trả lời."; return; }
+  $("answerBtn").disabled = true;
+  try {
+    $("answerStatus").textContent = "Đang chấm câu trả lời và chuẩn bị lượt tiếp theo…";
+    const data = await requestJson(`/interviews/${sessionId}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answer })
+    });
+    renderEvaluation(data);
+    if (data.status === "completed") renderResult(data);
+    else renderQuestion(data);
+  } catch (error) {
+    $("answerError").textContent = error.message;
+  } finally {
+    $("answerBtn").disabled = false;
+    $("answerStatus").textContent = "";
+  }
+};
+
+$("sampleBtn").click();
+</script>
+</body>
+</html>

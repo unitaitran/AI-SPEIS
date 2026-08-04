@@ -223,6 +223,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                         Difficulty = difficulty,
                         QuestionCount = GetQuestionCount(mode, roundType, request.QuestionCounts),
                         Status = (isOnlyCoding && roundType == InterviewRoundType.Code) ? InterviewSessionStatus.Active : InterviewSessionStatus.Pending,
+                        TechnicalAiProvider = !string.IsNullOrWhiteSpace(request.AiProvider) ? request.AiProvider : null,
                         CreatedAt = now
                     });
                 }

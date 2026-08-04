@@ -67,22 +67,40 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         {
             var startedAt = DateTime.UtcNow;
             var stopwatch = Stopwatch.StartNew();
-            if (string.IsNullOrWhiteSpace(_options.ApiKey))
+            var isOllama = string.Equals(_options.Provider, "ollama", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(_options.Provider, "local", StringComparison.OrdinalIgnoreCase);
+            var baseUrl = isOllama ? _options.OllamaBaseUrl : _options.BaseUrl;
+            var model = isOllama && !string.IsNullOrWhiteSpace(_options.OllamaModel) ? _options.OllamaModel : _options.Model;
+
+            if (!isOllama && string.IsNullOrWhiteSpace(_options.ApiKey))
             {
                 return Failure<T>(stopwatch, startedAt, "CONFIGURATION_MISSING", 0);
             }
 
-            var payload = new
-            {
-                model = _options.Model,
-                temperature = 0.1,
-                response_format = new { type = "json_object" },
-                messages = new object[]
+            var payload = isOllama
+                ? (object)new
                 {
-                    new { role = "system", content = systemPrompt },
-                    new { role = "user", content = userPrompt }
+                    model = model,
+                    temperature = 0.1,
+                    format = "json",
+                    response_format = new { type = "json_object" },
+                    messages = new object[]
+                    {
+                        new { role = "system", content = systemPrompt },
+                        new { role = "user", content = userPrompt }
+                    }
                 }
-            };
+                : new
+                {
+                    model = model,
+                    temperature = 0.1,
+                    response_format = new { type = "json_object" },
+                    messages = new object[]
+                    {
+                        new { role = "system", content = systemPrompt },
+                        new { role = "user", content = userPrompt }
+                    }
+                };
 
             for (var attempt = 0; attempt <= _options.MaxRetries; attempt++)
             {
@@ -90,12 +108,21 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                 {
                     using var request = new HttpRequestMessage(
                         HttpMethod.Post,
-                        new Uri(new Uri(_options.BaseUrl), "chat/completions"));
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+                        new Uri(new Uri(baseUrl), "chat/completions"));
+                    if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+                    {
+                        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+                    }
                     request.Content = new StringContent(
                         JsonSerializer.Serialize(payload, JsonOptions),
                         Encoding.UTF8,
                         "application/json");
+
+                    _logger.LogInformation(
+                        "[AI-CALL] Sending Behavioural AI Request | Provider: {Provider} | Endpoint: {Endpoint} | Model: {Model}",
+                        isOllama ? "ollama" : "gemini",
+                        new Uri(new Uri(baseUrl), "chat/completions"),
+                        model);
 
                     var client = _httpClientFactory.CreateClient("BehaviouralInterviewAI");
                     using var response = await client.SendAsync(request, cancellationToken);
@@ -127,6 +154,11 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                     if (parsed is null)
                     {
                         return Failure<T>(stopwatch, startedAt, "MALFORMED_JSON", attempt);
+                    }
+
+                    if (isOllama && parsed is BehaviouralAIEvaluationResponse evalResponse)
+                    {
+                        NormalizeOllamaBehaviouralRubricCodes(evalResponse);
                     }
 
                     stopwatch.Stop();
@@ -242,6 +274,35 @@ namespace ai_speis_be.BehaviouralInterviews.AI
 
             [JsonPropertyName("completion_tokens")]
             public int? CompletionTokens { get; set; }
+        }
+        private static void NormalizeOllamaBehaviouralRubricCodes(BehaviouralAIEvaluationResponse evalResponse)
+        {
+            if (evalResponse.DimensionEvaluations is null) return;
+            foreach (var dim in evalResponse.DimensionEvaluations)
+            {
+                if (string.IsNullOrWhiteSpace(dim.RubricCode)) continue;
+                var code = dim.RubricCode.Trim().ToUpperInvariant();
+                if (code.Contains("SITUATION") || code.Contains("CONTEXT"))
+                {
+                    dim.RubricCode = "SITUATION_TASK";
+                }
+                else if (code.Contains("ACTION") || code.Contains("OWNERSHIP"))
+                {
+                    dim.RubricCode = "ACTION";
+                }
+                else if (code.Contains("RESULT") || code.Contains("REFLECTION"))
+                {
+                    dim.RubricCode = "RESULT";
+                }
+                else if (code.Contains("COMPETENCY") || code.Contains("FIT"))
+                {
+                    dim.RubricCode = "COMPETENCY";
+                }
+                else if (code.Contains("COMMUNICATION"))
+                {
+                    dim.RubricCode = "COMMUNICATION";
+                }
+            }
         }
     }
 }

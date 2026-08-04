@@ -522,7 +522,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     session, rubric, mainQuestion, mainSnapshot, chain, sessionQuestion, request,
                     clarificationsUsed, followUpsUsed);
 
-                var provider = _providerResolver.Resolve("external");
+                var provider = _providerResolver.Resolve(session.TechnicalAiProvider ?? _options.Provider);
                 var evaluationStartedAt = DateTime.UtcNow;
                 BehaviouralAIProviderResult<BehaviouralAIEvaluationResponse> aiResult;
                 try
@@ -1786,7 +1786,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 MainQuestionResults = mainQuestionResults
             };
 
-            var provider = _providerResolver.Resolve("external");
+            var provider = _providerResolver.Resolve(session.TechnicalAiProvider ?? _options.Provider);
             var feedbackStartedAt = DateTime.UtcNow;
             BehaviouralAIProviderResult<BehaviouralAIFinalSummaryResponse> summaryResult;
             try

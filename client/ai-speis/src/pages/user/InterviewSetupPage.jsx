@@ -114,6 +114,7 @@ function InterviewSetupPage() {
   const [jdOptions, setJdOptions] = useState([]);
   const [selectedJdId, setSelectedJdId] = useState(() => String(initialDraftRef.current.selectedJdId || ''));
   const [language, setLanguage] = useState(() => initialDraftRef.current.language || 'en');
+  const [aiProvider, setAiProvider] = useState(() => initialDraftRef.current.aiProvider || 'gemini');
   const [mode] = useState(() => initialDraftRef.current.mode || '');
   const [includeCoding, setIncludeCoding] = useState(() => Boolean(initialDraftRef.current.includeCoding));
   const [practiceRounds, setPracticeRounds] = useState(() => initialDraftRef.current.practiceRounds || []);
@@ -397,6 +398,7 @@ function InterviewSetupPage() {
         : {},
       Language: language,
       Mode: mode,
+      AiProvider: aiProvider,
     };
     const configurationKey = createConfigurationKey(setupPayload);
     const currentDraft = getInterviewSetupDraft() || {};
@@ -409,6 +411,7 @@ function InterviewSetupPage() {
         cvFileId: activeCv.cvFileId,
         selectedJdId: String(selectedJd.file.jdFileId),
         language,
+        aiProvider,
         includeCoding,
         practiceRounds,
         practiceQuestionCounts,
@@ -738,6 +741,21 @@ function InterviewSetupPage() {
                       >
                         <option value="en">{t('common.english')}</option>
                         <option value="vi">{t('common.vietnamese')}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="setup-field">
+                    <label htmlFor="setup-ai-provider">AI Provider</label>
+                    <div className="setup-control-wrap">
+                      <select
+                        id="setup-ai-provider"
+                        value={aiProvider}
+                        onChange={(event) => setAiProvider(event.target.value)}
+                        required
+                      >
+                        <option value="gemini">Gemini (Cloud)</option>
+                        <option value="ollama">Local AI (Ollama)</option>
                       </select>
                     </div>
                   </div>
