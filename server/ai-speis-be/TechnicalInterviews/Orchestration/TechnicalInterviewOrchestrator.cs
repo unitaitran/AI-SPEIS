@@ -237,8 +237,10 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 session.TechnicalBonusCalculationVersion = _options.BonusCalculationVersion;
             }
             session.TechnicalState = TechnicalInterviewState.Created;
-            session.TechnicalAiProvider = _options.Provider;
-            session.TechnicalAiModel = _options.Model;
+            session.TechnicalAiProvider = !string.IsNullOrWhiteSpace(session.TechnicalAiProvider) ? session.TechnicalAiProvider : _options.Provider;
+            var isOllamaSession = string.Equals(session.TechnicalAiProvider, "ollama", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(session.TechnicalAiProvider, "local", StringComparison.OrdinalIgnoreCase);
+            session.TechnicalAiModel = isOllamaSession && !string.IsNullOrWhiteSpace(_options.OllamaModel) ? _options.OllamaModel : _options.Model;
             session.TechnicalRubricVersion = rubric.Version;
             session.TechnicalScoringPolicyVersion = rubric.ScoringPolicyVersion;
             session.TechnicalJobRole = roleTargets[0];

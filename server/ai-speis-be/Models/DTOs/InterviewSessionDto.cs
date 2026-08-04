@@ -146,6 +146,9 @@ namespace ai_speis_be.Models.DTOs
 
         public int DurationMinutes { get; set; } = 60;
 
+        [MaxLength(50)]
+        public string? AiProvider { get; set; }
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (!string.Equals(Language, "vi", StringComparison.OrdinalIgnoreCase)
