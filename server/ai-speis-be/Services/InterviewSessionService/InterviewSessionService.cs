@@ -35,6 +35,7 @@ namespace ai_speis_be.Services.InterviewSessionService
         private readonly ILogger<InterviewSessionService> _logger;
         private readonly ISubscriptionService _subscriptionService;
         private readonly IRewardService _rewardService;
+        private readonly IConfiguration? _configuration;
 
         // Kept for existing unit-test and internal construction sites; runtime DI uses
         // the full constructor below.
@@ -47,7 +48,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                 context,
                 logger,
                 new SubscriptionService.SubscriptionService(context),
-                new RewardService.RewardService(context))
+                new RewardService.RewardService(context),
+                null)
         {
         }
 
@@ -56,13 +58,15 @@ namespace ai_speis_be.Services.InterviewSessionService
             ApplicationDbContext context,
             ILogger<InterviewSessionService> logger,
             ISubscriptionService subscriptionService,
-            IRewardService rewardService)
+            IRewardService rewardService,
+            IConfiguration? configuration = null)
         {
             _repository = repository;
             _context = context;
             _logger = logger;
             _subscriptionService = subscriptionService;
             _rewardService = rewardService;
+            _configuration = configuration;
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CreateSessionsAsync(
@@ -178,7 +182,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                         mode,
                         request.DurationMinutes,
                         roundTypesToCreate,
-                        request.QuestionCounts))
+                        request.QuestionCounts,
+                        _configuration))
                     {
                         await transaction.CommitAsync();
                         return (true, null, MapCampaignToResponse(existingCampaign, quota));
@@ -221,7 +226,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                         InterviewCampaignId = campaign.InterviewCampaignId,
                         InterviewRoundType = roundType,
                         Difficulty = difficulty,
-                        QuestionCount = GetQuestionCount(mode, roundType, request.QuestionCounts),
+                        QuestionCount = GetQuestionCount(mode, roundType, request.QuestionCounts, _configuration),
                         Status = (isOnlyCoding && roundType == InterviewRoundType.Code) ? InterviewSessionStatus.Active : InterviewSessionStatus.Pending,
                         TechnicalAiProvider = !string.IsNullOrWhiteSpace(request.AiProvider) ? request.AiProvider : null,
                         CreatedAt = now
@@ -980,7 +985,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             InterviewMode mode,
             int durationMinutes,
             IReadOnlyCollection<InterviewRoundType> roundTypes,
-            IReadOnlyDictionary<string, int>? questionCounts)
+            IReadOnlyDictionary<string, int>? questionCounts,
+            IConfiguration? configuration = null)
         {
             var existingRounds = campaign.InterviewSessions
                 .Where(session => !session.IsDeleted)
@@ -998,19 +1004,15 @@ namespace ai_speis_be.Services.InterviewSessionService
                 && existingRounds.SequenceEqual(requestedRounds)
                 && campaign.InterviewSessions
                     .Where(session => !session.IsDeleted)
-                    .All(session => session.QuestionCount == GetQuestionCount(mode, session.InterviewRoundType, questionCounts));
+                    .All(session => session.QuestionCount == GetQuestionCount(mode, session.InterviewRoundType, questionCounts, configuration));
         }
 
         private static int GetQuestionCount(
             InterviewMode mode,
             InterviewRoundType roundType,
-            IReadOnlyDictionary<string, int>? questionCounts)
+            IReadOnlyDictionary<string, int>? questionCounts,
+            IConfiguration? configuration = null)
         {
-            const int defaultQuestionCount = 5;
-            const int defaultCodingQuestionCount = 3;
-            // Adaptive Question Generation Rubric: Behavioral Interview luôn gồm 03 Main Questions
-            const int defaultBehaviouralQuestionCount = 3;
-
             if (mode == InterviewMode.Practice && questionCounts != null)
             {
                 var configuredCount = questionCounts.FirstOrDefault(item =>
@@ -1018,12 +1020,33 @@ namespace ai_speis_be.Services.InterviewSessionService
                 if (!string.IsNullOrEmpty(configuredCount.Key)) return configuredCount.Value;
             }
 
+            int GetConfigInt(string envKey, string configKey, int fallback)
+            {
+                if (configuration != null)
+                {
+                    var val = configuration[envKey] ?? configuration[configKey];
+                    if (int.TryParse(val, out var parsed) && parsed > 0) return parsed;
+                }
+                var envVal = Environment.GetEnvironmentVariable(envKey);
+                if (int.TryParse(envVal, out var envParsed) && envParsed > 0) return envParsed;
+                return fallback;
+            }
+
             return roundType switch
             {
-                InterviewRoundType.Code => defaultCodingQuestionCount,
-                InterviewRoundType.Behavior => defaultBehaviouralQuestionCount,
-                InterviewRoundType.Technical => 3,
-                _ => defaultQuestionCount
+                InterviewRoundType.Technical => GetConfigInt(
+                    "TECHNICAL_INTERVIEW_REALTIME_MAIN_QUESTION_COUNT",
+                    "TechnicalInterviewAI:RealtimeMainQuestionCount",
+                    3),
+                InterviewRoundType.Behavior => GetConfigInt(
+                    "BEHAVIOURAL_INTERVIEW_REALTIME_MAIN_QUESTION_COUNT",
+                    "BehaviouralInterviewAI:RealtimeMainQuestionCount",
+                    3),
+                InterviewRoundType.Code => GetConfigInt(
+                    "CODING_INTERVIEW_REALTIME_QUESTION_COUNT",
+                    "CodingInterview:RealtimeQuestionCount",
+                    3),
+                _ => 3
             };
         }
 

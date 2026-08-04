@@ -17,6 +17,7 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         public string AdaptiveRuleVersion { get; init; } = "technical-rubric-bank-v2";
         public string BonusCalculationVersion { get; init; } = "technical-follow-up-bonus-v1";
         public int StandardMainQuestionCount { get; init; } = 3;
+        public int RealtimeMainQuestionCount { get; init; } = 3;
         public decimal ClarificationRecoveryFactor { get; init; } = 0.75m;
         public bool ClarificationEndsMainQuestion { get; init; }
         public bool ReliabilityFollowUpEnabled { get; init; } = true;
@@ -57,6 +58,7 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                 AdaptiveRuleVersion = Get(configuration, "TECHNICAL_INTERVIEW_ADAPTIVE_RULE_VERSION", "technical-rubric-bank-v2"),
                 BonusCalculationVersion = Get(configuration, "TECHNICAL_INTERVIEW_BONUS_CALCULATION_VERSION", "technical-follow-up-bonus-v1"),
                 StandardMainQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_STANDARD_MAIN_QUESTION_COUNT", 3, 3, 3),
+                RealtimeMainQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_REALTIME_MAIN_QUESTION_COUNT", 3, 1, 20),
                 ClarificationRecoveryFactor = GetDecimal(configuration, "TECHNICAL_INTERVIEW_CLARIFICATION_RECOVERY_FACTOR", 0.75m, 0m, 1m),
                 // The legacy switch is intentionally forced off: a clarification answer
                 // may still require one or two evidence-grounded follow-ups.

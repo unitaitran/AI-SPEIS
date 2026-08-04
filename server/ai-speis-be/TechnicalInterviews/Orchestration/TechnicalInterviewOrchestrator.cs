@@ -712,7 +712,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             session.TechnicalCompletedMainQuestionCount++;
             if (arbiterResult.Decision == TechnicalInterviewDecision.EndInterview)
             {
-                if (session.InterviewCampaign.Mode == InterviewMode.RealTest
+                if (session.InterviewCampaign.Mode == InterviewMode.Practice
                     && processingContext.ReliabilityCount < _options.ReliabilityMinimumQuestionCount)
                 {
                     session.TechnicalReliabilityFailureReason = "RELIABILITY_MINIMUM_CAPACITY_EXHAUSTED";
