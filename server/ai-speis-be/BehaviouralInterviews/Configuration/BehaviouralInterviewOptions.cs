@@ -12,6 +12,7 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
         public string OllamaModel { get; init; } = string.Empty;
         public int MaxRetries { get; init; } = 3;
         public int TimeoutSeconds { get; init; } = 90;
+        public int RealtimeMainQuestionCount { get; init; } = 3;
         public decimal InputTokenCostPerMillion { get; init; }
         public decimal OutputTokenCostPerMillion { get; init; }
 
@@ -33,6 +34,7 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
                 OllamaModel = Get(configuration, "OLLAMA_MODEL", string.Empty),
                 MaxRetries = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_MAX_RETRIES", 3, 0, 5),
                 TimeoutSeconds = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", 90, 5, 180),
+                RealtimeMainQuestionCount = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_REALTIME_MAIN_QUESTION_COUNT", 3, 1, 20),
                 InputTokenCostPerMillion = GetDecimal(
                     configuration,
                     "BEHAVIOURAL_INTERVIEW_AI_INPUT_TOKEN_COST_PER_MILLION",
