@@ -69,11 +69,15 @@ const normalizePlans = (payload) => {
   return [];
 };
 
-const normalizeMonitoring = (payload) => {
+export const normalizeMonitoring = (payload) => {
   const source = payload && typeof payload === 'object' ? payload : {};
+  const planSubscriberCounts = Array.isArray(source.planSubscriberCounts)
+    ? Object.fromEntries(source.planSubscriberCounts.map((item) => [String(item.planId), Number(item.subscriberCount || 0)]))
+    : {};
   return {
     activePremiumUsers: Number(source.activePremiumUsers || source.premiumUsers || 0),
     totalActivePlans: Number(source.totalActivePlans || 0),
+    planSubscriberCounts,
   };
 };
 
@@ -118,7 +122,7 @@ const getPlanIdDisplay = (plan, index) => {
   return `#PLN-${String(rawId).padStart(3, '0')}`;
 };
 
-const getSubscriberCount = (plan, monitoring) => {
+export const getSubscriberCount = (plan, monitoring) => {
   if (!plan) return 0;
   const candidates = [
     plan?.subscriberCount,
@@ -130,10 +134,7 @@ const getSubscriberCount = (plan, monitoring) => {
   const value = candidates.find((candidate) => Number.isFinite(Number(candidate)));
   if (value != null) return Number(value);
 
-  if (!plan?.isFree && monitoring?.activePremiumUsers != null) {
-    return monitoring.activePremiumUsers;
-  }
-  return 0;
+  return Number(monitoring?.planSubscriberCounts?.[String(plan.planId)] || 0);
 };
 
 export default function SubscriptionManagementPage() {
@@ -694,11 +695,9 @@ export default function SubscriptionManagementPage() {
                       {/* Quota */}
                       <td className="px-5 py-4">
                         <div className="font-bold text-[var(--text-primary)]">
-                          {plan.isFree ? (
-                            <span className="text-gray-600">15 lượt</span>
-                          ) : (
-                            <span className="text-emerald-600">{formatNumber(plan.interviewQuota, language)} lượt</span>
-                          )}
+                          <span className={plan.isFree ? 'text-gray-600' : 'text-emerald-600'}>
+                            {formatNumber(plan.interviewQuota, language)} lượt
+                          </span>
                         </div>
                         <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
                           {plan.quotaResetDays ? `Reset mỗi ${plan.quotaResetDays} ngày` : 'Quota cố định'}
