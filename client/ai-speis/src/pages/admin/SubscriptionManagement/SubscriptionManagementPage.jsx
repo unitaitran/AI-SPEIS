@@ -335,7 +335,6 @@ export default function SubscriptionManagementPage() {
     displayOrder: Number(planForm.displayOrder || 10),
     isPopular: Boolean(planForm.isPopular),
     isActive: Boolean(planForm.isActive),
-    features: [],
   });
 
   const handleSavePlan = async () => {

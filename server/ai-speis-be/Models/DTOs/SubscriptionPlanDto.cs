@@ -25,29 +25,6 @@ namespace ai_speis_be.Models.DTOs
         public DateTime? ConflictEffectiveTo { get; init; }
     }
 
-    public sealed class PlanFeatureDto
-    {
-        public int PlanFeatureId { get; init; }
-        public string FeatureCode { get; init; } = string.Empty;
-        public int? LimitValue { get; init; }
-        public int DisplayOrder { get; init; }
-        public bool IsEnabled { get; init; }
-    }
-
-    public sealed class PlanFeatureUpsertRequestDto
-    {
-        public int? PlanFeatureId { get; set; }
-
-        [MaxLength(80)]
-        public string FeatureCode { get; set; } = string.Empty;
-
-        public int? LimitValue { get; set; }
-
-        public int DisplayOrder { get; set; }
-
-        public bool IsEnabled { get; set; } = true;
-    }
-
     public sealed class SubscriptionPlanDto
     {
         public int PlanId { get; init; }
@@ -63,7 +40,6 @@ namespace ai_speis_be.Models.DTOs
         public bool AdvancedAnalyticsEnabled { get; init; }
         public bool IsPopular { get; init; }
         public IReadOnlyList<SubscriptionPriceDto> Prices { get; init; } = Array.Empty<SubscriptionPriceDto>();
-        public IReadOnlyList<PlanFeatureDto> Features { get; init; } = Array.Empty<PlanFeatureDto>();
     }
 
     public class CreateSubscriptionPlanRequestDto
@@ -95,8 +71,6 @@ namespace ai_speis_be.Models.DTOs
         public bool? IsPopular { get; set; }
 
         public bool? IsActive { get; set; }
-
-        public List<PlanFeatureUpsertRequestDto> Features { get; set; } = new();
     }
 
     public sealed class UpdateSubscriptionPlanRequestDto : CreateSubscriptionPlanRequestDto

@@ -75,6 +75,7 @@
   "comprehensiveAiInterview": "Phỏng vấn AI toàn diện",
   "advancedAnalysis": "Phân tích & Đánh giá nâng cao",
   "quotaRefresh30Days": "Làm mới 15 lượt sau mỗi 30 ngày",
+  "quotaRefreshDays": "Làm mới {{quota}} lượt sau mỗi {{days}} ngày",
   "freeInterviewQuotaText": "lượt phỏng vấn miễn phí",
   "monthlyQuotaText": "lượt phỏng vấn mỗi chu kỳ 30 ngày",
   "checkoutConfirmTitle": "Xác nhận thanh toán",

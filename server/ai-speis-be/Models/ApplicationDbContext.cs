@@ -29,7 +29,6 @@ namespace ai_speis_be.Models
         public DbSet<Payment> Payments { get; set; } = null!;
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; } = null!;
         public DbSet<SubscriptionPrice> SubscriptionPrices { get; set; } = null!;
-        public DbSet<PlanFeature> PlanFeatures { get; set; } = null!;
         public DbSet<UserSubscription> UserSubscriptions { get; set; } = null!;
         public DbSet<SubscriptionTerm> SubscriptionTerms { get; set; } = null!;
         public DbSet<QuotaPeriod> QuotaPeriods { get; set; } = null!;
@@ -375,12 +374,6 @@ namespace ai_speis_be.Models
                     "CK_SubscriptionPrice_Amount",
                     "[Amount] >= 0"));
 
-            modelBuilder.Entity<PlanFeature>()
-                .HasOne(feature => feature.Plan)
-                .WithMany(plan => plan.Features)
-                .HasForeignKey(feature => feature.PlanId)
-                .OnDelete(DeleteBehavior.Cascade);
-
             modelBuilder.Entity<UserSubscription>()
                 .HasOne(subscription => subscription.User)
                 .WithOne()
@@ -504,13 +497,6 @@ namespace ai_speis_be.Models
                     IsActive = true,
                     CreatedAt = seedDate
                 });
-
-            modelBuilder.Entity<PlanFeature>().HasData(
-                new PlanFeature { PlanFeatureId = 1, PlanId = 1, FeatureCode = "BASIC_AI_INTERVIEW", DisplayOrder = 1, IsEnabled = true },
-                new PlanFeature { PlanFeatureId = 2, PlanId = 1, FeatureCode = "GENERAL_SKILL_ASSESSMENT", DisplayOrder = 2, IsEnabled = true },
-                new PlanFeature { PlanFeatureId = 3, PlanId = 2, FeatureCode = "COMPREHENSIVE_AI_INTERVIEW", DisplayOrder = 1, IsEnabled = true },
-                new PlanFeature { PlanFeatureId = 4, PlanId = 2, FeatureCode = "ADVANCED_ANALYSIS", DisplayOrder = 2, IsEnabled = true },
-                new PlanFeature { PlanFeatureId = 5, PlanId = 2, FeatureCode = "QUOTA_REFRESH_30_DAYS", DisplayOrder = 3, IsEnabled = true });
 
             modelBuilder.Entity<RewardRule>().HasData(new RewardRule
             {
