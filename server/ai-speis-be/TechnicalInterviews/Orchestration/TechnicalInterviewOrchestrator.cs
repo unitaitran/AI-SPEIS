@@ -17,6 +17,7 @@ using ai_speis_be.TechnicalInterviews.Rubrics;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using ai_speis_be.TechnicalInterviews.Selection;
 using ai_speis_be.TechnicalInterviews.Validation;
+using ai_speis_be.Services.NotificationService;
 using Microsoft.EntityFrameworkCore;
 
 namespace ai_speis_be.TechnicalInterviews.Orchestration
@@ -44,6 +45,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         private readonly IInterviewSessionService _sessionLifecycleService;
         private readonly TechnicalInterviewOptions _options;
         private readonly ILogger<TechnicalInterviewOrchestrator> _logger;
+        private readonly INotificationEventPublisher? _notificationPublisher;
 
         public TechnicalInterviewOrchestrator(
             ApplicationDbContext context,
@@ -59,7 +61,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             IJDService jdService,
             IInterviewSessionService sessionLifecycleService,
             TechnicalInterviewOptions options,
-            ILogger<TechnicalInterviewOrchestrator> logger)
+            ILogger<TechnicalInterviewOrchestrator> logger,
+            INotificationEventPublisher? notificationPublisher = null)
         {
             _context = context;
             _questionRepository = questionRepository;
@@ -75,6 +78,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             _sessionLifecycleService = sessionLifecycleService;
             _options = options;
             _logger = logger;
+            _notificationPublisher = notificationPublisher;
         }
 
         public async Task<TechnicalOperationResult<TechnicalInterviewSessionDto>> InitializeAsync(
@@ -1212,6 +1216,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             }
 
             await EnsureLifecycleCompletionAsync(userId, session);
+            await PublishFeedbackNotificationAsync(session, userId, cancellationToken);
 
             return TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session));
         }
@@ -1263,6 +1268,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         "SESSION_CONCURRENCY_CONFLICT",
                         "The session changed while final Technical feedback was being persisted.");
 
+                if (generated) await PublishFeedbackNotificationAsync(session, userId, cancellationToken);
                 return generated
                     ? TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session))
                     : ExternalFailure<TechnicalInterviewResultDto>(
@@ -1381,6 +1387,24 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 fallbackUsed: false,
                 errorCode: valid ? null : summaryResult.ErrorCode ?? "INVALID_FINAL_FEEDBACK");
             return valid;
+        }
+
+        private async Task PublishFeedbackNotificationAsync(InterviewSession session, int userId, CancellationToken cancellationToken)
+        {
+            if (_notificationPublisher is null || string.IsNullOrWhiteSpace(session.TechnicalSummaryJson)) return;
+            try
+            {
+                await _notificationPublisher.PublishAsync(new NotificationEvent(
+                    userId, NotificationRecipientRole.USER, NotificationType.INTERVIEW_FEEDBACK_READY,
+                    NotificationCategory.FEEDBACK, NotificationSeverity.SUCCESS, "Interview feedback available",
+                    "Your interview result and feedback are now available.", NotificationEntityType.INTERVIEW_RESULT,
+                    session.InterviewSessionId.ToString(), $"/user/interview/result/{session.InterviewSessionId}",
+                    $"INTERVIEW_FEEDBACK_READY:{session.InterviewSessionId}:{userId}"), cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Could not publish Technical feedback notification for session {SessionId}.", session.InterviewSessionId);
+            }
         }
 
         private IReadOnlyList<object> BuildFinalFeedbackMainQuestionResults(InterviewSession session)

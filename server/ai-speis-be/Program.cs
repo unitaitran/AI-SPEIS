@@ -35,6 +35,7 @@ using ai_speis_be.Services.PaymentService;
 using ai_speis_be.Services.SubscriptionPlanService;
 using ai_speis_be.Services.RewardService;
 using ai_speis_be.Services.SubscriptionService;
+using ai_speis_be.Services.NotificationService;
 using ai_speis_be.BehaviouralInterviews.AI;
 using ai_speis_be.BehaviouralInterviews.Configuration;
 using ai_speis_be.BehaviouralInterviews.Orchestration;
@@ -153,6 +154,8 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<IRewardService, RewardService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationEventPublisher, NotificationEventPublisher>();
 
 // Background Worker for CV Parsing
 builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
@@ -163,6 +166,7 @@ builder.Services.AddSingleton<IJdParseQueue, JdParseQueue>();
 builder.Services.AddHostedService<JdParsingBackgroundService>();
 builder.Services.AddHostedService<PremiumQuotaResetBackgroundService>();
 builder.Services.AddHostedService<PendingPaymentExpiryBackgroundService>();
+builder.Services.AddHostedService<SubscriptionNotificationBackgroundService>();
 
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();

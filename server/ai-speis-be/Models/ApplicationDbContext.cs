@@ -48,6 +48,7 @@ namespace ai_speis_be.Models
         public DbSet<TechnicalAnswerEvaluation> TechnicalAnswerEvaluations { get; set; } = null!;
         public DbSet<AIInteractionLog> AIInteractionLogs { get; set; } = null!;
         public DbSet<UserSkillScore> UserSkillScores { get; set; } = null!;
+        public DbSet<Notification> Notifications { get; set; } = null!;
 
 
 
@@ -84,6 +85,12 @@ namespace ai_speis_be.Models
                 .HasOne(up => up.User)
                 .WithOne()
                 .HasForeignKey<UserProfile>(up => up.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Notification>()
+                .HasOne(notification => notification.Recipient)
+                .WithMany()
+                .HasForeignKey(notification => notification.RecipientId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<CVFile>()

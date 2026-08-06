@@ -15,6 +15,7 @@ using ai_speis_be.TechnicalInterviews.Scoring;
 using Microsoft.EntityFrameworkCore;
 using ai_speis_be.Services.RewardService;
 using ai_speis_be.Services.SubscriptionService;
+using ai_speis_be.Services.NotificationService;
 
 namespace ai_speis_be.Services.InterviewSessionService
 {
@@ -36,6 +37,7 @@ namespace ai_speis_be.Services.InterviewSessionService
         private readonly ISubscriptionService _subscriptionService;
         private readonly IRewardService _rewardService;
         private readonly IConfiguration? _configuration;
+        private readonly INotificationEventPublisher? _notificationPublisher;
 
         // Kept for existing unit-test and internal construction sites; runtime DI uses
         // the full constructor below.
@@ -49,6 +51,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 logger,
                 new SubscriptionService.SubscriptionService(context),
                 new RewardService.RewardService(context),
+                null,
                 null)
         {
         }
@@ -59,7 +62,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             ILogger<InterviewSessionService> logger,
             ISubscriptionService subscriptionService,
             IRewardService rewardService,
-            IConfiguration? configuration = null)
+            IConfiguration? configuration = null,
+            INotificationEventPublisher? notificationPublisher = null)
         {
             _repository = repository;
             _context = context;
@@ -67,6 +71,7 @@ namespace ai_speis_be.Services.InterviewSessionService
             _subscriptionService = subscriptionService;
             _rewardService = rewardService;
             _configuration = configuration;
+            _notificationPublisher = notificationPublisher;
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CreateSessionsAsync(
@@ -236,6 +241,17 @@ namespace ai_speis_be.Services.InterviewSessionService
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                foreach (var createdSession in _context.InterviewSessions.Local.Where(item => item.InterviewCampaignId == campaign.InterviewCampaignId))
+                {
+                    await PublishSafelyAsync(new NotificationEvent(
+                        userId, NotificationRecipientRole.USER, NotificationType.INTERVIEW_SESSION_READY,
+                        NotificationCategory.INTERVIEW, NotificationSeverity.INFO, "Your interview is ready",
+                        $"Your {GetRoundDisplayName(createdSession.InterviewRoundType)} Interview is ready to begin.",
+                        NotificationEntityType.INTERVIEW_SESSION, createdSession.InterviewSessionId.ToString(), "/user/interview/setup",
+                        $"INTERVIEW_SESSION_READY:{createdSession.InterviewSessionId}:{userId}",
+                        new { sessionId = createdSession.InterviewSessionId, roundType = ToContractRoundType(createdSession.InterviewRoundType) }));
+                }
+
                 var createdCampaign = await GetCampaignByIdAsync(userId, campaign.InterviewCampaignId);
                 return (true, null, createdCampaign);
             }
@@ -360,6 +376,7 @@ namespace ai_speis_be.Services.InterviewSessionService
             session.Status = InterviewSessionStatus.Completed;
             session.UpdatedAt = now;
             var quota = await AdvanceCampaignAsync(campaign, now);
+            await PublishRoundCompletionAsync(userId, session, campaign);
             return (true, null, MapCampaignToResponse(campaign, quota));
         }
 
@@ -403,6 +420,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 return (false, "Campaign chưa đến thời điểm hết hạn.", null);
 
             await _context.SaveChangesAsync();
+            await PublishCampaignExpiredAsync(userId, campaign);
             var quota = await GetQuotaMetadataAsync(campaign.User, DateTime.UtcNow);
             return (true, null, MapCampaignToResponse(campaign, quota));
         }
@@ -976,6 +994,69 @@ namespace ai_speis_be.Services.InterviewSessionService
             await _context.SaveChangesAsync();
             return quota;
         }
+
+        private async Task PublishRoundCompletionAsync(int userId, InterviewSession session, InterviewCampaign campaign)
+        {
+            if (_notificationPublisher is not null)
+                await _notificationPublisher.UpdateActionStatusAsync(userId, NotificationRecipientRole.USER, NotificationEntityType.INTERVIEW_SESSION, session.InterviewSessionId.ToString(), NotificationActionStatus.COMPLETED);
+            await PublishSafelyAsync(new NotificationEvent(
+                userId, NotificationRecipientRole.USER, NotificationType.INTERVIEW_ROUND_COMPLETED,
+                NotificationCategory.INTERVIEW, NotificationSeverity.SUCCESS,
+                $"{GetRoundDisplayName(session.InterviewRoundType)} Interview completed",
+                $"Your {GetRoundDisplayName(session.InterviewRoundType)} Interview has been completed successfully.",
+                NotificationEntityType.INTERVIEW_ROUND, session.InterviewSessionId.ToString(), "/user/interview-history",
+                $"INTERVIEW_ROUND_COMPLETED:{session.InterviewSessionId}:{userId}",
+                new { sessionId = session.InterviewSessionId, roundId = session.InterviewSessionId, roundType = ToContractRoundType(session.InterviewRoundType) },
+                NotificationActionStatus.COMPLETED));
+            if (campaign.Status == InterviewCampaignStatus.Completed)
+            {
+                await PublishSafelyAsync(new NotificationEvent(
+                    userId, NotificationRecipientRole.USER, NotificationType.ALL_INTERVIEW_ROUNDS_COMPLETED,
+                    NotificationCategory.INTERVIEW, NotificationSeverity.SUCCESS, "Interview completed",
+                    "You have completed all required interview rounds.", NotificationEntityType.INTERVIEW_RESULT,
+                    campaign.InterviewCampaignId.ToString(), "/user/interview/campaign-result",
+                    $"ALL_INTERVIEW_ROUNDS_COMPLETED:{campaign.InterviewCampaignId}:{userId}"));
+            }
+        }
+
+        private async Task PublishCampaignExpiredAsync(int userId, InterviewCampaign campaign)
+        {
+            if (_notificationPublisher is not null)
+            {
+                foreach (var session in campaign.InterviewSessions.Where(item => !item.IsDeleted))
+                    await _notificationPublisher.UpdateActionStatusAsync(userId, NotificationRecipientRole.USER, NotificationEntityType.INTERVIEW_SESSION, session.InterviewSessionId.ToString(), NotificationActionStatus.EXPIRED);
+            }
+            await PublishSafelyAsync(new NotificationEvent(
+                userId, NotificationRecipientRole.USER, NotificationType.INTERVIEW_SESSION_EXPIRED,
+                NotificationCategory.INTERVIEW, NotificationSeverity.WARNING, "Interview session expired",
+                "Your interview session has expired and can no longer be resumed.",
+                NotificationEntityType.INTERVIEW_SESSION, campaign.InterviewCampaignId.ToString(), "/user/interview-history",
+                $"INTERVIEW_SESSION_EXPIRED:{campaign.InterviewCampaignId}:{userId}", null,
+                NotificationActionStatus.EXPIRED));
+        }
+
+        private async Task PublishSafelyAsync(NotificationEvent notificationEvent)
+        {
+            if (_notificationPublisher is null) return;
+            try { await _notificationPublisher.PublishAsync(notificationEvent); }
+            catch (Exception exception) { _logger.LogError(exception, "Notification publication failed for {NotificationType}.", notificationEvent.Type); }
+        }
+
+        private static string GetRoundDisplayName(InterviewRoundType roundType) => roundType switch
+        {
+            InterviewRoundType.Behavior => "Behavioral",
+            InterviewRoundType.Technical => "Technical",
+            InterviewRoundType.Code => "Coding",
+            _ => roundType.ToString()
+        };
+
+        private static string ToContractRoundType(InterviewRoundType roundType) => roundType switch
+        {
+            InterviewRoundType.Behavior => "BEHAVIORAL",
+            InterviewRoundType.Technical => "TECHNICAL",
+            InterviewRoundType.Code => "CODING",
+            _ => roundType.ToString().ToUpperInvariant()
+        };
 
         private static bool MatchesConfiguration(
             InterviewCampaign campaign,
