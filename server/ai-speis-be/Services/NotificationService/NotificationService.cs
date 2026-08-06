@@ -148,9 +148,14 @@ public sealed class NotificationService : INotificationService
     private static NotificationDto ToDto(Notification item) => new()
     {
         Id = item.NotificationId, RecipientRole = item.RecipientRole.ToString(), Type = item.Type.ToString(), Category = item.Category.ToString(), Severity = item.Severity.ToString(), Title = item.Title, Message = item.Message,
-        EntityType = item.EntityType.ToString(), EntityId = item.EntityId, ActionUrl = item.ActionUrl, ReadStatus = item.ReadStatus.ToString(), ReadAt = item.ReadAt, ActionStatus = item.ActionStatus.ToString(), Metadata = item.Metadata,
-        CreatedAt = item.CreatedAt, ExpiresAt = item.ExpiresAt, ArchivedAt = item.ArchivedAt
+        EntityType = item.EntityType.ToString(), EntityId = item.EntityId, ActionUrl = item.ActionUrl, ReadStatus = item.ReadStatus.ToString(), ReadAt = AsUtc(item.ReadAt), ActionStatus = item.ActionStatus.ToString(), Metadata = item.Metadata,
+        CreatedAt = AsUtc(item.CreatedAt), ExpiresAt = AsUtc(item.ExpiresAt), ArchivedAt = AsUtc(item.ArchivedAt)
     };
+
+    // SQL Server returns datetime/datetime2 values with Kind=Unspecified. Notifications are
+    // persisted in UTC, so mark them explicitly before JSON serialization emits them to clients.
+    private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+    private static DateTime? AsUtc(DateTime? value) => value.HasValue ? AsUtc(value.Value) : null;
 
     private static void Validate(NotificationCreateRequest request)
     {

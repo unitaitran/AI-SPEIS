@@ -30,6 +30,7 @@ namespace ai_speis_be.Services.PaymentService
         private readonly IRewardService _rewardService;
         private readonly ISubscriptionService _subscriptionService;
         private readonly INotificationEventPublisher? _notificationPublisher;
+        private readonly IAdminNotificationPublisher? _adminNotificationPublisher;
 
         public PaymentService(
             IPaymentRepository paymentRepository, 
@@ -39,7 +40,8 @@ namespace ai_speis_be.Services.PaymentService
             IEmailSender emailSender,
             IRewardService rewardService,
             ISubscriptionService subscriptionService,
-            INotificationEventPublisher? notificationPublisher = null)
+            INotificationEventPublisher? notificationPublisher = null,
+            IAdminNotificationPublisher? adminNotificationPublisher = null)
         {
             _paymentRepository = paymentRepository;
             _context = context;
@@ -49,6 +51,7 @@ namespace ai_speis_be.Services.PaymentService
             _rewardService = rewardService;
             _subscriptionService = subscriptionService;
             _notificationPublisher = notificationPublisher;
+            _adminNotificationPublisher = adminNotificationPublisher;
         }
 
         public async Task<(bool Success, string? ErrorMessage, PaymentResponseDto? Payment)> CreatePaymentAsync(
@@ -332,6 +335,7 @@ namespace ai_speis_be.Services.PaymentService
             CancellationToken cancellationToken)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            var transactionCommitted = false;
             try
             {
                 if (payment.Status is PaymentStatus.Paid or PaymentStatus.PaidByReward)
@@ -403,12 +407,35 @@ namespace ai_speis_be.Services.PaymentService
                 }
 
                 await transaction.CommitAsync(cancellationToken);
+                transactionCommitted = true;
                 await PublishSubscriptionActivatedNotificationAsync(payment, cancellationToken);
             }
             catch
             {
-                await transaction.RollbackAsync(cancellationToken);
+                if (!transactionCommitted)
+                    await transaction.RollbackAsync(cancellationToken);
+                _context.ChangeTracker.Clear();
+                await PublishSubscriptionActivationFailedForAdminAsync(payment, cancellationToken);
                 throw;
+            }
+        }
+
+        private async Task PublishSubscriptionActivationFailedForAdminAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            if (_adminNotificationPublisher is null) return;
+            try
+            {
+                await _adminNotificationPublisher.PublishAsync(new AdminNotificationEvent(
+                    payment.UserId, NotificationType.SUBSCRIPTION_ACTIVATION_FAILED,
+                    NotificationCategory.SUBSCRIPTION, NotificationSeverity.CRITICAL,
+                    "Subscription activation failed", "The subscription could not be activated after payment confirmation.",
+                    NotificationEntityType.PAYMENT, payment.PaymentId.ToString(), "/admin/payments",
+                    $"SUBSCRIPTION_ACTIVATION_FAILED:{payment.PaymentId}",
+                    new Dictionary<string, object?> { ["paymentId"] = payment.PaymentId }), cancellationToken);
+            }
+            catch (Exception notificationException)
+            {
+                Console.WriteLine($"[NotificationError] Failed to publish subscription activation failure: {notificationException.Message}");
             }
         }
 

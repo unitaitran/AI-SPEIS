@@ -145,6 +145,9 @@ namespace ai_speis_be.Services.InterviewSessionService
 
             var difficulty = MapExperienceLevelToDifficulty(jdProfile.ExperienceLevel);
             var now = DateTime.UtcNow;
+            var readyNotifications = new List<NotificationEvent>();
+            InterviewCampaignDto? createdCampaign = null;
+            var transactionCommitted = false;
 
             await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             try
@@ -239,11 +242,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                 }
 
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
                 foreach (var createdSession in _context.InterviewSessions.Local.Where(item => item.InterviewCampaignId == campaign.InterviewCampaignId))
                 {
-                    await PublishSafelyAsync(new NotificationEvent(
+                    readyNotifications.Add(new NotificationEvent(
                         userId, NotificationRecipientRole.USER, NotificationType.INTERVIEW_SESSION_READY,
                         NotificationCategory.INTERVIEW, NotificationSeverity.INFO, "Your interview is ready",
                         $"Your {GetRoundDisplayName(createdSession.InterviewRoundType)} Interview is ready to begin.",
@@ -251,13 +252,15 @@ namespace ai_speis_be.Services.InterviewSessionService
                         $"INTERVIEW_SESSION_READY:{createdSession.InterviewSessionId}:{userId}",
                         new { sessionId = createdSession.InterviewSessionId, roundType = ToContractRoundType(createdSession.InterviewRoundType) }));
                 }
-
-                var createdCampaign = await GetCampaignByIdAsync(userId, campaign.InterviewCampaignId);
-                return (true, null, createdCampaign);
+                var createdQuota = await GetQuotaMetadataAsync(campaign.User, now);
+                createdCampaign = MapCampaignToResponse(campaign, createdQuota);
+                await transaction.CommitAsync();
+                transactionCommitted = true;
             }
             catch (Exception exception)
             {
-                await transaction.RollbackAsync();
+                if (!transactionCommitted)
+                    await transaction.RollbackAsync();
                 _logger.LogError(
                     exception,
                     "Không thể tạo campaign phỏng vấn cho User {UserId}, CV {CVFileId}, JD {JDFileId}.",
@@ -266,6 +269,11 @@ namespace ai_speis_be.Services.InterviewSessionService
                     request.JDFileId);
                 return (false, "Không thể lưu cấu hình phỏng vấn. Vui lòng thử lại sau.", null);
             }
+
+            foreach (var notification in readyNotifications)
+                await PublishSafelyAsync(notification);
+
+            return (true, null, createdCampaign);
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> StartSessionAsync(

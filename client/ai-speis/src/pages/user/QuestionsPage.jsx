@@ -14,6 +14,7 @@ import {
 import UserLayout from '../../layouts/user/UserLayout';
 import { ENDPOINTS } from '../../config/api';
 import notify from '../../utils/notification';
+import { NOTIFICATION_STATE_RESET_EVENT } from '../../features/notifications/NotificationProvider';
 
 function QuestionsPage() {
   const { t, i18n } = useTranslation('dashboard');
@@ -26,6 +27,7 @@ function QuestionsPage() {
     sessionRedirectPendingRef.current = true;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    window.dispatchEvent(new Event(NOTIFICATION_STATE_RESET_EVENT));
     notify.error(
       isVi ? 'Vui lòng đăng nhập lại để tiếp tục.' : 'Please login again to continue.',
       {

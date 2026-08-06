@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { decodeJwt } from './auth';
 import { ENDPOINTS } from '../config/api';
+import { NOTIFICATION_STATE_RESET_EVENT } from '../features/notifications/NotificationProvider';
 
 export default function TokenMonitor() {
   const [showPopup, setShowPopup] = useState(false);
@@ -73,6 +74,7 @@ export default function TokenMonitor() {
           onClick={() => {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            window.dispatchEvent(new Event(NOTIFICATION_STATE_RESET_EVENT));
             setShowPopup(false);
             window.location.href = '/login';
           }}

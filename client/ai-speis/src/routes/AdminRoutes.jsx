@@ -8,6 +8,7 @@ import QuestionManagementPage from '../pages/admin/QuestionManagement/QuestionMa
 import SubscriptionManagementPage from '../pages/admin/SubscriptionManagement/SubscriptionManagementPage';
 import AIUsagePage from '../pages/admin/AIUsage/AIUsagePage';
 import PaymentManagementPage from '../pages/admin/PaymentManagement/PaymentManagementPage';
+import NotificationCenterPage from '../pages/admin/NotificationCenterPage';
 
 import { useTranslation } from 'react-i18next';
 
@@ -57,6 +58,8 @@ function AdminRoutes({ pathname }) {
   content = <AIUsagePage />;
 } else if (activePathname === ADMIN_ROUTES.PAYMENTS) {
   content = <PaymentManagementPage />;
+} else if (activePathname === ADMIN_ROUTES.NOTIFICATIONS) {
+  content = <NotificationCenterPage />;
 }
    else {
     content = <AdminRoutePlaceholder title={currentMenuItem?.label || 'Page not found'} />;

@@ -36,6 +36,7 @@ using ai_speis_be.Services.SubscriptionPlanService;
 using ai_speis_be.Services.RewardService;
 using ai_speis_be.Services.SubscriptionService;
 using ai_speis_be.Services.NotificationService;
+using ai_speis_be.Hubs;
 using ai_speis_be.BehaviouralInterviews.AI;
 using ai_speis_be.BehaviouralInterviews.Configuration;
 using ai_speis_be.BehaviouralInterviews.Orchestration;
@@ -65,6 +66,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+builder.Services.AddSignalR();
     
 builder.Services.AddHttpClient();
 var technicalInterviewOptions = TechnicalInterviewOptions.FromConfiguration(builder.Configuration);
@@ -156,6 +158,8 @@ builder.Services.AddScoped<IRewardService, RewardService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationEventPublisher, NotificationEventPublisher>();
+builder.Services.AddScoped<IAdminNotificationPublisher, AdminNotificationPublisher>();
+builder.Services.AddScoped<INotificationRealtimeNotifier, NotificationRealtimeNotifier>();
 
 // Background Worker for CV Parsing
 builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
@@ -282,6 +286,16 @@ builder.Services.AddAuthentication(options =>
     };
     options.Events = new JwtBearerEvents
     {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            if (!string.IsNullOrWhiteSpace(accessToken)
+                && context.HttpContext.Request.Path.StartsWithSegments("/hubs/notifications"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        },
         OnTokenValidated = async context =>
         {
             var userIdClaim = context.Principal?.FindFirst("UserId")?.Value;
@@ -391,6 +405,7 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();
 

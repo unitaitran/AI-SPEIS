@@ -257,11 +257,11 @@ namespace ai_speis_be.Services.BackgroundWorker
             }
         }
 
-        private Task PublishCvProcessingFailedAsync(CVFile cvFile, CancellationToken cancellationToken)
+        private async Task PublishCvProcessingFailedAsync(CVFile cvFile, CancellationToken cancellationToken)
         {
             using var scope = _scopeFactory.CreateScope();
             var publisher = scope.ServiceProvider.GetRequiredService<INotificationEventPublisher>();
-            return publisher.PublishAsync(new NotificationEvent(
+            await publisher.PublishAsync(new NotificationEvent(
                 cvFile.UserId, NotificationRecipientRole.USER, NotificationType.CV_PROCESSING_FAILED,
                 NotificationCategory.PROFILE, NotificationSeverity.ERROR, "CV processing failed",
                 "We could not process your CV. Please review the file and upload it again.",

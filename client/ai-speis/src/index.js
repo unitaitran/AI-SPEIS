@@ -7,13 +7,16 @@ import reportWebVitals from './reportWebVitals';
 
 import TokenMonitor from './routes/TokenMonitor';
 import NotificationPopup from './components/UI/NotificationPopup';
+import { NotificationProvider } from './features/notifications/NotificationProvider';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <TokenMonitor />
     <NotificationPopup />
-    <AppRoutes />
+    <NotificationProvider>
+      <AppRoutes />
+    </NotificationProvider>
   </React.StrictMode>
 );
 

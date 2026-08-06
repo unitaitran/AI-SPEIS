@@ -14,7 +14,13 @@ namespace ai_speis_be.Controllers;
 public sealed class NotificationsController : ControllerBase
 {
     private readonly INotificationService _notificationService;
-    public NotificationsController(INotificationService notificationService) => _notificationService = notificationService;
+    private readonly INotificationRealtimeNotifier _realtimeNotifier;
+
+    public NotificationsController(INotificationService notificationService, INotificationRealtimeNotifier realtimeNotifier)
+    {
+        _notificationService = notificationService;
+        _realtimeNotifier = realtimeNotifier;
+    }
 
     [HttpGet]
     public async Task<ActionResult<PagedResult<NotificationDto>>> Get([FromQuery] NotificationQueryParameters query, CancellationToken cancellationToken)
@@ -42,7 +48,9 @@ public sealed class NotificationsController : ControllerBase
     public async Task<IActionResult> MarkRead(long id, CancellationToken cancellationToken)
     {
         if (!TryGetRecipient(out var userId, out var role)) return Unauthorized();
-        return await _notificationService.MarkReadAsync(id, userId, role, cancellationToken) ? NoContent() : NotFound();
+        if (!await _notificationService.MarkReadAsync(id, userId, role, cancellationToken)) return NotFound();
+        await _realtimeNotifier.ReadAsync(userId, role, id, cancellationToken);
+        return NoContent();
     }
 
     [HttpPatch("read-all")]
@@ -50,6 +58,7 @@ public sealed class NotificationsController : ControllerBase
     {
         if (!TryGetRecipient(out var userId, out var role)) return Unauthorized();
         await _notificationService.MarkAllReadAsync(userId, role, cancellationToken);
+        await _realtimeNotifier.ReadAllAsync(userId, role, cancellationToken);
         return NoContent();
     }
 
@@ -57,7 +66,9 @@ public sealed class NotificationsController : ControllerBase
     public async Task<IActionResult> Archive(long id, CancellationToken cancellationToken)
     {
         if (!TryGetRecipient(out var userId, out var role)) return Unauthorized();
-        return await _notificationService.ArchiveAsync(id, userId, role, cancellationToken) ? NoContent() : NotFound();
+        if (!await _notificationService.ArchiveAsync(id, userId, role, cancellationToken)) return NotFound();
+        await _realtimeNotifier.ArchivedAsync(userId, role, id, cancellationToken);
+        return NoContent();
     }
 
     private bool TryGetRecipient(out int userId, out NotificationRecipientRole recipientRole)

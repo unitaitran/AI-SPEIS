@@ -46,6 +46,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
         private readonly TechnicalInterviewOptions _options;
         private readonly ILogger<TechnicalInterviewOrchestrator> _logger;
         private readonly INotificationEventPublisher? _notificationPublisher;
+        private readonly IAdminNotificationPublisher? _adminNotificationPublisher;
 
         public TechnicalInterviewOrchestrator(
             ApplicationDbContext context,
@@ -62,7 +63,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             IInterviewSessionService sessionLifecycleService,
             TechnicalInterviewOptions options,
             ILogger<TechnicalInterviewOrchestrator> logger,
-            INotificationEventPublisher? notificationPublisher = null)
+            INotificationEventPublisher? notificationPublisher = null,
+            IAdminNotificationPublisher? adminNotificationPublisher = null)
         {
             _context = context;
             _questionRepository = questionRepository;
@@ -79,6 +81,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             _options = options;
             _logger = logger;
             _notificationPublisher = notificationPublisher;
+            _adminNotificationPublisher = adminNotificationPublisher;
         }
 
         public async Task<TechnicalOperationResult<TechnicalInterviewSessionDto>> InitializeAsync(
@@ -607,6 +610,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 }
 
                 await ResetFailedEvaluationAsync(session, attempt, cancellationToken);
+                await PublishAdminEvaluationFailedAsync(session, arbiterResult.ErrorCode, cancellationToken);
                 return ExternalFailure<TechnicalSubmitAnswerResponseDto>(
                     arbiterResult.ErrorCode ?? "AI_EVALUATION_FAILED",
                     "Answer evaluation failed backend validation. The same attempt can be submitted again.");
@@ -1217,6 +1221,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
             await EnsureLifecycleCompletionAsync(userId, session);
             await PublishFeedbackNotificationAsync(session, userId, cancellationToken);
+            if (string.Equals(session.TechnicalFinalFeedbackStatus, "FAILED", StringComparison.Ordinal))
+                await PublishAdminFinalFeedbackFailedAsync(session, cancellationToken);
 
             return TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session));
         }
@@ -1269,6 +1275,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         "The session changed while final Technical feedback was being persisted.");
 
                 if (generated) await PublishFeedbackNotificationAsync(session, userId, cancellationToken);
+                else await PublishAdminFinalFeedbackFailedAsync(session, cancellationToken);
                 return generated
                     ? TechnicalOperationResult<TechnicalInterviewResultDto>.Ok(BuildResult(session))
                     : ExternalFailure<TechnicalInterviewResultDto>(
@@ -1405,6 +1412,31 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             {
                 _logger.LogError(exception, "Could not publish Technical feedback notification for session {SessionId}.", session.InterviewSessionId);
             }
+        }
+
+        private Task PublishAdminEvaluationFailedAsync(InterviewSession session, string? errorCode, CancellationToken cancellationToken) =>
+            PublishAdminAsync(new AdminNotificationEvent(
+                session.InterviewCampaign.UserId, NotificationType.AI_EVALUATION_FAILED,
+                NotificationCategory.AI_EVALUATION, NotificationSeverity.ERROR,
+                "AI evaluation failed", "The interview evaluation could not be completed.",
+                NotificationEntityType.AI_EVALUATION, session.InterviewSessionId.ToString(), "/admin/ai-usage",
+                $"AI_EVALUATION_FAILED:TECHNICAL:{session.InterviewSessionId}",
+                new Dictionary<string, object?> { ["roundType"] = "TECHNICAL", ["errorCode"] = errorCode }), cancellationToken);
+
+        private Task PublishAdminFinalFeedbackFailedAsync(InterviewSession session, CancellationToken cancellationToken) =>
+            PublishAdminAsync(new AdminNotificationEvent(
+                session.InterviewCampaign.UserId, NotificationType.FINAL_FEEDBACK_FAILED,
+                NotificationCategory.AI_EVALUATION, NotificationSeverity.ERROR,
+                "Final feedback generation failed", "Final feedback could not be generated for the interview.",
+                NotificationEntityType.INTERVIEW_RESULT, session.InterviewSessionId.ToString(), "/admin/ai-usage",
+                $"FINAL_FEEDBACK_FAILED:TECHNICAL:{session.InterviewSessionId}",
+                new Dictionary<string, object?> { ["roundType"] = "TECHNICAL" }), cancellationToken);
+
+        private async Task PublishAdminAsync(AdminNotificationEvent notificationEvent, CancellationToken cancellationToken)
+        {
+            if (_adminNotificationPublisher is null) return;
+            try { await _adminNotificationPublisher.PublishAsync(notificationEvent, cancellationToken); }
+            catch (Exception exception) { _logger.LogError(exception, "Could not publish admin notification {NotificationType}.", notificationEvent.Type); }
         }
 
         private IReadOnlyList<object> BuildFinalFeedbackMainQuestionResults(InterviewSession session)
