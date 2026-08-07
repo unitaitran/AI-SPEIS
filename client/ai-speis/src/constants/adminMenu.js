@@ -52,4 +52,5 @@ export const ADMIN_ROUTES = {
   AI_USAGE: '/admin/ai-usage',
   REVENUE: '/admin/revenue',
   REFUNDS: '/admin/refunds',
+  NOTIFICATIONS: '/admin/notifications',
 };

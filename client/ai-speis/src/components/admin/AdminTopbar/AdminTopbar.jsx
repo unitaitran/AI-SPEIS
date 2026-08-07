@@ -1,5 +1,7 @@
-import { Bell, Menu, User, LogOut, Globe } from 'lucide-react';
+import { Menu, User, LogOut, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { NotificationBell } from '../../../features/notifications/NotificationBell';
+import { NOTIFICATION_STATE_RESET_EVENT } from '../../../features/notifications/NotificationProvider';
 
 function AdminTopbar({ onMenuClick }) {
   const { t, i18n } = useTranslation('admin-dashboard');
@@ -10,13 +12,10 @@ function AdminTopbar({ onMenuClick }) {
     document.documentElement.lang = nextLang;
   };
 
-  const handleNotificationClick = () => {
-    console.log('Notification clicked');
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    window.dispatchEvent(new Event(NOTIFICATION_STATE_RESET_EVENT));
     window.location.href = '/#login';
   };
 
@@ -43,14 +42,7 @@ function AdminTopbar({ onMenuClick }) {
           <Globe size={18} className="text-primary-dark" />
           <span>{i18n.language?.startsWith('en') ? 'EN' : 'VI'}</span>
         </button>
-        <button
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-transparent bg-white/50 text-text-secondary transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-border/60 hover:bg-white hover:text-primary-dark hover:shadow-sm active:scale-[0.95] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
-          onClick={handleNotificationClick}
-          aria-label="Notifications"
-        >
-          <Bell size={20} />
-          <span className="absolute right-2 top-2 h-2 w-2 animate-pulse rounded-full border-2 border-white bg-error shadow-[0_0_6px_rgba(231,111,111,0.5)]" />
-        </button>
+        <NotificationBell variant="admin" />
 
         <div className="mx-1.5 hidden h-8 w-px bg-border/40 md:block" />
 

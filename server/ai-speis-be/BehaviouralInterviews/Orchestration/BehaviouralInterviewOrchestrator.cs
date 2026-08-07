@@ -11,6 +11,7 @@ using ai_speis_be.BehaviouralInterviews.DTOs;
 using ai_speis_be.BehaviouralInterviews.Rubrics;
 using ai_speis_be.BehaviouralInterviews.Scoring;
 using ai_speis_be.BehaviouralInterviews.Selection;
+using ai_speis_be.Services.NotificationService;
 using Microsoft.EntityFrameworkCore;
 
 namespace ai_speis_be.BehaviouralInterviews.Orchestration
@@ -41,6 +42,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
         private readonly IInterviewSessionService _sessionLifecycleService;
         private readonly BehaviouralInterviewOptions _options;
         private readonly ILogger<BehaviouralInterviewOrchestrator> _logger;
+        private readonly INotificationEventPublisher? _notificationPublisher;
+        private readonly IAdminNotificationPublisher? _adminNotificationPublisher;
 
         public BehaviouralInterviewOrchestrator(
             ApplicationDbContext context,
@@ -53,7 +56,9 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             IGeminiAiParsingService aiParsingService,
             IInterviewSessionService sessionLifecycleService,
             BehaviouralInterviewOptions options,
-            ILogger<BehaviouralInterviewOrchestrator> logger)
+            ILogger<BehaviouralInterviewOrchestrator> logger,
+            INotificationEventPublisher? notificationPublisher = null,
+            IAdminNotificationPublisher? adminNotificationPublisher = null)
         {
             _context = context;
             _selectionService = selectionService;
@@ -66,6 +71,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             _sessionLifecycleService = sessionLifecycleService;
             _options = options;
             _logger = logger;
+            _notificationPublisher = notificationPublisher;
+            _adminNotificationPublisher = adminNotificationPublisher;
         }
 
         public async Task<BehaviouralOperationResult<BehaviouralInterviewSessionDto>> InitializeAsync(
@@ -847,6 +854,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     transitionError);
             }
 
+            await PublishFeedbackNotificationAsync(session, userId, roundResult, cancellationToken);
+
             return BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
                 BuildResultDto(sessionId, questionSet, roundResult));
         }
@@ -969,6 +978,9 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 roundResult.FeedbackConcurrencyVersion++;
                 await _context.SaveChangesAsync(cancellationToken);
 
+                if (generated) await PublishFeedbackNotificationAsync(session, userId, roundResult, cancellationToken);
+                else await PublishAdminFinalFeedbackFailedAsync(session, cancellationToken);
+
                 return generated
                     ? BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
                         BuildResultDto(sessionId, questionSet, roundResult))
@@ -1001,6 +1013,43 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                         && !s.IsDeleted
                         && s.InterviewCampaign.UserId == userId,
                     cancellationToken);
+        }
+
+        private async Task PublishFeedbackNotificationAsync(InterviewSession session, int userId, BehaviourRoundResult result, CancellationToken cancellationToken)
+        {
+            if (_notificationPublisher is null || !string.Equals(result.FinalFeedbackStatus, "COMPLETED", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(result.AiExecutiveSummary)) return;
+            try
+            {
+                await _notificationPublisher.PublishAsync(new NotificationEvent(
+                    userId, NotificationRecipientRole.USER, NotificationType.INTERVIEW_FEEDBACK_READY,
+                    NotificationCategory.FEEDBACK, NotificationSeverity.SUCCESS, "Interview feedback available",
+                    "Your interview result and feedback are now available.", NotificationEntityType.INTERVIEW_RESULT,
+                    session.InterviewSessionId.ToString(), "/user/interview-history",
+                    $"INTERVIEW_FEEDBACK_READY:{session.InterviewSessionId}:{userId}"), cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Could not publish Behavioural feedback notification for session {SessionId}.", session.InterviewSessionId);
+            }
+        }
+
+        private async Task PublishAdminFinalFeedbackFailedAsync(InterviewSession session, CancellationToken cancellationToken)
+        {
+            if (_adminNotificationPublisher is null) return;
+            try
+            {
+                await _adminNotificationPublisher.PublishAsync(new AdminNotificationEvent(
+                    session.InterviewCampaign.UserId, NotificationType.FINAL_FEEDBACK_FAILED,
+                    NotificationCategory.AI_EVALUATION, NotificationSeverity.ERROR,
+                    "Final feedback generation failed", "Final feedback could not be generated for the interview.",
+                    NotificationEntityType.INTERVIEW_RESULT, session.InterviewSessionId.ToString(), "/admin/ai-usage",
+                    $"FINAL_FEEDBACK_FAILED:BEHAVIORAL:{session.InterviewSessionId}",
+                    new Dictionary<string, object?> { ["roundType"] = "BEHAVIORAL" }), cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Could not publish Behavioural final-feedback failure for session {SessionId}.", session.InterviewSessionId);
+            }
         }
 
         private Task<BehaviourQuestionSet?> LoadCanonicalQuestionSetAsync(

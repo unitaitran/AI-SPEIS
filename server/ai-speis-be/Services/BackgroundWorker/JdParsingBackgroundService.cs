@@ -14,6 +14,7 @@ using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf;
 using System.Text;
 using ai_speis_be.Helpers;
+using ai_speis_be.Services.NotificationService;
 
 namespace ai_speis_be.Services.BackgroundWorker
 {
@@ -39,9 +40,10 @@ namespace ai_speis_be.Services.BackgroundWorker
 
             while (!stoppingToken.IsCancellationRequested)
             {
+                var jdFileId = 0;
                 try
                 {
-                    var jdFileId = await _queue.DequeueAsync(stoppingToken);
+                    jdFileId = await _queue.DequeueAsync(stoppingToken);
 
                     // Xử lý file (phải tạo Scope vì BackgroundService là Singleton, DbContext là Scoped)
                     using var scope = _scopeFactory.CreateScope();
@@ -77,6 +79,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                             jdFile.Status = JDFileStatus.AnalysisFailed;
                             jdFile.ErrorMessage = "Failed to extract text from PDF file: " + ex.Message;
                             await dbContext.SaveChangesAsync(stoppingToken);
+                            await PublishJdProcessingFailedAsync(jdFile, stoppingToken);
                             _logger.LogError(ex, $"Error extracting PDF for JD {jdFileId}");
                             continue; // Bỏ qua file này
                         }
@@ -89,6 +92,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                         jdFile.Status = JDFileStatus.AnalysisFailed;
                         jdFile.ErrorMessage = "No text available for parsing.";
                         await dbContext.SaveChangesAsync(stoppingToken);
+                        await PublishJdProcessingFailedAsync(jdFile, stoppingToken);
                         continue;
                     }
 
@@ -100,6 +104,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                         jdFile.Status = JDFileStatus.AnalysisFailed;
                         jdFile.ErrorMessage = "AI parsing failed: " + error;
                         await dbContext.SaveChangesAsync(stoppingToken);
+                        await PublishJdProcessingFailedAsync(jdFile, stoppingToken);
                         continue;
                     }
 
@@ -111,6 +116,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                             ? ("Document rejected by AI: " + (parsedData.InvalidReason ?? "Not a valid JD."))
                             : RoleValidationHelper.UnsupportedRoleErrorMessage;
                         await dbContext.SaveChangesAsync(stoppingToken);
+                        await PublishJdProcessingFailedAsync(jdFile, stoppingToken);
                         continue;
                     }
 
@@ -145,6 +151,8 @@ namespace ai_speis_be.Services.BackgroundWorker
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error occurred in JD Parsing Background Service.");
+                    if (jdFileId > 0)
+                        await SetAnalysisFailedAsync(jdFileId, "Unexpected error while processing the job description.", stoppingToken);
                 }
             }
         }
@@ -164,6 +172,38 @@ namespace ai_speis_be.Services.BackgroundWorker
             }
 
             return sb.ToString();
+        }
+
+        private async Task SetAnalysisFailedAsync(int jdFileId, string errorMessage, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var jdFile = await dbContext.JDFiles.FindAsync(new object[] { jdFileId }, cancellationToken);
+                if (jdFile is null) return;
+
+                jdFile.Status = JDFileStatus.AnalysisFailed;
+                jdFile.ErrorMessage = errorMessage;
+                await dbContext.SaveChangesAsync(cancellationToken);
+                await PublishJdProcessingFailedAsync(jdFile, cancellationToken);
+            }
+            catch (Exception notificationException)
+            {
+                _logger.LogError(notificationException, "Failed to persist JD analysis failure for JDFileId {JDFileId}", jdFileId);
+            }
+        }
+
+        private async Task PublishJdProcessingFailedAsync(JDFile jdFile, CancellationToken cancellationToken)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var publisher = scope.ServiceProvider.GetRequiredService<INotificationEventPublisher>();
+            await publisher.PublishAsync(new NotificationEvent(
+                jdFile.UserId, NotificationRecipientRole.USER, NotificationType.JD_PROCESSING_FAILED,
+                NotificationCategory.PROFILE, NotificationSeverity.ERROR, "Job description processing failed",
+                "We could not process the job description. Please review it and try again.",
+                NotificationEntityType.JOB_DESCRIPTION, jdFile.JDFileId.ToString(), "/user/cv-management",
+                $"JD_PROCESSING_FAILED:{jdFile.JDFileId}:1", new { jdFileId = jdFile.JDFileId }), cancellationToken);
         }
     }
 }

@@ -102,5 +102,12 @@ export const ENDPOINTS = {
   ADMIN_PAYMENTS_VERIFY: (id) => `${API_BASE_URL}/api/admin/payments/${id}/verify`,
   ADMIN_PAYMENT_DETAIL: (id) => `${API_BASE_URL}/api/admin/payments/${id}`,
   ADMIN_DASHBOARD: `${API_BASE_URL}/api/admin/dashboard`,
+  NOTIFICATIONS: `${API_BASE_URL}/api/notifications`,
+  NOTIFICATION_UNREAD_COUNT: `${API_BASE_URL}/api/notifications/unread-count`,
+  NOTIFICATION_BY_ID: (id) => `${API_BASE_URL}/api/notifications/${encodeURIComponent(id)}`,
+  NOTIFICATION_MARK_READ: (id) => `${API_BASE_URL}/api/notifications/${encodeURIComponent(id)}/read`,
+  NOTIFICATION_MARK_ALL_READ: `${API_BASE_URL}/api/notifications/read-all`,
+  NOTIFICATION_ARCHIVE: (id) => `${API_BASE_URL}/api/notifications/${encodeURIComponent(id)}/archive`,
+  NOTIFICATION_HUB: `${API_BASE_URL}/hubs/notifications`,
 };
 
