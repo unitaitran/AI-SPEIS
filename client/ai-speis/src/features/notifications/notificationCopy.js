@@ -116,6 +116,34 @@ const copy = {
     en: ['Subscription data inconsistent', 'A subscription record is inconsistent with the payment provider.', 'Review subscription'],
     vi: ['Dữ liệu gói đăng ký không nhất quán', 'Dữ liệu gói đăng ký không khớp với nhà cung cấp thanh toán.', 'Kiểm tra gói đăng ký'],
   },
+  CV_UPLOADED: {
+    en: ['CV uploaded', 'Your CV was uploaded successfully and is ready to be processed.', 'View CV'],
+    vi: ['Đã tải CV lên', 'CV của bạn đã được tải lên thành công và sẵn sàng để xử lý.', 'Xem CV'],
+  },
+  CV_PROCESSING_COMPLETED: {
+    en: ['CV processing completed', 'Your CV has been processed successfully. Please review and confirm the extracted information.', 'Review CV'],
+    vi: ['Đã xử lý CV', 'CV của bạn đã được xử lý thành công. Vui lòng xem lại và xác nhận thông tin trích xuất.', 'Xem lại CV'],
+  },
+  JD_UPLOADED: {
+    en: ['Job description uploaded', 'Your job description was uploaded successfully and is ready to be processed.', 'View job description'],
+    vi: ['Đã tải mô tả công việc lên', 'Mô tả công việc của bạn đã được tải lên thành công và sẵn sàng để xử lý.', 'Xem mô tả công việc'],
+  },
+  JD_PROCESSING_COMPLETED: {
+    en: ['Job description processing completed', 'Your job description has been processed successfully. Please review the extracted information.', 'Review job description'],
+    vi: ['Đã xử lý mô tả công việc', 'Mô tả công việc của bạn đã được xử lý thành công. Vui lòng xem lại thông tin trích xuất.', 'Xem lại mô tả công việc'],
+  },
+  PROFILE_UPDATED: {
+    en: ['Profile updated', 'Your personal information has been updated successfully.', 'View profile'],
+    vi: ['Đã cập nhật hồ sơ', 'Thông tin cá nhân của bạn đã được cập nhật thành công.', 'Xem hồ sơ'],
+  },
+  SUBSCRIPTION_PAYMENT_SUCCEEDED: {
+    en: ['Subscription payment received', 'A subscription payment for {{user}} was completed successfully.', 'Review payment'],
+    vi: ['Đã nhận thanh toán gói đăng ký', 'Thanh toán gói đăng ký của {{user}} đã hoàn tất thành công.', 'Kiểm tra thanh toán'],
+  },
+  WEEKLY_SYSTEM_STATISTICS: {
+    en: ['Weekly system statistics', 'Your weekly AI-SPEIS statistics summary is now available.', 'View dashboard'],
+    vi: ['Thống kê hệ thống hằng tuần', 'Báo cáo thống kê AI-SPEIS hằng tuần đã sẵn sàng.', 'Xem dashboard'],
+  },
 };
 
 function interpolate(template, values) {

@@ -5,6 +5,8 @@ using ai_speis_be.Services.FileValidatorService;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
 using System.IO;
+using ai_speis_be.Models.Enums;
+using ai_speis_be.Services.NotificationService;
 
 namespace ai_speis_be.Services.UserService
 {
@@ -12,11 +14,13 @@ namespace ai_speis_be.Services.UserService
     {
         private readonly IUserRepository _userRepository;
         private readonly IFileValidatorService _fileValidatorService;
+        private readonly INotificationEventPublisher _notificationPublisher;
 
-        public UserService(IUserRepository userRepository, IFileValidatorService fileValidatorService)
+        public UserService(IUserRepository userRepository, IFileValidatorService fileValidatorService, INotificationEventPublisher notificationPublisher)
         {
             _userRepository = userRepository;
             _fileValidatorService = fileValidatorService;
+            _notificationPublisher = notificationPublisher;
         }
 
         public Task<PagedResultDto<AdminUserListItemDto>> GetUsersAsync(
@@ -321,7 +325,22 @@ namespace ai_speis_be.Services.UserService
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateUserAsync(user, cancellationToken);
+            await PublishProfileUpdatedNotificationAsync(user, cancellationToken);
             return new UpdateProfileResult(UpdateProfileOutcome.Success, MapToUserMeResponseDto(user));
+        }
+
+        private async Task PublishProfileUpdatedNotificationAsync(User user, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _notificationPublisher.PublishAsync(new NotificationEvent(
+                    user.UserId, NotificationRecipientRole.USER, NotificationType.PROFILE_UPDATED,
+                    NotificationCategory.PROFILE, NotificationSeverity.SUCCESS, "Profile updated",
+                    "Your personal information has been updated successfully.",
+                    NotificationEntityType.USER_PROFILE, user.UserId.ToString(), "/user/profile",
+                    $"PROFILE_UPDATED:{user.UserId}:{user.UpdatedAt:O}"), cancellationToken);
+            }
+            catch { }
         }
         public async Task<(bool Success, string? ErrorMessage, string? NewImageUrl)> UpdateAvatarAsync(
             int userId,

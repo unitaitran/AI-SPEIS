@@ -171,6 +171,7 @@ builder.Services.AddHostedService<JdParsingBackgroundService>();
 builder.Services.AddHostedService<PremiumQuotaResetBackgroundService>();
 builder.Services.AddHostedService<PendingPaymentExpiryBackgroundService>();
 builder.Services.AddHostedService<SubscriptionNotificationBackgroundService>();
+builder.Services.AddHostedService<AdminOperationalNotificationBackgroundService>();
 
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();

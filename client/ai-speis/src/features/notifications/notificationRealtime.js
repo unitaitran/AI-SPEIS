@@ -6,6 +6,9 @@ export function createNotificationRealtimeConnection({ onCreated, onRead, onRead
     .withUrl(ENDPOINTS.NOTIFICATION_HUB, {
       accessTokenFactory: () => localStorage.getItem('token') || '',
       transport: HttpTransportType.WebSockets | HttpTransportType.LongPolling,
+      // Authentication is supplied by the bearer token above. Keeping cookies off
+      // avoids a CORS credentials rejection when the React app and API use different origins.
+      withCredentials: false,
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .configureLogging(LogLevel.Warning)

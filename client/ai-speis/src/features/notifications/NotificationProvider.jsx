@@ -312,11 +312,28 @@ export function NotificationProvider({ children }) {
       },
     });
     realtimeConnectionRef.current = connection;
-    connection.start().catch(() => {
-      // REST remains available if the realtime transport cannot connect.
+    let disposed = false;
+    let retryTimer = null;
+    const startConnection = async () => {
+      if (disposed || connection.state !== 'Disconnected') return;
+      try {
+        await connection.start();
+        // A notification may have been created while the initial negotiation ran.
+        if (!disposed) refreshUnreadCount();
+      } catch {
+        // withAutomaticReconnect only applies after a successful connection. Retry
+        // the initial negotiation as well (e.g. API starting after the UI).
+        if (!disposed) retryTimer = window.setTimeout(startConnection, 5000);
+      }
+    };
+    connection.onclose(() => {
+      if (!disposed) retryTimer = window.setTimeout(startConnection, 5000);
     });
+    startConnection();
 
     return () => {
+      disposed = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
       if (realtimeConnectionRef.current === connection) realtimeConnectionRef.current = null;
       if (connection.state !== 'Disconnected') connection.stop().catch(() => {});
     };
