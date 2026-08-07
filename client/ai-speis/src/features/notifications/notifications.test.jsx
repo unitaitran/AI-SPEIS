@@ -50,8 +50,8 @@ describe('notification type configuration', () => {
     expect(AdminTopbar).toBeDefined();
   });
 
-  test('covers all 24 supported notification types', () => {
-    expect(Object.keys(notificationTypeConfig)).toHaveLength(24);
+  test('covers all 31 supported notification types', () => {
+    expect(Object.keys(notificationTypeConfig)).toHaveLength(31);
   });
 
   test('does not expose admin categories to users', () => {

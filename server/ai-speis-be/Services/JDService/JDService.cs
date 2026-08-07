@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using ai_speis_be.Services.GeminiAiParsingService;
 using ai_speis_be.Helpers;
+using ai_speis_be.Services.NotificationService;
 
 namespace ai_speis_be.Services.JDService
 {
@@ -19,14 +20,16 @@ namespace ai_speis_be.Services.JDService
         private readonly ApplicationDbContext _context;
         private readonly IJdParseQueue _jdParseQueue;
         private readonly IGeminiAiParsingService _aiParsingService;
+        private readonly INotificationEventPublisher _notificationPublisher;
 
-        public JDService(IJDRepository jdRepository, IFileValidatorService fileValidatorService, ApplicationDbContext context, IJdParseQueue jdParseQueue, IGeminiAiParsingService aiParsingService)
+        public JDService(IJDRepository jdRepository, IFileValidatorService fileValidatorService, ApplicationDbContext context, IJdParseQueue jdParseQueue, IGeminiAiParsingService aiParsingService, INotificationEventPublisher notificationPublisher)
         {
             _jdRepository = jdRepository;
             _fileValidatorService = fileValidatorService;
             _context = context;
             _jdParseQueue = jdParseQueue;
             _aiParsingService = aiParsingService;
+            _notificationPublisher = notificationPublisher;
         }
 
         // ===================== DELETE =====================
@@ -117,6 +120,7 @@ namespace ai_speis_be.Services.JDService
                 };
 
                 var savedJD = await _jdRepository.AddJDAsync(jdFile);
+                await PublishUploadNotificationAsync(savedJD);
                 return (true, null, MapToDto(savedJD));
             }
             catch (Exception ex)
@@ -144,12 +148,27 @@ namespace ai_speis_be.Services.JDService
                 };
 
                 var saved = await _jdRepository.AddJDAsync(jdFile);
+                await PublishUploadNotificationAsync(saved);
                 return (true, null, MapToDto(saved));
             }
             catch (Exception ex)
             {
                 return (false, $"Lỗi hệ thống khi lưu JD: {ex.Message}", null);
             }
+        }
+
+        private async Task PublishUploadNotificationAsync(JDFile jdFile)
+        {
+            try
+            {
+                await _notificationPublisher.PublishAsync(new NotificationEvent(
+                    jdFile.UserId, NotificationRecipientRole.USER, NotificationType.JD_UPLOADED,
+                    NotificationCategory.PROFILE, NotificationSeverity.SUCCESS, "Job description uploaded",
+                    "Your job description was uploaded successfully and is ready to be processed.",
+                    NotificationEntityType.JOB_DESCRIPTION, jdFile.JDFileId.ToString(), "/user/cv-management",
+                    $"JD_UPLOADED:{jdFile.JDFileId}:{jdFile.UserId}", new { jdFileId = jdFile.JDFileId }));
+            }
+            catch { }
         }
 
         // ===================== HELPER =====================

@@ -409,6 +409,7 @@ namespace ai_speis_be.Services.PaymentService
                 await transaction.CommitAsync(cancellationToken);
                 transactionCommitted = true;
                 await PublishSubscriptionActivatedNotificationAsync(payment, cancellationToken);
+                await PublishPaymentSucceededForAdminsAsync(payment, cancellationToken);
             }
             catch
             {
@@ -431,11 +432,30 @@ namespace ai_speis_be.Services.PaymentService
                     "Subscription activation failed", "The subscription could not be activated after payment confirmation.",
                     NotificationEntityType.PAYMENT, payment.PaymentId.ToString(), "/admin/payments",
                     $"SUBSCRIPTION_ACTIVATION_FAILED:{payment.PaymentId}",
-                    new Dictionary<string, object?> { ["paymentId"] = payment.PaymentId }), cancellationToken);
+                    new Dictionary<string, object?> { ["transactionReference"] = payment.PaymentId }), cancellationToken);
             }
             catch (Exception notificationException)
             {
                 Console.WriteLine($"[NotificationError] Failed to publish subscription activation failure: {notificationException.Message}");
+            }
+        }
+
+        private async Task PublishPaymentSucceededForAdminsAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            if (_adminNotificationPublisher is null) return;
+            try
+            {
+                await _adminNotificationPublisher.PublishAsync(new AdminNotificationEvent(
+                    payment.UserId, NotificationType.SUBSCRIPTION_PAYMENT_SUCCEEDED,
+                    NotificationCategory.SUBSCRIPTION, NotificationSeverity.SUCCESS,
+                    "Subscription payment received", "A subscription payment was completed successfully.",
+                    NotificationEntityType.PAYMENT, payment.PaymentId.ToString(), "/admin/payments",
+                    $"SUBSCRIPTION_PAYMENT_SUCCEEDED:{payment.PaymentId}",
+                    new Dictionary<string, object?> { ["transactionReference"] = payment.PaymentId }), cancellationToken);
+            }
+            catch (Exception notificationException)
+            {
+                Console.WriteLine($"[NotificationError] Failed to publish payment success: {notificationException.Message}");
             }
         }
 

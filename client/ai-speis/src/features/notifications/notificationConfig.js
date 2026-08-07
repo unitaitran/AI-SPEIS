@@ -45,6 +45,13 @@ export const notificationTypeConfig = {
   SUBSCRIPTION_PAYMENT_REQUIRES_REVIEW: { category: 'SUBSCRIPTION', icon: CreditCard, severity: 'WARNING', recipientRole: admin, actionLabel: 'Review payment', destination: () => AUTHENTICATED_ADMIN_ROUTES.PAYMENTS },
   SUBSCRIPTION_ACTIVATION_FAILED: { category: 'SUBSCRIPTION', icon: CircleAlert, severity: 'ERROR', recipientRole: admin, actionLabel: 'Review subscription', destination: () => AUTHENTICATED_ADMIN_ROUTES.SUBSCRIPTION },
   SUBSCRIPTION_DATA_INCONSISTENT: { category: 'SUBSCRIPTION', icon: ShieldAlert, severity: 'CRITICAL', recipientRole: admin, actionLabel: 'Review subscription', destination: () => AUTHENTICATED_ADMIN_ROUTES.SUBSCRIPTION },
+  CV_UPLOADED: { category: 'PROFILE', icon: FileText, severity: 'SUCCESS', recipientRole: user, actionLabel: 'View CV', destination: () => USER_ROUTES.CV },
+  CV_PROCESSING_COMPLETED: { category: 'PROFILE', icon: CheckCircle2, severity: 'SUCCESS', recipientRole: user, actionLabel: 'Review CV', destination: () => USER_ROUTES.CV },
+  JD_UPLOADED: { category: 'PROFILE', icon: FileText, severity: 'SUCCESS', recipientRole: user, actionLabel: 'View job description', destination: () => USER_ROUTES.CV },
+  JD_PROCESSING_COMPLETED: { category: 'PROFILE', icon: CheckCircle2, severity: 'SUCCESS', recipientRole: user, actionLabel: 'Review job description', destination: () => USER_ROUTES.CV },
+  PROFILE_UPDATED: { category: 'PROFILE', icon: UserRoundCog, severity: 'SUCCESS', recipientRole: user, actionLabel: 'View profile', destination: () => USER_ROUTES.PROFILE },
+  SUBSCRIPTION_PAYMENT_SUCCEEDED: { category: 'SUBSCRIPTION', icon: CheckCircle2, severity: 'SUCCESS', recipientRole: admin, actionLabel: 'Review payment', destination: () => AUTHENTICATED_ADMIN_ROUTES.PAYMENTS },
+  WEEKLY_SYSTEM_STATISTICS: { category: 'SYSTEM', icon: Info, severity: 'INFO', recipientRole: admin, actionLabel: 'View dashboard', destination: () => AUTHENTICATED_ADMIN_ROUTES.DASHBOARD },
 };
 
 export const categoriesByRole = {

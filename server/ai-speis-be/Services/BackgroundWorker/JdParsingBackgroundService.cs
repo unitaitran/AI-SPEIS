@@ -142,6 +142,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                     jdFile.ErrorMessage = null;
 
                     await dbContext.SaveChangesAsync(stoppingToken);
+                    await PublishJdProcessingCompletedAsync(jdFile, stoppingToken);
                     _logger.LogInformation($"Successfully parsed JD {jdFileId}. Confidence: {parsedData.JdConfidenceScore}");
                 }
                 catch (OperationCanceledException)
@@ -204,6 +205,18 @@ namespace ai_speis_be.Services.BackgroundWorker
                 "We could not process the job description. Please review it and try again.",
                 NotificationEntityType.JOB_DESCRIPTION, jdFile.JDFileId.ToString(), "/user/cv-management",
                 $"JD_PROCESSING_FAILED:{jdFile.JDFileId}:1", new { jdFileId = jdFile.JDFileId }), cancellationToken);
+        }
+
+        private async Task PublishJdProcessingCompletedAsync(JDFile jdFile, CancellationToken cancellationToken)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var publisher = scope.ServiceProvider.GetRequiredService<INotificationEventPublisher>();
+            await publisher.PublishAsync(new NotificationEvent(
+                jdFile.UserId, NotificationRecipientRole.USER, NotificationType.JD_PROCESSING_COMPLETED,
+                NotificationCategory.PROFILE, NotificationSeverity.SUCCESS, "Job description processing completed",
+                "Your job description has been processed successfully. Please review the extracted information.",
+                NotificationEntityType.JOB_DESCRIPTION, jdFile.JDFileId.ToString(), "/user/cv-management",
+                $"JD_PROCESSING_COMPLETED:{jdFile.JDFileId}:1", new { jdFileId = jdFile.JDFileId }), cancellationToken);
         }
     }
 }
