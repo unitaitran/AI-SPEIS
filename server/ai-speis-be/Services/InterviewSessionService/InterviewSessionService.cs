@@ -966,7 +966,9 @@ namespace ai_speis_be.Services.InterviewSessionService
             }
 
             var nextSession = campaign.InterviewSessions
-                .Where(candidate => !candidate.IsDeleted && candidate.Status == InterviewSessionStatus.Pending)
+                .Where(candidate => !candidate.IsDeleted
+                    && candidate.Status != InterviewSessionStatus.Completed
+                    && candidate.Status != InterviewSessionStatus.Cancelled)
                 .OrderBy(candidate => GetRoundOrder(candidate.InterviewRoundType))
                 .ThenBy(candidate => candidate.InterviewSessionId)
                 .FirstOrDefault();

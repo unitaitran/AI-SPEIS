@@ -127,3 +127,95 @@
 .interview-review-navigation span { color: var(--text-secondary); font-size: var(--body-sm); }
 @media (max-width: 1024px) { .interview-history-controls { grid-template-columns: 1fr 1fr; } .interview-history-search { grid-column: 1 / -1; } .interview-review-layout { grid-template-columns: 250px minmax(0, 1fr); } }
 @media (max-width: 767px) { .interview-history-header h1, .interview-review-page h1 { font-size: 24px; } .interview-history-summary { grid-template-columns: 1fr; } .interview-history-summary article { min-height: 100px; } .interview-history-controls { grid-template-columns: 1fr; } .interview-history-search { grid-column: auto; } .interview-history-table-wrap { background: transparent; border: 0; overflow: visible; } .interview-history-table, .interview-history-table tbody, .interview-history-table tr, .interview-history-table td { display: block; min-width: 0; width: 100%; } .interview-history-table thead { display: none; } .interview-history-table tr { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--border-radius-md); box-shadow: var(--box-shadow-sm); margin-bottom: 12px; padding: 10px 14px; } .interview-history-table td { align-items: center; border: 0; display: flex; justify-content: space-between; padding: 8px 0; text-align: right; } .interview-history-table td::before { color: var(--text-secondary); content: attr(data-label); font-size: var(--body-sm); padding-right: 15px; text-align: left; } .interview-history-table__actions { justify-content: flex-end !important; } .interview-history-table__actions::before { margin-right: auto; } .interview-history-dialog { padding: 20px; } .interview-history-dialog__meta { grid-template-columns: 1fr 1fr; } .interview-history-dialog footer { flex-direction: column-reverse; } .interview-history-dialog footer button { width: 100%; } .interview-review-page__header { align-items: flex-start; flex-direction: column; gap: 16px; } .interview-review-overall { text-align: left; } .interview-review-layout { display: block; overflow: visible; } .interview-review-questions { border-bottom: 1px solid var(--border); border-right: 0; } .interview-review-questions > div { display: flex; max-height: none; overflow-x: auto; } .interview-review-questions button { flex: 0 0 225px; min-height: 110px; } .interview-review-detail { padding: 20px; } .interview-review-detail__header { flex-direction: column; } .interview-review-score { align-self: flex-start; } .interview-review-navigation { flex-wrap: wrap; } }
+
+/* ========== Pagination ========== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background-color: var(--surface-2);
+  border-bottom-left-radius: var(--border-radius-md);
+  border-bottom-right-radius: var(--border-radius-md);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-size-selector label {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.page-size-select {
+  padding: 4px 8px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.page-size-select:focus {
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 3px var(--primary-xlight);
+}
+
+.pagination-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.pagination-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: var(--primary-xlight);
+  border-color: var(--primary-light);
+  color: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+.pagination-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.pagination-btn.active {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+  color: #ffffff;
+  font-weight: 700;
+}

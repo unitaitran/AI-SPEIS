@@ -15,7 +15,7 @@ const formatDuration = (seconds) => {
   return `${String(Math.floor(safeSeconds / 60)).padStart(2, '0')}:${String(safeSeconds % 60).padStart(2, '0')}`;
 };
 
-function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimitSeconds, onSubmit, t }) {
+function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimitSeconds, remainingSeconds, strategy, isAudioPlaying, onSubmit, t }) {
   const audioUrl = useMemo(
     () => (recorder.audioBlob ? URL.createObjectURL(recorder.audioBlob) : ''),
     [recorder.audioBlob],
@@ -44,12 +44,13 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
     || (recorder.sttStatus === SttStatus.COMPLETED && recorder.audioBlob && !hasTranscript);
 
   if (isRecording) {
+    const displaySeconds = typeof remainingSeconds === 'number' ? remainingSeconds : recorder.elapsedSeconds;
     return (
       <section className="behavior-recorder behavior-recorder--recording" aria-label={t('recordingControls')}>
         <div className="behavior-recorder__status" role="status" aria-live="polite">
           <span className="behavior-recorder__live-dot" />
           <strong>{t('recording')}</strong>
-          <time>{formatDuration(recorder.elapsedSeconds)}</time>
+          <time>{formatDuration(displaySeconds)}</time>
           {timeLimitSeconds ? <span>/ {formatDuration(timeLimitSeconds)}</span> : null}
         </div>
         <div className="behavior-recorder__wave" aria-hidden="true">
@@ -159,6 +160,18 @@ function BehavioralRecorderControls({ recorder, disabled, isSubmitting, timeLimi
             <Send size={17} />
             {t('submitAnswer')}
           </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (strategy?.isReal && isAudioPlaying) {
+    return (
+      <section className="behavior-recorder behavior-recorder--processing" role="status" aria-live="polite">
+        <Loader2 size={24} className="behavior-spin text-primary" />
+        <div>
+          <strong>AI đang đọc câu hỏi...</strong>
+          <p>Hệ thống sẽ tự động bật ghi âm và countdown 2 phút ngay sau khi AI đọc xong.</p>
         </div>
       </section>
     );

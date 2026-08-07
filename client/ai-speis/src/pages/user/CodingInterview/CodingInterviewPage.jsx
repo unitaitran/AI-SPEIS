@@ -393,7 +393,7 @@ const CodingInterviewPage = ({ sessionId }) => {
   };
 
   const handleCompleteRound = async () => {
-    if (!canComplete || isCompleting) return;
+    if (isCompleting) return;
     setIsCompleting(true);
     try {
       const campaign = await interviewSessionService.completeSession(sessionId);
@@ -404,9 +404,10 @@ const CodingInterviewPage = ({ sessionId }) => {
         activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
         configurationKey: currentContext?.configurationKey || null,
       });
-      navigate(nextSession
+      setIsEndConfirmOpen(false);
+      navigate(nextSession?.status === 'Active'
         ? getInterviewRoomPath(nextSession.interviewSessionId)
-        : getCampaignResultPath(campaign.interviewCampaignId), { replace: true });
+        : getCampaignResultPath(campaign?.interviewCampaignId || currentContext?.campaign?.interviewCampaignId), { replace: true });
     } catch (err) {
       notify.error(err.message || 'Lỗi khi hoàn thành vòng Coding');
     } finally {

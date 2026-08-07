@@ -93,6 +93,15 @@ namespace ai_speis_be.Repositories.CVRepo
 
             if (profile != null)
             {
+                var campaigns = await _context.InterviewCampaigns
+                    .Where(c => c.CVExtractedProfileId == profile.ExtractedProfileId)
+                    .ToListAsync();
+
+                if (campaigns.Any())
+                {
+                    await DeleteCampaignsAndDependenciesAsync(campaigns);
+                }
+
                 _context.CVSkills.RemoveRange(profile.Skills);
                 _context.CVProjects.RemoveRange(profile.Projects);
                 _context.CVExtractedProfiles.Remove(profile);
@@ -176,6 +185,91 @@ namespace ai_speis_be.Repositories.CVRepo
                 (_, true) => query.OrderBy(c => c.UploadedAt).ThenBy(c => c.CVFileId),
                 _ => query.OrderByDescending(c => c.UploadedAt).ThenByDescending(c => c.CVFileId)
             };
+        }
+        private async Task DeleteCampaignsAndDependenciesAsync(List<InterviewCampaign> campaigns)
+        {
+            if (!campaigns.Any()) return;
+
+            var campaignIds = campaigns.Select(c => c.InterviewCampaignId).ToList();
+            var sessions = await _context.InterviewSessions
+                .Where(s => campaignIds.Contains(s.InterviewCampaignId))
+                .ToListAsync();
+
+            if (sessions.Any())
+            {
+                var sessionIds = sessions.Select(s => s.InterviewSessionId).ToList();
+
+                var submissions = await _context.CodingSubmissions
+                    .Where(sub => sessionIds.Contains(sub.InterviewSessionId))
+                    .ToListAsync();
+                if (submissions.Any())
+                {
+                    var submissionIds = submissions.Select(sub => sub.CodingSubmissionId).ToList();
+                    var testResults = await _context.SubmissionTestCaseResults
+                        .Where(r => submissionIds.Contains(r.CodingSubmissionId))
+                        .ToListAsync();
+                    if (testResults.Any()) _context.SubmissionTestCaseResults.RemoveRange(testResults);
+                    _context.CodingSubmissions.RemoveRange(submissions);
+                }
+
+                var aiLogs = await _context.AIInteractionLogs
+                    .Where(log => sessionIds.Contains(log.InterviewSessionId))
+                    .ToListAsync();
+                if (aiLogs.Any()) _context.AIInteractionLogs.RemoveRange(aiLogs);
+
+                var attempts = await _context.TechnicalQuestionAttempts
+                    .Where(a => sessionIds.Contains(a.InterviewSessionId))
+                    .ToListAsync();
+                if (attempts.Any())
+                {
+                    var attemptIds = attempts.Select(a => a.AttemptId).ToList();
+                    var evals = await _context.TechnicalAnswerEvaluations
+                        .Where(e => attemptIds.Contains(e.AttemptId))
+                        .ToListAsync();
+                    if (evals.Any()) _context.TechnicalAnswerEvaluations.RemoveRange(evals);
+                    _context.TechnicalQuestionAttempts.RemoveRange(attempts);
+                }
+
+                var bSets = await _context.BehaviourQuestionSets
+                    .Where(b => sessionIds.Contains(b.InterviewSessionId))
+                    .ToListAsync();
+                if (bSets.Any())
+                {
+                    var bSetIds = bSets.Select(b => b.BehaviourQuestionSetId).ToList();
+                    var bQuestions = await _context.BehaviourSessionQuestions
+                        .Where(bq => bSetIds.Contains(bq.BehaviourQuestionSetId))
+                        .ToListAsync();
+                    if (bQuestions.Any())
+                    {
+                        var bQuestionIds = bQuestions.Select(bq => bq.BehaviourSessionQuestionId).ToList();
+                        var bAnswers = await _context.BehaviourAnswers
+                            .Where(ba => bQuestionIds.Contains(ba.BehaviourSessionQuestionId))
+                            .ToListAsync();
+                        if (bAnswers.Any()) _context.BehaviourAnswers.RemoveRange(bAnswers);
+                        _context.BehaviourSessionQuestions.RemoveRange(bQuestions);
+                    }
+                    _context.BehaviourQuestionSets.RemoveRange(bSets);
+                }
+
+                var bResults = await _context.BehaviourRoundResults
+                    .Where(br => sessionIds.Contains(br.InterviewSessionId))
+                    .ToListAsync();
+                if (bResults.Any()) _context.BehaviourRoundResults.RemoveRange(bResults);
+
+                var skillScores = await _context.UserSkillScores
+                    .Where(ss => (ss.InterviewSessionId.HasValue && sessionIds.Contains(ss.InterviewSessionId.Value)) || (ss.InterviewCampaignId.HasValue && campaignIds.Contains(ss.InterviewCampaignId.Value)))
+                    .ToListAsync();
+                if (skillScores.Any()) _context.UserSkillScores.RemoveRange(skillScores);
+
+                _context.InterviewSessions.RemoveRange(sessions);
+            }
+
+            var campaignSkillScores = await _context.UserSkillScores
+                .Where(ss => ss.InterviewCampaignId.HasValue && campaignIds.Contains(ss.InterviewCampaignId.Value))
+                .ToListAsync();
+            if (campaignSkillScores.Any()) _context.UserSkillScores.RemoveRange(campaignSkillScores);
+
+            _context.InterviewCampaigns.RemoveRange(campaigns);
         }
     } 
    

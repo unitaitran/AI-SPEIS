@@ -171,8 +171,6 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
         >
           <Menu size={24} />
         </button>
-        {/* Mobile Logo */}
-        <img src="/logo_AI-SPEIS-removebg.png" alt="AI-SPEIS" className="ml-2 h-7 object-contain" />
       </div>
 
       {/* Spacer for desktop since logo is in sidebar */}

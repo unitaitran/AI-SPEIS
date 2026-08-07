@@ -52,6 +52,7 @@ using ai_speis_be.TechnicalInterviews.Rubrics;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using ai_speis_be.TechnicalInterviews.Selection;
 using ai_speis_be.TechnicalInterviews.Validation;
+using ai_speis_be.TechnicalInterviews.PreGeneration;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
@@ -230,6 +231,7 @@ builder.Services.AddScoped<ITechnicalAnswerEvaluationProcessor, TechnicalAnswerE
 builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
+builder.Services.AddSingleton<ITechnicalPreGenerationService, TechnicalPreGenerationService>();
 
 // Google Cloud Quota & Billing Cost Monitoring
 builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.GoogleQuotaConfig>();

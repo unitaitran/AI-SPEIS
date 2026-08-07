@@ -13,6 +13,8 @@ const COPY = {
       detailEyebrow: 'CHI TIẾT ĐỢT PHỎNG VẤN', detailTitle: 'Đợt phỏng vấn #{{id}}', close: 'Đóng', closeAria: 'Đóng chi tiết', started: 'Bắt đầu', finished: 'Hoàn thành',
       duration: 'Thời lượng cấu hình', minutes: '{{count}} phút', totalScore: 'Điểm tổng', sessionRounds: 'Các vòng phỏng vấn', loadingResult: 'Đang tải kết quả…', scoreError: 'Không thể tải điểm tổng quan của đợt phỏng vấn này.', answerCount: '{{completed}}/{{total}} câu trả lời',
       unauthorized: 'Bạn không có quyền xem lịch sử phỏng vấn.', loadError: 'Không thể tải lịch sử phỏng vấn. Vui lòng thử lại.',
+      showing: 'Hiển thị', of: 'trên tổng số', sessionsUnit: 'phiên phỏng vấn', pageSize: 'Số lượng mỗi trang:',
+      firstPage: 'Trang đầu', lastPage: 'Trang cuối', previousPage: 'Trang trước', nextPage: 'Trang tiếp',
     },
     review: {
       technical: 'Kỹ thuật', behavioral: 'Hành vi', fallbackRound: 'Phỏng vấn', title: 'Review câu trả lời', eyebrow: 'REVIEW TỪNG CÂU TRẢ LỜI', back: 'Lịch sử phỏng vấn',
@@ -36,6 +38,8 @@ const COPY = {
       detailEyebrow: 'INTERVIEW CAMPAIGN DETAILS', detailTitle: 'Interview campaign #{{id}}', close: 'Close', closeAria: 'Close details', started: 'Started', finished: 'Completed',
       duration: 'Configured duration', minutes: '{{count}} minutes', totalScore: 'Overall score', sessionRounds: 'Interview rounds', loadingResult: 'Loading result…', scoreError: 'Unable to load the overall score for this interview campaign.', answerCount: '{{completed}}/{{total}} answers',
       unauthorized: 'You do not have permission to view interview history.', loadError: 'Unable to load interview history. Please try again.',
+      showing: 'Showing', of: 'of', sessionsUnit: 'interview sessions', pageSize: 'Items per page:',
+      firstPage: 'First page', lastPage: 'Last page', previousPage: 'Previous page', nextPage: 'Next page',
     },
     review: {
       technical: 'Technical', behavioral: 'Behavioral', fallbackRound: 'Interview', title: 'Answer review', eyebrow: 'REVIEW EACH ANSWER', back: 'Interview history',

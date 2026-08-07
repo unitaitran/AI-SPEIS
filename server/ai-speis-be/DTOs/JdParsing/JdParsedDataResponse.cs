@@ -4,6 +4,9 @@ namespace ai_speis_be.DTOs.JdParsing
     {
         public int ExtractedProfileId { get; set; }
         public int JDFileId { get; set; }
+        public string? FileName { get; set; }
+        public string? RawText { get; set; }
+        public string? InputType { get; set; }
         public string? JobTitle { get; set; }
         public string? ExperienceLevel { get; set; }
         public string? RoleTarget { get; set; }
