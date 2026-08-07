@@ -19,6 +19,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: aispeis_password_2026
+      REDIS_URL: redis://:aispeis_password_2026@redis:6379/0
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       POSTGRES_USER: postgres
@@ -45,6 +46,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: aispeis_password_2026
+      REDIS_URL: redis://:aispeis_password_2026@redis:6379/0
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       POSTGRES_USER: postgres

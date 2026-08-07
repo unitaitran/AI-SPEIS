@@ -23,16 +23,30 @@ export default function useQuestionAudio({
   sessionId,
   language,
   preferenceKey = AUTO_PLAY_STORAGE_KEY,
+  onEnded = null,
+  forceAutoPlay = false,
 }) {
   const [status, setStatus] = useState(QuestionAudioStatus.IDLE);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(null);
-  const [autoPlay, setAutoPlay] = useState(() => readAutoPlayPreference(preferenceKey));
+  const [autoPlay, setAutoPlay] = useState(() => (forceAutoPlay ? true : readAutoPlayPreference(preferenceKey)));
   const audioRef = useRef(null);
   const audioUrlRef = useRef(null);
   const requestRef = useRef(null);
   const requestIdRef = useRef(0);
   const autoPlayRef = useRef(autoPlay);
+  const onEndedRef = useRef(onEnded);
+
+  useEffect(() => {
+    if (forceAutoPlay) {
+      setAutoPlay(true);
+      autoPlayRef.current = true;
+    }
+  }, [forceAutoPlay]);
+
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
 
   const questionKey = question
     ? `${question.attemptId || question.sessionQuestionId || question.questionId || 'question'}:${question.content || ''}`
@@ -88,11 +102,19 @@ export default function useQuestionAudio({
       audio.preload = 'auto';
       audio.onplay = () => setIsPlaying(true);
       audio.onpause = () => setIsPlaying(false);
-      audio.onended = () => setIsPlaying(false);
+      audio.onended = () => {
+        setIsPlaying(false);
+        if (typeof onEndedRef.current === 'function') {
+          onEndedRef.current();
+        }
+      };
       audio.onerror = () => {
         setIsPlaying(false);
         setStatus(QuestionAudioStatus.ERROR);
         setError({ code: 'TTS_AUDIO_PLAYBACK_FAILED' });
+        if (typeof onEndedRef.current === 'function') {
+          onEndedRef.current();
+        }
       };
 
       audioUrlRef.current = audioUrl;
@@ -103,13 +125,21 @@ export default function useQuestionAudio({
       if (autoPlayRef.current) {
         // Browser autoplay policies may reject play() after the async request.
         // Audio remains ready for the explicit Play control in that case.
-        audio.play().catch(() => setIsPlaying(false));
+        audio.play().catch(() => {
+          setIsPlaying(false);
+          if (typeof onEndedRef.current === 'function') {
+            onEndedRef.current();
+          }
+        });
       }
     } catch (requestError) {
       if (controller.signal.aborted || requestIdRef.current !== requestId) return;
       requestRef.current = null;
       setStatus(QuestionAudioStatus.ERROR);
       setError(requestError);
+      if (typeof onEndedRef.current === 'function') {
+        onEndedRef.current();
+      }
     }
   }, [language, question, releaseResources, sessionId]);
 

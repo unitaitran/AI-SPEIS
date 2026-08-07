@@ -171,8 +171,22 @@ function CVJDManagementPage() {
     navigate(USER_ROUTES.CV_DETAIL);
   };
 
+  const handleViewJD = async (jdId, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const parsed = await jdService.getParsedData(jdId);
+      if (parsed && parsed.data) {
+        setSelectedJDParsedData(parsed.data);
+        setSelectedJDId(jdId);
+        setShowJDInfoModal(true);
+      }
+    } catch (err) {
+      notify.error(`Lỗi lấy dữ liệu: ${err.message}`, { title: 'Không thể tải dữ liệu JD' });
+    }
+  };
+
   const handleJDClick = (id) => {
-    // Navigate or default action
+    handleViewJD(id);
   };
 
   const handleJDActionClick = async (jdId, e) => {
@@ -193,14 +207,7 @@ function CVJDManagementPage() {
       startJdPolling(jdId);
       notify.info('JD đang được xử lý, vui lòng chờ...', { title: `${t('analyzing', 'Đang phân tích')} JD` });
     } else if (statusStr === 'ConfirmationRequired' || statusStr === 'Confirmed') {
-      try {
-        const parsed = await jdService.getParsedData(jdId);
-        setSelectedJDParsedData(parsed.data);
-        setSelectedJDId(jdId);
-        setShowJDInfoModal(true);
-      } catch (err) {
-        notify.error(`Lỗi lấy dữ liệu: ${err.message}`, { title: 'Không thể tải dữ liệu JD' });
-      }
+      handleViewJD(jdId, e);
     }
   };
 
@@ -381,22 +388,43 @@ function CVJDManagementPage() {
                         <p className="text-xs text-text-secondary mt-1">Tải lên: {formatDate(jd.uploadedAt)}</p>
                       </div>
                     </div>
-                    <div className="mycv-info-actions border-l border-border pl-3 ml-2 flex gap-2">
+                    <div className="mycv-info-actions border-l border-border pl-3 ml-2 flex items-center gap-2">
                       {getStatusString(jd.status) === 'ConfirmationRequired' || getStatusString(jd.status) === 'Confirmed' ? (
                         <>
+                          {fastCheckResults[jd.jdFileId] ? (
+                            <div 
+                              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                                fastCheckResults[jd.jdFileId].score >= 75
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                                  : fastCheckResults[jd.jdFileId].score >= 50
+                                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentFastCheckJD(jd.jdFileId);
+                                setShowFastCheckModal(true);
+                              }}
+                              title="Bấm để xem chi tiết kết quả Fast Check"
+                            >
+                              <Sparkles size={14} />
+                              <span>{fastCheckResults[jd.jdFileId].score}% phù hợp</span>
+                            </div>
+                          ) : (
+                            <button 
+                              className="mycv-btn mycv-btn--primary mycv-btn--sm py-1.5 px-3" 
+                              onClick={(e) => handleFastCheckClick(jd.jdFileId, e)}
+                              disabled={isFastChecking[jd.jdFileId]}
+                            >
+                              {isFastChecking[jd.jdFileId] ? (
+                                <><Loader2 size={14} className="animate-spin" /> Đang Check</>
+                              ) : (
+                                <><Sparkles size={14} /> Fast Check</>
+                              )}
+                            </button>
+                          )}
                           <button className="mycv-btn mycv-btn--outline mycv-btn--sm py-1.5 px-3" onClick={(e) => handleJDActionClick(jd.jdFileId, e)}>
                             <Eye size={14} /> Xem
-                          </button>
-                          <button 
-                            className="mycv-btn mycv-btn--primary mycv-btn--sm py-1.5 px-3" 
-                            onClick={(e) => handleFastCheckClick(jd.jdFileId, e)}
-                            disabled={isFastChecking[jd.jdFileId]}
-                          >
-                            {isFastChecking[jd.jdFileId] ? (
-                              <><Loader2 size={14} className="animate-spin" /> Đang Check</>
-                            ) : (
-                              <><Sparkles size={14} /> Fast Check</>
-                            )}
                           </button>
                         </>
                       ) : getStatusString(jd.status) === 'Processing' ? (
@@ -405,7 +433,7 @@ function CVJDManagementPage() {
                         </button>
                       ) : (
                         <button className="mycv-btn mycv-btn--primary mycv-btn--sm py-1.5 px-3" onClick={(e) => handleJDActionClick(jd.jdFileId, e)}>
-                          <CheckCircle2 size={14} /> Check tỉ lệ
+                          <Sparkles size={14} /> Phân tích
                         </button>
                       )}
                       <button className="p-1.5 text-text-secondary hover:text-error transition-colors bg-surface-2 rounded hover:bg-error/10" title="{t('delete', 'Xóa')}" onClick={(e) => handleDeleteJD(jd.jdFileId, e)}>
@@ -633,6 +661,17 @@ function CVJDManagementPage() {
                      <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{selectedJDParsedData.companyCharacteristics || 'Không có dữ liệu'}</p>
                    </div>
                 </div>
+                {selectedJDParsedData.rawText && (
+                  <div>
+                     <div className="flex items-center gap-2 mb-2">
+                       <FileText size={16} className="text-primary" />
+                       <h4 className="text-base font-semibold text-text-primary">Nội dung JD gốc</h4>
+                     </div>
+                     <div className="bg-surface-2 p-4 rounded-lg border border-border/50 max-h-60 overflow-y-auto">
+                       <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{selectedJDParsedData.rawText}</p>
+                     </div>
+                  </div>
+                )}
               </div>
 
             </div>

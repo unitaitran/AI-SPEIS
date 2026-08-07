@@ -69,9 +69,63 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             TechnicalRubricDefinition rubric,
             IReadOnlyList<TechnicalAnswerContext> answerContext)
         {
-            var expectedCodes = rubric.Dimensions
+            if (evaluation?.DimensionEvaluations == null || evaluation.DimensionEvaluations.Count == 0)
+            {
+                return Invalid("INVALID_RUBRIC_CODES");
+            }
+
+            var expectedDimensions = rubric.Dimensions.ToList();
+            var expectedCodes = expectedDimensions
                 .Select(item => item.Code)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // 1. Chuẩn hóa & ánh xạ RubricCode từ AI
+            foreach (var dim in evaluation.DimensionEvaluations)
+            {
+                if (string.IsNullOrWhiteSpace(dim.RubricCode)) continue;
+                var rawCode = dim.RubricCode.Trim();
+
+                // Direct match theo Code
+                var matched = expectedDimensions.FirstOrDefault(d =>
+                    string.Equals(d.Code, rawCode, StringComparison.OrdinalIgnoreCase));
+
+                // Direct match theo Name
+                matched ??= expectedDimensions.FirstOrDefault(d =>
+                    string.Equals(d.Name, rawCode, StringComparison.OrdinalIgnoreCase));
+
+                if (matched != null)
+                {
+                    dim.RubricCode = matched.Code;
+                }
+            }
+
+            // 2. Khử trùng lặp & Tự động bổ sung các dimension bị thiếu
+            var existingByCode = evaluation.DimensionEvaluations
+                .Where(d => expectedCodes.Contains(d.RubricCode))
+                .GroupBy(d => d.RubricCode, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var normalizedEvaluations = new List<TechnicalAIDimensionEvaluation>();
+            foreach (var dim in expectedDimensions)
+            {
+                if (existingByCode.TryGetValue(dim.Code, out var existing))
+                {
+                    normalizedEvaluations.Add(existing);
+                }
+                else
+                {
+                    normalizedEvaluations.Add(new TechnicalAIDimensionEvaluation
+                    {
+                        RubricCode = dim.Code,
+                        SuggestedScore = 0m,
+                        Evidence = new List<string>(),
+                        MissingEvidence = new List<string> { dim.Name }
+                    });
+                }
+            }
+
+            evaluation.DimensionEvaluations = normalizedEvaluations;
+
             var actualCodes = evaluation.DimensionEvaluations
                 .Select(item => item.RubricCode)
                 .ToList();

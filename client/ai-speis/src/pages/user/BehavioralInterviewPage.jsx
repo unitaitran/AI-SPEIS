@@ -29,7 +29,7 @@ import useBehavioralInterviewSession from '../../features/behavioralInterview/us
 import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio';
 import useTechnicalRecorder from '../../features/technicalInterview/useTechnicalRecorder';
 import { navigate } from '../../routes/navigation';
-import { getCampaignResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { getCampaignResultPath, getCodingInterviewRoomPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import { submitEvaluationFeedback } from '../../services/aiEvaluationFeedbackApi';
 import interviewSessionService from '../../services/InterviewSessionService';
 import notify from '../../utils/notification';
@@ -37,8 +37,12 @@ import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
   getNextOpenSession,
+  getRoundOrder,
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
+import useInterviewStrategy from '../../features/interviewStrategy/useInterviewStrategy';
+import { InterviewMode } from '../../features/interviewStrategy/InterviewMode';
+import useTechnicalPreGenerator from '../../features/technicalInterview/useTechnicalPreGenerator';
 import '../../styles/user/BehavioralInterview.css';
 import '../../styles/user/TechnicalInterview.css';
 
@@ -78,11 +82,47 @@ function BehavioralInterviewPage({ sessionId }) {
   }), [interviewLanguage, translate]);
 
   const recorder = useTechnicalRecorder(interviewLanguage);
+
+  const {
+    mode,
+    strategy,
+    remainingSeconds,
+    stopTimer,
+    handleQuestionAudioEnded,
+    handleTimerExpired,
+  } = useInterviewStrategy(
+    room.session?.mode || initialContext?.campaign?.mode || setupDraft?.mode
+  );
+
+  // ── Pre-Generation: tìm Technical session ID từ campaign ──
+  const technicalSessionId = useMemo(() => {
+    const sessions = initialContext?.campaign?.sessions || [];
+    const techSession = sessions.find(
+      (s) => s.interviewRoundType === 'Technical'
+        && (s.status === 'Pending' || s.status === 'Active'),
+    );
+    return techSession?.interviewSessionId || null;
+  }, [initialContext?.campaign?.sessions]);
+
+  const preGenerator = useTechnicalPreGenerator();
+
+  const handleSubmitRef = useRef(null);
+
+  const handleAudioEnded = useCallback(() => {
+    handleQuestionAudioEnded({
+      startRecording: recorder.startRecording,
+      stopRecording: recorder.stopRecording,
+      submitAnswer: () => handleSubmitRef.current?.(),
+    });
+  }, [handleQuestionAudioEnded, recorder.startRecording, recorder.stopRecording]);
+
   const questionAudio = useQuestionAudio({
     question: room.currentQuestion,
     sessionId: resolvedSessionId,
     language: interviewLanguage,
     preferenceKey: 'ai-speis:behavioral-interview:auto-play-question',
+    onEnded: handleAudioEnded,
+    forceAutoPlay: strategy.forceAutoPlay,
   });
   const resetRecorder = recorder.reset;
   const setRecorderTranscript = recorder.setTranscript;
@@ -226,8 +266,51 @@ function BehavioralInterviewPage({ sessionId }) {
     if (room.phase !== BehavioralFlowPhase.COMPLETED) return;
     resetRecorder();
     pauseQuestionAudio();
-    refreshCompletedCampaign();
-  }, [pauseQuestionAudio, refreshCompletedCampaign, resetRecorder, room.phase]);
+
+    if (mode === InterviewMode.REAL) {
+      const navigateToNextRound = async () => {
+        const campaignId = room.session?.interviewCampaignId
+          || initialContext?.campaign?.interviewCampaignId;
+        if (!campaignId) return;
+        try {
+          const campaign = await interviewSessionService.getCampaign(campaignId);
+          const nextSession = getNextOpenSession(campaign, resolvedSessionId);
+          saveActiveInterviewContext({
+            campaign,
+            activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
+            configurationKey: initialContext?.configurationKey || null,
+          });
+          if (nextSession) {
+            const targetPath = getRoundOrder(nextSession.interviewRoundType) === 2
+              ? getCodingInterviewRoomPath(nextSession.interviewSessionId)
+              : getInterviewRoomPath(nextSession.interviewSessionId);
+            navigate(targetPath, { replace: true });
+            return;
+          }
+        } catch {
+          // Fallback
+        }
+        refreshCompletedCampaign();
+      };
+      navigateToNextRound();
+    } else {
+      refreshCompletedCampaign();
+    }
+  }, [pauseQuestionAudio, refreshCompletedCampaign, resetRecorder, room.phase, mode, resolvedSessionId, initialContext, room.generalSession?.interviewCampaignId]);
+
+  // ── Pre-Generation: Kích hoạt tạo trước Technical khi câu hỏi 1 xuất hiện ──
+  const preGenTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !preGenTriggeredRef.current
+      && technicalSessionId
+      && room.phase === BehavioralFlowPhase.READY_TO_ANSWER
+      && room.currentQuestion
+    ) {
+      preGenTriggeredRef.current = true;
+      preGenerator.trigger(technicalSessionId);
+    }
+  }, [room.phase, room.currentQuestion, technicalSessionId, preGenerator]);
 
   const getErrorMessage = useCallback((requestError) => {
     const code = requestError?.code || 'UNKNOWN_ERROR';
@@ -235,6 +318,7 @@ function BehavioralInterviewPage({ sessionId }) {
   }, [t]);
 
   const handleSubmit = async () => {
+    stopTimer();
     const transcript = recorder.transcript.trim();
     if (!transcript) {
       setLocalError({ code: 'TRANSCRIPT_REQUIRED' });
@@ -263,6 +347,10 @@ function BehavioralInterviewPage({ sessionId }) {
     }
   };
 
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  });
+
   const autoSubmittingRef = useRef(false);
 
   useEffect(() => {
@@ -290,6 +378,7 @@ function BehavioralInterviewPage({ sessionId }) {
     if (dialog?.type === 'leave') {
       cleanupRecorder();
       pauseQuestionAudio();
+      preGenerator.cancel(technicalSessionId);
       const target = pendingNavigation || USER_ROUTES.INTERVIEW_SETUP;
       setDialog(null);
       setPendingNavigation(null);
@@ -302,8 +391,9 @@ function BehavioralInterviewPage({ sessionId }) {
       try {
         await room.completeInterview();
         setDialog(null);
-      } catch (completeError) {
-        setLocalError(completeError);
+      } catch {
+        setDialog(null);
+        await handleForceEndSession();
       }
     }
   };
@@ -336,6 +426,7 @@ function BehavioralInterviewPage({ sessionId }) {
   const handleForceEndSession = async () => {
     if (!resolvedSessionId) return;
     setLocalError(null);
+    preGenerator.cancel(technicalSessionId);
     try {
       const campaign = await interviewSessionService.completeSession(resolvedSessionId);
       const nextSession = getNextOpenSession(campaign, resolvedSessionId);
@@ -461,39 +552,46 @@ function BehavioralInterviewPage({ sessionId }) {
     >
       <section className="behavior-stage" aria-label={t('behavioralInterview')}>
           {room.phase === BehavioralFlowPhase.COMPLETED ? (
-            <div className="behavior-completion-stack">
-              <BehavioralCompletion
-                result={room.completionResult}
-                answeredCount={room.completionResult?.mainQuestions?.length || room.session?.completedMainQuestionCount || 0}
-                hasNextRound={Boolean(nextRoundSession)}
-                onContinue={handleContinue}
-                onOverview={() => navigate(campaignResultPath)}
-                onRetryFeedback={handleRetryFeedback}
-                feedbackRetrying={room.feedbackRetrying}
-                feedbackError={feedbackRetryError}
-                t={t}
-              />
-              {hasCompletionEvaluation ? (
-                <div className="technical-feedback-report">
-                  <button
-                    type="button"
-                    className="technical-report-button"
-                    onClick={() => setIsFeedbackModalOpen(true)}
-                    aria-label={tf('feedback.reportButton')}
-                  >
-                    <Flag size={16} aria-hidden="true" />
-                    {tf('feedback.reportButton')}
-                  </button>
-                </div>
-              ) : null}
-              {localError ? (
-                <div className="behavior-inline-error" role="alert">
-                  <AlertCircle size={18} />
-                  <span>{getErrorMessage(localError)}</span>
-                  <button type="button" onClick={refreshCompletedCampaign}>{t('retry')}</button>
-                </div>
-              ) : null}
-            </div>
+            mode === InterviewMode.REAL ? (
+              <div className="flex h-64 w-full flex-col items-center justify-center space-y-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-main border-t-transparent" />
+                <p className="text-sm font-medium text-text-secondary">Preparing next interviewer...</p>
+              </div>
+            ) : (
+              <div className="behavior-completion-stack">
+                <BehavioralCompletion
+                  result={room.completionResult}
+                  answeredCount={room.completionResult?.mainQuestions?.length || room.session?.completedMainQuestionCount || 0}
+                  hasNextRound={Boolean(nextRoundSession)}
+                  onContinue={handleContinue}
+                  onOverview={() => navigate(campaignResultPath)}
+                  onRetryFeedback={handleRetryFeedback}
+                  feedbackRetrying={room.feedbackRetrying}
+                  feedbackError={feedbackRetryError}
+                  t={t}
+                />
+                {hasCompletionEvaluation ? (
+                  <div className="technical-feedback-report">
+                    <button
+                      type="button"
+                      className="technical-report-button"
+                      onClick={() => setIsFeedbackModalOpen(true)}
+                      aria-label={tf('feedback.reportButton')}
+                    >
+                      <Flag size={16} aria-hidden="true" />
+                      {tf('feedback.reportButton')}
+                    </button>
+                  </div>
+                ) : null}
+                {localError ? (
+                  <div className="behavior-inline-error" role="alert">
+                    <AlertCircle size={18} />
+                    <span>{getErrorMessage(localError)}</span>
+                    <button type="button" onClick={refreshCompletedCampaign}>{t('retry')}</button>
+                  </div>
+                ) : null}
+              </div>
+            )
           ) : room.phase === BehavioralFlowPhase.FATAL_ERROR ? (
             renderFatalError()
           ) : room.phase === BehavioralFlowPhase.SESSION_CONFLICT ? (
@@ -545,30 +643,34 @@ function BehavioralInterviewPage({ sessionId }) {
                   <span className="behavior-interviewer__ring" />
                   <span className="behavior-interviewer__core"><Bot size={28} /></span>
                 </div>
-                <div className="behavior-audio-controls" aria-label={t('questionAudio')}>
-                  {questionAudio.status === 'LOADING' ? <Loader2 size={18} className="behavior-spin" /> : null}
-                  {questionAudio.status === 'READY' ? (
-                    <>
-                      <button type="button" onClick={questionAudio.isPlaying ? questionAudio.pause : questionAudio.play}>
-                        {questionAudio.isPlaying ? <Pause size={17} /> : <Volume2 size={17} />}
-                        {questionAudio.isPlaying ? t('pauseQuestion') : t('playQuestion')}
-                      </button>
-                      <button type="button" onClick={questionAudio.replay} title={t('replayQuestion')} aria-label={t('replayQuestion')}>
-                        <RotateCcw size={17} />
-                      </button>
-                    </>
-                  ) : null}
-                  {questionAudio.status === 'ERROR' ? (
-                    <button type="button" onClick={questionAudio.retry}><RefreshCw size={17} />{t('retryAudio')}</button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={questionAudio.toggleAutoPlay}
-                    aria-pressed={questionAudio.autoPlay}
-                  >
-                    {questionAudio.autoPlay ? t('autoPlayOn') : t('autoPlayOff')}
-                  </button>
-                </div>
+                {strategy.showAudioControls ? (
+                  <div className="behavior-audio-controls" aria-label={t('questionAudio')}>
+                    {questionAudio.status === 'LOADING' ? <Loader2 size={18} className="behavior-spin" /> : null}
+                    {questionAudio.status === 'READY' ? (
+                      <>
+                        <button type="button" onClick={questionAudio.isPlaying ? questionAudio.pause : questionAudio.play}>
+                          {questionAudio.isPlaying ? <Pause size={17} /> : <Volume2 size={17} />}
+                          {questionAudio.isPlaying ? t('pauseQuestion') : t('playQuestion')}
+                        </button>
+                        {strategy.allowReplayAudio ? (
+                          <button type="button" onClick={questionAudio.replay} title={t('replayQuestion')} aria-label={t('replayQuestion')}>
+                            <RotateCcw size={17} />
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                    {questionAudio.status === 'ERROR' ? (
+                      <button type="button" onClick={questionAudio.retry}><RefreshCw size={17} />{t('retryAudio')}</button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={questionAudio.toggleAutoPlay}
+                      aria-pressed={questionAudio.autoPlay}
+                    >
+                      {questionAudio.autoPlay ? t('autoPlayOn') : t('autoPlayOff')}
+                    </button>
+                  </div>
+                ) : null}
               </section>
 
               <footer className="behavior-stage__controls">
@@ -592,7 +694,10 @@ function BehavioralInterviewPage({ sessionId }) {
                     recorder={recorder}
                     disabled={room.phase !== BehavioralFlowPhase.READY_TO_ANSWER && room.phase !== BehavioralFlowPhase.RECOVERABLE_ERROR}
                     isSubmitting={isSubmitting}
-                    timeLimitSeconds={room.currentQuestion.timeLimitSeconds}
+                    timeLimitSeconds={strategy.defaultCountdownSeconds || room.currentQuestion.timeLimitSeconds}
+                    remainingSeconds={remainingSeconds}
+                    strategy={strategy}
+                    isAudioPlaying={questionAudio.isPlaying}
                     onSubmit={handleSubmit}
                     t={t}
                   />

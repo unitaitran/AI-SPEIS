@@ -129,6 +129,31 @@ const technicalInterviewApi = {
   ),
 
   getResult: (sessionId) => request(ENDPOINTS.TECHNICAL_INTERVIEW_RESULT(sessionId)),
+
+  /**
+   * Kích hoạt tạo trước câu hỏi Technical chạy ngầm (background).
+   * Gọi từ trang Behavioral khi câu hỏi đầu tiên xuất hiện.
+   */
+  preGenerate: (sessionId, { signal } = {}) => request(
+    ENDPOINTS.TECHNICAL_INTERVIEW_PRE_GENERATE(sessionId),
+    { method: 'POST', signal },
+  ),
+
+  /**
+   * Lấy trạng thái hiện tại của tiến trình tạo trước câu hỏi Technical.
+   */
+  getPreGenerateStatus: (sessionId, { signal } = {}) => request(
+    ENDPOINTS.TECHNICAL_INTERVIEW_PRE_GENERATE_STATUS(sessionId),
+    { signal },
+  ),
+
+  /**
+   * Hủy tiến trình tạo trước câu hỏi Technical (khi user thoát phỏng vấn).
+   */
+  cancelPreGenerate: (sessionId) => request(
+    ENDPOINTS.TECHNICAL_INTERVIEW_CANCEL_PRE_GENERATE(sessionId),
+    { method: 'POST' },
+  ),
 };
 
 export default technicalInterviewApi;

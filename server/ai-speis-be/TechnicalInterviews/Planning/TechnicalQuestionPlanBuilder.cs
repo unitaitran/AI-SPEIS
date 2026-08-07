@@ -35,12 +35,13 @@ namespace ai_speis_be.TechnicalInterviews.Planning
             }
 
             var bankSkills = Clean(request.AvailableQuestionBankSkills);
-            if (bankSkills.Count < TechnicalQuestionPlan.RequiredSlotCount)
+            if (bankSkills.Count == 0)
             {
                 return Failure(
-                    "INSUFFICIENT_DISTINCT_QUESTION_BANK_SKILLS",
-                    "At least three distinct active Question Bank skills are required for the Technical Question Plan.");
+                    "NO_QUESTION_BANK_SKILLS",
+                    "The Question Bank does not have any active skills for this role.");
             }
+
             var cvSkills = Canonicalize(request.CvSkills, bankSkills);
             var requiredJdSkills = Canonicalize(request.RequiredJdSkills, bankSkills);
             var allJdSkills = requiredJdSkills
@@ -48,21 +49,20 @@ namespace ai_speis_be.TechnicalInterviews.Planning
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            if (cvSkills.Count == 0 || allJdSkills.Count == 0)
+            // Graceful fallback for missing skills (degrade gracefully instead of throwing 400)
+            if (cvSkills.Count == 0 && allJdSkills.Count == 0)
             {
-                return Failure(
-                    "INSUFFICIENT_PLAN_SOURCE_SKILLS",
-                    "Both CV and JD must provide at least one skill for the Technical Question Plan.");
+                var fallbackSkills = bankSkills.Take(TechnicalQuestionPlan.RequiredSlotCount).ToList();
+                cvSkills.AddRange(fallbackSkills);
+                allJdSkills.AddRange(fallbackSkills);
             }
-
-            var distinctSkills = cvSkills.Concat(allJdSkills)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (distinctSkills.Count < TechnicalQuestionPlan.RequiredSlotCount)
+            else if (cvSkills.Count == 0)
             {
-                return Failure(
-                    "INSUFFICIENT_DISTINCT_PLAN_SKILLS",
-                    "At least three distinct CV/JD skills are required to build a non-duplicating Technical Question Plan.");
+                cvSkills.AddRange(allJdSkills);
+            }
+            else if (allJdSkills.Count == 0)
+            {
+                allJdSkills.AddRange(cvSkills);
             }
 
             var band = ResolveBand(request.MatchScore);
@@ -79,12 +79,13 @@ namespace ai_speis_be.TechnicalInterviews.Planning
                     ? requiredJdSkills.Concat(allJdSkills)
                     : cvSkills.OrderBy(skill => requiredJdSkills.Any(required =>
                         TechnicalQuestionMetadata.FuzzyMatches(required, skill)) ? 0 : 1);
+                
                 var skill = candidates.FirstOrDefault(candidate => !usedSkills.Contains(candidate));
+                
+                // If there are less than 3 unique skills, reuse an already used skill
                 if (skill is null)
                 {
-                    return Failure(
-                        "INSUFFICIENT_UNIQUE_SOURCE_SKILLS",
-                        $"The {source} source does not contain enough distinct skills for its planned allocation.");
+                    skill = candidates.FirstOrDefault() ?? bankSkills.First();
                 }
 
                 usedSkills.Add(skill);

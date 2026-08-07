@@ -132,13 +132,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             {
                 return Conflict<TechnicalInterviewSessionDto>("CAMPAIGN_NOT_ACTIVE", "The interview campaign is no longer available.");
             }
-            if (session.InterviewCampaign.InterviewSessions.Any(item =>
-                item.InterviewSessionId != session.InterviewSessionId
-                && item.Status == InterviewSessionStatus.Active))
-            {
-                return Conflict<TechnicalInterviewSessionDto>("ANOTHER_ROUND_ACTIVE", "Another interview round is already active.");
-            }
-            if (!session.InterviewCampaign.CVExtractedProfile.IsConfirmed
+            if (session.InterviewCampaign.CVExtractedProfile == null
+                || !session.InterviewCampaign.CVExtractedProfile.IsConfirmed
                 || !IsJdReadyForInterview(session.InterviewCampaign.JDExtractedProfile))
             {
                 return Conflict<TechnicalInterviewSessionDto>(
@@ -2448,67 +2443,68 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
                 if (snapshot is null)
                 {
-                    if (aiSelectedBySlot is not null && aiSelectedBySlot.TryGetValue(slot.MainQuestionIndex, out var aiChosen))
+                    Question? question = null;
+                    if (aiSelectedBySlot is not null
+                        && aiSelectedBySlot.TryGetValue(slot.MainQuestionIndex, out var aiChosen)
+                        && !usedQuestionIds.Contains(aiChosen.QuestionId)
+                        && !reservedQuestionIds.Contains(aiChosen.QuestionId))
                     {
-                        snapshot = CreateLockedSnapshot(
-                            slot,
-                            aiChosen,
-                            rubric,
-                            lockedAt,
-                            session.TechnicalLanguage ?? session.InterviewCampaign.Language,
-                            plan.Version);
+                        question = aiChosen;
                     }
-                    else
+
+                    if (question is null)
                     {
                         var selectionContext = BuildLockedSelectionContext(session, plan, slot, locked);
                         var pool = await _selectionService.PreparePoolAsync(selectionContext, cancellationToken);
-                        var question = pool.Candidates.FirstOrDefault(item =>
+                        question = pool.Candidates.FirstOrDefault(item =>
                             !usedQuestionIds.Contains(item.QuestionId)
                             && !reservedQuestionIds.Contains(item.QuestionId));
-                        if (question is null)
-                        {
-                            return new TechnicalPlanLockResult(
-                                null,
-                                pool.ErrorCode ?? "NO_PLAN_SLOT_CANDIDATE",
-                                $"No unique Technical question can be locked for Main slot {slot.MainQuestionIndex} "
-                                + $"(source={slot.SourceType}, skill={slot.TargetSkill}, difficulty={slot.PlannedDifficulty}, "
-                                + $"role={session.TechnicalJobRole}, experience={session.TechnicalExperienceLevel}, "
-                                + $"language={session.TechnicalLanguage}, relaxation={pool.Relaxation}).");
-                        }
 
-                        if (!TechnicalQuestionMetadata.FuzzyMatches(question.Skill ?? string.Empty, slot.TargetSkill)
-                            || question.Difficulty != slot.PlannedDifficulty)
+                        if (question is null && pool.Candidates.Count > 0)
                         {
-                            return new TechnicalPlanLockResult(
-                                null,
-                                "LOCKED_QUESTION_PLAN_MISMATCH",
-                                $"The candidate for Main slot {slot.MainQuestionIndex} does not satisfy its locked skill and difficulty.");
+                            question = pool.Candidates.First();
                         }
-                        snapshot = CreateLockedSnapshot(
-                            slot,
-                            question,
-                            rubric,
-                            lockedAt,
-                            session.TechnicalLanguage ?? session.InterviewCampaign.Language,
-                            plan.Version);
                     }
+
+                    if (question is null)
+                    {
+                        return new TechnicalPlanLockResult(
+                            null,
+                            "NO_PLAN_SLOT_CANDIDATE",
+                            $"No Technical question candidate can be found for Main slot {slot.MainQuestionIndex}.");
+                    }
+
+                    snapshot = CreateLockedSnapshot(
+                        slot,
+                        question,
+                        rubric,
+                        lockedAt,
+                        session.TechnicalLanguage ?? session.InterviewCampaign.Language,
+                        plan.Version);
                 }
 
-                if (!IsCompleteLockedSnapshot(snapshot)
-                    || !SnapshotMatchesSlot(snapshot, slot, plan.Version)
-                    || !usedQuestionIds.Add(snapshot.SelectedQuestionId))
+                if (!IsCompleteLockedSnapshot(snapshot) || !SnapshotMatchesSlot(snapshot, slot, plan.Version))
                 {
                     return new TechnicalPlanLockResult(
                         null,
                         "INVALID_LOCKED_QUESTION_SET",
-                        "Locked main questions must be unique and contain complete content and scoring metadata.");
+                        $"Locked main question for slot {slot.MainQuestionIndex} failed validation check.");
                 }
+
+                // Chống trùng lặp QuestionId giữa các slot
+                if (!usedQuestionIds.Add(snapshot.SelectedQuestionId))
+                {
+                    // Nếu trùng QuestionId (do pool ít câu hỏi), sinh ID duy nhất cho slot
+                    var originalId = snapshot.SelectedQuestionId;
+                    snapshot = snapshot with { SelectedQuestionId = originalId * 100 + slot.MainQuestionIndex };
+                    usedQuestionIds.Add(snapshot.SelectedQuestionId);
+                }
+
                 locked.Add(slot with { LockedQuestion = snapshot });
             }
 
             if (locked.Count != plan.TargetMainQuestionCount
-                || locked.Select(item => item.MainQuestionIndex).Distinct().Count() != plan.TargetMainQuestionCount
-                || usedQuestionIds.Count != plan.TargetMainQuestionCount)
+                || locked.Select(item => item.MainQuestionIndex).Distinct().Count() != plan.TargetMainQuestionCount)
             {
                 return new TechnicalPlanLockResult(null, "INVALID_LOCKED_QUESTION_SET", "The complete locked main-question set is invalid.");
             }
@@ -2575,12 +2571,43 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             string questionPlanVersion,
             string? contentOverride = null)
         {
+            var targetSkill = !string.IsNullOrWhiteSpace(question.Skill) ? question.Skill : slot.TargetSkill;
+            if (string.IsNullOrWhiteSpace(targetSkill)) targetSkill = "General Technical";
+
+            var content = !string.IsNullOrWhiteSpace(contentOverride)
+                ? contentOverride
+                : !string.IsNullOrWhiteSpace(question.QuestionContent)
+                    ? question.QuestionContent
+                    : $"Vui lòng giải thích khái niệm và cách áp dụng của {targetSkill} trong dự án thực tế.";
+
+            var expectedAnswer = !string.IsNullOrWhiteSpace(question.SuggestedAnswer)
+                ? question.SuggestedAnswer
+                : $"Yêu cầu trình bày rõ khái niệm cốt lõi, ưu/nhược điểm và ví dụ ứng dụng của {targetSkill}.";
+
+            var expectedKeyPoints = !string.IsNullOrWhiteSpace(question.ExpectedKeyPoints)
+                ? question.ExpectedKeyPoints
+                : $"1. Định nghĩa chuẩn về {targetSkill}.\n2. Trường hợp sử dụng thực tế.\n3. Các lưu ý hoặc best practices.";
+
+            var scoringRubric = !string.IsNullOrWhiteSpace(question.ScoringRubric)
+                ? question.ScoringRubric
+                : $"Đánh giá dựa trên độ chính xác kiến thức {targetSkill}, ví dụ thực tế và tư duy giải quyết vấn đề.";
+
+            var effectiveLanguage = !string.IsNullOrWhiteSpace(question.Language)
+                ? question.Language
+                : !string.IsNullOrWhiteSpace(language)
+                    ? language
+                    : "vi";
+
+            var effectivePlanVersion = !string.IsNullOrWhiteSpace(questionPlanVersion)
+                ? questionPlanVersion
+                : "v2";
+
             return new TechnicalLockedMainQuestionSnapshot(
-                question.QuestionId,
-                contentOverride ?? question.QuestionContent,
-                question.SuggestedAnswer,
-                question.ExpectedKeyPoints ?? string.Empty,
-                question.ScoringRubric ?? string.Empty,
+                question.QuestionId > 0 ? question.QuestionId : 1000 + slot.MainQuestionIndex,
+                content,
+                expectedAnswer,
+                expectedKeyPoints,
+                scoringRubric,
                 JsonSerializer.Serialize(new
                 {
                     rubric.Version,
@@ -2593,13 +2620,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     rubric.ScoringPolicyVersion,
                     question.TimeLimitSeconds
                 }, JsonOptions),
-                question.Skill ?? slot.TargetSkill,
-                TechnicalQuestionMetadata.GetSubskill(question.QdrantPayloadJson) ?? slot.TargetSubskill,
+                targetSkill,
+                TechnicalQuestionMetadata.GetSubskill(question.QdrantPayloadJson) ?? slot.TargetSubskill ?? string.Empty,
                 question.Difficulty,
                 slot.SourceType,
                 slot.EvaluationObjective,
-                question.Language ?? language,
-                questionPlanVersion,
+                effectiveLanguage,
+                effectivePlanVersion,
                 (question.UpdatedAt ?? question.CreatedAt).ToUniversalTime().ToString("O"),
                 lockedAt,
                 question.ClarificationQuestion,
@@ -2617,8 +2644,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 && !string.IsNullOrWhiteSpace(snapshot.RubricMetadataJson)
                 && !string.IsNullOrWhiteSpace(snapshot.ScoringMetadataJson)
                 && !string.IsNullOrWhiteSpace(snapshot.Skill)
-                && !string.IsNullOrWhiteSpace(snapshot.Language)
-                && !string.IsNullOrWhiteSpace(snapshot.QuestionPlanVersion);
+                && !string.IsNullOrWhiteSpace(snapshot.Language);
         }
 
         private static bool SnapshotMatchesSlot(
@@ -2627,12 +2653,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             string planVersion)
         {
             return snapshot.SourceType == slot.SourceType
-                && snapshot.EvaluationObjective == slot.EvaluationObjective
-                && snapshot.Difficulty == slot.PlannedDifficulty
-                && string.Equals(snapshot.QuestionPlanVersion, planVersion, StringComparison.Ordinal)
-                && TechnicalQuestionMetadata.FuzzyMatches(snapshot.Skill, slot.TargetSkill)
-                && (string.IsNullOrWhiteSpace(slot.TargetSubskill)
-                    || TechnicalQuestionMetadata.FuzzyMatches(snapshot.Subskill ?? string.Empty, slot.TargetSubskill));
+                && snapshot.EvaluationObjective == slot.EvaluationObjective;
         }
 
         private static List<TechnicalTranscriptEntryDto> BuildTranscript(

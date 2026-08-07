@@ -156,9 +156,9 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                         return Failure<T>(stopwatch, startedAt, "MALFORMED_JSON", attempt);
                     }
 
-                    if (isOllama && parsed is BehaviouralAIEvaluationResponse evalResponse)
+                    if (parsed is BehaviouralAIEvaluationResponse evalResponse)
                     {
-                        NormalizeOllamaBehaviouralRubricCodes(evalResponse);
+                        NormalizeBehaviouralRubricCodes(evalResponse);
                     }
 
                     stopwatch.Stop();
@@ -275,14 +275,20 @@ namespace ai_speis_be.BehaviouralInterviews.AI
             [JsonPropertyName("completion_tokens")]
             public int? CompletionTokens { get; set; }
         }
-        private static void NormalizeOllamaBehaviouralRubricCodes(BehaviouralAIEvaluationResponse evalResponse)
+        private static void NormalizeBehaviouralRubricCodes(BehaviouralAIEvaluationResponse evalResponse)
         {
             if (evalResponse.DimensionEvaluations is null) return;
             foreach (var dim in evalResponse.DimensionEvaluations)
             {
                 if (string.IsNullOrWhiteSpace(dim.RubricCode)) continue;
                 var code = dim.RubricCode.Trim().ToUpperInvariant();
-                if (code.Contains("SITUATION") || code.Contains("CONTEXT"))
+                if (code == "SITUATION_TASK" || code == "ACTION" || code == "RESULT" || code == "COMPETENCY" || code == "COMMUNICATION")
+                {
+                    dim.RubricCode = code;
+                    continue;
+                }
+
+                if (code.Contains("SITUATION") || code.Contains("CONTEXT") || code.Contains("TASK"))
                 {
                     dim.RubricCode = "SITUATION_TASK";
                 }

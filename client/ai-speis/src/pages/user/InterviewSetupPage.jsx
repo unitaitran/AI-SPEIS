@@ -870,14 +870,6 @@ function InterviewSetupPage() {
                 </div>
               </dl>
 
-              <div className="setup-note">
-                <Info size={20} />
-                <div>
-                  <strong>{t('setup.noteTitle')}</strong>
-                  <p>{t('setup.noteDescription')}</p>
-                </div>
-              </div>
-
               {submitError && (
                 <div className="setup-submit-error" role="alert">
                   <AlertCircle size={18} />
