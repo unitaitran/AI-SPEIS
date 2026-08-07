@@ -1,11 +1,10 @@
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models.Enums;
-using iText.Kernel.Geom;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -82,14 +81,56 @@ namespace ai_speis_be.Repositories.CVRepo
 
         public async Task<bool> DeleteCVAsync(int id)
         {
-            var cvFile = await _context.CVFiles.FindAsync(id);
+            var cvFile = await _context.CVFiles
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.CVFileId == id);
             if (cvFile == null) return false;
 
-            cvFile.Status = CVFileStatus.Archived;
-            
+            var profile = await _context.CVExtractedProfiles
+                .Include(p => p.Skills)
+                .Include(p => p.Projects)
+                .FirstOrDefaultAsync(p => p.CVFileId == id);
+
+            if (profile != null)
+            {
+                _context.CVSkills.RemoveRange(profile.Skills);
+                _context.CVProjects.RemoveRange(profile.Projects);
+                _context.CVExtractedProfiles.Remove(profile);
+            }
+
+            var fastCheckResults = await _context.FastCheckResults
+                .Where(f => f.CVFileId == id)
+                .ToListAsync();
+            if (fastCheckResults.Any())
+            {
+                _context.FastCheckResults.RemoveRange(fastCheckResults);
+            }
+
+            _context.CVFiles.Remove(cvFile);
+
+            if (!string.IsNullOrEmpty(cvFile.FilePath))
+            {
+                try
+                {
+                    var absolutePath = Path.Combine(
+                        Directory.GetCurrentDirectory(),
+                        "wwwroot",
+                        cvFile.FilePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+
+                    if (File.Exists(absolutePath))
+                    {
+                        File.Delete(absolutePath);
+                    }
+                }
+                catch
+                {
+                    // File deletion failure is non-critical; DB removal still proceeds.
+                }
+            }
+
             await _context.SaveChangesAsync();
             return true;
-        } 
+        }
 
         public async Task<CVFile?> GetActiveCVByUserIdAsync(int userId)
         {

@@ -652,14 +652,12 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 ScoringBreakdownJson = JsonSerializer.Serialize(score.Dimensions, JsonOptions),
                 StrengthsJson = "[]",
                 MissingPointsJson = "[]",
-                IncorrectClaimsJson = "[]",
                 ImprovementSuggestionsJson = "[]",
                 FeedbackSummary = string.Empty,
                 FeedbackPromptVersion = string.Empty,
                 FeedbackModelName = string.Empty,
                 FeedbackFallbackUsed = false,
                 Decision = arbiterResult.Decision,
-                AiSuggestedAction = arbiterResult.AiSuggestedAction,
                 BackendResolvedAction = arbiterResult.Decision,
                 DecisionReason = arbiterResult.DecisionReason,
                 TargetRubricCodesJson = JsonSerializer.Serialize(
@@ -670,7 +668,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 OverrideReason = arbiterResult.OverrideReason,
                 FallbackUsed = arbiterResult.EvaluationFallbackUsed
                     || arbiterResult.QuestionFallbackUsed,
-                Confidence = evaluationData.Confidence,
                 PromptVersion = TechnicalPromptVersions.Evaluation,
                 ModelName = evaluationResult?.Model ?? session.TechnicalAiModel ?? _options.Model,
                 IsFinalForMainQuestion = arbiterResult.FinalizeMainQuestion,
@@ -1024,12 +1021,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 .Where(item => !string.IsNullOrWhiteSpace(item))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToImmutableArray();
-            var priorIncorrectClaims = session.TechnicalQuestionAttempts
-                .Where(item => item.RootMainAttemptId == root.AttemptId && item.AttemptId != attempt.AttemptId)
-                .SelectMany(item => item.Evaluations)
-                .SelectMany(item => DeserializeList(item.IncorrectClaimsJson))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToImmutableArray();
             var previousScores = session.TechnicalQuestionAttempts
                 .Where(item => item.RootMainAttemptId == root.AttemptId
                     && item.AttemptId != attempt.AttemptId
@@ -1084,7 +1075,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 PreviousAnswers = previousAnswers,
                 RemainingMissingEvidence = remainingMissingEvidence,
                 CollectedEvidence = collectedEvidence,
-                PreviousIncorrectClaims = priorIncorrectClaims,
                 PreviousAttemptScores = previousScores,
                 JobRole = session.TechnicalJobRole ?? string.Empty,
                 ExperienceLevel = session.TechnicalExperienceLevel ?? string.Empty,
@@ -1326,7 +1316,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 OverallScore = session.TechnicalFinalScore ?? provisionalResult.OverallScore,
                 PerformanceBand = session.TechnicalPerformanceBand ?? string.Empty,
                 MainQuestionResults = BuildFinalFeedbackMainQuestionResults(session),
-                SkillResults = provisionalResult.SkillScores.Cast<object>().ToList()
+                SkillResults = provisionalResult.DimensionResults.Cast<object>().ToList()
             };
             var feedbackStartedAt = DateTime.UtcNow;
             AIProviderResult<TechnicalAIFinalSummaryResponse> summaryResult;
@@ -1369,17 +1359,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     Strengths = CleanList(data.Strengths),
                     KnowledgeGaps = knowledgeGaps,
                     AreasForImprovement = knowledgeGaps,
-                    ReasoningAndApplicationAssessment = data.ReasoningAndApplicationAssessment?.Trim() ?? string.Empty,
-                    CommunicationAssessment = data.CommunicationAssessment?.Trim() ?? string.Empty,
-                    PerformanceBySkill = data.PerformanceBySkill
-                        .Where(item => !string.IsNullOrWhiteSpace(item.Skill)
-                            && !string.IsNullOrWhiteSpace(item.Assessment))
-                        .Select(item => new TechnicalSkillFeedbackDto
-                        {
-                            Skill = item.Skill.Trim(),
-                            Assessment = item.Assessment.Trim()
-                        })
-                        .ToList(),
                     RecommendationsForImprovement = recommendations,
                     RecommendedNextSteps = recommendations,
                     FinalTechnicalScore = session.TechnicalFinalScore ?? provisionalResult.OverallScore
@@ -1449,8 +1428,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                                         weight = score.Weight,
                                         weightedScore = score.WeightedScore,
                                         evidence = dimension?.Evidence ?? new List<string>(),
-                                        missingEvidence = dimension?.MissingEvidence ?? new List<string>(),
-                                        incorrectClaims = dimension?.IncorrectClaims ?? new List<string>()
+                                        missingEvidence = dimension?.MissingEvidence ?? new List<string>()
                                     };
                                 }).ToList(),
                                 evidence = dimensionEvaluations
@@ -1459,10 +1437,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                                     .ToList(),
                                 missingEvidence = dimensionEvaluations
                                     .SelectMany(item => item.MissingEvidence)
-                                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                                    .ToList(),
-                                incorrectClaims = dimensionEvaluations
-                                    .SelectMany(item => item.IncorrectClaims)
                                     .Distinct(StringComparer.OrdinalIgnoreCase)
                                     .ToList()
                             };
@@ -1546,13 +1520,10 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         WeightedScore = score.WeightedScore,
                         Level = score.Level,
                         Evidence = aiByCode.TryGetValue(score.RubricCode, out var ai) ? ai.Evidence : new(),
-                        MissingEvidence = aiByCode.TryGetValue(score.RubricCode, out ai) ? ai.MissingEvidence : new(),
-                        ReasonSummary = aiByCode.TryGetValue(score.RubricCode, out ai) ? ai.ReasonSummary : string.Empty,
-                        IncorrectClaims = aiByCode.TryGetValue(score.RubricCode, out ai) ? ai.IncorrectClaims : new()
+                        MissingEvidence = aiByCode.TryGetValue(score.RubricCode, out ai) ? ai.MissingEvidence : new()
                     }).ToList(),
                     Strengths = DeserializeList(feedbackEvaluation.StrengthsJson),
                     MissingPoints = DeserializeList(feedbackEvaluation.MissingPointsJson),
-                    IncorrectClaims = DeserializeList(feedbackEvaluation.IncorrectClaimsJson),
                     ImprovementSuggestions = DeserializeList(feedbackEvaluation.ImprovementSuggestionsJson),
                     FeedbackSummary = feedbackEvaluation.FeedbackSummary,
                     AdaptiveHistory = session.TechnicalQuestionAttempts
@@ -1573,26 +1544,40 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 });
             }
 
-            var skillScores = mainResults
-                .GroupBy(item => item.Skill, StringComparer.OrdinalIgnoreCase)
-                .Select(group => new TechnicalSkillResultDto
+            var rubric = _rubricProvider.GetRequired(session.TechnicalRubricVersion ?? _options.RubricVersion);
+
+            var allDimensions = mainResults.SelectMany(item => item.Dimensions).ToList();
+            var overallDimensionResults = rubric.Dimensions.Select(dimension =>
+            {
+                var matching = allDimensions
+                    .Where(item => string.Equals(item.RubricCode, dimension.Code, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                var avgScore = matching.Count > 0
+                    ? Math.Round(matching.Average(item => item.Score), 2, MidpointRounding.AwayFromZero)
+                    : 0m;
+                var weighted = Math.Round(avgScore * dimension.Weight, 2, MidpointRounding.AwayFromZero);
+                return new TechnicalDimensionResultDto
                 {
-                    Skill = group.Key,
-                    MainQuestionCount = group.Count(),
-                    Score = Math.Round(group.Average(item => item.Score), 2, MidpointRounding.AwayFromZero)
-                })
-                .OrderBy(item => item.Skill)
-                .ToList();
+                    RubricCode = dimension.Code,
+                    Name = dimension.Name,
+                    Score = avgScore,
+                    Weight = dimension.Weight,
+                    WeightedScore = weighted,
+                    Level = rubric.GetLevelCode(avgScore),
+                    Evidence = matching.SelectMany(item => item.Evidence).Distinct().ToList(),
+                    MissingEvidence = matching.SelectMany(item => item.MissingEvidence).Distinct().ToList()
+                };
+            }).ToList();
 
             var summary = includeStoredSummary && !string.IsNullOrWhiteSpace(session.TechnicalSummaryJson)
                 ? JsonSerializer.Deserialize<TechnicalFinalSummaryDto>(session.TechnicalSummaryJson, JsonOptions) ?? new()
                 : new TechnicalFinalSummaryDto();
 
-            var overallScore = session.TechnicalFinalScore
-                ?? (mainResults.Count == 0
-                    ? 0m
-                    : Math.Round(mainResults.Average(item => item.FinalMainScore), 2, MidpointRounding.AwayFromZero));
-            var rubric = _rubricProvider.GetRequired(session.TechnicalRubricVersion ?? _options.RubricVersion);
+            var calculatedOverall = mainResults.Count > 0
+                ? Math.Round(mainResults.Average(item => item.FinalMainScore), 2, MidpointRounding.AwayFromZero)
+                : 0m;
+            var overallScore = calculatedOverall > 0m ? calculatedOverall : (session.TechnicalFinalScore ?? 0m);
+
             return new TechnicalInterviewResultDto
             {
                 SessionId = session.InterviewSessionId,
@@ -1607,15 +1592,14 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     : session.TechnicalFinalFeedbackStatus,
                 MainQuestions = mainResults,
                 MainQuestionResults = mainResults,
-                SkillScores = skillScores,
+                DimensionResults = overallDimensionResults,
                 Summary = summary,
                 Strengths = summary.Strengths.Count > 0
                     ? summary.Strengths
                     : mainResults.SelectMany(item => item.Strengths).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                 Weaknesses = summary.AreasForImprovement.Count > 0
                     ? summary.AreasForImprovement
-                    : mainResults.SelectMany(item => item.MissingPoints.Concat(item.IncorrectClaims))
-                        .Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                    : mainResults.SelectMany(item => item.MissingPoints).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                 Recommendations = summary.RecommendedNextSteps.Count > 0
                     ? summary.RecommendedNextSteps
                     : mainResults.SelectMany(item => item.ImprovementSuggestions)
@@ -2334,6 +2318,45 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     usedLegacyAttemptIds.Add(matchingAttempt.AttemptId);
             }
 
+            Dictionary<int, Question>? aiSelectedBySlot = null;
+            if (!preserveLegacyAttempts && plan.Slots.All(slot => slot.LockedQuestion is null))
+            {
+                var candidatePool = new List<Question>();
+                foreach (var slot in plan.Slots.OrderBy(item => item.MainQuestionIndex))
+                {
+                    var selectionContext = BuildLockedSelectionContext(session, plan, slot, locked);
+                    var pool = await _selectionService.PreparePoolAsync(selectionContext, cancellationToken);
+                    foreach (var c in pool.Candidates)
+                    {
+                        if (!candidatePool.Any(existing => existing.QuestionId == c.QuestionId))
+                        {
+                            candidatePool.Add(c);
+                        }
+                    }
+                }
+
+                if (candidatePool.Count >= 3)
+                {
+                    var baseContext = BuildLockedSelectionContext(session, plan, plan.Slots[0], locked);
+                    var aiSelected = await _selectionService.SelectMainQuestionsWithAIAsync(
+                        baseContext,
+                        candidatePool,
+                        plan.PlannedCvQuestionCount,
+                        plan.PlannedJdQuestionCount,
+                        cancellationToken);
+
+                    if (aiSelected is not null && aiSelected.Count == plan.Slots.Length)
+                    {
+                        aiSelectedBySlot = new Dictionary<int, Question>();
+                        var slotsOrdered = plan.Slots.OrderBy(item => item.MainQuestionIndex).ToList();
+                        for (int i = 0; i < slotsOrdered.Count; i++)
+                        {
+                            aiSelectedBySlot[slotsOrdered[i].MainQuestionIndex] = aiSelected[i];
+                        }
+                    }
+                }
+            }
+
             foreach (var slot in plan.Slots.OrderBy(item => item.MainQuestionIndex))
             {
                 TechnicalLockedMainQuestionSnapshot? snapshot = slot.LockedQuestion;
@@ -2367,37 +2390,50 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
 
                 if (snapshot is null)
                 {
-                    var selectionContext = BuildLockedSelectionContext(session, plan, slot, locked);
-                    var pool = await _selectionService.PreparePoolAsync(selectionContext, cancellationToken);
-                    var question = pool.Candidates.FirstOrDefault(item =>
-                        !usedQuestionIds.Contains(item.QuestionId)
-                        && !reservedQuestionIds.Contains(item.QuestionId));
-                    if (question is null)
+                    if (aiSelectedBySlot is not null && aiSelectedBySlot.TryGetValue(slot.MainQuestionIndex, out var aiChosen))
                     {
-                        return new TechnicalPlanLockResult(
-                            null,
-                            pool.ErrorCode ?? "NO_PLAN_SLOT_CANDIDATE",
-                            $"No unique Technical question can be locked for Main slot {slot.MainQuestionIndex} "
-                            + $"(source={slot.SourceType}, skill={slot.TargetSkill}, difficulty={slot.PlannedDifficulty}, "
-                            + $"role={session.TechnicalJobRole}, experience={session.TechnicalExperienceLevel}, "
-                            + $"language={session.TechnicalLanguage}, relaxation={pool.Relaxation}).");
+                        snapshot = CreateLockedSnapshot(
+                            slot,
+                            aiChosen,
+                            rubric,
+                            lockedAt,
+                            session.TechnicalLanguage ?? session.InterviewCampaign.Language,
+                            plan.Version);
                     }
+                    else
+                    {
+                        var selectionContext = BuildLockedSelectionContext(session, plan, slot, locked);
+                        var pool = await _selectionService.PreparePoolAsync(selectionContext, cancellationToken);
+                        var question = pool.Candidates.FirstOrDefault(item =>
+                            !usedQuestionIds.Contains(item.QuestionId)
+                            && !reservedQuestionIds.Contains(item.QuestionId));
+                        if (question is null)
+                        {
+                            return new TechnicalPlanLockResult(
+                                null,
+                                pool.ErrorCode ?? "NO_PLAN_SLOT_CANDIDATE",
+                                $"No unique Technical question can be locked for Main slot {slot.MainQuestionIndex} "
+                                + $"(source={slot.SourceType}, skill={slot.TargetSkill}, difficulty={slot.PlannedDifficulty}, "
+                                + $"role={session.TechnicalJobRole}, experience={session.TechnicalExperienceLevel}, "
+                                + $"language={session.TechnicalLanguage}, relaxation={pool.Relaxation}).");
+                        }
 
-                    if (!TechnicalQuestionMetadata.FuzzyMatches(question.Skill ?? string.Empty, slot.TargetSkill)
-                        || question.Difficulty != slot.PlannedDifficulty)
-                    {
-                        return new TechnicalPlanLockResult(
-                            null,
-                            "LOCKED_QUESTION_PLAN_MISMATCH",
-                            $"The candidate for Main slot {slot.MainQuestionIndex} does not satisfy its locked skill and difficulty.");
+                        if (!TechnicalQuestionMetadata.FuzzyMatches(question.Skill ?? string.Empty, slot.TargetSkill)
+                            || question.Difficulty != slot.PlannedDifficulty)
+                        {
+                            return new TechnicalPlanLockResult(
+                                null,
+                                "LOCKED_QUESTION_PLAN_MISMATCH",
+                                $"The candidate for Main slot {slot.MainQuestionIndex} does not satisfy its locked skill and difficulty.");
+                        }
+                        snapshot = CreateLockedSnapshot(
+                            slot,
+                            question,
+                            rubric,
+                            lockedAt,
+                            session.TechnicalLanguage ?? session.InterviewCampaign.Language,
+                            plan.Version);
                     }
-                    snapshot = CreateLockedSnapshot(
-                        slot,
-                        question,
-                        rubric,
-                        lockedAt,
-                        session.TechnicalLanguage ?? session.InterviewCampaign.Language,
-                        plan.Version);
                 }
 
                 if (!IsCompleteLockedSnapshot(snapshot)
@@ -2709,9 +2745,6 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     QuestionFallbackUsed = attempt.QuestionFallbackUsed
                 },
                 ResolvedAction = resolvedAction,
-                AiSuggestedAction = storedEvaluation?.AiSuggestedAction is { } aiAction
-                    ? ToApi(aiAction)
-                    : null,
                 BackendResolvedAction = resolvedAction,
                 OverrideReason = storedEvaluation?.OverrideReason,
                 AdaptiveStage = progressRoot.AdaptiveStage?.ToString().ToUpperInvariant(),
@@ -2891,17 +2924,17 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             string performanceBand,
             decimal maximumScore)
         {
-            var strongest = result.SkillScores.OrderByDescending(item => item.Score).FirstOrDefault();
-            var weakest = result.SkillScores.OrderBy(item => item.Score).FirstOrDefault();
+            var strongest = result.DimensionResults.OrderByDescending(item => item.Score).FirstOrDefault();
+            var weakest = result.DimensionResults.OrderBy(item => item.Score).FirstOrDefault();
             return new TechnicalFinalSummaryDto
             {
                 Summary = $"Technical score {result.OverallScore:0.00}/{maximumScore:0.00}, performance band: {performanceBand}.",
                 Strengths = strongest is null
                     ? new List<string>()
-                    : new List<string> { $"Highest assessed skill: {strongest.Skill} ({strongest.Score:0.00}/{maximumScore:0.00})." },
+                    : new List<string> { $"Highest assessed criterion: {strongest.Name} ({strongest.Score:0.00}/{maximumScore:0.00})." },
                 AreasForImprovement = weakest is null
                     ? new List<string>()
-                    : new List<string> { $"Prioritize improvement in {weakest.Skill} ({weakest.Score:0.00}/{maximumScore:0.00})." },
+                    : new List<string> { $"Prioritize improvement in {weakest.Name} ({weakest.Score:0.00}/{maximumScore:0.00})." },
                 RecommendedNextSteps = new List<string> { "Review missing evidence and improvement suggestions for each main question." }
             };
         }

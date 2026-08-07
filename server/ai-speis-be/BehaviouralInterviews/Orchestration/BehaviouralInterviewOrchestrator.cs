@@ -259,8 +259,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     QuestionType = BehaviourQuestionType.Main,
                     QuestionSnapshotJson = JsonSerializer.Serialize(
                         BehaviourQuestionSnapshot.FromQuestion(selected.Question), SnapshotJsonOptions),
-                    SelectionReason = selected.SelectionReason,
-                    EvaluationGoal = selected.EvaluationGoal,
                     Status = order == 1 ? BehaviourQuestionStatus.Asked : BehaviourQuestionStatus.Pending,
                     AskedAt = order == 1 ? now : null
                 };
@@ -446,7 +444,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                             Evaluation = new BehaviouralEvaluationDecisionDto
                             {
                                 Decision = existingAnswer.ResolvedAction?.ToString() ?? "PROCESSING",
-                                AnswerQuality = existingAnswer.AiAnswerQuality?.ToString(),
                                 EvaluationStatus = existingAnswer.EvaluationStatus ?? "PROCESSING"
                             },
                             NextQuestion = next,
@@ -640,16 +637,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             }
 
             answer.ResolvedAction = outcome.Decision;
-            if (answer.AiRecommendedAction.HasValue
-                && answer.AiRecommendedAction.Value != outcome.Decision)
-            {
-                _logger.LogInformation(
-                    "Behavioural AI action mismatch for session {SessionId}, question {QuestionId}: AI={AiAction}, backend={BackendAction}.",
-                    sessionId,
-                    sessionQuestion.BehaviourSessionQuestionId,
-                    answer.AiRecommendedAction.Value,
-                    outcome.Decision);
-            }
             BehaviouralCurrentQuestionDto? nextQuestionDto = null;
             var sessionStatus = questionSet.Status.ToString();
 
@@ -691,7 +678,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     Evaluation = new BehaviouralEvaluationDecisionDto
                     {
                         Decision = outcome.Decision.ToString(),
-                        AnswerQuality = answer.AiAnswerQuality?.ToString(),
                         EvaluationStatus = evaluationStatus
                     },
                     NextQuestion = nextQuestionDto,
@@ -1291,29 +1277,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             answer.AiCommunicationScore = GetScore(byCode, "COMMUNICATION");
             answer.AiCriteriaDetailJson = JsonSerializer.Serialize(
                 evaluation.DimensionEvaluations, SnapshotJsonOptions);
-            answer.AiOverallRubricScore = evaluation.OverallRubricScore.HasValue
-                ? (int?)Math.Round(evaluation.OverallRubricScore.Value)
-                : null;
-            answer.AiEvidenceJson = JsonSerializer.Serialize(
-                evaluation.Evidence.Take(3),
-                SnapshotJsonOptions);
-            answer.AiMissingAspectsJson = JsonSerializer.Serialize(
-                evaluation.MissingAspects.Take(3),
-                SnapshotJsonOptions);
             answer.AiStrengths = null;
-            answer.AiMissingPoints = answer.AiMissingAspectsJson;
-
-            if (Enum.TryParse<BehaviourAnswerQuality>(
-                evaluation.AnswerQuality?.Trim().Replace("_", string.Empty), true, out var quality))
-            {
-                answer.AiAnswerQuality = quality;
-            }
-
-            var normalizedDecision = evaluation.Decision?.Trim().Replace("_", string.Empty) ?? string.Empty;
-            if (Enum.TryParse<BehaviourResolvedAction>(normalizedDecision, true, out var recommended))
-            {
-                answer.AiRecommendedAction = recommended;
-            }
+            answer.AiMissingPoints = null;
 
             // Điểm chính thức do backend tính theo công thức 5 tiêu chí cố định (brief §14)
             answer.ComputedScore = scoringService.ScoreQuestion(evaluation, rubric).FinalOverallScore;
@@ -1330,18 +1295,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                         RubricCode = dimension.Code,
                         SuggestedScore = 0m,
                         Evidence = new List<string>(),
-                        MissingEvidence = new List<string> { dimension.Name },
-                        ReasonSummary = "No validated evidence was available for this criterion."
-                    }).ToList(),
-                Evidence = new List<string>(),
-                MissingAspects = rubric.Dimensions
-                    .Select(dimension => dimension.Name)
-                    .Take(3)
-                    .ToList(),
-                OverallRubricScore = 0m,
-                AnswerQuality = "INSUFFICIENT",
-                Decision = "CLARIFICATION",
-                Confidence = 0m
+                        MissingEvidence = new List<string> { dimension.Name }
+                    }).ToList()
             };
         }
 
@@ -1774,7 +1729,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                         source = !string.IsNullOrWhiteSpace(snapshot.Skill) && cvSkills.Contains(snapshot.Skill)
                             ? "CV"
                             : "JD",
-                        selectionReason = mainQuestion.SelectionReason,
                         finalQuestionScore = ComputeMainQuestionScore(
                             mainQuestion,
                             questionSet.BehaviourSessionQuestion),
@@ -1794,8 +1748,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                                 communication = attempt.BehaviourAnswerAnswer?.AiCommunicationScore
                             },
                             questionScore = attempt.BehaviourAnswerAnswer?.ComputedScore,
-                            evidence = ParseJsonStringList(attempt.BehaviourAnswerAnswer?.AiEvidenceJson),
-                            missingAspects = ParseJsonStringList(attempt.BehaviourAnswerAnswer?.AiMissingAspectsJson)
+                            evidence = ExtractEvidenceFromCriteriaDetail(attempt.BehaviourAnswerAnswer?.AiCriteriaDetailJson),
+                            missingAspects = ExtractMissingFromCriteriaDetail(attempt.BehaviourAnswerAnswer?.AiCriteriaDetailJson)
                         }).ToList()
                     };
                 })
@@ -1885,11 +1839,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     CompetencyStrengths = strengths,
                     Weaknesses = weaknesses,
                     CompetencyGaps = weaknesses,
-                    StarStructureAssessment = data.StarStructureAssessment?.Trim() ?? string.Empty,
-                    OwnershipAndImpactAssessment = data.OwnershipAndImpactAssessment?.Trim() ?? string.Empty,
-                    CompetencyFit = data.CompetencyFit?.Trim() ?? string.Empty,
-                    CommunicationAssessment = data.CommunicationAssessment?.Trim() ?? string.Empty,
-                    LevelAssessment = data.CompetencyFit?.Trim() ?? string.Empty,
+                    LevelAssessment = data.OverallBehavioralAssessment.Trim(),
                     RecommendationsForImprovement = recommendations,
                     TopRecommendations = recommendations,
                     FinalBehavioralScore = roundResult.OverallScore ?? 0m
@@ -2044,8 +1994,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     WeightedScore = Math.Round(score * dimension.Weight, 4, MidpointRounding.AwayFromZero),
                     Level = rubric.GetLevelCode(score),
                     Evidence = evaluated?.Evidence ?? new List<string>(),
-                    MissingEvidence = evaluated?.MissingEvidence ?? new List<string>(),
-                    ReasonSummary = evaluated?.ReasonSummary ?? string.Empty
+                    MissingEvidence = evaluated?.MissingEvidence ?? new List<string>()
                 };
             }).ToList();
         }
@@ -2073,6 +2022,34 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
         {
             public List<string>? RequiredSkills { get; set; }
             public string? Language { get; set; }
+        }
+
+        private static List<string> ExtractEvidenceFromCriteriaDetail(string? criteriaDetailJson)
+        {
+            if (string.IsNullOrWhiteSpace(criteriaDetailJson)) return new List<string>();
+            try
+            {
+                var evals = JsonSerializer.Deserialize<List<BehaviouralAIDimensionEvaluation>>(criteriaDetailJson, SnapshotJsonOptions);
+                return evals?.SelectMany(e => e.Evidence).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().Take(3).ToList() ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        private static List<string> ExtractMissingFromCriteriaDetail(string? criteriaDetailJson)
+        {
+            if (string.IsNullOrWhiteSpace(criteriaDetailJson)) return new List<string>();
+            try
+            {
+                var evals = JsonSerializer.Deserialize<List<BehaviouralAIDimensionEvaluation>>(criteriaDetailJson, SnapshotJsonOptions);
+                return evals?.SelectMany(e => e.MissingEvidence).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().Take(3).ToList() ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
         }
 
         /// <summary>

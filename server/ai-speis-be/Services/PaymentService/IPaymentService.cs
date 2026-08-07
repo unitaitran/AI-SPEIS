@@ -6,7 +6,8 @@ namespace ai_speis_be.Services.PaymentService
     {
         Task<(bool Success, string? ErrorMessage, PaymentResponseDto? Payment)> CreatePaymentAsync(
             int userId,
-            int packageId,
+            int priceId,
+            bool useRewardPoints,
             CancellationToken cancellationToken = default);
 
         Task<(bool Success, string? ErrorMessage, PaymentCheckResponseDto? Payment)> CheckPaymentAsync(

@@ -13,6 +13,8 @@ using ai_speis_be.Repositories.InterviewCampaignRepo;
 using ai_speis_be.TechnicalInterviews.DTOs;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using Microsoft.EntityFrameworkCore;
+using ai_speis_be.Services.RewardService;
+using ai_speis_be.Services.SubscriptionService;
 
 namespace ai_speis_be.Services.InterviewSessionService
 {
@@ -23,7 +25,7 @@ namespace ai_speis_be.Services.InterviewSessionService
         {
             PropertyNameCaseInsensitive = true
         };
-        private const int BasicInterviewQuota = 5;
+        private const int BasicInterviewQuota = 3;
         private const int PremiumInterviewQuota = 15;
 
         private readonly record struct QuotaMetadata(int Remaining, int Max, string PlanName);
@@ -31,15 +33,36 @@ namespace ai_speis_be.Services.InterviewSessionService
         private readonly IInterviewCampaignRepository _repository;
         private readonly ApplicationDbContext _context;
         private readonly ILogger<InterviewSessionService> _logger;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly IRewardService _rewardService;
 
+        // Kept for existing unit-test and internal construction sites; runtime DI uses
+        // the full constructor below.
         public InterviewSessionService(
             IInterviewCampaignRepository repository,
             ApplicationDbContext context,
             ILogger<InterviewSessionService> logger)
+            : this(
+                repository,
+                context,
+                logger,
+                new SubscriptionService.SubscriptionService(context),
+                new RewardService.RewardService(context))
+        {
+        }
+
+        public InterviewSessionService(
+            IInterviewCampaignRepository repository,
+            ApplicationDbContext context,
+            ILogger<InterviewSessionService> logger,
+            ISubscriptionService subscriptionService,
+            IRewardService rewardService)
         {
             _repository = repository;
             _context = context;
             _logger = logger;
+            _subscriptionService = subscriptionService;
+            _rewardService = rewardService;
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CreateSessionsAsync(
@@ -460,7 +483,25 @@ namespace ai_speis_be.Services.InterviewSessionService
                         group.Average(dimension => dimension.FinalScore));
                 }
 
-                var score = CampaignResultCalculator.Round(technicalSession.TechnicalFinalScore ?? 0m);
+                var completedMainAttempts = await _context.TechnicalQuestionAttempts
+                    .Where(a => a.InterviewSessionId == technicalSession.InterviewSessionId
+                        && a.QuestionType == TechnicalAttemptType.Main
+                        && a.FinalMainScore.HasValue)
+                    .ToListAsync();
+
+                var calculatedScore = completedMainAttempts.Count > 0
+                    ? CampaignResultCalculator.Round(completedMainAttempts.Average(a => a.FinalMainScore!.Value))
+                    : 0m;
+                var score = calculatedScore > 0m
+                    ? calculatedScore
+                    : CampaignResultCalculator.Round(technicalSession.TechnicalFinalScore ?? 0m);
+
+                if (score > 0m && technicalSession.TechnicalFinalScore != score)
+                {
+                    technicalSession.TechnicalFinalScore = score;
+                    technicalSession.TechnicalPerformanceBand = CampaignResultCalculator.GetPerformanceBand(score);
+                    await _context.SaveChangesAsync();
+                }
                 rounds.Add(new CampaignRoundResultDto
                 {
                     InterviewSessionId = technicalSession.InterviewSessionId,
@@ -576,6 +617,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 campaign.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 await SyncSkillScoresToDbAsync(campaign.UserId, campaign.InterviewCampaignId, null, metrics, campaign.CompletedAt ?? DateTime.UtcNow);
+                await _rewardService.AwardInterviewPointsAsync(campaign.UserId, campaign.InterviewCampaignId, overallScore);
             }
             catch { }
 
@@ -823,7 +865,12 @@ namespace ai_speis_be.Services.InterviewSessionService
                 lifecycleChanged |= ExpireIfDue(campaign, user, now);
             if (lifecycleChanged) await _context.SaveChangesAsync();
             var quota = await GetQuotaMetadataAsync(user, now);
-            return campaigns.Select(campaign => MapCampaignToResponse(campaign, quota)).ToList();
+            var behaviourCompletedCounts = await GetBehaviourCompletedMainQuestionCountsAsync(
+                campaigns.Select(campaign => campaign.InterviewCampaignId));
+
+            return campaigns
+                .Select(campaign => MapCampaignToResponse(campaign, quota, behaviourCompletedCounts))
+                .ToList();
         }
 
         public async Task<AvailableRoundsDto?> GetAvailableRoundsAsync(int userId, int jdId)
@@ -913,12 +960,11 @@ namespace ai_speis_be.Services.InterviewSessionService
                 campaign.Status = InterviewCampaignStatus.Completed;
                 campaign.CompletedAt = now;
                 campaign.UpdatedAt = now;
-                if (quota.Remaining > 0)
-                {
-                    campaign.User.RemainingInterviewQuota = quota.Remaining - 1;
-                    campaign.User.UpdatedAt = now;
-                    quota = quota with { Remaining = campaign.User.RemainingInterviewQuota };
-                }
+                var consumed = await _subscriptionService.ConsumeCampaignQuotaAsync(
+                    campaign.User,
+                    campaign.InterviewCampaignId,
+                    now);
+                quota = new QuotaMetadata(consumed.Remaining, consumed.Limit, consumed.PlanCode == "PREMIUM" ? "Premium" : "Free");
             }
 
             await _context.SaveChangesAsync();
@@ -1172,7 +1218,25 @@ namespace ai_speis_be.Services.InterviewSessionService
             }
         }
 
-        private InterviewCampaignDto MapCampaignToResponse(InterviewCampaign campaign, QuotaMetadata? quota = null)
+        private async Task<IReadOnlyDictionary<int, int>> GetBehaviourCompletedMainQuestionCountsAsync(
+            IEnumerable<int> campaignIds)
+        {
+            var ids = campaignIds.Distinct().ToList();
+            if (ids.Count == 0) return new Dictionary<int, int>();
+
+            return await _context.BehaviourSessionQuestions
+                .AsNoTracking()
+                .Where(question => ids.Contains(question.BehaviourQuestionSet.InterviewSession.InterviewCampaignId)
+                    && question.QuestionType == BehaviourQuestionType.Main
+                    && question.Status == BehaviourQuestionStatus.Answered)
+                .GroupBy(question => question.BehaviourQuestionSet.InterviewSessionId)
+                .ToDictionaryAsync(group => group.Key, group => group.Count());
+        }
+
+        private InterviewCampaignDto MapCampaignToResponse(
+            InterviewCampaign campaign,
+            QuotaMetadata? quota = null,
+            IReadOnlyDictionary<int, int>? behaviourCompletedCounts = null)
         {
             var metadata = quota ?? new QuotaMetadata(campaign.User?.RemainingInterviewQuota ?? 0, BasicInterviewQuota, "Free");
             return new InterviewCampaignDto
@@ -1198,12 +1262,19 @@ namespace ai_speis_be.Services.InterviewSessionService
                     .Where(session => !session.IsDeleted)
                     .OrderBy(session => GetRoundOrder(session.InterviewRoundType))
                     .ThenBy(session => session.InterviewSessionId)
-                    .Select(MapToResponse)
+                    .Select(session => MapToResponse(
+                        session,
+                        behaviourCompletedCounts is not null
+                        && behaviourCompletedCounts.TryGetValue(session.InterviewSessionId, out var completedCount)
+                            ? completedCount
+                            : null))
                     .ToList()
             };
         }
 
-        private static InterviewSessionDto MapToResponse(InterviewSession session)
+        private static InterviewSessionDto MapToResponse(
+            InterviewSession session,
+            int? behaviourCompletedMainQuestionCount = null)
         {
             return new InterviewSessionDto
             {
@@ -1215,7 +1286,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                 Status = session.Status.ToString(),
                 CreatedAt = AsUtc(session.CreatedAt),
                 UpdatedAt = AsUtc(session.UpdatedAt),
-                CompletedQuestionCount = session.TechnicalCompletedMainQuestionCount
+                CompletedQuestionCount = session.InterviewRoundType == InterviewRoundType.Behavior
+                    ? behaviourCompletedMainQuestionCount ?? 0
+                    : session.TechnicalCompletedMainQuestionCount
             };
         }
 
@@ -1247,19 +1320,11 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private async Task<QuotaMetadata> GetQuotaMetadataAsync(User user, DateTime now)
         {
-            user.SyncPremiumStatus(now);
-
-            var isPremium = user.IsPremium;
-
-            var maxQuota = isPremium ? PremiumInterviewQuota : BasicInterviewQuota;
-            var normalizedRemaining = Math.Clamp(user.RemainingInterviewQuota, 0, maxQuota);
-            if (user.RemainingInterviewQuota != normalizedRemaining)
-            {
-                user.RemainingInterviewQuota = normalizedRemaining;
-                user.UpdatedAt = now;
-            }
-
-            return new QuotaMetadata(normalizedRemaining, maxQuota, isPremium ? "Premium" : "Free");
+            var quota = await _subscriptionService.GetQuotaAsync(user, now);
+            return new QuotaMetadata(
+                quota.Remaining,
+                quota.Limit,
+                quota.PlanCode == "PREMIUM" ? "Premium" : "Free");
         }
     }
 }

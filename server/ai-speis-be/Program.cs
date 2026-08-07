@@ -26,10 +26,14 @@ using ai_speis_be.Services.SpeechToTextService;
 using ai_speis_be.Services.TextToSpeechService;
 using ai_speis_be.Repositories.CodingRepo;
 using ai_speis_be.Services.CodingService;
+using ai_speis_be.Services.CodingService.Harness;
 using ai_speis_be.Services.CodingService.Selection;
 using ai_speis_be.Services.Judge0Service;
 using ai_speis_be.Repositories.PaymentRepo;
 using ai_speis_be.Services.PaymentService;
+using ai_speis_be.Services.SubscriptionPlanService;
+using ai_speis_be.Services.RewardService;
+using ai_speis_be.Services.SubscriptionService;
 using ai_speis_be.BehaviouralInterviews.AI;
 using ai_speis_be.BehaviouralInterviews.Configuration;
 using ai_speis_be.BehaviouralInterviews.Orchestration;
@@ -145,6 +149,9 @@ builder.Services.AddScoped<ISpeechToTextService, SpeechToTextService>();
 builder.Services.AddScoped<ITextToSpeechService, TextToSpeechService>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
+builder.Services.AddScoped<IRewardService, RewardService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 // Background Worker for CV Parsing
 builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
@@ -154,6 +161,7 @@ builder.Services.AddHostedService<CvParsingBackgroundService>();
 builder.Services.AddSingleton<IJdParseQueue, JdParseQueue>();
 builder.Services.AddHostedService<JdParsingBackgroundService>();
 builder.Services.AddHostedService<PremiumQuotaResetBackgroundService>();
+builder.Services.AddHostedService<PendingPaymentExpiryBackgroundService>();
 
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();
@@ -178,6 +186,7 @@ builder.Services.AddHttpClient("Judge0", client =>
 builder.Services.AddScoped<IJudge0Service, Judge0Service>();
 builder.Services.AddScoped<ICodingRepository, CodingRepository>();
 builder.Services.AddScoped<ICodingQuestionSelectionService, CodingQuestionSelectionService>();
+builder.Services.AddSingleton<ICodingHarnessEngine, CodingHarnessEngine>();
 builder.Services.AddScoped<ICodingService, CodingService>();
 // Register Behavioural Interview Components
 var behaviouralOptions = BehaviouralInterviewOptions.FromConfiguration(builder.Configuration);
@@ -345,6 +354,7 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+app.UseWebSockets();
 
 // Catch Google OAuth Correlation failed errors and redirect gracefully
 app.Use(async (context, next) =>

@@ -111,9 +111,6 @@ namespace ai_speis_be.Migrations
                     b.Property<decimal?>("AiActionScore")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("AiAnswerQuality")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<decimal?>("AiCommunicationScore")
                         .HasColumnType("decimal(18,2)");
 
@@ -123,22 +120,10 @@ namespace ai_speis_be.Migrations
                     b.Property<string>("AiCriteriaDetailJson")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("AiEvidenceJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("AiErrorCode")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("AiMissingPoints")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AiMissingAspectsJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("AiOverallRubricScore")
-                        .HasColumnType("int");
-
-                    b.Property<string>("AiRecommendedAction")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("AiResultScore")
@@ -166,9 +151,6 @@ namespace ai_speis_be.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("EvaluationStatus")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int?>("EvaluationInputTokens")
                         .HasColumnType("int");
 
@@ -188,6 +170,9 @@ namespace ai_speis_be.Migrations
 
                     b.Property<int>("EvaluationRetryCount")
                         .HasColumnType("int");
+
+                    b.Property<string>("EvaluationStatus")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("FinalQuestionScore")
                         .HasColumnType("decimal(18,2)");
@@ -291,6 +276,10 @@ namespace ai_speis_be.Migrations
                     b.Property<string>("CriteriaAveragesJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("FeedbackConcurrencyVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.Property<int?>("FeedbackInputTokens")
                         .HasColumnType("int");
 
@@ -298,10 +287,6 @@ namespace ai_speis_be.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<int?>("FeedbackOutputTokens")
-                        .HasColumnType("int");
-
-                    b.Property<int>("FeedbackConcurrencyVersion")
-                        .IsConcurrencyToken()
                         .HasColumnType("int");
 
                     b.Property<int>("FeedbackRetryCount")
@@ -322,13 +307,13 @@ namespace ai_speis_be.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
+                    b.Property<DateTime?>("FinalFeedbackStartedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("FinalFeedbackStatus")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
-
-                    b.Property<DateTime?>("FinalFeedbackStartedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("InterviewSessionId")
                         .HasColumnType("int");
@@ -364,9 +349,6 @@ namespace ai_speis_be.Migrations
                     b.Property<int>("BehaviourQuestionSetId")
                         .HasColumnType("int");
 
-                    b.Property<string>("EvaluationGoal")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int?>("ParentQuestionId")
                         .HasColumnType("int");
 
@@ -382,9 +364,6 @@ namespace ai_speis_be.Migrations
 
                     b.Property<string>("QuestionType")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SelectionReason")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
@@ -889,6 +868,9 @@ namespace ai_speis_be.Migrations
                     b.Property<int?>("CvJdMatchScore")
                         .HasColumnType("int");
 
+                    b.Property<string>("DashboardMetricsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
@@ -911,6 +893,9 @@ namespace ai_speis_be.Migrations
 
                     b.Property<int>("Mode")
                         .HasColumnType("int");
+
+                    b.Property<decimal?>("OverallScore")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("QuotaRefunded")
                         .HasColumnType("bit");
@@ -938,7 +923,7 @@ namespace ai_speis_be.Migrations
 
                     b.ToTable("InterviewCampaign", t =>
                         {
-                            t.HasCheckConstraint("CK_InterviewCampaign_DurationMinutes", "[DurationMinutes] IN (10, 15, 20)");
+                            t.HasCheckConstraint("CK_InterviewCampaign_DurationMinutes", "[DurationMinutes] >= 5 AND [DurationMinutes] <= 120");
                         });
                 });
 
@@ -1004,9 +989,6 @@ namespace ai_speis_be.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<decimal?>("TechnicalFinalScore")
-                        .HasColumnType("decimal(5,2)");
-
                     b.Property<string>("TechnicalFinalFeedbackError")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1018,6 +1000,9 @@ namespace ai_speis_be.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal?>("TechnicalFinalScore")
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("TechnicalJobRole")
                         .HasMaxLength(200)
@@ -1226,16 +1211,44 @@ namespace ai_speis_be.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ExpiredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("OrderCode")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<decimal>("OriginalAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("PackageId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("PriceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProviderTransactionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("RewardPointsUsed")
+                        .HasColumnType("int");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -1245,6 +1258,12 @@ namespace ai_speis_be.Migrations
 
                     b.HasKey("PaymentId");
 
+                    b.HasIndex("PriceId");
+
+                    b.HasIndex("ProviderTransactionId")
+                        .IsUnique()
+                        .HasFilter("[ProviderTransactionId] IS NOT NULL");
+
                     b.HasIndex(new[] { "OrderCode" }, "IX_Payment_OrderCode")
                         .IsUnique();
 
@@ -1253,6 +1272,81 @@ namespace ai_speis_be.Migrations
                     b.HasIndex(new[] { "UserId" }, "IX_Payment_UserId");
 
                     b.ToTable("Payment");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.PlanFeature", b =>
+                {
+                    b.Property<int>("PlanFeatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PlanFeatureId"));
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FeatureCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("LimitValue")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.HasKey("PlanFeatureId");
+
+                    b.HasIndex("PlanId", "FeatureCode")
+                        .IsUnique();
+
+                    b.ToTable("PlanFeature");
+
+                    b.HasData(
+                        new
+                        {
+                            PlanFeatureId = 1,
+                            DisplayOrder = 1,
+                            FeatureCode = "BASIC_AI_INTERVIEW",
+                            IsEnabled = true,
+                            PlanId = 1
+                        },
+                        new
+                        {
+                            PlanFeatureId = 2,
+                            DisplayOrder = 2,
+                            FeatureCode = "GENERAL_SKILL_ASSESSMENT",
+                            IsEnabled = true,
+                            PlanId = 1
+                        },
+                        new
+                        {
+                            PlanFeatureId = 3,
+                            DisplayOrder = 1,
+                            FeatureCode = "COMPREHENSIVE_AI_INTERVIEW",
+                            IsEnabled = true,
+                            PlanId = 2
+                        },
+                        new
+                        {
+                            PlanFeatureId = 4,
+                            DisplayOrder = 2,
+                            FeatureCode = "ADVANCED_ANALYSIS",
+                            IsEnabled = true,
+                            PlanId = 2
+                        },
+                        new
+                        {
+                            PlanFeatureId = 5,
+                            DisplayOrder = 3,
+                            FeatureCode = "QUOTA_REFRESH_30_DAYS",
+                            IsEnabled = true,
+                            PlanId = 2
+                        });
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
@@ -1357,6 +1451,202 @@ namespace ai_speis_be.Migrations
                     b.HasIndex(new[] { "UserId" }, "IX_Question_UserId");
 
                     b.ToTable("Question");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.QuotaPeriod", b =>
+                {
+                    b.Property<int>("QuotaPeriodId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("QuotaPeriodId"));
+
+                    b.Property<DateTime?>("PeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("QuotaLimit")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReservedQuota")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("UsedQuota")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserSubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("QuotaPeriodId");
+
+                    b.HasIndex("UserSubscriptionId", "PeriodStart")
+                        .IsUnique();
+
+                    b.ToTable("QuotaPeriod", t =>
+                        {
+                            t.HasCheckConstraint("CK_QuotaPeriod_Values", "[QuotaLimit] >= 0 AND [UsedQuota] >= 0 AND [ReservedQuota] >= 0 AND [UsedQuota] + [ReservedQuota] <= [QuotaLimit]");
+                        });
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.QuotaTransaction", b =>
+                {
+                    b.Property<long>("QuotaTransactionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("QuotaTransactionId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Delta")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuotaPeriodId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReferenceId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ReferenceType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("QuotaTransactionId");
+
+                    b.HasIndex("QuotaPeriodId", "Type", "ReferenceType", "ReferenceId")
+                        .IsUnique()
+                        .HasFilter("[ReferenceType] IS NOT NULL AND [ReferenceId] IS NOT NULL");
+
+                    b.ToTable("QuotaTransaction");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.RewardAccount", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AvailablePoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LifetimeEarnedPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReservedPoints")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("RewardAccount", t =>
+                        {
+                            t.HasCheckConstraint("CK_RewardAccount_Points", "[AvailablePoints] >= 0 AND [ReservedPoints] >= 0 AND [LifetimeEarnedPoints] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.RewardRule", b =>
+                {
+                    b.Property<int>("RewardRuleId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RewardRuleId"));
+
+                    b.Property<bool>("AllowFullPaymentByPoints")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PointValueVnd")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("PointsExpire")
+                        .HasColumnType("bit");
+
+                    b.HasKey("RewardRuleId");
+
+                    b.ToTable("RewardRule");
+
+                    b.HasData(
+                        new
+                        {
+                            RewardRuleId = 1,
+                            AllowFullPaymentByPoints = true,
+                            EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            PointValueVnd = 1,
+                            PointsExpire = false
+                        });
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.RewardTransaction", b =>
+                {
+                    b.Property<long>("RewardTransactionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RewardTransactionId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Delta")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReferenceId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ReferenceType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("RewardTransactionId");
+
+                    b.HasIndex("UserId", "Type", "ReferenceType", "ReferenceId")
+                        .IsUnique();
+
+                    b.ToTable("RewardTransaction");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.Role", b =>
@@ -1475,6 +1765,223 @@ namespace ai_speis_be.Migrations
                     b.ToTable("SubmissionTestCaseResult");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.SubscriptionPlan", b =>
+                {
+                    b.Property<int>("PlanId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PlanId"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InterviewQuota")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsFree")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int?>("QuotaResetDays")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PlanId");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPlan", t =>
+                        {
+                            t.HasCheckConstraint("CK_SubscriptionPlan_InterviewQuota", "[InterviewQuota] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionPlan_QuotaResetDays", "[QuotaResetDays] IS NULL OR [QuotaResetDays] > 0");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            PlanId = 1,
+                            Code = "FREE",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "3 lượt phỏng vấn miễn phí.",
+                            DisplayOrder = 1,
+                            InterviewQuota = 3,
+                            IsActive = true,
+                            IsFree = true,
+                            Name = "Gói Cơ Bản",
+                            RowVersion = new byte[0]
+                        },
+                        new
+                        {
+                            PlanId = 2,
+                            Code = "PREMIUM",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "15 lượt phỏng vấn, làm mới sau mỗi 30 ngày.",
+                            DisplayOrder = 2,
+                            InterviewQuota = 15,
+                            IsActive = true,
+                            IsFree = false,
+                            Name = "Premium",
+                            QuotaResetDays = 30,
+                            RowVersion = new byte[0]
+                        });
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.SubscriptionPrice", b =>
+                {
+                    b.Property<int>("PriceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PriceId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BillingCycle")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BillingCycleCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PriceId");
+
+                    b.HasIndex("PlanId", "BillingCycle", "IsActive");
+
+                    b.ToTable("SubscriptionPrice", t =>
+                        {
+                            t.HasCheckConstraint("CK_SubscriptionPrice_Amount", "[Amount] >= 0");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            PriceId = 1,
+                            Amount = 59000m,
+                            BillingCycle = 1,
+                            BillingCycleCount = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "VND",
+                            EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            PlanId = 2,
+                            RowVersion = new byte[0]
+                        },
+                        new
+                        {
+                            PriceId = 2,
+                            Amount = 599000m,
+                            BillingCycle = 2,
+                            BillingCycleCount = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "VND",
+                            EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            PlanId = 2,
+                            RowVersion = new byte[0]
+                        });
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.SubscriptionTerm", b =>
+                {
+                    b.Property<int>("SubscriptionTermId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SubscriptionTermId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PriceId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SourcePaymentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserSubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("SubscriptionTermId");
+
+                    b.HasIndex("PriceId");
+
+                    b.HasIndex("SourcePaymentId")
+                        .IsUnique()
+                        .HasFilter("[SourcePaymentId] IS NOT NULL");
+
+                    b.HasIndex("UserSubscriptionId", "StartsAt", "EndsAt");
+
+                    b.ToTable("SubscriptionTerm");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.TechnicalAnswerEvaluation", b =>
                 {
                     b.Property<Guid>("EvaluationId")
@@ -1485,9 +1992,6 @@ namespace ai_speis_be.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
-                    b.Property<int?>("AiSuggestedAction")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("AiSuggestedOverallScore")
                         .HasColumnType("decimal(5,2)");
 
@@ -1496,9 +2000,6 @@ namespace ai_speis_be.Migrations
 
                     b.Property<int>("BackendResolvedAction")
                         .HasColumnType("int");
-
-                    b.Property<decimal>("Confidence")
-                        .HasColumnType("decimal(5,4)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1538,10 +2039,6 @@ namespace ai_speis_be.Migrations
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("ImprovementSuggestionsJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("IncorrectClaimsJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -1852,6 +2349,9 @@ namespace ai_speis_be.Migrations
                     b.Property<DateTime?>("EmailConfirmedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("FreeInterviewQuotaRemaining")
+                        .HasColumnType("int");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1918,6 +2418,8 @@ namespace ai_speis_be.Migrations
 
                     b.ToTable("User", t =>
                         {
+                            t.HasCheckConstraint("CK_User_FreeInterviewQuotaRemaining", "[FreeInterviewQuotaRemaining] >= 0 AND [FreeInterviewQuotaRemaining] <= 3");
+
                             t.HasCheckConstraint("CK_User_RemainingInterviewQuota", "[RemainingInterviewQuota] >= 0");
                         });
                 });
@@ -1969,6 +2471,102 @@ namespace ai_speis_be.Migrations
                         .IsUnique();
 
                     b.ToTable("UserProfile");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.UserSkillScore", b =>
+                {
+                    b.Property<int>("UserSkillScoreId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserSkillScoreId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EvaluatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("InterviewCampaignId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("InterviewSessionId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Score")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("SessionTitle")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("SkillCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SkillName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("UserSkillScoreId");
+
+                    b.HasIndex("InterviewCampaignId");
+
+                    b.HasIndex("InterviewSessionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSkillScore");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.UserSubscription", b =>
+                {
+                    b.Property<int>("UserSubscriptionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserSubscriptionId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("UserSubscriptionId");
+
+                    b.HasIndex("PlanId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserSubscription");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.AIInteractionLog", b =>
@@ -2224,13 +2822,31 @@ namespace ai_speis_be.Migrations
 
             modelBuilder.Entity("ai_speis_be.Models.Payment", b =>
                 {
+                    b.HasOne("ai_speis_be.Models.SubscriptionPrice", "SubscriptionPrice")
+                        .WithMany()
+                        .HasForeignKey("PriceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ai_speis_be.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("SubscriptionPrice");
+
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.PlanFeature", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.SubscriptionPlan", "Plan")
+                        .WithMany("Features")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
@@ -2242,6 +2858,50 @@ namespace ai_speis_be.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.QuotaPeriod", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.UserSubscription", "UserSubscription")
+                        .WithMany("QuotaPeriods")
+                        .HasForeignKey("UserSubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserSubscription");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.QuotaTransaction", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.QuotaPeriod", "QuotaPeriod")
+                        .WithMany("Transactions")
+                        .HasForeignKey("QuotaPeriodId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("QuotaPeriod");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.RewardAccount", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.User", "User")
+                        .WithOne()
+                        .HasForeignKey("ai_speis_be.Models.RewardAccount", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.RewardTransaction", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.RewardAccount", "Account")
+                        .WithMany("Transactions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.SavedQuestion", b =>
@@ -2280,6 +2940,36 @@ namespace ai_speis_be.Migrations
                     b.Navigation("CodingSubmission");
 
                     b.Navigation("TestCase");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.SubscriptionPrice", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.SubscriptionPlan", "Plan")
+                        .WithMany("Prices")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.SubscriptionTerm", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.SubscriptionPrice", "Price")
+                        .WithMany()
+                        .HasForeignKey("PriceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ai_speis_be.Models.UserSubscription", "UserSubscription")
+                        .WithMany("Terms")
+                        .HasForeignKey("UserSubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Price");
+
+                    b.Navigation("UserSubscription");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.TechnicalAnswerEvaluation", b =>
@@ -2351,6 +3041,48 @@ namespace ai_speis_be.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.UserSkillScore", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.InterviewCampaign", "InterviewCampaign")
+                        .WithMany()
+                        .HasForeignKey("InterviewCampaignId");
+
+                    b.HasOne("ai_speis_be.Models.InterviewSession", "InterviewSession")
+                        .WithMany()
+                        .HasForeignKey("InterviewSessionId");
+
+                    b.HasOne("ai_speis_be.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InterviewCampaign");
+
+                    b.Navigation("InterviewSession");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.UserSubscription", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.SubscriptionPlan", "Plan")
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ai_speis_be.Models.User", "User")
+                        .WithOne()
+                        .HasForeignKey("ai_speis_be.Models.UserSubscription", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.BehaviourQuestionSet", b =>
                 {
                     b.Navigation("BehaviourSessionQuestion");
@@ -2394,6 +3126,23 @@ namespace ai_speis_be.Migrations
                     b.Navigation("TechnicalQuestionAttempts");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.QuotaPeriod", b =>
+                {
+                    b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.RewardAccount", b =>
+                {
+                    b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.SubscriptionPlan", b =>
+                {
+                    b.Navigation("Features");
+
+                    b.Navigation("Prices");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.TechnicalQuestionAttempt", b =>
                 {
                     b.Navigation("ChildAttempts");
@@ -2411,6 +3160,13 @@ namespace ai_speis_be.Migrations
                     b.Navigation("CVFiles");
 
                     b.Navigation("JDFiles");
+                });
+
+            modelBuilder.Entity("ai_speis_be.Models.UserSubscription", b =>
+                {
+                    b.Navigation("QuotaPeriods");
+
+                    b.Navigation("Terms");
                 });
 #pragma warning restore 612, 618
         }

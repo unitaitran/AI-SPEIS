@@ -60,7 +60,7 @@ Write in Vietnamese:
 
 === STEP 3: STRUCTURED DATA EXTRACTION (skip if isValidCv=false) ===
 RULES:
-1. For ""roleTarget"": Extract the applied position or infer from skills/projects.
+1. For ""roleTarget"": Extract the applied position or infer from skills/projects. It MUST be normalized to one of: ""Backend"", ""Frontend"", ""Fullstack"", ""Mobile"", ""BA"", ""QA/Tester"", ""DevOps"", ""Data Analyst"", or ""Other"". (If the position is not one of the 8 supported roles above, output ""Other"").
 2. For ""skills"": Extract ONLY technical/programming skills. Categories:
    - ""Language"": Programming languages (Java, C#, Python, JavaScript, etc.)
    - ""Framework"": Frameworks and libraries (React, Spring Boot, .NET, Angular, etc.)
@@ -155,7 +155,7 @@ Set isValidJd=false with invalidReason if score < 0.50.
 Extract the following information from the JD (Translate to Vietnamese):
 - jobTitle: The main job title being recruited (e.g. Lập trình viên Backend, Chuyên viên Frontend).
 - experienceLevel: Normalize and output strictly as one of: ""Intern"", ""Fresher"", ""Junior"", ""Mid-level"", ""Senior"", ""Lead"". (Infer if not explicit).
-- roleTarget: Identify the target role. It MUST be normalized to one of the following exact values: ""BA"", ""Tester"", ""Backend"", ""Frontend"", ""Fullstack"", ""Mobile"", ""DevOps"", ""Data Science"", ""Design"", ""Project Manager"", ""Other"". (If the role is not IT-related or doesn't fit, use ""Other"").
+- roleTarget: Identify the target role. It MUST be normalized to one of the following exact values: ""Backend"", ""Frontend"", ""Fullstack"", ""Mobile"", ""BA"", ""QA/Tester"", ""DevOps"", ""Data Analyst"", or ""Other"". (If the role is not one of the 8 supported roles above, use ""Other"").
 - requiredSkills: Array of MUST HAVE technical and soft skills.
 - niceToHaveSkills: Array of PLUS or nice-to-have skills.
 - responsibilities: A short paragraph summarizing the key responsibilities (max 3 sentences in Vietnamese).

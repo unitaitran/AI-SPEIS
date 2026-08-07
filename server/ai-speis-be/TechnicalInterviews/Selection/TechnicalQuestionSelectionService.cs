@@ -1,6 +1,7 @@
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
+using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Configuration;
 using ai_speis_be.TechnicalInterviews.Planning;
 using ai_speis_be.TechnicalInterviews.Validation;
@@ -50,19 +51,112 @@ namespace ai_speis_be.TechnicalInterviews.Selection
             TechnicalAttemptType attemptType,
             int followUpNumber,
             CancellationToken cancellationToken);
+
+        Task<IReadOnlyList<Question>?> SelectMainQuestionsWithAIAsync(
+            TechnicalSelectionContext baseContext,
+            IReadOnlyList<Question> candidatePool,
+            int cvFocusCount,
+            int jdFocusCount,
+            CancellationToken cancellationToken);
     }
 
     public sealed class TechnicalQuestionSelectionService : ITechnicalQuestionSelectionService
     {
         private readonly IQuestionRepoitory _questionRepository;
+        private readonly ITechnicalInterviewAIProviderResolver _aiProviderResolver;
+        private readonly ITechnicalAIResponseValidator _validator;
         private readonly TechnicalInterviewOptions _options;
+        private readonly ILogger<TechnicalQuestionSelectionService> _logger;
 
         public TechnicalQuestionSelectionService(
             IQuestionRepoitory questionRepository,
-            TechnicalInterviewOptions options)
+            ITechnicalInterviewAIProviderResolver aiProviderResolver,
+            ITechnicalAIResponseValidator validator,
+            TechnicalInterviewOptions options,
+            ILogger<TechnicalQuestionSelectionService> logger)
         {
             _questionRepository = questionRepository;
+            _aiProviderResolver = aiProviderResolver;
+            _validator = validator;
             _options = options;
+            _logger = logger;
+        }
+
+        public async Task<IReadOnlyList<Question>?> SelectMainQuestionsWithAIAsync(
+            TechnicalSelectionContext baseContext,
+            IReadOnlyList<Question> candidatePool,
+            int cvFocusCount,
+            int jdFocusCount,
+            CancellationToken cancellationToken)
+        {
+            if (candidatePool.Count < 3)
+            {
+                return null;
+            }
+
+            try
+            {
+                var candidatesById = candidatePool.ToDictionary(q => q.QuestionId);
+                var aiCandidates = candidatePool.Select(q => new TechnicalAIQuestionCandidate(
+                    q.QuestionId,
+                    q.QuestionContent,
+                    q.Skill,
+                    TechnicalQuestionMetadata.GetSubskill(q.QdrantPayloadJson),
+                    q.Difficulty.ToString(),
+                    q.ExperienceLevel
+                )).ToList();
+
+                var constraints = new TechnicalAISelectionConstraints
+                {
+                    RequiredQuestionCount = 3,
+                    MaximumQuestionsPerSkill = 1,
+                    MinimumCoveredSkills = Math.Min(3, candidatePool.Select(q => q.Skill).Distinct().Count()),
+                    CvFocusQuestionCount = cvFocusCount,
+                    JdFocusQuestionCount = jdFocusCount
+                };
+
+                var request = new TechnicalAISelectionRequest
+                {
+                    Language = baseContext.Language,
+                    JobRole = baseContext.JobRole,
+                    ExperienceLevel = baseContext.ExperienceLevel,
+                    RequiredSkills = baseContext.RequiredJdSkills,
+                    NiceToHaveSkills = baseContext.JdSkills.Except(baseContext.RequiredJdSkills).ToList(),
+                    CvSkills = baseContext.CvSkills,
+                    Constraints = constraints,
+                    Candidates = aiCandidates
+                };
+
+                var provider = _aiProviderResolver.Resolve();
+                var aiResult = await provider.SelectQuestionsAsync(request, cancellationToken);
+
+                if (!aiResult.Success || aiResult.Data is null)
+                {
+                    _logger.LogWarning("Technical AI question selection failed ({ErrorCode}). Falling back to rule-based engine.", aiResult.ErrorCode);
+                    return null;
+                }
+
+                var validation = _validator.ValidateSelection(
+                    aiResult.Data,
+                    constraints,
+                    candidatesById.Keys.ToHashSet());
+
+                if (!validation.IsValid)
+                {
+                    _logger.LogWarning("Technical AI question selection invalid ({ErrorCode}). Falling back to rule-based engine.", validation.ErrorCode);
+                    return null;
+                }
+
+                return aiResult.Data.SelectedQuestions
+                    .Where(sq => candidatesById.ContainsKey(sq.QuestionId))
+                    .Select(sq => candidatesById[sq.QuestionId])
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during Technical AI question selection. Falling back to rule-based engine.");
+                return null;
+            }
         }
 
         public async Task<TechnicalQuestionPoolResult> PreparePoolAsync(

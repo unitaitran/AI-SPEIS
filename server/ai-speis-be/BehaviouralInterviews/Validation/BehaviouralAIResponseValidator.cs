@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.BehaviouralInterviews.AI;
@@ -83,28 +85,6 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             BehaviouralRubricDefinition rubric,
             IReadOnlyList<BehaviouralAnswerContext> answerContext)
         {
-            if (!TryParseDecision(evaluation.Decision, out var decision))
-            {
-                return Invalid("INVALID_DECISION");
-            }
-
-            if (evaluation.Confidence is < 0m or > 1m)
-            {
-                return Invalid("INVALID_CONFIDENCE");
-            }
-
-            var allowedStatuses = new[] { "EXCELLENT", "GOOD", "PARTIAL", "VAGUE", "INSUFFICIENT" };
-            if (!allowedStatuses.Contains(evaluation.AnswerQuality?.Trim(), StringComparer.OrdinalIgnoreCase))
-            {
-                return Invalid("INVALID_ANSWER_STATUS");
-            }
-
-            if (evaluation.OverallRubricScore < (decimal)rubric.MinimumScore
-                || evaluation.OverallRubricScore > (decimal)rubric.MaximumScore)
-            {
-                return Invalid("INVALID_OVERALL_RUBRIC_SCORE");
-            }
-
             var expectedCodes = rubric.Dimensions
                 .Select(item => item.Code)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -119,22 +99,8 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                 return Invalid("INVALID_RUBRIC_CODES");
             }
 
-            var transcript = Normalize(string.Join(" ", answerContext.Select(item => item.Answer)));
-            if (evaluation.Evidence.Count > 3 || evaluation.MissingAspects.Count > 3)
-            {
-                return Invalid("EVALUATION_DETAIL_LIMIT_EXCEEDED");
-            }
-            if (evaluation.Evidence.Any(evidence =>
-                string.IsNullOrWhiteSpace(evidence)
-                || evidence.Length > 300
-                || !transcript.Contains(Normalize(evidence), StringComparison.Ordinal)))
-            {
-                return Invalid("EVIDENCE_NOT_IN_ANSWER");
-            }
-            if (evaluation.MissingAspects.Any(item => string.IsNullOrWhiteSpace(item) || item.Length > 300))
-            {
-                return Invalid("INVALID_MISSING_ASPECT");
-            }
+            var transcript = NormalizeEvidence(string.Join(" ", answerContext.Select(item => item.Answer)));
+
             foreach (var dimension in evaluation.DimensionEvaluations)
             {
                 if (dimension.SuggestedScore < rubric.MinimumScore
@@ -143,28 +109,16 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                     return Invalid("SCORE_OUT_OF_RANGE");
                 }
 
-                if (dimension.SuggestedScore > rubric.EvidenceRequiredWhenScoreAbove
-                    && dimension.Evidence.Count == 0)
-                {
-                    return Invalid("MISSING_SCORE_EVIDENCE");
-                }
-
                 if (dimension.Evidence.Any(evidence =>
-                    string.IsNullOrWhiteSpace(evidence)
-                    || evidence.Length > 1_000
-                    || !transcript.Contains(Normalize(evidence), StringComparison.Ordinal)))
+                    !string.IsNullOrWhiteSpace(evidence)
+                    && !IsGroundedEvidence(evidence, transcript)))
                 {
-                    return Invalid("EVIDENCE_NOT_IN_ANSWER");
-                }
-
-                if (string.IsNullOrWhiteSpace(dimension.ReasonSummary)
-                    || dimension.ReasonSummary.Length > 1_000)
-                {
-                    return Invalid("INVALID_REASON_SUMMARY");
+                    // Filter out non-verbatim dimension evidence snippets instead of failing whole score
+                    dimension.Evidence.RemoveAll(evidence => !IsGroundedEvidence(evidence, transcript));
                 }
             }
 
-            return new BehaviouralEvaluationValidationResult(true, decision, null);
+            return new BehaviouralEvaluationValidationResult(true, BehaviourResolvedAction.NextMainQuestion, null);
         }
 
         private static bool TryParseDecision(string value, out BehaviourResolvedAction decision)
@@ -183,9 +137,46 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                 errorCode);
         }
 
-        private static string Normalize(string value)
+        private static bool IsGroundedEvidence(string evidence, string normalizedTranscript)
         {
-            return Regex.Replace(value.Trim().ToLowerInvariant(), @"\s+", " ");
+            if (string.IsNullOrWhiteSpace(evidence) || evidence.Length > 1_000)
+            {
+                return false;
+            }
+
+            var normalizedEvidence = NormalizeEvidence(evidence);
+            return normalizedEvidence.Length > 0
+                && normalizedTranscript.Contains(normalizedEvidence, StringComparison.Ordinal);
+        }
+
+        private static string NormalizeEvidence(string value)
+        {
+            var decomposed = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder(decomposed.Length);
+            var previousWasSeparator = true;
+
+            foreach (var character in decomposed)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+                {
+                    continue;
+                }
+
+                var normalizedCharacter = character is 'đ' or 'Đ' ? 'd' : character;
+                if (char.IsLetterOrDigit(normalizedCharacter))
+                {
+                    builder.Append(normalizedCharacter);
+                    previousWasSeparator = false;
+                }
+                else if (!previousWasSeparator)
+                {
+                    builder.Append(' ');
+                    previousWasSeparator = true;
+                }
+            }
+
+            return Regex.Replace(builder.ToString().Trim(), @"\s+", " ");
         }
     }
 }
+

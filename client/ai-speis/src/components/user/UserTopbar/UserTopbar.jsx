@@ -56,7 +56,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
       } catch {
         if (isMounted) {
           const isUserPremium = Boolean(propUser?.isPremium ?? user?.isPremium);
-          const fallbackRemaining = propUser?.remainingInterviewQuota ?? user?.remainingInterviewQuota ?? (isUserPremium ? 15 : 5);
+          const fallbackRemaining = propUser?.remainingInterviewQuota ?? user?.remainingInterviewQuota ?? (isUserPremium ? 15 : 3);
           setRemainingInterviewQuota(fallbackRemaining);
           setMaxInterviewQuota(isUserPremium ? 15 : 5);
           setPlanName(isUserPremium ? 'Premium' : 'Free');

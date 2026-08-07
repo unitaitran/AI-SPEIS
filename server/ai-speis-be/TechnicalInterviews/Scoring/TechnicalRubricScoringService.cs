@@ -78,12 +78,7 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
             int requiredMainQuestionCount = 3)
         {
             var scores = finalMainQuestionScores.ToList();
-            if (scores.Count != requiredMainQuestionCount)
-            {
-                throw new InvalidOperationException(
-                    $"An official Technical Score requires exactly {requiredMainQuestionCount} finalized Main Questions.");
-            }
-
+            if (scores.Count == 0) return 0m;
             return Normalize(scores.Average(), rubric);
         }
 

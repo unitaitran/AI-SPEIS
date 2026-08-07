@@ -133,6 +133,7 @@ function MyCVPage() {
   /* Editing state (for confirm flow) */
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(null);
+  const [showUploadCVModal, setShowUploadCVModal] = useState(false);
 
   /* Refs for polling */
   const pollTimerRef = useRef(null);
@@ -237,7 +238,7 @@ function MyCVPage() {
         ) {
           stopPolling();
           setIsParsing(false);
-          const errorMsg = "Đây không phải là JD/CV hoặc bạn đang upload chưa phải thông tin CV hoàn thiện. Hãy thử lại.";
+          const errorMsg = statusResp?.errorMessage || statusResp?.ErrorMessage || statusResp?.data?.errorMessage || "Đây không phải là CV hợp lệ hoặc vị trí công việc chưa được hỗ trợ. Hãy thử lại.";
           setError(errorMsg);
           // Refresh CV data
           await fetchCV();
@@ -613,11 +614,10 @@ function MyCVPage() {
                 </div>
                 <h3>{t('mycv.upload_title', 'Tải lên CV của bạn')}</h3>
                 <p>{t('mycv.upload_desc', 'Bạn chưa tải lên CV của mình. Kéo thả tệp tin vào đây hoặc chọn tệp tin để AI có thể phân tích kỹ năng, trích xuất thông tin dự án và cá nhân hóa câu hỏi phỏng vấn tối ưu nhất cho bạn.')}</p>
-                <label className="mycv-upload-btn">
+                <button className="mycv-upload-btn cursor-pointer" onClick={() => setShowUploadCVModal(true)}>
                   <Plus size={18} />
                   {t('mycv.select_file', 'Chọn tệp tin CV (PDF)')}
-                  <input type="file" accept=".pdf" onChange={handleFileUpload} hidden />
-                </label>
+                </button>
                 <span className="mycv-file-hint">
                   {t('mycv.file_hint', 'Hỗ trợ định dạng PDF tối đa 5MB')}
                 </span>
@@ -686,11 +686,10 @@ function MyCVPage() {
                 )}
 
                 {/* Upload new */}
-                <label className="mycv-btn mycv-btn--outline">
+                <button className="mycv-btn mycv-btn--outline" onClick={() => setShowUploadCVModal(true)}>
                   <Upload size={14} />
                   {t('mycv.upload_new', 'Tải CV mới')}
-                  <input type="file" accept=".pdf" onChange={handleFileUpload} hidden />
-                </label>
+                </button>
 
                 {/* Delete */}
                 <button onClick={handleRemoveCV} className="mycv-btn-icon mycv-btn-icon--danger" title={t('mycv.delete_cv', 'Xóa CV')}>
@@ -1115,6 +1114,61 @@ function MyCVPage() {
                   title={cvData.fileName}
                   className="w-full h-full border-0"
                 />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CV Upload Modal */}
+        {showUploadCVModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-surface-1 rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-pageEntrance border border-border">
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                  <FileText size={20} className="text-primary" />
+                  {t('mycv.upload_modal_title', 'Tải lên CV mới')}
+                </h3>
+                <button onClick={() => setShowUploadCVModal(false)} className="text-text-secondary hover:text-text-primary">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-4">
+                {/* Notice for supported roles */}
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-xs text-primary mb-4 flex items-start gap-2">
+                  <Info size={18} className="shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Lưu ý về vị trí hỗ trợ:</strong> Hệ thống hiện chỉ hỗ trợ phân tích CV cho các vị trí: <strong>Backend Developer, Frontend Developer, Fullstack Developer, Mobile Developer, Business Analyst (BA), QA/Tester, DevOps Engineer, và Data Analyst</strong>.
+                  </div>
+                </div>
+
+                <div className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-surface-2 hover:bg-surface-3 transition-colors">
+                  <div className="bg-primary/10 text-primary w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Upload size={24} />
+                  </div>
+                  <h4 className="text-text-primary font-medium mb-1">{t('mycv.modal_drag_title', 'Chọn hoặc kéo thả file CV')}</h4>
+                  <p className="text-sm text-text-secondary mb-4">{t('mycv.modal_file_hint', 'Hỗ trợ định dạng PDF (tối đa 5MB)')}</p>
+                  <label className="mycv-btn mycv-btn--primary mx-auto w-max cursor-pointer">
+                    {t('mycv.modal_select_file', 'Chọn tệp')}
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      hidden
+                      onChange={(e) => {
+                        if (e.target.files.length) {
+                          setShowUploadCVModal(false);
+                          processFile(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+              
+              <div className="p-4 border-t border-border flex justify-end gap-3 bg-surface-2/50">
+                <button className="mycv-btn mycv-btn--outline" onClick={() => setShowUploadCVModal(false)}>
+                  {t('mycv.cancel', 'Hủy')}
+                </button>
               </div>
             </div>
           </div>

@@ -87,7 +87,6 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
     public sealed class BehaviouralEvaluationDecisionDto
     {
         public string Decision { get; set; } = string.Empty;
-        public string? AnswerQuality { get; set; }
         public string EvaluationStatus { get; set; } = "COMPLETED";
     }
 
@@ -126,7 +125,6 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
         public string Level { get; set; } = string.Empty;
         public List<string> Evidence { get; set; } = new();
         public List<string> MissingEvidence { get; set; } = new();
-        public string ReasonSummary { get; set; } = string.Empty;
     }
 
     public sealed class BehaviouralFinalSummaryDto
@@ -137,10 +135,6 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
         public List<string> CompetencyStrengths { get; set; } = new();
         public List<string> Weaknesses { get; set; } = new();
         public List<string> CompetencyGaps { get; set; } = new();
-        public string StarStructureAssessment { get; set; } = string.Empty;
-        public string OwnershipAndImpactAssessment { get; set; } = string.Empty;
-        public string CompetencyFit { get; set; } = string.Empty;
-        public string CommunicationAssessment { get; set; } = string.Empty;
         public string LevelAssessment { get; set; } = string.Empty;
         public List<string> RecommendationsForImprovement { get; set; } = new();
         public List<string> TopRecommendations { get; set; } = new();

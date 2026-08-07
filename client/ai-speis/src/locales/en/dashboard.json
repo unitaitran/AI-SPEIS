@@ -59,7 +59,7 @@
     "menu_community": "Community",
     "menu_packages": "Service Packages",
     "upgrade_pro": "Upgrade to Pro",
-    "unlock_desc": "Unlock unlimited AI interview sessions.",
+    "unlock_desc": "Get 15 AI interview sessions per fixed 30-day cycle.",
     "upgrade_now": "UPGRADE NOW",
     "start_interview": "Start Interview"
   },
@@ -85,7 +85,10 @@
     "no_questions_desc": "Please try changing your search query or filter checkboxes.",
     "confirm_delete_bookmark": "Are you sure you want to remove this bookmark?",
     "filter_saved": "Saved",
-    "filter_unsaved": "Unsaved"
+    "filter_unsaved": "Unsaved",
+    "filter_language": "Language",
+    "lang_vi": "Vietnamese",
+    "lang_en": "English"
   },
   "mycv": {
     "title": "My CV",

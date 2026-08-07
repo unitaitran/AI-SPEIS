@@ -22,8 +22,22 @@ namespace ai_speis_be.Models
         [Required]
         public int PackageId { get; set; }
 
+        [ForeignKey(nameof(SubscriptionPrice))]
+        public int? PriceId { get; set; }
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal Amount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal OriginalAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal DiscountAmount { get; set; }
+
+        public int RewardPointsUsed { get; set; }
+
+        [Required, MaxLength(3)]
+        public string Currency { get; set; } = "VND";
 
         [Required]
         [MaxLength(64)]
@@ -37,6 +51,15 @@ namespace ai_speis_be.Models
 
         public DateTime? PaidAt { get; set; }
 
+        public DateTime? ExpiredAt { get; set; }
+
+        [MaxLength(100)]
+        public string? ProviderTransactionId { get; set; }
+
+        [MaxLength(500)]
+        public string? FailureReason { get; set; }
+
         public virtual User User { get; set; } = null!;
+        public virtual SubscriptionPrice? SubscriptionPrice { get; set; }
     }
 }

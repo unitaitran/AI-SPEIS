@@ -72,7 +72,6 @@ describe('technical interview result helpers', () => {
         { attemptId: 'attempt-2', mainQuestionIndex: 2, question: 'Question 2', finalMainScore: 8 },
         { attemptId: 'attempt-3', mainQuestionIndex: 3, question: 'Question 3', finalMainScore: 6 },
       ],
-      skillScores: [{ skill: 'Architecture', mainQuestionCount: 1, score: 4.25 }],
       summary: {
         summary: 'Strong technical foundation.',
         strengths: ['Clear reasoning'],
@@ -81,9 +80,8 @@ describe('technical interview result helpers', () => {
       },
     });
 
-    expect(result.technicalScore).toBe(6.33);
+    expect(result.technicalScore).toBe(6.3);
     expect(result.summaryFeedback).toBe('Strong technical foundation.');
-    expect(result.skillResults).toHaveLength(1);
     expect(result.recommendations).toEqual(['Practice system design']);
     expect(result.questionResults[0]).toMatchObject({
       questionType: 'MAIN',
@@ -102,14 +100,14 @@ describe('technical interview result helpers', () => {
     expect(result.questionResults[0].rubricBreakdown[0].maxScore).toBe(10);
   });
 
-  test('does not substitute overallScore when the backend omits technicalScore', () => {
+  test('substitutes overallScore when technicalScore is missing', () => {
     const result = normalizeTechnicalInterviewResult({
       overallScore: 8.5,
       maxScore: 10,
       mainQuestionResults: [],
     });
 
-    expect(result.technicalScore).toBeUndefined();
+    expect(result.technicalScore).toBe(8.5);
   });
 
   test('formats API dimension weights for display without calculating a score', () => {

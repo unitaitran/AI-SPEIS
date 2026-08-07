@@ -24,9 +24,32 @@ import { USER_ROUTES } from '../../routes/routePaths';
 import { API_BASE_URL } from '../../config/api';
 import '../../styles/user/PackagesPage.css';
 
-function formatVnd(amount) {
-  if (amount === 0) return 'Miễn phí';
+function formatVnd(amount, t) {
+  if (amount === 0) return t ? t('free', 'Miễn phí') : 'Miễn phí';
   return `${amount.toLocaleString('vi-VN')} VND`;
+}
+
+function translateFeature(featureCode, t) {
+  if (!featureCode) return '';
+  const normalized = featureCode.toLowerCase().replace(/[\s_]+/g, '_');
+
+  if (normalized.includes('basic') && normalized.includes('interview')) {
+    return t('basicAiInterview', 'Phỏng vấn AI cơ bản');
+  }
+  if (normalized.includes('general') || normalized.includes('skill')) {
+    return t('generalSkillAssessment', 'Đánh giá kỹ năng tổng quan');
+  }
+  if (normalized.includes('comprehensive')) {
+    return t('comprehensiveAiInterview', 'Phỏng vấn AI toàn diện');
+  }
+  if (normalized.includes('advanced') || normalized.includes('analysis')) {
+    return t('advancedAnalysis', 'Phân tích & Đánh giá nâng cao');
+  }
+  if (normalized.includes('quota') || normalized.includes('refresh') || normalized.includes('30')) {
+    return t('quotaRefresh30Days', 'Làm mới 15 lượt sau mỗi 30 ngày');
+  }
+
+  return t(normalized, featureCode.replaceAll('_', ' '));
 }
 
 function formatDate(dateStr) {
@@ -36,23 +59,6 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function getNextResetDate(lastResetStr, expireStr) {
-  let baseDate = lastResetStr ? new Date(lastResetStr) : new Date();
-  if (isNaN(baseDate.getTime())) baseDate = new Date();
-
-  const nextReset = new Date(baseDate);
-  nextReset.setDate(nextReset.getDate() + 30);
-
-  if (expireStr) {
-    const expireDate = new Date(expireStr);
-    if (!isNaN(expireDate.getTime()) && nextReset > expireDate) {
-      return formatDate(expireDate);
-    }
-  }
-
-  return formatDate(nextReset);
-}
-
 function PackagesPage() {
   const { t } = useTranslation('packages');
   const [isCreating, setIsCreating] = useState(false);
@@ -60,43 +66,92 @@ function PackagesPage() {
   const [error, setError] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalMode, setSuccessModalMode] = useState('upgrade'); // 'renew' | 'upgrade'
+  const [availablePlans, setAvailablePlans] = useState([]);
+  const [subscriptionData, setSubscriptionData] = useState(null);
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [useRewardPoints, setUseRewardPoints] = useState(false);
 
-  const PACKAGES = [
+  const fallbackPackages = [
     {
-      id: 0,
+      id: 'free',
+      isFree: true,
       name: t('freePlanName', 'Gói Cơ Bản (Free)'),
       amount: 0,
       subtitle: t('freeSubtitle', 'Bắt đầu hành trình của bạn'),
       features: [
         t('freeFeature1', 'Trải nghiệm phỏng vấn AI cơ bản'),
         t('freeFeature2', 'Đánh giá kỹ năng tổng quan'),
-        t('freeFeature3', 'Giới hạn 5 câu hỏi mỗi phiên'),
+        t('freeFeature3', '3 lượt phỏng vấn dùng thử miễn phí'),
       ],
     },
     {
       id: 1,
+      priceId: 1,
+      billingCycle: 1,
+      isFree: false,
       name: t('premiumMonthly', 'Premium 1 Tháng'),
       amount: 59000,
       subtitle: t('premiumMonthlySubtitle', 'Lựa chọn phổ biến'),
       features: [
         t('premiumMonthlyFeature1', '15 lượt phỏng vấn AI toàn diện'),
         t('benefit3', 'Phân tích & Đánh giá chuyên sâu'),
-        t('premiumMonthlyFeature3', 'Tự động xoá lượt sau 1 tháng'),
+        t('premiumMonthlyFeature3', 'Làm mới 15 lượt sau mỗi 30 ngày'),
       ],
     },
     {
       id: 2,
+      priceId: 2,
+      billingCycle: 2,
+      isFree: false,
       name: t('premiumYearly', 'Premium 1 Năm'),
       amount: 599000,
       subtitle: t('premiumYearlySubtitle', 'Tiết kiệm nhất'),
       features: [
-        t('premiumYearlyFeature1', 'Lượt phỏng vấn không giới hạn'),
+        t('premiumYearlyFeature1', '15 lượt phỏng vấn mỗi chu kỳ 30 ngày'),
         t('premiumYearlyFeature2', 'Làm mới 15 lượt ưu tiên mỗi tháng'),
         t('premiumYearlyFeature3', 'Báo cáo kỹ năng nâng cao'),
       ],
     }
   ];
-  const [isVerifying, setIsVerifying] = useState(false);
+  const PACKAGES = availablePlans.length > 0
+    ? availablePlans.flatMap((plan) => {
+      const baseFeatures = [
+        plan.isFree
+          ? `${plan.interviewQuota} ${t('freeInterviewQuotaText', 'lượt phỏng vấn miễn phí')}`
+          : `${plan.interviewQuota} ${t('monthlyQuotaText', 'lượt phỏng vấn mỗi chu kỳ 30 ngày')}`,
+        ...(plan.features || []).filter((feature) => feature.isEnabled).map((feature) =>
+          translateFeature(feature.featureCode, t)
+        ),
+      ];
+
+      const planName = plan.isFree
+        ? t('freePlanName', 'Gói Cơ Bản (Free)')
+        : t('premiumPlanName', 'Premium');
+
+      if (plan.isFree) {
+        return [{
+          id: `plan-${plan.planId}`,
+          isFree: true,
+          name: planName,
+          subtitle: t('freeSubtitle', 'Bắt đầu hành trình của bạn'),
+          amount: 0,
+          features: baseFeatures
+        }];
+      }
+      return (plan.prices || []).map((price) => ({
+        id: `price-${price.priceId}`,
+        priceId: price.priceId,
+        billingCycle: price.billingCycle,
+        isFree: false,
+        name: `${planName} ${price.billingCycle === 2 ? t('yearlyCycleName', '1 Năm') : t('monthlyCycleName', '1 Tháng')}`,
+        subtitle: price.billingCycle === 2 ? t('premiumYearlySubtitle', 'Tiết kiệm nhất') : t('premiumMonthlySubtitle', 'Lựa chọn phổ biến'),
+        amount: price.amount,
+        features: baseFeatures,
+      }));
+    })
+    : fallbackPackages;
+  const [, setIsVerifying] = useState(false);
 
   const [profileData, setProfileData] = useState(null);
   const [isPremiumUser, setIsPremiumUser] = useState(false);
@@ -123,11 +178,14 @@ function PackagesPage() {
   const fetchSubscriptionInfo = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!token) return null;
+      let latestSubscription = null;
 
-      const [profileRes, quotaRes] = await Promise.all([
+      const [profileRes, quotaRes, plansRes, subscriptionRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/users/me`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/api/InterviewSession/quota`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/api/InterviewSession/quota`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/api/subscription-plans`),
+        fetch(`${API_BASE_URL}/api/subscription/me`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       if (profileRes.ok) {
@@ -141,8 +199,17 @@ function PackagesPage() {
           setIsPremiumUser(true);
         }
       }
+      if (plansRes.ok) setAvailablePlans(await plansRes.json());
+      if (subscriptionRes.ok) {
+        const data = await subscriptionRes.json();
+        latestSubscription = data;
+        setSubscriptionData(data);
+        setIsPremiumUser(data.planCode === 'PREMIUM');
+      }
+      return latestSubscription;
     } catch {
       // Ignore errors
+      return null;
     }
   };
 
@@ -178,25 +245,36 @@ function PackagesPage() {
 
       if (resultCode && resultCode !== '0') {
         setError(momoMessage || `${t('paymentError', 'Thanh toán không thành công')} hoặc đã bị hủy.`);
-        notify.error(momoMessage || 'Thanh toán không thành công.', { title: 'Thanh toán thất bại' });
+        notify.error(momoMessage || 'Thanh toán không thành công.', { title: t('paymentFailed', 'Thanh toán thất bại') });
         setIsVerifying(false);
         return;
       }
 
       try {
+        const wasAlreadyPremium = isPremiumUser;
         const data = await paymentService.verifyPaymentResult(orderId, resultCode);
 
         if (data.success || data.Success) {
           setIsPremiumUser(true);
+          setSuccessModalMode(wasAlreadyPremium ? 'renew' : 'upgrade');
           setShowSuccessModal(true);
-          notify.success('Nâng cấp gói Premium thành công! Hóa đơn đã được gửi qua email.', { title: 'Thành công 🎉' });
-          // Dispatch window event so UserTopbar updates state dynamically to Premium & 15 quota
+          notify.success(
+            wasAlreadyPremium
+              ? t('renewSuccessBadge', 'Gia hạn gói Premium thành công!')
+              : t('upgradeSuccessBadge', 'Nâng cấp gói Premium thành công!'),
+            { title: t('paymentSuccess', 'Thành công 🎉') }
+          );
+          const latest = await fetchSubscriptionInfo();
           window.dispatchEvent(new CustomEvent('interview:quota-changed', {
-            detail: { remainingInterviewQuota: 15, maxInterviewQuota: 15, planName: 'Premium' }
+            detail: {
+              remainingInterviewQuota: latest?.remainingInterviewQuota,
+              maxInterviewQuota: latest?.maxInterviewQuota,
+              planName: latest?.planCode === 'PREMIUM' ? 'Premium' : 'Free',
+            }
           }));
         } else {
           setError(data.message || data.Message || 'Xác minh giao dịch thất bại.');
-          notify.error(data.message || data.Message || 'Xác minh giao dịch thất bại.', { title: 'Lỗi' });
+          notify.error(data.message || data.Message || 'Xác minh giao dịch thất bại.', { title: t('paymentFailed', 'Lỗi') });
         }
       } catch (err) {
         setError(err.message || 'Lỗi khi kiểm tra kết quả thanh toán.');
@@ -207,27 +285,70 @@ function PackagesPage() {
     };
 
     processPaymentCallback();
-  }, []);
+  }, [t, isPremiumUser]);
 
-  const handleMomoPayment = useCallback(async (packageId) => {
+  const openCheckout = (pkg) => {
+    setError('');
+    setUseRewardPoints(false);
+    setSelectedPackage(pkg);
+    fetchSubscriptionInfo();
+  };
+
+  const handleCheckout = useCallback(async () => {
+    if (!selectedPackage) return;
     setError('');
     setIsCreating(true);
-    setLoadingPackageId(packageId);
+    setLoadingPackageId(selectedPackage.priceId);
 
     try {
-      const response = await paymentService.createPayment(packageId);
+      const response = await paymentService.createPayment(selectedPackage.priceId, useRewardPoints);
       if (response && response.payUrl) {
         window.location.href = response.payUrl;
+      } else if (response?.status === 'PaidByReward') {
+        const wasAlreadyPremium = isPremiumUser;
+        setSelectedPackage(null);
+        setSuccessModalMode(wasAlreadyPremium ? 'renew' : 'upgrade');
+        setShowSuccessModal(true);
+        setIsPremiumUser(true);
+        const latest = await fetchSubscriptionInfo();
+        window.dispatchEvent(new CustomEvent('interview:quota-changed', {
+          detail: {
+            remainingInterviewQuota: latest?.remainingInterviewQuota,
+            maxInterviewQuota: latest?.maxInterviewQuota,
+            planName: latest?.planCode === 'PREMIUM' ? 'Premium' : 'Free',
+          }
+        }));
+        setIsCreating(false);
+        setLoadingPackageId(null);
       } else {
         throw new Error('URL thanh toán MoMo không hợp lệ.');
       }
     } catch (apiError) {
       setError(apiError.message || 'Không thể tạo phiên thanh toán.');
-      notify.error(apiError.message || 'Không thể tạo phiên thanh toán.', { title: 'Lỗi thanh toán' });
+      notify.error(apiError.message || 'Không thể tạo phiên thanh toán.', { title: t('paymentFailed', 'Lỗi thanh toán') });
       setIsCreating(false);
       setLoadingPackageId(null);
     }
-  }, []);
+  }, [selectedPackage, useRewardPoints, isPremiumUser, t]);
+
+  const availableRewardPoints = Number(subscriptionData?.rewardPoints ?? 0);
+  const checkoutOriginalAmount = Number(selectedPackage?.amount ?? 0);
+  const checkoutDiscount = useRewardPoints
+    ? Math.min(availableRewardPoints, checkoutOriginalAmount)
+    : 0;
+  const checkoutFinalAmount = Math.max(0, checkoutOriginalAmount - checkoutDiscount);
+
+  const getUserTier = () => {
+    if (!isPremiumUser || subscriptionData?.planCode === 'FREE') {
+      return 0; // Free
+    }
+    const cycle = subscriptionData?.billingCycle;
+    if (cycle === 'Yearly' || cycle === 2 || cycle === '2') {
+      return 2; // Premium 1 Year
+    }
+    return 1; // Premium 1 Month
+  };
+  const userTier = getUserTier();
 
   return (
     <UserLayout>
@@ -250,10 +371,12 @@ function PackagesPage() {
                       <Sparkles size={14} /> {t('currentPlan', 'Gói Đang Sử Dụng')}
                     </div>
                     <h1 className="text-2xl md:text-3xl font-extrabold text-text-primary">
-                      {isPremiumUser ? t('premiumPlan', 'Gói Premium AI-SPEIS 👑') : t('freePlan', 'Gói Cơ Bản (Free)')}
+                      {isPremiumUser
+                        ? (userTier === 2 ? t('premiumYearly', 'Premium 1 Năm') + ' 👑' : t('premiumMonthly', 'Premium 1 Tháng') + ' 👑')
+                        : t('freePlan', 'Gói Cơ Bản (Free)')}
                     </h1>
                     <p className="text-sm text-text-secondary">
-                      {isPremiumUser ? t('premiumDesc', 'Tài khoản của bạn đã được nâng cấp đầy đủ quyền lợi cao cấp nhất.') : t('freeDesc', 'Khám phá thêm các đặc quyền không giới hạn khi nâng cấp tài khoản.')}
+                      {isPremiumUser ? t('premiumDesc', 'Tài khoản của bạn đang có 15 lượt mỗi chu kỳ 30 ngày.') : t('freeDesc', 'Nâng cấp để nhận 15 lượt phỏng vấn mỗi chu kỳ 30 ngày.')}
                     </p>
                   </div>
                 </div>
@@ -280,15 +403,15 @@ function PackagesPage() {
                 </div>
                 <div>
                   <div className="text-3xl font-extrabold text-text-primary mb-1">
-                    {profileData?.remainingInterviewQuota ?? (isPremiumUser ? 15 : 5)} <span className="text-base font-medium text-text-secondary">/ {isPremiumUser ? 15 : 5} lượt</span>
+                    {subscriptionData?.remainingInterviewQuota ?? profileData?.remainingInterviewQuota ?? (isPremiumUser ? 15 : 3)} <span className="text-base font-medium text-text-secondary">/ {subscriptionData?.maxInterviewQuota ?? (isPremiumUser ? 15 : 3)}</span>
                   </div>
                   <div className="w-full bg-surface-2 h-2.5 rounded-full overflow-hidden mt-3">
                     <div
                       className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, Math.max(0, ((profileData?.remainingInterviewQuota ?? (isPremiumUser ? 15 : 5)) / (isPremiumUser ? 15 : 5)) * 100))}%` }}
+                      style={{ width: `${Math.min(100, Math.max(0, ((subscriptionData?.remainingInterviewQuota ?? profileData?.remainingInterviewQuota ?? (isPremiumUser ? 15 : 3)) / (subscriptionData?.maxInterviewQuota ?? (isPremiumUser ? 15 : 3))) * 100))}%` }}
                     />
                   </div>
-                  <p className="text-xs text-text-secondary mt-2">{isPremiumUser ? t('unlimitedQuota', 'Đã mở khoá phỏng vấn AI không giới hạn') : t('limitedQuota', 'Giới hạn số lượng câu hỏi trong mỗi phiên')}</p>
+                  <p className="text-xs text-text-secondary mt-2">{isPremiumUser ? t('quotaDescPremium', '15 lượt, làm mới theo chu kỳ cố định 30 ngày') : t('quotaDescFree', '3 lượt dùng thử miễn phí')}</p>
                 </div>
               </div>
 
@@ -302,7 +425,7 @@ function PackagesPage() {
                 </div>
                 <div>
                   <div className="text-2xl font-extrabold text-text-primary mb-1">
-                    {getNextResetDate(profileData?.lastQuotaResetAt, profileData?.premiumExpireAt)}
+                    {isPremiumUser ? formatDate(subscriptionData?.quotaPeriodEndsAt) : t('noReset', 'Không reset')}
                   </div>
                   <p className="text-xs text-text-secondary mt-2">{t('autoResetDesc', 'Hệ thống sẽ tự động làm mới 15 lượt vào ngày này.')}</p>
                 </div>
@@ -318,7 +441,7 @@ function PackagesPage() {
                 </div>
                 <div>
                   <div className="text-2xl font-extrabold text-text-primary mb-1">
-                    {formatDate(profileData?.premiumExpireAt)}
+                    {formatDate(subscriptionData?.subscriptionExpiresAt ?? profileData?.premiumExpireAt)}
                   </div>
                   <p className="text-xs text-text-secondary mt-2">{t('expireDesc', 'Thời gian hết hạn sử dụng các đặc quyền Premium.')}</p>
                 </div>
@@ -399,7 +522,7 @@ function PackagesPage() {
               <div className="rounded-xl border border-error bg-error-light p-4 text-center max-w-2xl mx-auto">
                 <div className="flex items-center justify-center gap-2">
                   <AlertTriangle size={24} className="text-error" />
-                  <h3 className="text-base font-bold text-error">Thanh toán không thành công</h3>
+                  <h3 className="text-base font-bold text-error">{t('paymentFailed', 'Thanh toán không thành công')}</h3>
                 </div>
                 <p className="mt-1 text-sm text-text-secondary">{error}</p>
               </div>
@@ -407,25 +530,51 @@ function PackagesPage() {
 
             <section className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {PACKAGES.map((pkg) => {
-                const isFree = pkg.id === 0;
-                const isLoadingThis = isCreating && loadingPackageId === pkg.id;
+                const isFree = pkg.isFree;
+                const isLoadingThis = isCreating && loadingPackageId === pkg.priceId;
+                const pkgTier = isFree ? 0 : (pkg.billingCycle === 2 ? 2 : 1);
+                const isCurrentPackage = pkgTier === userTier;
+                const isLowerPackage = pkgTier < userTier;
+
+                let yearlyDiscountPercent = null;
+                if (pkg.billingCycle === 2) {
+                  const monthlyPkg = PACKAGES.find((p) => p.billingCycle === 1);
+                  const monthlyAmount = monthlyPkg ? monthlyPkg.amount : 59000;
+                  if (monthlyAmount > 0 && pkg.amount > 0) {
+                    const fullYearMonthlyCost = monthlyAmount * 12;
+                    if (fullYearMonthlyCost > pkg.amount) {
+                      yearlyDiscountPercent = Math.round(((fullYearMonthlyCost - pkg.amount) / fullYearMonthlyCost) * 100);
+                    }
+                  }
+                }
 
                 return (
                   <article
                     key={pkg.id}
-                    className={`flex flex-col rounded-2xl border bg-surface-1 p-6 shadow-sm animate-pageEntrance transition-all hover:shadow-md ${!isFree ? 'border-primary/30 relative overflow-hidden' : 'border-border'
-                      }`}
+                    className={`flex flex-col rounded-2xl border p-6 shadow-sm animate-pageEntrance transition-all hover:shadow-md ${
+                      isCurrentPackage
+                        ? 'border-2 border-amber-500 bg-amber-500/5 relative overflow-hidden ring-1 ring-amber-500/20 shadow-amber-500/10'
+                        : !isFree
+                        ? 'border-primary/30 relative overflow-hidden bg-surface-1'
+                        : 'border-border bg-surface-1'
+                    } ${isLowerPackage ? 'opacity-75' : ''}`}
                   >
-                    {!isFree && (
+                    {isCurrentPackage ? (
                       <div className="absolute top-0 right-0">
-                        <div className="bg-primary text-white text-[10px] font-bold uppercase tracking-wider py-1 px-3 rounded-bl-lg">
-                          Premium
+                        <div className="bg-amber-500 text-white text-[11px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-bl-xl flex items-center gap-1 shadow-sm">
+                          <CheckCircle2 size={14} /> {t('currentlyUsing', 'Đang sử dụng')}
                         </div>
                       </div>
-                    )}
+                    ) : !isFree ? (
+                      <div className="absolute top-0 right-0">
+                        <div className="bg-primary text-white text-[10px] font-bold uppercase tracking-wider py-1 px-3 rounded-bl-lg flex items-center gap-1">
+                          {yearlyDiscountPercent ? <span className="font-extrabold text-amber-300">-{yearlyDiscountPercent}%</span> : null} Premium
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="mb-6 flex items-center gap-4">
-                      <div className={`rounded-xl p-3 ${isFree ? 'bg-surface-2 text-text-secondary' : 'bg-primary-xlight text-primary-dark'}`}>
+                      <div className={`rounded-xl p-3 ${isFree ? 'bg-surface-2 text-text-secondary' : isCurrentPackage ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-primary-xlight text-primary-dark'}`}>
                         {isFree ? <Star size={24} /> : <Crown size={24} />}
                       </div>
                       <div>
@@ -434,48 +583,71 @@ function PackagesPage() {
                       </div>
                     </div>
 
-                    <div className={`rounded-xl border p-4 mb-6 ${isFree ? 'border-border bg-surface-2' : 'border-primary-light bg-primary-xlight/55'}`}>
-                      <p className={`text-xs uppercase tracking-wide ${isFree ? 'text-text-secondary' : 'text-primary-dark'}`}>{t('cost', 'Chi phí')}</p>
-                      <p className={`mt-1 text-3xl font-extrabold ${isFree ? 'text-text-primary' : 'text-primary-dark'}`}>
-                        {formatVnd(pkg.amount)}
+                    <div className={`rounded-xl border p-4 mb-6 ${isFree ? 'border-border bg-surface-2' : isCurrentPackage ? 'border-amber-500/30 bg-amber-500/10' : 'border-primary-light bg-primary-xlight/55'}`}>
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xs uppercase tracking-wide ${isFree ? 'text-text-secondary' : isCurrentPackage ? 'text-amber-700 dark:text-amber-300 font-semibold' : 'text-primary-dark'}`}>{t('cost', 'Chi phí')}</p>
+                        {yearlyDiscountPercent && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shadow-xs">
+                            -{yearlyDiscountPercent}%
+                          </span>
+                        )}
+                      </div>
+                      <p className={`mt-1 text-3xl font-extrabold ${isFree ? 'text-text-primary' : isCurrentPackage ? 'text-amber-600 dark:text-amber-400' : 'text-primary-dark'}`}>
+                        {formatVnd(pkg.amount, t)}
                       </p>
-                      {!isFree && <p className="text-xs mt-1 text-primary-dark/70 opacity-80">{pkg.id === 1 ? t('perMonth', '/ tháng') : t('perYear', '/ năm')}</p>}
+                      {!isFree && (
+                        <div className="flex items-center justify-between text-xs mt-1 text-primary-dark/70 opacity-80">
+                          <span>{pkg.billingCycle === 1 ? t('perMonth', '/ tháng') : t('perYear', '/ năm')}</span>
+                        </div>
+                      )}
                     </div>
 
                     <ul className="space-y-3 mb-8 flex-grow">
                       {pkg.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-2 text-sm text-text-secondary">
-                          <CheckCircle2 size={18} className="text-success shrink-0 mt-0.5" />
+                          <CheckCircle2 size={18} className={isCurrentPackage ? 'text-amber-500 shrink-0 mt-0.5' : 'text-success shrink-0 mt-0.5'} />
                           <span>{feature}</span>
                         </li>
                       ))}
                     </ul>
 
-                    {isFree ? (
+                    {isCurrentPackage ? (
+                      isFree ? (
+                        <button
+                          type="button"
+                          className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3.5 text-sm font-bold text-amber-600 dark:text-amber-400 cursor-not-allowed flex items-center justify-center gap-2"
+                          disabled
+                        >
+                          <CheckCircle2 size={18} /> {t('currentlyUsing', 'Đang sử dụng')}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-4 py-3.5 text-sm font-bold shadow-md shadow-amber-500/20 transition-all hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
+                          onClick={() => openCheckout(pkg)}
+                          disabled={isCreating}
+                        >
+                          {isLoadingThis ? <RefreshCw size={18} className="animate-spin" /> : <RotateCcw size={18} />}
+                          {t('renewCurrent', 'Gia hạn gói đang dùng')}
+                        </button>
+                      )
+                    ) : isLowerPackage ? (
                       <button
                         type="button"
-                        className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3.5 text-sm font-semibold text-text-secondary cursor-not-allowed"
+                        className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3.5 text-sm font-semibold text-text-secondary/70 cursor-not-allowed"
                         disabled
                       >
-                        {isPremiumUser ? t('usedBefore', 'Đã từng sử dụng') : t('used', 'Đang sử dụng')}
-                      </button>
-                    ) : pkg.id === 1 && isPremiumUser ? (
-                      <button
-                        type="button"
-                        className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3.5 text-sm font-semibold text-text-secondary cursor-not-allowed"
-                        disabled
-                      >
-                        {t('used', 'Đang sử dụng')}
+                        {t('cannotDowngrade', 'Không thể chọn gói thấp hơn')}
                       </button>
                     ) : (
                       <button
                         type="button"
                         className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-primary-dark hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
-                        onClick={() => handleMomoPayment(pkg.id)}
+                        onClick={() => openCheckout(pkg)}
                         disabled={isCreating}
                       >
                         {isLoadingThis && <RefreshCw size={18} className="animate-spin" />}
-                        {t('renewUpgrade', 'Gia hạn / Nâng cấp')}
+                        {pkg.billingCycle === 2 ? t('upgradeYearly', 'Nâng cấp gói 1 Năm') : t('upgradeNow', 'Nâng cấp ngay')}
                       </button>
                     )}
                   </article>
@@ -485,14 +657,107 @@ function PackagesPage() {
           </>
         )}
 
-        {/* Success Modal using Portal to cover full screen including Sidebar & Topbar */}
+        {/* Checkout Modal Portal */}
+        {selectedPackage && createPortal(
+          <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="checkout-title"
+              className="relative w-full max-w-lg rounded-3xl border border-border bg-surface-1 p-6 shadow-2xl animate-scaleUp"
+            >
+              <button
+                type="button"
+                aria-label={t('close', 'Đóng')}
+                disabled={isCreating}
+                onClick={() => setSelectedPackage(null)}
+                className="absolute right-4 top-4 rounded-full p-2 text-text-secondary hover:bg-surface-2 disabled:opacity-50 cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="pr-10">
+                <p className="text-xs font-bold uppercase tracking-wider text-primary">{t('checkoutConfirmTitle', 'Xác nhận thanh toán')}</p>
+                <h2 id="checkout-title" className="mt-1 text-2xl font-extrabold text-text-primary">{selectedPackage.name}</h2>
+                <p className="mt-2 text-sm text-text-secondary">
+                  {t('rewardPointsInfo', 'Bạn đang có {{points}} điểm thưởng. Mỗi điểm giảm đúng 1 VND và không hết hạn.', { points: availableRewardPoints.toLocaleString('vi-VN') })}
+                </p>
+              </div>
+
+              <fieldset className="mt-6 space-y-3">
+                <legend className="mb-2 text-sm font-bold text-text-primary">{t('chooseRewardOption', 'Chọn cách sử dụng điểm')}</legend>
+                <label className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition ${!useRewardPoints ? 'border-primary bg-primary-xlight/50' : 'border-border bg-surface-2'}`}>
+                  <input
+                    type="radio"
+                    name="reward-option"
+                    checked={!useRewardPoints}
+                    onChange={() => setUseRewardPoints(false)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span>
+                    <strong className="block text-sm text-text-primary">{t('noPoints', 'Không dùng điểm')}</strong>
+                    <span className="text-xs text-text-secondary">{t('noPointsDesc', 'Thanh toán toàn bộ bằng MoMo.')}</span>
+                  </span>
+                </label>
+                <label className={`flex items-center gap-3 rounded-2xl border p-4 transition ${availableRewardPoints > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${useRewardPoints ? 'border-primary bg-primary-xlight/50' : 'border-border bg-surface-2'}`}>
+                  <input
+                    type="radio"
+                    name="reward-option"
+                    checked={useRewardPoints}
+                    disabled={availableRewardPoints <= 0}
+                    onChange={() => setUseRewardPoints(true)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span>
+                    <strong className="block text-sm text-text-primary">{t('usePoints', 'Dùng hết điểm thưởng')}</strong>
+                    <span className="text-xs text-text-secondary">
+                      {t('usePointsDesc', 'Áp dụng {{discount}} điểm cho đơn hàng này.', { discount: Math.min(availableRewardPoints, checkoutOriginalAmount).toLocaleString('vi-VN') })}
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+
+              <div className="mt-6 space-y-3 rounded-2xl border border-border bg-surface-2 p-4">
+                <div className="flex justify-between text-sm text-text-secondary"><span>{t('planPrice', 'Giá gói')}</span><span>{formatVnd(checkoutOriginalAmount, t)}</span></div>
+                <div className="flex justify-between text-sm text-text-secondary"><span>{t('pointsDiscount', 'Giảm bằng điểm')}</span><span>- {checkoutDiscount.toLocaleString('vi-VN')} VND</span></div>
+                <div className="border-t border-border pt-3 flex items-end justify-between">
+                  <span className="font-bold text-text-primary">{t('finalPayAmount', 'Cần thanh toán')}</span>
+                  <span className="text-2xl font-extrabold text-primary">{formatVnd(checkoutFinalAmount, t)}</span>
+                </div>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  disabled={isCreating}
+                  onClick={() => setSelectedPackage(null)}
+                  className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-bold text-text-secondary disabled:opacity-50 cursor-pointer"
+                >
+                  {t('cancel', 'Hủy')}
+                </button>
+                <button
+                  type="button"
+                  disabled={isCreating}
+                  onClick={handleCheckout}
+                  className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white disabled:opacity-60 cursor-pointer"
+                >
+                  {isCreating && <RefreshCw size={18} className="animate-spin" />}
+                  {checkoutFinalAmount === 0 ? t('payWithPoints', 'Thanh toán bằng điểm') : t('continueWithMomo', 'Tiếp tục với MoMo · {{amount}}', { amount: formatVnd(checkoutFinalAmount, t) })}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Success Modal using Portal to cover full screen */}
         {showSuccessModal && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn">
-            <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-surface-1 border border-border p-6 shadow-2xl animate-scaleUp">
+            <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-surface-1 border border-border p-6 shadow-2xl animate-scaleUp">
               <button
                 type="button"
                 onClick={() => setShowSuccessModal(false)}
-                className="absolute top-4 right-4 text-text-secondary hover:text-text-primary p-1 rounded-full hover:bg-surface-2 transition-all"
+                className="absolute top-4 right-4 text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-surface-2 transition-all cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -503,15 +768,15 @@ function PackagesPage() {
                 </div>
 
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
-                  <Crown size={14} /> Gói Premium Đã Kích Hoạt
+                  <Crown size={14} /> {successModalMode === 'renew' ? t('renewSuccessBadge', 'Gia Hạn Premium Thành Công') : t('upgradeSuccessBadge', 'Đăng Ký Premium Thành Công')}
                 </div>
 
                 <h2 className="text-2xl font-extrabold text-text-primary mb-2">
-                  {t('successTitle', 'Nâng Cấp Thành Công! 🎉')}
+                  {successModalMode === 'renew' ? t('renewSuccessTitle', 'Gia hạn gói Premium thành công! 🎉') : t('upgradeSuccessTitle', 'Chúc mừng bạn đã đăng ký thành công Premium! 🎉')}
                 </h2>
 
                 <p className="text-sm text-text-secondary mb-6 leading-relaxed">
-                  Cảm ơn bạn đã nâng cấp dịch vụ! Tài khoản của bạn đã được kích hoạt tính năng <strong className="text-text-primary">Premium</strong>. Email xác nhận và hóa đơn chi tiết đã được gửi tới hộp thư của bạn.
+                  {successModalMode === 'renew' ? t('renewSuccessDesc', 'Chúc mừng bạn đã gia hạn thành công gói Premium! Hạn sử dụng và lượt phỏng vấn đã được tự động cập nhật.') : t('upgradeSuccessDesc', 'Chúc mừng bạn đã đăng ký thành công gói Premium! Tài khoản của bạn đã được mở khóa toàn bộ đặc quyền Premium.')}
                 </p>
 
                 <div className="flex flex-col w-full gap-2.5">
@@ -519,19 +784,22 @@ function PackagesPage() {
                     type="button"
                     onClick={() => {
                       setShowSuccessModal(false);
-                      navigate(USER_ROUTES.INTERVIEW_MODE);
+                      setShowPurchaseView(false);
                     }}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition-all hover:opacity-95 hover:scale-[1.02]"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition-all hover:opacity-95 hover:scale-[1.02] cursor-pointer"
                   >
-                    <Crown size={18} /> {t('interviewNow', 'Phỏng Vấn Ngay')}
+                    <CheckCircle2 size={18} /> {t('stayInPackages', 'Về trang Quản lý gói')}
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setShowSuccessModal(false)}
-                    className="w-full rounded-xl border border-border bg-surface-2 px-5 py-2.5 text-sm font-semibold text-text-secondary transition-all hover:bg-surface-3"
+                    onClick={() => {
+                      setShowSuccessModal(false);
+                      navigate(USER_ROUTES.INTERVIEW_MODE);
+                    }}
+                    className="w-full rounded-xl border border-border bg-surface-2 px-5 py-2.5 text-sm font-semibold text-text-secondary transition-all hover:bg-surface-3 cursor-pointer"
                   >
-                    {t('close', 'Đóng')}
+                    {t('interviewNow', 'Phỏng Vấn Ngay')}
                   </button>
                 </div>
               </div>

@@ -59,7 +59,7 @@
     "menu_community": "Cộng đồng",
     "menu_packages": "Quản lí gói",
     "upgrade_pro": "Nâng cấp Pro",
-    "unlock_desc": "Mở khóa không giới hạn lượt phỏng vấn AI.",
+    "unlock_desc": "Nhận 15 lượt phỏng vấn AI mỗi chu kỳ 30 ngày.",
     "upgrade_now": "NÂNG CẤP NGAY",
     "start_interview": "Bắt đầu phỏng vấn"
   },
@@ -85,7 +85,10 @@
     "no_questions_desc": "Vui lòng thay đổi từ khóa tìm kiếm hoặc các tùy chọn bộ lọc.",
     "confirm_delete_bookmark": "Bạn có chắc chắn muốn bỏ lưu câu hỏi này?",
     "filter_saved": "Đã lưu",
-    "filter_unsaved": "Chưa lưu"
+    "filter_unsaved": "Chưa lưu",
+    "filter_language": "Ngôn ngữ",
+    "lang_vi": "Tiếng Việt",
+    "lang_en": "Tiếng Anh"
   },
   "mycv": {
     "title": "CV của tôi",

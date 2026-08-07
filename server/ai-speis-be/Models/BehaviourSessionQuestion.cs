@@ -26,8 +26,6 @@ namespace ai_speis_be.Models
         // Ví dụ: {"text": "Kể về lần mâu thuẫn...", "timeLimit": 120}
         [Required]
         public string QuestionSnapshotJson { get; set; } = string.Empty;
-        public string? SelectionReason { get; set; }
-        public string? EvaluationGoal { get; set; }
         [Required]
         public BehaviourQuestionStatus Status { get; set; } = BehaviourQuestionStatus.Pending;
         public DateTime? AskedAt { get; set; }

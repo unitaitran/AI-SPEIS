@@ -13,6 +13,7 @@ using ai_speis_be.DTOs.CvParsing;
 using ai_speis_be.Repositories.CVRepo;
 using ai_speis_be.Services.FileValidatorService;
 using ai_speis_be.Services.BackgroundWorker;
+using ai_speis_be.Helpers;
 
 namespace ai_speis_be.Services.CVService
 {
@@ -134,7 +135,11 @@ namespace ai_speis_be.Services.CVService
             }
 
             var cvDeleted = await _cvRepository.DeleteCVAsync(cv.CVFileId);
-            return (true, null); 
+            if (!cvDeleted)
+            {
+                return (false, "Không thể xóa file CV. Vui lòng thử lại.");
+            }
+            return (true, null);
         }
 
         public async Task<CVDto?> GetMyCVAsync(int userId)
@@ -292,6 +297,12 @@ namespace ai_speis_be.Services.CVService
                     return (false, "Tên skill không được để trống.");
                 if (!string.IsNullOrEmpty(skill.Category) && !ValidCategories.Contains(skill.Category))
                     return (false, $"Category '{skill.Category}' không hợp lệ. Chỉ chấp nhận: Language, Framework, Database, Tool, Cloud, Other.");
+            }
+
+            // Validate roleTarget
+            if (!RoleValidationHelper.IsSupportedRole(request.RoleTarget))
+            {
+                return (false, RoleValidationHelper.UnsupportedRoleErrorMessage);
             }
 
             // Validate từng project

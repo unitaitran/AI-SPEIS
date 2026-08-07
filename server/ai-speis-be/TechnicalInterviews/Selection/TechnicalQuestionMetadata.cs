@@ -26,7 +26,7 @@ namespace ai_speis_be.TechnicalInterviews.Selection
                 return new[] { "Mobile Developer" };
             if (normalized.Contains("devops"))
                 return new[] { "DevOps Engineer" };
-            if (normalized.Contains("data"))
+            if (normalized.Contains("dataanalyst") || (normalized.Contains("data") && normalized.Contains("analyst")))
                 return new[] { "Data Analyst" };
 
             return Array.Empty<string>();

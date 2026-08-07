@@ -10,55 +10,64 @@ using ai_speis_be.Repositories.PaymentRepo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using ai_speis_be.Services.EmailService;
+using ai_speis_be.Services.RewardService;
+using ai_speis_be.Services.SubscriptionService;
 
 namespace ai_speis_be.Services.PaymentService
 {
     public class PaymentService : IPaymentService
     {
         private static readonly TimeSpan ExpiryDuration = TimeSpan.FromMinutes(10);
-        private const int PremiumQuotaThreshold = 15;
+        private static readonly HashSet<int> PendingMoMoResultCodes = new() { 1000, 7000, 7002 };
+        private static readonly HashSet<int> CancelledMoMoResultCodes = new() { 1003, 1006, 1017 };
 
         private readonly IPaymentRepository _paymentRepository;
         private readonly ApplicationDbContext _context;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly IEmailSender _emailSender;
-
-        private static readonly IReadOnlyDictionary<int, decimal> PackageAmountMap = new Dictionary<int, decimal>
-        {
-            [1] = 59000m,   // 1 month
-            [2] = 599000m,  // 1 year
-        };
+        private readonly IRewardService _rewardService;
+        private readonly ISubscriptionService _subscriptionService;
 
         public PaymentService(
             IPaymentRepository paymentRepository, 
             ApplicationDbContext context,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            IRewardService rewardService,
+            ISubscriptionService subscriptionService)
         {
             _paymentRepository = paymentRepository;
             _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _emailSender = emailSender;
+            _rewardService = rewardService;
+            _subscriptionService = subscriptionService;
         }
 
         public async Task<(bool Success, string? ErrorMessage, PaymentResponseDto? Payment)> CreatePaymentAsync(
             int userId,
-            int packageId,
+            int priceId,
+            bool useRewardPoints,
             CancellationToken cancellationToken = default)
         {
-            if (!PackageAmountMap.TryGetValue(packageId, out var amount))
-            {
-                return (false, "Gói dịch vụ không hợp lệ.", null);
-            }
+            var price = await _context.SubscriptionPrices
+                .Include(item => item.Plan)
+                .FirstOrDefaultAsync(item => item.PriceId == priceId, cancellationToken);
+            if (price == null) return (false, "Gói hoặc mức giá không hợp lệ.", null);
 
-            var userExists = await _context.Users.AnyAsync(user => user.UserId == userId, cancellationToken);
-            if (!userExists)
-            {
-                return (false, "Người dùng không tồn tại.", null);
-            }
+            var eligibility = await _subscriptionService.CanPurchaseAsync(userId, priceId, cancellationToken);
+            if (!eligibility.Allowed)
+                return (false, $"{eligibility.ErrorCode}|{eligibility.ErrorMessage}", null);
+
+            var availableRewardPoints = useRewardPoints
+                ? await _rewardService.GetAvailablePointsAsync(userId, cancellationToken)
+                : 0;
+            var rewardPointsToUse = Math.Min(
+                availableRewardPoints,
+                decimal.ToInt32(decimal.Floor(price.Amount)));
 
             var orderCode = await GenerateUniqueOrderCodeAsync(cancellationToken);
             var now = DateTime.UtcNow;
@@ -66,19 +75,43 @@ namespace ai_speis_be.Services.PaymentService
             var payment = new Payment
             {
                 UserId = userId,
-                PackageId = packageId,
-                Amount = amount,
+                PackageId = priceId,
+                PriceId = priceId,
+                OriginalAmount = price.Amount,
+                DiscountAmount = rewardPointsToUse,
+                RewardPointsUsed = rewardPointsToUse,
+                Amount = price.Amount - rewardPointsToUse,
+                Currency = price.Currency,
                 OrderCode = orderCode,
                 Status = PaymentStatus.Pending,
                 CreatedAt = now,
+                ExpiredAt = now.Add(ExpiryDuration),
                 PaidAt = null,
             };
 
-            await _paymentRepository.CreateAsync(payment, cancellationToken);
+            await using (var transaction = await _context.Database.BeginTransactionAsync(cancellationToken))
+            {
+                var reservation = await _rewardService.ReserveForPaymentAsync(
+                    userId, rewardPointsToUse, orderCode, price.Amount, cancellationToken);
+                if (!reservation.Success) return (false, reservation.ErrorMessage, null);
+                _context.Payments.Add(payment);
+                await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            if (payment.Amount == 0)
+            {
+                await CompletePaymentAsync(payment, PaymentStatus.PaidByReward, null, cancellationToken);
+                return (true, null, MapToPaymentResponse(payment));
+            }
 
             var payUrl = await CreateMoMoPaymentRequestAsync(payment, cancellationToken);
             if (string.IsNullOrEmpty(payUrl))
             {
+                payment.Status = PaymentStatus.Failed;
+                payment.FailureReason = "Could not create MoMo payment request.";
+                await _rewardService.ReleasePaymentReservationAsync(userId, rewardPointsToUse, orderCode, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
                 return (false, "Lỗi khi kết nối với MoMo.", null);
             }
 
@@ -101,7 +134,8 @@ namespace ai_speis_be.Services.PaymentService
 
             if (TryExpirePayment(payment))
             {
-                await _paymentRepository.UpdateAsync(payment, cancellationToken);
+                await _rewardService.ReleasePaymentReservationAsync(payment.UserId, payment.RewardPointsUsed, payment.OrderCode, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
             }
 
             return (true, null, MapToCheckResponse(payment));
@@ -130,29 +164,48 @@ namespace ai_speis_be.Services.PaymentService
             var rawHash = $"accessKey={accessKey}&amount={webhook.Amount}&extraData={webhook.ExtraData}&message={webhook.Message}&orderId={webhook.OrderId}&orderInfo={webhook.OrderInfo}&orderType={webhook.OrderType}&partnerCode={webhook.PartnerCode}&payType={webhook.PayType}&requestId={webhook.RequestId}&responseTime={webhook.ResponseTime}&resultCode={webhook.ResultCode}&transId={webhook.TransId}";
             var signature = ComputeHmacSha256(rawHash, secretKey);
 
-            if (signature != webhook.Signature)
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(signature),
+                    Encoding.UTF8.GetBytes(webhook.Signature ?? string.Empty)))
             {
                 return (false, "Chữ ký không hợp lệ.");
             }
 
             if (TryExpirePayment(payment))
             {
-                await _paymentRepository.UpdateAsync(payment, cancellationToken);
+                await _rewardService.ReleasePaymentReservationAsync(payment.UserId, payment.RewardPointsUsed, payment.OrderCode, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
                 return (false, "Giao dịch đã hết hạn.");
             }
 
-            if (payment.Status == PaymentStatus.Paid)
+            if (payment.Status is PaymentStatus.Paid or PaymentStatus.PaidByReward)
+            {
+                return (true, null);
+            }
+
+            if (payment.Status is PaymentStatus.Failed or PaymentStatus.Cancelled or PaymentStatus.Expired)
+                return (false, "Giao dịch không còn ở trạng thái chờ thanh toán.");
+
+            if (PendingMoMoResultCodes.Contains(webhook.ResultCode))
             {
                 return (true, null);
             }
 
             if (webhook.ResultCode != 0)
             {
-                // Payment failed on MoMo side
-                return (false, $"Thanh toán thất bại: {webhook.Message}");
+                var failedStatus = GetUnsuccessfulStatus(webhook.ResultCode);
+                await MarkPaymentUnsuccessfulAsync(
+                    payment,
+                    failedStatus,
+                    BuildMoMoFailureReason(webhook.ResultCode, webhook.Message),
+                    cancellationToken);
+                return (false, $"Thanh toán không thành công: {webhook.Message}");
             }
 
-            await CompletePaymentAsync(payment, cancellationToken);
+            if (webhook.Amount != payment.Amount)
+                return (false, "Số tiền webhook không khớp với đơn hàng.");
+
+            await CompletePaymentAsync(payment, PaymentStatus.Paid, webhook.TransId.ToString(), cancellationToken);
             return (true, null);
         }
 
@@ -167,20 +220,18 @@ namespace ai_speis_be.Services.PaymentService
                 return (false, "Không tìm thấy giao dịch.");
             }
 
-            if (payment.Status == PaymentStatus.Paid)
+            if (payment.Status is PaymentStatus.Paid or PaymentStatus.PaidByReward)
             {
                 return (true, null);
             }
 
-            if (resultCode.HasValue && resultCode.Value == 0)
-            {
-                await CompletePaymentAsync(payment, cancellationToken);
-                return (true, null);
-            }
+            if (payment.Status is PaymentStatus.Failed or PaymentStatus.Cancelled or PaymentStatus.Expired)
+                return (false, "Giao dịch không còn ở trạng thái chờ thanh toán.");
 
             if (TryExpirePayment(payment))
             {
-                await _paymentRepository.UpdateAsync(payment, cancellationToken);
+                await _rewardService.ReleasePaymentReservationAsync(payment.UserId, payment.RewardPointsUsed, payment.OrderCode, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
                 return (false, "Giao dịch đã hết hạn.");
             }
 
@@ -215,8 +266,18 @@ namespace ai_speis_be.Services.PaymentService
 
                     if (momoResponse?.ResultCode == 0)
                     {
-                        await CompletePaymentAsync(payment, cancellationToken);
+                        if (momoResponse.Amount.HasValue && momoResponse.Amount.Value != payment.Amount)
+                            return (false, "Số tiền xác nhận từ MoMo không khớp với đơn hàng.");
+                        await CompletePaymentAsync(payment, PaymentStatus.Paid, momoResponse.TransId?.ToString(), cancellationToken);
                         return (true, null);
+                    }
+
+                    if (momoResponse is not null && !PendingMoMoResultCodes.Contains(momoResponse.ResultCode))
+                    {
+                        var failedStatus = GetUnsuccessfulStatus(momoResponse.ResultCode);
+                        var failureReason = BuildMoMoFailureReason(momoResponse.ResultCode, momoResponse.Message);
+                        await MarkPaymentUnsuccessfulAsync(payment, failedStatus, failureReason, cancellationToken);
+                        return (false, failureReason);
                     }
                 }
             }
@@ -228,40 +289,69 @@ namespace ai_speis_be.Services.PaymentService
             return (false, "Thanh toán chưa thành công hoặc thất bại.");
         }
 
-        private async Task CompletePaymentAsync(Payment payment, CancellationToken cancellationToken)
+        private async Task MarkPaymentUnsuccessfulAsync(
+            Payment payment,
+            PaymentStatus status,
+            string failureReason,
+            CancellationToken cancellationToken)
+        {
+            if (payment.Status != PaymentStatus.Pending)
+            {
+                return;
+            }
+
+            payment.Status = status;
+            payment.FailureReason = failureReason.Length <= 500
+                ? failureReason
+                : failureReason[..500];
+            await _rewardService.ReleasePaymentReservationAsync(
+                payment.UserId,
+                payment.RewardPointsUsed,
+                payment.OrderCode,
+                cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        private static PaymentStatus GetUnsuccessfulStatus(int resultCode) =>
+            CancelledMoMoResultCodes.Contains(resultCode)
+                ? PaymentStatus.Cancelled
+                : PaymentStatus.Failed;
+
+        private static string BuildMoMoFailureReason(int resultCode, string? message) =>
+            $"MoMo resultCode {resultCode}: {message ?? "No message returned."}";
+
+        private async Task CompletePaymentAsync(
+            Payment payment,
+            PaymentStatus successfulStatus,
+            string? providerTransactionId,
+            CancellationToken cancellationToken)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
             try
             {
-                payment.Status = PaymentStatus.Paid;
+                if (payment.Status is PaymentStatus.Paid or PaymentStatus.PaidByReward)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+
+                payment.Status = successfulStatus;
                 payment.PaidAt = DateTime.UtcNow;
-                await _paymentRepository.UpdateAsync(payment, cancellationToken);
+                payment.ProviderTransactionId = providerTransactionId;
+                await _rewardService.RedeemPaymentReservationAsync(
+                    payment.UserId, payment.RewardPointsUsed, payment.OrderCode, cancellationToken);
+                await _subscriptionService.ActivateFromPaymentAsync(payment, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
 
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == payment.UserId, cancellationToken);
                 if (user is not null)
                 {
-                    var now = DateTime.UtcNow;
-                    var currentExpire = user.PremiumExpireAt ?? now;
-                    if (currentExpire < now) currentExpire = now;
-
-                    if (payment.PackageId == 1)
-                    {
-                        user.PremiumExpireAt = currentExpire.AddMonths(1);
-                    }
-                    else if (payment.PackageId == 2)
-                    {
-                        user.PremiumExpireAt = currentExpire.AddYears(1);
-                    }
-
-                    user.RemainingInterviewQuota = PremiumQuotaThreshold;
-                    user.LastQuotaResetAt = now;
-                    user.UpdatedAt = now;
-                    user.IsPremium = true;
-                    
-                    await _context.SaveChangesAsync(cancellationToken);
-
                     // Send email
-                    var packageDuration = payment.PackageId == 1 ? "1 tháng" : "1 năm";
+                    var billingCycle = await _context.SubscriptionPrices
+                        .Where(price => price.PriceId == payment.PriceId)
+                        .Select(price => price.BillingCycle)
+                        .FirstOrDefaultAsync(cancellationToken);
+                    var packageDuration = billingCycle == BillingCycle.Yearly ? "1 năm" : "1 tháng";
                     var subject = "👑 Kích Hoạt Gói Premium Thành Công - AI-SPEIS";
                     var emailBody = $@"
                         <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;'>
@@ -271,7 +361,7 @@ namespace ai_speis_be.Services.PaymentService
                             <div style='padding: 30px; background-color: #f9f9f9; border-left: 1px solid #ddd; border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; border-radius: 0 0 10px 10px;'>
                                 <p style='font-size: 16px;'>Xin chào <strong>{user.FullName}</strong>,</p>
                                 <p>Cảm ơn bạn đã tin tưởng và nâng cấp gói dịch vụ <strong>Premium ({packageDuration})</strong> tại AI-SPEIS.</p>
-                                <p>Gói Premium của bạn đã được kích hoạt thành công. Tài khoản của bạn hiện đã được cộng <strong>15 lượt phỏng vấn</strong> và sẽ có thời hạn sử dụng đến ngày <strong>{user.PremiumExpireAt:dd/MM/yyyy}</strong>.</p>
+                                <p>Thanh toán đã được xác nhận. Thời hạn Premium hiện tại của bạn đến ngày <strong>{user.PremiumExpireAt:dd/MM/yyyy}</strong>. Quota 15 lượt chỉ được cấp khi kỳ Premium tương ứng bắt đầu và làm mới sau mỗi 30 ngày.</p>
                                 
                                 <div style='background-color: #fff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FFA500;'>
                                     <h3 style='margin-top: 0; color: #FFA500;'>Đặc quyền của bạn:</h3>
@@ -384,7 +474,7 @@ namespace ai_speis_be.Services.PaymentService
                 return false;
             }
 
-            var expired = DateTime.UtcNow >= payment.CreatedAt.Add(ExpiryDuration);
+            var expired = DateTime.UtcNow >= (payment.ExpiredAt ?? payment.CreatedAt.Add(ExpiryDuration));
             if (!expired)
             {
                 return false;
@@ -420,6 +510,10 @@ namespace ai_speis_be.Services.PaymentService
                 PaymentId = payment.PaymentId,
                 UserId = payment.UserId,
                 PackageId = payment.PackageId,
+                PriceId = payment.PriceId,
+                OriginalAmount = payment.OriginalAmount,
+                DiscountAmount = payment.DiscountAmount,
+                RewardPointsUsed = payment.RewardPointsUsed,
                 Amount = payment.Amount,
                 OrderCode = payment.OrderCode,
                 Status = payment.Status.ToString(),
@@ -441,6 +535,10 @@ namespace ai_speis_be.Services.PaymentService
                 Status = payment.Status.ToString(),
                 Amount = payment.Amount,
                 PackageId = payment.PackageId,
+                PriceId = payment.PriceId,
+                OriginalAmount = payment.OriginalAmount,
+                DiscountAmount = payment.DiscountAmount,
+                RewardPointsUsed = payment.RewardPointsUsed,
                 CreatedAt = createdAtUtc,
                 ExpiresAt = expiresAt,
                 PaidAt = paidAtUtc,
@@ -467,5 +565,7 @@ namespace ai_speis_be.Services.PaymentService
         public string? OrderId { get; set; }
         public int ResultCode { get; set; }
         public string? Message { get; set; }
+        public decimal? Amount { get; set; }
+        public long? TransId { get; set; }
     }
 }

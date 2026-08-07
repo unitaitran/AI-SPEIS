@@ -261,7 +261,7 @@ namespace ai_speis_be.Controllers
                 return StatusCode(500, new { Message = "Không thể tạo token đặt lại mật khẩu" });
             }
 
-            var resetLink = $"https://localhost:7084/api/Authentication/reset-password?token={token}";
+            var resetLink = $"http://localhost:3000/#reset-password?token={token}";
 
             var emailTemplate = $@"
 <!DOCTYPE html>

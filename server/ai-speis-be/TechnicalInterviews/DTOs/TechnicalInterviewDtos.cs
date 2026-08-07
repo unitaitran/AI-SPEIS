@@ -114,7 +114,6 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public string SessionStatus { get; set; } = string.Empty;
         public TechnicalFallbackStatusDto Fallbacks { get; set; } = new();
         public string ResolvedAction { get; set; } = string.Empty;
-        public string? AiSuggestedAction { get; set; }
         public string BackendResolvedAction { get; set; } = string.Empty;
         public string? OverrideReason { get; set; }
         public string? AdaptiveStage { get; set; }
@@ -163,7 +162,7 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public string FinalFeedbackStatus { get; set; } = string.Empty;
         public List<TechnicalMainQuestionResultDto> MainQuestions { get; set; } = new();
         public List<TechnicalMainQuestionResultDto> MainQuestionResults { get; set; } = new();
-        public List<TechnicalSkillResultDto> SkillScores { get; set; } = new();
+        public List<TechnicalDimensionResultDto> DimensionResults { get; set; } = new();
         public TechnicalFinalSummaryDto Summary { get; set; } = new();
         public List<string> Strengths { get; set; } = new();
         public List<string> Weaknesses { get; set; } = new();
@@ -191,7 +190,6 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public List<TechnicalDimensionResultDto> Dimensions { get; set; } = new();
         public List<string> Strengths { get; set; } = new();
         public List<string> MissingPoints { get; set; } = new();
-        public List<string> IncorrectClaims { get; set; } = new();
         public List<string> ImprovementSuggestions { get; set; } = new();
         public string FeedbackSummary { get; set; } = string.Empty;
         public List<TechnicalSubQuestionResultDto> AdaptiveHistory { get; set; } = new();
@@ -219,16 +217,8 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public string Level { get; set; } = string.Empty;
         public List<string> Evidence { get; set; } = new();
         public List<string> MissingEvidence { get; set; } = new();
-        public string ReasonSummary { get; set; } = string.Empty;
-        public List<string> IncorrectClaims { get; set; } = new();
     }
 
-    public sealed class TechnicalSkillResultDto
-    {
-        public string Skill { get; set; } = string.Empty;
-        public int MainQuestionCount { get; set; }
-        public decimal Score { get; set; }
-    }
 
     public sealed class TechnicalFinalSummaryDto
     {
@@ -237,18 +227,9 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
         public List<string> Strengths { get; set; } = new();
         public List<string> KnowledgeGaps { get; set; } = new();
         public List<string> AreasForImprovement { get; set; } = new();
-        public string ReasoningAndApplicationAssessment { get; set; } = string.Empty;
-        public string CommunicationAssessment { get; set; } = string.Empty;
-        public List<TechnicalSkillFeedbackDto> PerformanceBySkill { get; set; } = new();
         public List<string> RecommendationsForImprovement { get; set; } = new();
         public List<string> RecommendedNextSteps { get; set; } = new();
         public decimal FinalTechnicalScore { get; set; }
-    }
-
-    public sealed class TechnicalSkillFeedbackDto
-    {
-        public string Skill { get; set; } = string.Empty;
-        public string Assessment { get; set; } = string.Empty;
     }
 
     public enum TechnicalOperationStatus

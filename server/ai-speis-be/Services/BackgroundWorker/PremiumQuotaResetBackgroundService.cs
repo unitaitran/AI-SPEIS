@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ai_speis_be.Services.SubscriptionService;
 
 namespace ai_speis_be.Services.BackgroundWorker
 {
@@ -65,31 +66,22 @@ namespace ai_speis_be.Services.BackgroundWorker
         {
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var subscriptionService = scope.ServiceProvider.GetRequiredService<ISubscriptionService>();
 
             var now = DateTime.UtcNow;
-            // 30 days is our "monthly" definition for resetting.
-            var oneMonthAgo = now.AddDays(-30);
-
-            // Find premium users whose LastQuotaResetAt is over 30 days ago
-            var usersToReset = await context.Users
-                .Where(u => u.IsPremium
-                            && u.LastQuotaResetAt != null 
-                            && u.LastQuotaResetAt <= oneMonthAgo)
+            var usersToSynchronize = await context.Users
+                .Where(user => user.IsPremium || user.PremiumExpireAt != null)
                 .ToListAsync(stoppingToken);
 
-            if (usersToReset.Any())
+            if (usersToSynchronize.Any())
             {
-                foreach (var user in usersToReset)
+                foreach (var user in usersToSynchronize)
                 {
-                    // Update quota back to 15
-                    user.RemainingInterviewQuota = 15;
-                    // Reset the timer for next month
-                    user.LastQuotaResetAt = now;
-                    user.UpdatedAt = now;
+                    await subscriptionService.GetQuotaAsync(user, now, stoppingToken);
                 }
 
                 await context.SaveChangesAsync(stoppingToken);
-                _logger.LogInformation($"Successfully reset interview quota for {usersToReset.Count} Premium users.");
+                _logger.LogInformation("Synchronized subscription and fixed 30-day quota periods for {Count} users.", usersToSynchronize.Count);
             }
         }
     }

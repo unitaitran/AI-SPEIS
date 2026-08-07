@@ -29,6 +29,16 @@ function AppRoutes() {
 
     // Handle OAuth redirect from backend
     const hash = window.location.hash;
+    if (hash.startsWith('#/packages/payment-result')) {
+      const queryIndex = hash.indexOf('?');
+      const queryString = queryIndex >= 0 ? hash.slice(queryIndex) : '';
+      const target = `${USER_ROUTES.PACKAGES}${queryString}`;
+
+      window.history.replaceState(null, '', target);
+      setPathname(target.split('?')[0]);
+      return;
+    }
+
     if (hash.startsWith('#dashboard?')) {
       const queryString = hash.split('?')[1];
       const urlParams = new URLSearchParams(queryString);

@@ -5,6 +5,7 @@ import AdminDashboardPage from '../pages/admin/Dashboard/AdminDashboardPage';
 import UserManagementPage from '../pages/admin/UserManagement/UserManagementPage';
 import { navigate } from './navigation';
 import QuestionManagementPage from '../pages/admin/QuestionManagement/QuestionManagementPage';
+import SubscriptionManagementPage from '../pages/admin/SubscriptionManagement/SubscriptionManagementPage';
 
 import { useTranslation } from 'react-i18next';
 
@@ -48,6 +49,8 @@ function AdminRoutes({ pathname }) {
     content = <UserManagementPage />;  
   }else if (activePathname === ADMIN_ROUTES.QUESTIONS) {
   content = <QuestionManagementPage  />;
+} else if (activePathname === ADMIN_ROUTES.SUBSCRIPTION) {
+  content = <SubscriptionManagementPage />;
 }
    else {
     content = <AdminRoutePlaceholder title={currentMenuItem?.label || 'Page not found'} />;

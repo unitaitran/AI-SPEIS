@@ -2,9 +2,9 @@ namespace ai_speis_be.BehaviouralInterviews.AI
 {
     public static class BehaviouralPromptVersions
     {
-        public const string Selection = "behavioural-selection-v3";
-        public const string Evaluation = "behavioural-evaluation-v4";
-        public const string Summary = "behavioural-round-feedback-v2";
+        public const string Selection = "behavioural-selection-v4";
+        public const string Evaluation = "behavioural-evaluation-v5";
+        public const string Summary = "behavioural-round-feedback-v3";
     }
 
     public sealed record BehaviouralAIQuestionCandidate(
@@ -49,15 +49,12 @@ namespace ai_speis_be.BehaviouralInterviews.AI
     {
         public int QuestionId { get; set; }
         public int Order { get; set; }
-        public string SelectionReason { get; set; } = string.Empty;
-        public string EvaluationGoal { get; set; } = string.Empty;
     }
 
     public sealed class BehaviouralAISelectionResponse
     {
         public List<BehaviouralAISelectedQuestion> SelectedQuestions { get; set; } = new();
         public List<string> CoveredSkills { get; set; } = new();
-        public string SelectionSummary { get; set; } = string.Empty;
     }
 
     public sealed record BehaviouralAnswerContext(
@@ -89,20 +86,11 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public List<string> Evidence { get; set; } = new();
         public List<string> MissingEvidence { get; set; } = new();
         public decimal SuggestedScore { get; set; } // 0-10 (Evaluation Framework, thang thống nhất)
-        public string ReasonSummary { get; set; } = string.Empty;
     }
 
-    [System.Text.Json.Serialization.JsonUnmappedMemberHandling(
-        System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed class BehaviouralAIEvaluationResponse
     {
         public List<BehaviouralAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
-        public List<string> Evidence { get; set; } = new();
-        public List<string> MissingAspects { get; set; } = new();
-        public decimal? OverallRubricScore { get; set; } // 0-10 score theo scoring rubric của câu hỏi
-        public string AnswerQuality { get; set; } = string.Empty; // Excellent, Good, Partial, Vague, Insufficient
-        public string Decision { get; set; } = string.Empty; // NEXT_MAIN_QUESTION, CLARIFICATION, FOLLOW_UP_1, FOLLOW_UP_2
-        public decimal Confidence { get; set; }
     }
 
     public sealed class BehaviouralAIFinalSummaryRequest
@@ -124,17 +112,11 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public IReadOnlyList<object> MainQuestionResults { get; init; } = Array.Empty<object>();
     }
 
-    [System.Text.Json.Serialization.JsonUnmappedMemberHandling(
-        System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
     public sealed class BehaviouralAIFinalSummaryResponse
     {
         public string OverallBehavioralAssessment { get; set; } = string.Empty;
         public List<string> Strengths { get; set; } = new();
         public List<string> Weaknesses { get; set; } = new();
-        public string StarStructureAssessment { get; set; } = string.Empty;
-        public string OwnershipAndImpactAssessment { get; set; } = string.Empty;
-        public string CompetencyFit { get; set; } = string.Empty;
-        public string CommunicationAssessment { get; set; } = string.Empty;
         public List<string> RecommendationsForImprovement { get; set; } = new();
     }
 

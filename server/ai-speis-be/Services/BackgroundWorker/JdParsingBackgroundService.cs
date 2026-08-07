@@ -13,6 +13,7 @@ using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf;
 using System.Text;
+using ai_speis_be.Helpers;
 
 namespace ai_speis_be.Services.BackgroundWorker
 {
@@ -102,11 +103,13 @@ namespace ai_speis_be.Services.BackgroundWorker
                         continue;
                     }
 
-                    // AI Parse thành công nhưng tài liệu không phải là JD
-                    if (!parsedData.IsValidJd)
+                    // AI Parse thành công nhưng tài liệu không phải là JD hoặc vị trí không thuộc 8 role hỗ trợ
+                    if (!parsedData.IsValidJd || !RoleValidationHelper.IsSupportedRole(parsedData.RoleTarget, parsedData.JobTitle))
                     {
                         jdFile.Status = JDFileStatus.AnalysisFailed;
-                        jdFile.ErrorMessage = "Document rejected by AI: " + (parsedData.InvalidReason ?? "Not a valid JD.");
+                        jdFile.ErrorMessage = !parsedData.IsValidJd
+                            ? ("Document rejected by AI: " + (parsedData.InvalidReason ?? "Not a valid JD."))
+                            : RoleValidationHelper.UnsupportedRoleErrorMessage;
                         await dbContext.SaveChangesAsync(stoppingToken);
                         continue;
                     }

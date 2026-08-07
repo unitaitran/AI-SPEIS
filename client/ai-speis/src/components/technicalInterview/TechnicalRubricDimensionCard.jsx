@@ -42,21 +42,12 @@ function TechnicalRubricDimensionCard({ dimension, t }) {
           <div className="technical-score-bar__fill" style={{ width: `${percentage}%` }} />
         </div>
       )}
-      {(dimension.level || dimension.levelDescription) && (
+      {dimension.level && !dimension.level.startsWith('SCORE_') && (
         <p className="technical-dimension-card__level">
-          {dimension.level && <strong>{dimension.level}</strong>}
-          {dimension.level && dimension.levelDescription && ' — '}
-          {dimension.levelDescription}
+          <strong>{dimension.level}</strong>
+          {dimension.levelDescription && ` — ${dimension.levelDescription}`}
         </p>
       )}
-      {dimension.reasonSummary && (
-        <p className="technical-dimension-card__reason">{dimension.reasonSummary}</p>
-      )}
-      <div className="technical-feedback-columns">
-        <TechnicalResultFeedbackList title={t('result.evidence')} items={dimension.evidence || dimension.strengths} />
-        <TechnicalResultFeedbackList title={t('result.missingEvidence')} items={dimension.missingEvidence} />
-        <TechnicalResultFeedbackList title={t('result.incorrectClaims')} items={dimension.incorrectClaims} />
-      </div>
     </article>
   );
 }

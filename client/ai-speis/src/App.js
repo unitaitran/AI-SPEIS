@@ -9,6 +9,7 @@ import './App.css';
 import LoginPage from './pages/authen/LoginPage';
 import RegisterPage from './pages/authen/RegisterPage';
 import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
+import ResetPasswordPage from './pages/authen/ResetPasswordPage';
 import HomePage from './components/homepage/HomePage';
 import { getStoredSession, getDefaultRouteForRole } from './routes/auth';
 import { navigate } from './routes/navigation';
@@ -87,6 +88,11 @@ function App() {
     navigate(getDefaultRouteForRole(session?.user?.role), { replace: true });
   };
 
+  // Reset password route can be accessed with token in URL hash
+  if (hashPath === '#reset-password') {
+    return <ResetPasswordPage />;
+  }
+
   // Auth guard redirects:
   // If user is logged in, and tries to access auth routes, and it is NOT an OAuth login error, redirect immediately.
   if (isAuthRoute && session && !isLoginError) {
@@ -102,7 +108,7 @@ function App() {
 
   return (
     <>
-      <HomePage currentHash={currentHash} onToggleLanguage={toggleLanguage} />
+      <HomePage currentHash={currentHash} onToggleLanguage={toggleLanguage} t={t} i18n={i18n} />
 
       {showLoggedInPopup && (
         <div className="homepage-popup-overlay" onClick={handleGoToDashboard}>

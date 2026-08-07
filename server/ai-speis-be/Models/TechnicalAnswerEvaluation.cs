@@ -49,10 +49,6 @@ namespace ai_speis_be.Models
 
         [Required]
         [Column(TypeName = "nvarchar(max)")]
-        public string IncorrectClaimsJson { get; set; } = "[]";
-
-        [Required]
-        [Column(TypeName = "nvarchar(max)")]
         public string ImprovementSuggestionsJson { get; set; } = "[]";
 
         [Required]
@@ -71,8 +67,6 @@ namespace ai_speis_be.Models
 
         public TechnicalInterviewDecision Decision { get; set; }
 
-        public TechnicalInterviewDecision? AiSuggestedAction { get; set; }
-
         public TechnicalInterviewDecision BackendResolvedAction { get; set; }
 
         [MaxLength(1000)]
@@ -89,9 +83,6 @@ namespace ai_speis_be.Models
         public string? OverrideReason { get; set; }
 
         public bool FallbackUsed { get; set; }
-
-        [Column(TypeName = "decimal(5,4)")]
-        public decimal Confidence { get; set; }
 
         [Required]
         [MaxLength(80)]
