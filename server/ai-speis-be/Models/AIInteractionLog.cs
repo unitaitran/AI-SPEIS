@@ -46,6 +46,26 @@ namespace ai_speis_be.Models
         [MaxLength(100)]
         public string? ErrorCode { get; set; }
 
+        [Column(TypeName = "nvarchar(max)")]
+        public string? RawResponse { get; set; }
+
+        [MaxLength(80)]
+        public string? RecoveryStatus { get; set; }
+
+        [MaxLength(1000)]
+        public string? RecoveryFlags { get; set; }
+
+        [MaxLength(120)]
+        public string? JsonExceptionType { get; set; }
+
+        [MaxLength(500)]
+        public string? JsonErrorPath { get; set; }
+
+        public long? JsonErrorOffset { get; set; }
+
+        [MaxLength(80)]
+        public string? SchemaVersion { get; set; }
+
         public bool FallbackUsed { get; set; }
 
         [ForeignKey(nameof(InterviewSession))]

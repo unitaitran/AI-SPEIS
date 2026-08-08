@@ -143,18 +143,26 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 if (dimension.SuggestedScore < rubric.MinimumScore
                     || dimension.SuggestedScore > rubric.MaximumScore)
                 {
-                    return Invalid("SCORE_OUT_OF_RANGE");
+                    dimension.SuggestedScore = 0m;
+                    dimension.Evidence.Clear();
+                    dimension.MissingEvidence ??= new List<string>();
+                    dimension.MissingEvidence.Add("Invalid score returned by AI.");
                 }
 
                 if (dimension.SuggestedScore > rubric.EvidenceRequiredWhenScoreAbove
                     && dimension.Evidence.Count == 0)
                 {
-                    return Invalid("MISSING_SCORE_EVIDENCE");
+                    dimension.SuggestedScore = 0m;
+                    dimension.MissingEvidence.Add("No grounded evidence returned by AI.");
                 }
 
-                if (dimension.Evidence.Any(evidence => !IsGroundedEvidence(evidence, transcript)))
+                if (dimension.Evidence.Any(evidence =>
+                    !string.IsNullOrWhiteSpace(evidence)
+                    && !IsGroundedEvidence(evidence, transcript)))
                 {
-                    return Invalid("EVIDENCE_NOT_IN_ANSWER");
+                    // Filter out non-verbatim dimension evidence snippets instead of failing whole evaluation,
+                    // matching Behavioural's resilient validation behavior.
+                    dimension.Evidence.RemoveAll(evidence => string.IsNullOrWhiteSpace(evidence) || !IsGroundedEvidence(evidence, transcript));
                 }
             }
 

@@ -1,6 +1,7 @@
 using ai_speis_be.TechnicalInterviews.DTOs;
 using ai_speis_be.TechnicalInterviews.Orchestration;
 using ai_speis_be.TechnicalInterviews.PreGeneration;
+using ai_speis_be.TechnicalInterviews.AI;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -15,13 +16,16 @@ namespace ai_speis_be.Controllers
     {
         private readonly ITechnicalInterviewOrchestrator _orchestrator;
         private readonly ITechnicalPreGenerationService _preGenerationService;
+        private readonly ITechnicalInterviewAIProviderResolver _aiProviderResolver;
 
         public TechnicalInterviewsController(
             ITechnicalInterviewOrchestrator orchestrator,
-            ITechnicalPreGenerationService preGenerationService)
+            ITechnicalPreGenerationService preGenerationService,
+            ITechnicalInterviewAIProviderResolver aiProviderResolver)
         {
             _orchestrator = orchestrator;
             _preGenerationService = preGenerationService;
+            _aiProviderResolver = aiProviderResolver;
         }
 
         [HttpPost("sessions")]
@@ -147,6 +151,19 @@ namespace ai_speis_be.Controllers
             });
         }
 
+        [HttpGet("health/ai")]
+        [AllowAnonymous]
+        public IActionResult CheckAIHealth()
+        {
+            var provider = _aiProviderResolver.Resolve();
+            return Ok(new
+            {
+                status = "healthy",
+                provider = provider.ProviderName,
+                timestamp = DateTime.UtcNow
+            });
+        }
+        
         private IActionResult ToActionResult<T>(TechnicalOperationResult<T> result)
         {
             return result.Status switch

@@ -104,6 +104,85 @@ export function getNextPendingSession(campaign) {
     .sort((left, right) => getRoundOrder(left.interviewRoundType) - getRoundOrder(right.interviewRoundType))[0] || null;
 }
 
+export const InterviewStage = Object.freeze({
+  BEHAVIORAL: 'Behavioral',
+  TECHNICAL: 'Technical',
+  CODING: 'Coding',
+  FINAL: 'Final',
+});
+
+export const QuestionPreparationState = Object.freeze({
+  IDLE: 'Idle',
+  PREPARING: 'Preparing',
+  READY: 'Ready',
+  FAILED: 'Failed',
+});
+
+export const BackgroundGenerationState = Object.freeze({
+  IDLE: 'Idle',
+  GENERATING: 'Generating',
+  COMPLETED: 'Completed',
+  FAILED: 'Failed',
+});
+
+export function resolveNextInterviewStage({ campaign, currentSessionId, technicalPrepState, backgroundState }) {
+  const currentSession = (campaign?.sessions || []).find((s) => (
+    String(s.interviewSessionId) === String(currentSessionId)
+  ));
+  const currentOrder = currentSession ? getRoundOrder(currentSession.interviewRoundType) : -1;
+
+  const openSessions = [...(campaign?.sessions || [])]
+    .filter((session) => {
+      const isCurrent = String(session.interviewSessionId) === String(currentSessionId);
+      const isDone = session.status === 'Completed' || session.status === 'Cancelled';
+      const roundOrder = getRoundOrder(session.interviewRoundType);
+      return !isCurrent && !isDone && roundOrder > currentOrder && roundOrder < Number.MAX_SAFE_INTEGER;
+    })
+    .sort((left, right) => getRoundOrder(left.interviewRoundType) - getRoundOrder(right.interviewRoundType));
+
+  const nextSession = openSessions[0] || null;
+
+  if (!nextSession) {
+    return {
+      nextStage: InterviewStage.FINAL,
+      targetSessionId: null,
+      showLoadingSpinner: false,
+      requiresFallbackSyncInit: false,
+    };
+  }
+
+  const order = getRoundOrder(nextSession.interviewRoundType);
+
+  if (order === 1) {
+    const prepState = technicalPrepState || nextSession.preparationState || QuestionPreparationState.READY;
+    const isPreparing = prepState === QuestionPreparationState.PREPARING || backgroundState === BackgroundGenerationState.GENERATING;
+    const isFailed = prepState === QuestionPreparationState.FAILED || backgroundState === BackgroundGenerationState.FAILED;
+
+    return {
+      nextStage: InterviewStage.TECHNICAL,
+      targetSessionId: nextSession.interviewSessionId,
+      showLoadingSpinner: isPreparing,
+      requiresFallbackSyncInit: isFailed,
+    };
+  }
+
+  if (order === 2) {
+    return {
+      nextStage: InterviewStage.CODING,
+      targetSessionId: nextSession.interviewSessionId,
+      showLoadingSpinner: false,
+      requiresFallbackSyncInit: false,
+    };
+  }
+
+  return {
+    nextStage: InterviewStage.FINAL,
+    targetSessionId: null,
+    showLoadingSpinner: false,
+    requiresFallbackSyncInit: false,
+  };
+}
+
 export function getNextOpenSession(campaign, currentSessionId) {
   const currentSession = (campaign?.sessions || []).find((s) => (
     String(s.interviewSessionId) === String(currentSessionId)
@@ -121,3 +200,4 @@ export function getNextOpenSession(campaign, currentSessionId) {
 
   return openSessions[0] || null;
 }
+

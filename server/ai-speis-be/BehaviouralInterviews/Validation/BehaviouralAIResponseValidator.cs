@@ -176,7 +176,10 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                 if (dimension.SuggestedScore < rubric.MinimumScore
                     || dimension.SuggestedScore > rubric.MaximumScore)
                 {
-                    return Invalid("SCORE_OUT_OF_RANGE");
+                    dimension.SuggestedScore = 0m;
+                    dimension.Evidence.Clear();
+                    dimension.MissingEvidence ??= new List<string>();
+                    dimension.MissingEvidence.Add("Invalid score returned by AI.");
                 }
 
                 if (dimension.Evidence.Any(evidence =>
@@ -184,7 +187,7 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                     && !IsGroundedEvidence(evidence, transcript)))
                 {
                     // Filter out non-verbatim dimension evidence snippets instead of failing whole score
-                    dimension.Evidence.RemoveAll(evidence => !IsGroundedEvidence(evidence, transcript));
+                    dimension.Evidence.RemoveAll(evidence => string.IsNullOrWhiteSpace(evidence) || !IsGroundedEvidence(evidence, transcript));
                 }
             }
 

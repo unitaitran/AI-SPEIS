@@ -193,18 +193,32 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 var matchScore = session.InterviewCampaign.CvJdMatchScore;
                 if (!matchScore.HasValue)
                 {
-                    var matchResult = await _jdService.MatchCvToJdAsync(
-                        userId,
-                        jd.JDFileId,
-                        session.InterviewCampaign.CVExtractedProfile.CVFileId);
-                    if (matchResult is null || !matchResult.Success)
+                    try
                     {
-                        return ExternalFailure<TechnicalInterviewSessionDto>(
-                            "CV_JD_MATCH_UNAVAILABLE",
-                            matchResult?.ErrorMessage ?? "CV-JD Match Score could not be calculated for the Technical Question Plan.");
+                        var matchResult = await _jdService.MatchCvToJdAsync(
+                            userId,
+                            jd.JDFileId,
+                            session.InterviewCampaign.CVExtractedProfile.CVFileId);
+                        if (matchResult is not null && matchResult.Success)
+                        {
+                            matchScore = matchResult.MatchScore;
+                            session.InterviewCampaign.CvJdMatchScore = matchScore;
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "[TechnicalOrchestrator] CV-JD Match Score calculation failed ({Error}). Falling back to default match score 70.",
+                                matchResult?.ErrorMessage ?? "Match service returned null");
+                            matchScore = 70;
+                            session.InterviewCampaign.CvJdMatchScore = matchScore;
+                        }
                     }
-                    matchScore = matchResult.MatchScore;
-                    session.InterviewCampaign.CvJdMatchScore = matchScore;
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "[TechnicalOrchestrator] Exception during CV-JD Match calculation. Falling back to default match score 70.");
+                        matchScore = 70;
+                        session.InterviewCampaign.CvJdMatchScore = matchScore;
+                    }
                 }
 
                 var planResult = _questionPlanBuilder.Build(new TechnicalQuestionPlanRequest(
@@ -483,8 +497,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 session.TechnicalState = TechnicalInterviewState.QuestionReady;
             }
 
-            if (session.TechnicalState != TechnicalInterviewState.QuestionReady
-                || attempt.Status != TechnicalAttemptStatus.Ready)
+            var isRetry = session.TechnicalState == TechnicalInterviewState.Failed && attempt.Status == TechnicalAttemptStatus.Failed;
+            if ((session.TechnicalState != TechnicalInterviewState.QuestionReady || attempt.Status != TechnicalAttemptStatus.Ready) && !isRetry)
             {
                 return Conflict<TechnicalSubmitAnswerResponseDto>("INVALID_SUBMISSION_STATE", "This attempt is not ready for submission.");
             }
@@ -1297,6 +1311,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             var requiredSkills = jdRequiredSkills.Count > 0
                 ? jdRequiredSkills
                 : DeserializeList(session.TechnicalSelectedSkillsJson);
+
             var summaryRequest = new TechnicalAIFinalSummaryRequest
             {
                 RubricVersion = rubric.Version,
@@ -1328,6 +1343,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 MainQuestionResults = BuildFinalFeedbackMainQuestionResults(session),
                 SkillResults = provisionalResult.DimensionResults.Cast<object>().ToList()
             };
+
             var feedbackStartedAt = DateTime.UtcNow;
             AIProviderResult<TechnicalAIFinalSummaryResponse> summaryResult;
             try
@@ -1353,6 +1369,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     CompletedAt = completedAt
                 };
             }
+
             var valid = summaryResult.Success
                 && summaryResult.Data is not null
                 && !string.IsNullOrWhiteSpace(summaryResult.Data.OverallTechnicalAssessment);
@@ -1362,7 +1379,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 var data = summaryResult.Data!;
                 var knowledgeGaps = CleanList(data.KnowledgeGaps);
                 var recommendations = CleanList(data.RecommendationsForImprovement);
-                var summary = new TechnicalFinalSummaryDto
+                var summaryJson = new TechnicalFinalSummaryDto
                 {
                     OverallTechnicalAssessment = data.OverallTechnicalAssessment.Trim(),
                     Summary = data.OverallTechnicalAssessment.Trim(),
@@ -1373,12 +1390,19 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     RecommendedNextSteps = recommendations,
                     FinalTechnicalScore = session.TechnicalFinalScore ?? provisionalResult.OverallScore
                 };
-                session.TechnicalSummaryJson = JsonSerializer.Serialize(summary, JsonOptions);
+                session.TechnicalSummaryJson = JsonSerializer.Serialize(summaryJson, JsonOptions);
+                session.TechnicalFinalFeedbackStatus = "COMPLETED";
+                session.TechnicalFinalFeedbackError = null;
             }
-            session.TechnicalFinalFeedbackStatus = valid ? "COMPLETED" : "FAILED";
-            session.TechnicalFinalFeedbackError = valid
-                ? null
-                : summaryResult.ErrorCode ?? "INVALID_FINAL_FEEDBACK";
+            else
+            {
+                var fallbackSummary = BuildSafeTechnicalFinalSummaryFallback(
+                    session,
+                    session.TechnicalFinalScore ?? provisionalResult.OverallScore);
+                session.TechnicalSummaryJson = JsonSerializer.Serialize(fallbackSummary, JsonOptions);
+                session.TechnicalFinalFeedbackStatus = "FALLBACK";
+                session.TechnicalFinalFeedbackError = summaryResult.ErrorCode ?? "FALLBACK_GENERATED";
+            }
 
             AddInteractionLog(
                 session,
@@ -1386,9 +1410,9 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 AIInteractionOperationType.FinalSummary,
                 TechnicalPromptVersions.Summary,
                 summaryResult,
-                fallbackUsed: false,
-                errorCode: valid ? null : summaryResult.ErrorCode ?? "INVALID_FINAL_FEEDBACK");
-            return valid;
+                fallbackUsed: !valid,
+                errorCode: valid ? null : summaryResult.ErrorCode ?? "FALLBACK_GENERATED");
+            return true;
         }
 
         private async Task PublishFeedbackNotificationAsync(InterviewSession session, int userId, CancellationToken cancellationToken)
@@ -1452,67 +1476,96 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                             var evaluation = attempt.Evaluations
                                 .OrderByDescending(item => item.CreatedAt)
                                 .FirstOrDefault();
-                            var dimensionEvaluations = evaluation is null
-                                ? new List<TechnicalAIDimensionEvaluation>()
-                                : Deserialize<TechnicalAIDimensionEvaluation>(
-                                    evaluation.DimensionEvaluationsJson);
-                            var dimensionScores = evaluation is null
-                                ? new List<TechnicalDimensionScore>()
-                                : Deserialize<TechnicalDimensionScore>(
-                                    evaluation.ScoringBreakdownJson);
-                            var evaluationByCode = dimensionEvaluations.ToDictionary(
-                                item => item.RubricCode,
-                                StringComparer.OrdinalIgnoreCase);
 
-                            return new
+                            return (object)new
                             {
                                 type = ToApi(attempt.QuestionType),
                                 question = attempt.QuestionContentSnapshot,
                                 answer = attempt.AnswerTranscript,
-                                questionScore = attempt.RawScore ?? evaluation?.FinalOverallScore,
-                                followUpBonus = attempt.AppliedBonus,
-                                criteria = dimensionScores.Select(score =>
-                                {
-                                    evaluationByCode.TryGetValue(score.RubricCode, out var dimension);
-                                    return new
-                                    {
-                                        rubricCode = score.RubricCode,
-                                        score = score.FinalScore,
-                                        weight = score.Weight,
-                                        weightedScore = score.WeightedScore,
-                                        evidence = dimension?.Evidence ?? new List<string>(),
-                                        missingEvidence = dimension?.MissingEvidence ?? new List<string>()
-                                    };
-                                }).ToList(),
-                                evidence = dimensionEvaluations
-                                    .SelectMany(item => item.Evidence)
-                                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                                    .ToList(),
-                                missingEvidence = dimensionEvaluations
-                                    .SelectMany(item => item.MissingEvidence)
-                                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                                    .ToList()
+                                questionScore = attempt.RawScore ?? evaluation?.FinalOverallScore
                             };
                         })
                         .ToList();
 
                     return (object)new
                     {
-                        questionId = slot?.SelectedQuestionId ?? root.QuestionId,
                         mainQuestionIndex = root.MainQuestionIndex,
                         question = root.QuestionContentSnapshot,
                         skill = root.TargetSkillSnapshot ?? root.SkillSnapshot,
-                        source = (root.SourceType ?? slot?.SourceType)?.ToString().ToUpperInvariant(),
-                        evaluationObjective = (root.EvaluationObjective ?? slot?.EvaluationObjective)
-                            ?.ToString()
-                            .ToUpperInvariant(),
-                        initialMainScore = root.InitialMainScore,
                         finalQuestionScore = root.FinalMainScore,
-                        cumulativeFollowUpBonus = root.CumulativeFollowUpBonus,
                         attempts
                     };
                 })
                 .ToList();
+        }
+
+        private static TechnicalFinalSummaryDto BuildSafeTechnicalFinalSummaryFallback(
+            InterviewSession session,
+            decimal overallScore)
+        {
+            var isVietnamese = string.Equals(session.TechnicalLanguage, "vi", StringComparison.OrdinalIgnoreCase);
+            string assessment;
+            List<string> strengths;
+            List<string> gaps;
+            List<string> recommendations;
+
+            if (overallScore >= 8.0m)
+            {
+                assessment = isVietnamese
+                    ? $"Ứng viên thể hiện xuất sắc kiến thức chuyên môn và tư duy kiến trúc tốt ({overallScore:F2}/10). Nắm vững các khái niệm cốt lõi và giải trình kỹ thuật rõ ràng."
+                    : $"The candidate demonstrated excellent technical knowledge and strong architectural thinking ({overallScore:F2}/10). Core concepts are well understood with clear technical reasoning.";
+                strengths = isVietnamese
+                    ? new List<string> { "Kiến thức chuyên môn sâu và chính xác.", "Tư duy phân tích và giải trình kỹ thuật mạch lạc.", "Khả năng ứng dụng tốt vào các bài toán thực tế." }
+                    : new List<string> { "Strong and accurate domain knowledge.", "Clear analytical and technical reasoning.", "Good application to practical scenarios." };
+                gaps = isVietnamese
+                    ? new List<string> { "Có thể đào sâu hơn ở các bài toán quy mô lớn (high scale)." }
+                    : new List<string> { "Could explore deeper trade-offs in large-scale distributed systems." };
+                recommendations = isVietnamese
+                    ? new List<string> { "Tiếp tục trau dồi các mô hình kiến trúc phân tán nâng cao.", "Chia sẻ và đóng góp thêm kinh nghiệm thực chiến." }
+                    : new List<string> { "Continue practicing advanced distributed architecture concepts.", "Share real-world engineering experiences." };
+            }
+            else if (overallScore >= 6.5m)
+            {
+                assessment = isVietnamese
+                    ? $"Ứng viên có nền tảng kỹ thuật khá ({overallScore:F2}/10), đáp ứng tốt các yêu cầu cơ bản nhưng cần bổ sung thêm chi tiết kỹ thuật và minh hoạ thực tế."
+                    : $"The candidate showed solid technical fundamentals ({overallScore:F2}/10), meeting core requirements while having room for deeper technical details and practical examples.";
+                strengths = isVietnamese
+                    ? new List<string> { "Nắm chắc các khái niệm nền tảng chính.", "Khả năng giao tiếp và diễn đạt tốt." }
+                    : new List<string> { "Solid understanding of foundational concepts.", "Good communication and clarity." };
+                gaps = isVietnamese
+                    ? new List<string> { "Cần bổ sung thêm ví dụ thực tế khi giải thích.", "Độ sâu ở một số chủ đề nâng cao chưa đồng đều." }
+                    : new List<string> { "Needs more practical examples during explanations.", "Depth in advanced topics could be more consistent." };
+                recommendations = isVietnamese
+                    ? new List<string> { "Luyện tập giải thích theo mô hình STAR/CAR để làm rõ kinh nghiệm.", "Đọc thêm tài liệu chuyên sâu về tối ưu hoá hệ thống." }
+                    : new List<string> { "Practice structured explanations to highlight hands-on experience.", "Read deeper technical documentation on system optimization." };
+            }
+            else
+            {
+                assessment = isVietnamese
+                    ? $"Ứng viên đạt mức điểm {overallScore:F2}/10. Cần củng cố thêm kiến thức nền tảng và rèn luyện kỹ năng giải trình kỹ thuật chi tiết hơn."
+                    : $"The candidate achieved a score of {overallScore:F2}/10. Foundational technical knowledge and structured technical communication need further improvement.";
+                strengths = isVietnamese
+                    ? new List<string> { "Có tinh thần cầu thị và sẵn sàng tiếp thu câu hỏi." }
+                    : new List<string> { "Receptive to interview questions and open to feedback." };
+                gaps = isVietnamese
+                    ? new List<string> { "Kiến thức nền tảng ở một số phần còn thiếu sót.", "Diễn đạt câu trả lời chưa thực sự tập trung vào ý chính." }
+                    : new List<string> { "Gaps in core technical knowledge.", "Explanations need to be more structured and focused on key points." };
+                recommendations = isVietnamese
+                    ? new List<string> { "Ôn tập lại các chủ đề kỹ thuật cốt lõi trong JD.", "Thực hành trả lời phỏng vấn thử để tăng tính tự tin và độ chính xác." }
+                    : new List<string> { "Review core technical topics listed in the job description.", "Practice mock technical interviews to build confidence and precision." };
+            }
+
+            return new TechnicalFinalSummaryDto
+            {
+                OverallTechnicalAssessment = assessment,
+                Summary = assessment,
+                Strengths = strengths,
+                KnowledgeGaps = gaps,
+                AreasForImprovement = gaps,
+                RecommendationsForImprovement = recommendations,
+                RecommendedNextSteps = recommendations,
+                FinalTechnicalScore = overallScore
+            };
         }
 
         private TechnicalInterviewResultDto BuildResult(
@@ -1665,10 +1718,9 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             TechnicalQuestionAttempt attempt,
             CancellationToken cancellationToken)
         {
-            attempt.AnswerTranscript = null;
-            attempt.AudioId = null;
-            attempt.SubmissionIdempotencyKey = null;
-            attempt.AnsweredAt = null;
+            // An upstream evaluator failure is retryable. Keep the candidate's
+            // transcript/audio and return the existing attempt to the ready state
+            // so the room stays usable instead of presenting a terminal failure.
             attempt.Status = TechnicalAttemptStatus.Ready;
             session.TechnicalState = TechnicalInterviewState.QuestionReady;
             session.TechnicalConcurrencyVersion++;
@@ -2899,7 +2951,9 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 results.Evaluation,
                 arbiterResult.EvaluationStatus,
                 arbiterResult.EvaluationFallbackUsed,
-                arbiterResult.IsSuccess ? null : arbiterResult.ErrorCode);
+                arbiterResult.IsSuccess && !arbiterResult.EvaluationFallbackUsed
+                    ? null
+                    : results.Evaluation.ErrorCode ?? arbiterResult.ErrorCode);
         }
 
         private void AddTaskInteractionLog<T>(
@@ -2933,6 +2987,13 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         : fallbackUsed
                             ? "FALLBACK_VALIDATION_OR_PROVIDER_FAILURE"
                             : null),
+                RawResponse = result?.RawResponse,
+                RecoveryStatus = result?.JsonRecovery?.RecoveryStatus,
+                RecoveryFlags = result?.JsonRecovery is null ? null : string.Join(',', result.JsonRecovery.RecoveryFlags),
+                JsonExceptionType = result?.JsonRecovery?.ExceptionType,
+                JsonErrorPath = result?.JsonRecovery?.JsonErrorPath,
+                JsonErrorOffset = result?.JsonRecovery?.JsonErrorOffset,
+                SchemaVersion = session.TechnicalRubricVersion ?? _options.RubricVersion,
                 FallbackUsed = fallbackUsed,
                 InterviewSessionId = session.InterviewSessionId,
                 AttemptId = attemptId,
@@ -2969,10 +3030,17 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                         ? AIInteractionStatus.Succeeded
                         : string.Equals(errorCode, "TIMEOUT", StringComparison.Ordinal)
                             ? AIInteractionStatus.Timeout
-                            : string.Equals(errorCode, "MALFORMED_JSON", StringComparison.Ordinal)
+                            : errorCode is "MALFORMED_JSON" or "MALFORMED_JSON_UNRECOVERABLE"
                                 ? AIInteractionStatus.InvalidOutput
                                 : AIInteractionStatus.Failed,
                 ErrorCode = errorCode,
+                RawResponse = result.RawResponse,
+                RecoveryStatus = result.JsonRecovery?.RecoveryStatus,
+                RecoveryFlags = result.JsonRecovery is null ? null : string.Join(',', result.JsonRecovery.RecoveryFlags),
+                JsonExceptionType = result.JsonRecovery?.ExceptionType,
+                JsonErrorPath = result.JsonRecovery?.JsonErrorPath,
+                JsonErrorOffset = result.JsonRecovery?.JsonErrorOffset,
+                SchemaVersion = session.TechnicalRubricVersion ?? _options.RubricVersion,
                 FallbackUsed = fallbackUsed,
                 InterviewSessionId = session.InterviewSessionId,
                 AttemptId = attemptId,

@@ -28,6 +28,10 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         public int EvaluationMaxRetries { get; init; } = 1;
         public string OllamaBaseUrl { get; init; } = "http://localhost:11434/v1/";
         public string OllamaModel { get; init; } = string.Empty;
+        // Evaluation needs strict JSON. A fine-tuned question model may remain
+        // configured as OllamaModel while a more reliable instruction model is
+        // selected explicitly for answer evaluation.
+        public string OllamaEvaluationModel { get; init; } = string.Empty;
         public decimal InputTokenCostPerMillion { get; init; }
         public decimal OutputTokenCostPerMillion { get; init; }
 
@@ -47,6 +51,7 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                     "OLLAMA_BASE_URL",
                     "http://localhost:11434/v1/")),
                 OllamaModel = Get(configuration, "OLLAMA_MODEL", string.Empty),
+                OllamaEvaluationModel = Get(configuration, "OLLAMA_EVALUATION_MODEL", string.Empty),
                 TimeoutSeconds = GetInt(configuration, "TECHNICAL_INTERVIEW_AI_TIMEOUT_SECONDS", 180, 5, 300),
                 MaxRetries = GetInt(configuration, "TECHNICAL_INTERVIEW_AI_MAX_RETRIES", 2, 0, 5),
                 CandidatePoolSize = GetInt(configuration, "TECHNICAL_INTERVIEW_CANDIDATE_POOL_SIZE", 20, 1, 100),

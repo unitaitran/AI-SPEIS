@@ -132,7 +132,7 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             return result.ErrorCode switch
             {
                 "TIMEOUT" => TechnicalAITaskStatus.Timeout,
-                "MALFORMED_JSON" or "EMPTY_RESPONSE" => TechnicalAITaskStatus.InvalidOutput,
+                "MALFORMED_JSON" or "MALFORMED_JSON_UNRECOVERABLE" or "EMPTY_RESPONSE" => TechnicalAITaskStatus.InvalidOutput,
                 _ => TechnicalAITaskStatus.Rejected
             };
         }

@@ -38,6 +38,8 @@ Return only valid JSON matching this shape, no markdown:
 {"dimensionEvaluations":[{"rubricCode":"...","evidence":["..."],"missingEvidence":["..."],"suggestedScore":7.5}]}
 Do not generate candidate-facing feedback, strengths, weaknesses, recommendations, an overall assessment or a learning plan.
 Write missingEvidence in the requested language.
+Return ONLY valid JSON. Do not include Markdown, code fences, explanations before or after JSON, or fields outside the defined schema.
+Use the exact rubric codes provided and do not invent rubric criteria.
 """;
             return (system, JsonSerializer.Serialize(request, JsonOptions));
         }

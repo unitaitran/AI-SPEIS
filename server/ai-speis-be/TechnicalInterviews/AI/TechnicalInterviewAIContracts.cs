@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ai_speis_be.AI.Json;
 
 namespace ai_speis_be.TechnicalInterviews.AI
 {
@@ -117,6 +118,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public int? InputTokens { get; init; }
         public int? OutputTokens { get; init; }
         public string? ErrorCode { get; init; }
+        public string? RawResponse { get; init; }
+        public AiJsonRecoveryMetadata? JsonRecovery { get; init; }
         public int RetryCount { get; init; }
         public DateTime StartedAt { get; init; } = DateTime.UtcNow;
         public DateTime CompletedAt { get; init; } = DateTime.UtcNow;

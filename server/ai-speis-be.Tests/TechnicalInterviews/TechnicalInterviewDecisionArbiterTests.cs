@@ -162,24 +162,63 @@ public sealed class TechnicalInterviewDecisionArbiterTests
         Assert.Equal(TechnicalQuestionGenerationReason.ReliabilityMinimum, result.NextQuestion!.GenerationReason);
     }
 
-    [Theory]
-    [InlineData(TechnicalAITaskStatus.Timeout, "TIMEOUT")]
-    [InlineData(TechnicalAITaskStatus.InvalidOutput, "MALFORMED_JSON")]
-    public void Resolve_CriticalAiFailureDoesNotPersistArtificialZeroScore(
-        TechnicalAITaskStatus status,
-        string errorCode)
+    [Fact]
+    public void Resolve_TimeoutDoesNotPersistArtificialZeroScore()
     {
         var result = _arbiter.Resolve(
             TechnicalParallelTestData.CreateContext(),
             TechnicalTestRubric.Create(),
             TechnicalParallelTestData.Results(
-                evaluation: TechnicalParallelTestData.Failed<TechnicalAIEvaluationResponse>(status, errorCode)));
+                evaluation: TechnicalParallelTestData.Failed<TechnicalAIEvaluationResponse>(
+                    TechnicalAITaskStatus.Timeout,
+                    "TIMEOUT")));
 
         Assert.False(result.IsSuccess);
         Assert.False(result.EvaluationFallbackUsed);
-        Assert.Equal(errorCode, result.ErrorCode);
+        Assert.Equal("TIMEOUT", result.ErrorCode);
         Assert.Null(result.Score);
         Assert.Null(result.NextQuestion);
+    }
+
+    [Fact]
+    public void Resolve_MalformedJsonUsesZeroScoreForEveryRubricDimension()
+    {
+        var rubric = TechnicalTestRubric.Create();
+        var result = _arbiter.Resolve(
+            TechnicalParallelTestData.CreateContext(),
+            rubric,
+            TechnicalParallelTestData.Results(
+                evaluation: TechnicalParallelTestData.Failed<TechnicalAIEvaluationResponse>(
+                    TechnicalAITaskStatus.InvalidOutput,
+                    "MALFORMED_JSON_UNRECOVERABLE")));
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.EvaluationFallbackUsed);
+        Assert.Equal(TechnicalAITaskStatus.FallbackUsed, result.EvaluationStatus);
+        Assert.Equal(0m, result.Score!.FinalOverallScore);
+        Assert.Equal(rubric.Dimensions.Count, result.EffectiveEvaluation!.DimensionEvaluations.Count);
+        Assert.All(result.EffectiveEvaluation.DimensionEvaluations, dimension =>
+        {
+            Assert.Equal(0m, dimension.SuggestedScore);
+            Assert.Empty(dimension.Evidence);
+        });
+    }
+
+    [Fact]
+    public void Resolve_EmptyEvaluationUsesZeroScoreForEveryRubricDimension()
+    {
+        var rubric = TechnicalTestRubric.Create();
+        var result = _arbiter.Resolve(
+            TechnicalParallelTestData.CreateContext(),
+            rubric,
+            TechnicalParallelTestData.Results(
+                evaluation: TechnicalParallelTestData.Fulfilled(new TechnicalAIEvaluationResponse())));
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.EvaluationFallbackUsed);
+        Assert.Equal(TechnicalAITaskStatus.FallbackUsed, result.EvaluationStatus);
+        Assert.Equal(0m, result.Score!.FinalOverallScore);
+        Assert.Equal(rubric.Dimensions.Count, result.EffectiveEvaluation!.DimensionEvaluations.Count);
     }
 
     [Fact]

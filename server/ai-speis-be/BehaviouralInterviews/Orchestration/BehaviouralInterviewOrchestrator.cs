@@ -1387,10 +1387,17 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                         ? AIInteractionStatus.Succeeded
                         : string.Equals(errorCode, "TIMEOUT", StringComparison.Ordinal)
                             ? AIInteractionStatus.Timeout
-                            : string.Equals(errorCode, "MALFORMED_JSON", StringComparison.Ordinal)
+                            : errorCode is "MALFORMED_JSON" or "MALFORMED_JSON_UNRECOVERABLE"
                                 ? AIInteractionStatus.InvalidOutput
                                 : AIInteractionStatus.Failed,
                 ErrorCode = errorCode,
+                RawResponse = result.RawResponse,
+                RecoveryStatus = result.JsonRecovery?.RecoveryStatus,
+                RecoveryFlags = result.JsonRecovery is null ? null : string.Join(',', result.JsonRecovery.RecoveryFlags),
+                JsonExceptionType = result.JsonRecovery?.ExceptionType,
+                JsonErrorPath = result.JsonRecovery?.JsonErrorPath,
+                JsonErrorOffset = result.JsonRecovery?.JsonErrorOffset,
+                SchemaVersion = RubricVersion,
                 FallbackUsed = fallbackUsed,
                 InterviewSessionId = session.InterviewSessionId,
                 AttemptId = null,
