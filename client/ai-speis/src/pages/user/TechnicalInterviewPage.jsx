@@ -162,23 +162,7 @@ function TechnicalInterviewPage({ sessionId }) {
   const status = getTechnicalSessionStatus(room.session);
   const attemptId = room.currentQuestion?.attemptId || null;
 
-  // ── Pre-Generation: Kích hoạt chọn trước bài thi Coding khi câu hỏi Technical #1 hiển thị ──
-  const codingSessionId = useMemo(() => {
-    const sessions = activeContext?.campaign?.sessions || [];
-    const codingSession = sessions.find(
-      (s) => (s.interviewRoundType === 'Code' || s.interviewRoundType === 'Coding')
-        && (s.status === 'Pending' || s.status === 'Active'),
-    );
-    return codingSession?.interviewSessionId || null;
-  }, [activeContext?.campaign?.sessions]);
-
-  const codingPreGenRef = useRef(false);
-  useEffect(() => {
-    if (!codingPreGenRef.current && codingSessionId && room.currentQuestion) {
-      codingPreGenRef.current = true;
-      codingService.getQuestions(codingSessionId).catch(() => {});
-    }
-  }, [codingSessionId, room.currentQuestion]);
+  // ── Coding round loads directly from Question Bank/Database upon Technical completion ──
   const processingDraft = status === TechnicalSessionStatus.EVALUATING
     ? readTechnicalInterviewSessionDraft(resolvedSessionId)
     : null;
@@ -346,9 +330,6 @@ function TechnicalInterviewPage({ sessionId }) {
       const nextStatus = getTechnicalSessionStatus(response?.session) || response?.sessionStatus;
       if (nextStatus === TechnicalSessionStatus.COMPLETED) {
         setIsCompleting(true);
-        setTimeout(() => {
-          navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
-        }, 1200);
         return;
       }
       if (!response.nextQuestion && !response.currentQuestion && !response.question) await room.reload();
@@ -359,9 +340,6 @@ function TechnicalInterviewPage({ sessionId }) {
         clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
         recorder.reset();
         setIsCompleting(true);
-        setTimeout(() => {
-          navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
-        }, 1200);
         return;
       }
       if (recovery.state === 'ACCEPTED_NEXT_QUESTION') {

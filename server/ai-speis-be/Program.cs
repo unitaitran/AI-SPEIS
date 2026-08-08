@@ -44,6 +44,7 @@ using ai_speis_be.BehaviouralInterviews.Rubrics;
 using ai_speis_be.BehaviouralInterviews.Scoring;
 using ai_speis_be.BehaviouralInterviews.Selection;
 using ai_speis_be.BehaviouralInterviews.Validation;
+using ai_speis_be.AI.Json;
 using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Configuration;
 using ai_speis_be.TechnicalInterviews.Orchestration;
@@ -67,6 +68,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+builder.Services.AddSingleton<IAiJsonRecoveryService, AiJsonRecoveryService>();
 builder.Services.AddSignalR();
     
 builder.Services.AddHttpClient();

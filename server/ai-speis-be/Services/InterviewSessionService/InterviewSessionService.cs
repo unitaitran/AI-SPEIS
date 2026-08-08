@@ -38,6 +38,7 @@ namespace ai_speis_be.Services.InterviewSessionService
         private readonly IRewardService _rewardService;
         private readonly IConfiguration? _configuration;
         private readonly INotificationEventPublisher? _notificationPublisher;
+        private readonly ai_speis_be.Services.CodingService.Selection.ICodingQuestionSelectionService _codingSelectionService;
 
         // Kept for existing unit-test and internal construction sites; runtime DI uses
         // the full constructor below.
@@ -52,6 +53,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 new SubscriptionService.SubscriptionService(context),
                 new RewardService.RewardService(context),
                 null,
+                null,
                 null)
         {
         }
@@ -63,7 +65,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             ISubscriptionService subscriptionService,
             IRewardService rewardService,
             IConfiguration? configuration = null,
-            INotificationEventPublisher? notificationPublisher = null)
+            INotificationEventPublisher? notificationPublisher = null,
+            ai_speis_be.Services.CodingService.Selection.ICodingQuestionSelectionService? codingSelectionService = null)
         {
             _repository = repository;
             _context = context;
@@ -72,6 +75,9 @@ namespace ai_speis_be.Services.InterviewSessionService
             _rewardService = rewardService;
             _configuration = configuration;
             _notificationPublisher = notificationPublisher;
+            _codingSelectionService = codingSelectionService ?? new ai_speis_be.Services.CodingService.Selection.CodingQuestionSelectionService(
+                context,
+                new LoggerFactory().CreateLogger<ai_speis_be.Services.CodingService.Selection.CodingQuestionSelectionService>());
         }
 
         public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> CreateSessionsAsync(
@@ -331,8 +337,11 @@ namespace ai_speis_be.Services.InterviewSessionService
             {
                 foreach (var other in activeOtherSessions)
                 {
-                    other.Status = InterviewSessionStatus.Completed;
-                    other.UpdatedAt = now;
+                    if (GetRoundOrder(other.InterviewRoundType) < GetRoundOrder(session.InterviewRoundType))
+                    {
+                        other.Status = InterviewSessionStatus.Completed;
+                        other.UpdatedAt = now;
+                    }
                 }
             }
 
@@ -579,52 +588,106 @@ namespace ai_speis_be.Services.InterviewSessionService
                 !session.IsDeleted && session.InterviewRoundType == InterviewRoundType.Code);
             if (codingSession != null)
             {
+                var assignedQuestions = await _codingSelectionService.SelectCodingQuestionsAsync(codingSession);
+                var totalAssignedCount = assignedQuestions.Count > 0
+                    ? assignedQuestions.Count
+                    : (codingSession.QuestionCount > 0 ? codingSession.QuestionCount : 3);
+
                 var submissions = await _context.CodingSubmissions
                     .AsNoTracking()
                     .Include(submission => submission.CodingQuestion)
                     .Where(submission => submission.InterviewSessionId == codingSession.InterviewSessionId)
                     .ToListAsync();
 
-                var questionResults = submissions
+                var submissionGrouped = submissions
                     .GroupBy(submission => submission.CodingQuestionId)
-                    .Select(group => group
-                        .OrderByDescending(submission => CampaignResultCalculator.GetCodingScore(
-                            submission.PassedTestCases, submission.TotalTestCases))
-                        .ThenByDescending(submission => submission.TotalTestCases == 0
-                            ? 0m
-                            : (decimal)submission.PassedTestCases / submission.TotalTestCases)
-                        .ThenByDescending(submission => submission.CreatedAt)
-                        .First())
-                    .Select(submission => new CodingQuestionResultDto
-                    {
-                        CodingQuestionId = submission.CodingQuestionId,
-                        Title = submission.CodingQuestion?.Title ?? $"Coding question {submission.CodingQuestionId}",
-                        Score = CampaignResultCalculator.GetCodingScore(
-                            submission.PassedTestCases, submission.TotalTestCases),
-                        PassRate = submission.TotalTestCases == 0
-                            ? 0m
-                            : CampaignResultCalculator.Round(
-                                (decimal)submission.PassedTestCases / submission.TotalTestCases * 100m),
-                        PassedTestCases = submission.PassedTestCases,
-                        TotalTestCases = submission.TotalTestCases
-                    })
-                    .OrderBy(item => item.CodingQuestionId)
-                    .ToList();
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.OrderByDescending(s => CampaignResultCalculator.GetCodingScore(s.PassedTestCases, s.TotalTestCases))
+                              .ThenByDescending(s => s.TotalTestCases == 0 ? 0m : (decimal)s.PassedTestCases / s.TotalTestCases)
+                              .ThenByDescending(s => s.CreatedAt)
+                              .First());
 
-                var score = questionResults.Count == 0
+                var questionResults = new List<CodingQuestionResultDto>();
+                int submittedCount = 0;
+
+                if (assignedQuestions.Count > 0)
+                {
+                    foreach (var q in assignedQuestions)
+                    {
+                        if (submissionGrouped.TryGetValue(q.CodingQuestionId, out var sub))
+                        {
+                            submittedCount++;
+                            questionResults.Add(new CodingQuestionResultDto
+                            {
+                                CodingQuestionId = sub.CodingQuestionId,
+                                Title = q.Title ?? sub.CodingQuestion?.Title ?? $"Coding question {sub.CodingQuestionId}",
+                                Score = CampaignResultCalculator.GetCodingScore(sub.PassedTestCases, sub.TotalTestCases),
+                                PassRate = sub.TotalTestCases == 0
+                                    ? 0m
+                                    : CampaignResultCalculator.Round((decimal)sub.PassedTestCases / sub.TotalTestCases * 100m),
+                                PassedTestCases = sub.PassedTestCases,
+                                TotalTestCases = sub.TotalTestCases
+                            });
+                        }
+                        else
+                        {
+                            var totalTc = q.TestCases?.Count ?? 0;
+                            questionResults.Add(new CodingQuestionResultDto
+                            {
+                                CodingQuestionId = q.CodingQuestionId,
+                                Title = q.Title ?? $"Coding question {q.CodingQuestionId}",
+                                Score = 0m,
+                                PassRate = 0m,
+                                PassedTestCases = 0,
+                                TotalTestCases = totalTc
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var sub in submissionGrouped.Values)
+                    {
+                        submittedCount++;
+                        questionResults.Add(new CodingQuestionResultDto
+                        {
+                            CodingQuestionId = sub.CodingQuestionId,
+                            Title = sub.CodingQuestion?.Title ?? $"Coding question {sub.CodingQuestionId}",
+                            Score = CampaignResultCalculator.GetCodingScore(sub.PassedTestCases, sub.TotalTestCases),
+                            PassRate = sub.TotalTestCases == 0
+                                ? 0m
+                                : CampaignResultCalculator.Round((decimal)sub.PassedTestCases / sub.TotalTestCases * 100m),
+                            PassedTestCases = sub.PassedTestCases,
+                            TotalTestCases = sub.TotalTestCases
+                        });
+                    }
+                }
+
+                questionResults = questionResults.OrderBy(item => item.CodingQuestionId).ToList();
+                var totalCount = Math.Max(totalAssignedCount, questionResults.Count);
+                var score = totalCount == 0
                     ? 0m
-                    : CampaignResultCalculator.Round(questionResults.Average(item => item.Score));
+                    : CampaignResultCalculator.Round(questionResults.Sum(item => item.Score) / totalCount);
+
                 var isVietnamese = string.Equals(campaign.Language, "vi", StringComparison.OrdinalIgnoreCase);
+                var unsubmittedCount = totalCount - submittedCount;
+                var summaryText = isVietnamese
+                    ? (unsubmittedCount > 0
+                        ? $"Điểm Coding được tính từ tỷ lệ test case vượt qua của tất cả {totalCount} bài trong phiên ({submittedCount} bài đã nộp, {unsubmittedCount} bài chưa nộp)."
+                        : $"Điểm Coding được tính từ tỷ lệ test case vượt qua của tất cả {totalCount} bài đã nộp.")
+                    : (unsubmittedCount > 0
+                        ? $"The Coding score is calculated across all {totalCount} assigned problems ({submittedCount} submitted, {unsubmittedCount} unsubmitted)."
+                        : $"The Coding score is calculated from passed test cases across {totalCount} assigned problems.");
+
                 rounds.Add(new CampaignRoundResultDto
                 {
                     InterviewSessionId = codingSession.InterviewSessionId,
                     RoundType = InterviewRoundType.Code.ToString(),
                     Score = score,
                     PerformanceBand = CampaignResultCalculator.GetPerformanceBand(score),
-                    EvaluatedItemCount = questionResults.Count,
-                    Summary = isVietnamese
-                        ? $"Điểm Coding được tính từ tỷ lệ test case vượt qua của {questionResults.Count} bài đã nộp."
-                        : $"The Coding score is calculated from passed test cases across {questionResults.Count} submitted problems.",
+                    EvaluatedItemCount = totalCount,
+                    Summary = summaryText,
                     Strengths = score >= 6.5m
                         ? new List<string> { isVietnamese ? "Khả năng hiện thực hoá lời giải bằng code đạt mức khá trở lên." : "Coding execution met or exceeded the good-performance threshold." }
                         : new List<string>(),

@@ -25,8 +25,7 @@ namespace ai_speis_be.Tests.Services
             _cvRepoMock = new Mock<ICVRepository>();
             _fileValidatorMock = new Mock<IFileValidatorService>();
             _queue = new CvParseQueue();
-            _sut = new CVService(_cvRepoMock.Object, _fileValidatorMock.Object, _queue, _dbContext);
-        }
+            _sut = new CVService(_cvRepoMock.Object, _fileValidatorMock.Object, _queue, _dbContext, new Mock<ai_speis_be.Services.NotificationService.INotificationEventPublisher>().Object);        }
 
         public void Dispose()
         {

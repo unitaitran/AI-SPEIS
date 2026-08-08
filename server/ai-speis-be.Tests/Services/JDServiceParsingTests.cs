@@ -42,7 +42,8 @@ namespace ai_speis_be.Tests.Services
                 _mockFileValidatorService.Object,
                 _context,
                 _mockJdParseQueue.Object,
-                _mockAiParsingService.Object
+                _mockAiParsingService.Object,
+                new Mock<ai_speis_be.Services.NotificationService.INotificationEventPublisher>().Object
             );
         }
 

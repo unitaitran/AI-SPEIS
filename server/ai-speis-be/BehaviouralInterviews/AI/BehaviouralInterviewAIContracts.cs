@@ -1,3 +1,5 @@
+using ai_speis_be.AI.Json;
+
 namespace ai_speis_be.BehaviouralInterviews.AI
 {
     public static class BehaviouralPromptVersions
@@ -129,6 +131,8 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public int? InputTokens { get; init; }
         public int? OutputTokens { get; init; }
         public string? ErrorCode { get; init; }
+        public string? RawResponse { get; init; }
+        public AiJsonRecoveryMetadata? JsonRecovery { get; init; }
         public int RetryCount { get; init; }
         public DateTime StartedAt { get; init; }
         public DateTime CompletedAt { get; init; }

@@ -39,6 +39,9 @@ import {
   getNextOpenSession,
   getRoundOrder,
   saveActiveInterviewContext,
+  resolveNextInterviewStage,
+  InterviewStage,
+  QuestionPreparationState,
 } from '../../utils/interviewContext';
 import useInterviewStrategy from '../../features/interviewStrategy/useInterviewStrategy';
 import { InterviewMode } from '../../features/interviewStrategy/InterviewMode';
@@ -274,17 +277,19 @@ function BehavioralInterviewPage({ sessionId }) {
         if (!campaignId) return;
         try {
           const campaign = await interviewSessionService.getCampaign(campaignId);
+          const stageResolution = resolveNextInterviewStage({
+            campaign,
+            currentSessionId: resolvedSessionId,
+            technicalPrepState: preGenerator.isCompleted ? QuestionPreparationState.READY : QuestionPreparationState.PREPARING,
+          });
           const nextSession = getNextOpenSession(campaign, resolvedSessionId);
           saveActiveInterviewContext({
             campaign,
             activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
             configurationKey: initialContext?.configurationKey || null,
           });
-          if (nextSession) {
-            const targetPath = getRoundOrder(nextSession.interviewRoundType) === 2
-              ? getCodingInterviewRoomPath(nextSession.interviewSessionId)
-              : getInterviewRoomPath(nextSession.interviewSessionId);
-            navigate(targetPath, { replace: true });
+          if (stageResolution.nextStage === InterviewStage.TECHNICAL && stageResolution.targetSessionId) {
+            navigate(getInterviewRoomPath(stageResolution.targetSessionId), { replace: true });
             return;
           }
         } catch {
@@ -296,7 +301,7 @@ function BehavioralInterviewPage({ sessionId }) {
     } else {
       refreshCompletedCampaign();
     }
-  }, [pauseQuestionAudio, refreshCompletedCampaign, resetRecorder, room.phase, mode, resolvedSessionId, initialContext, room.generalSession?.interviewCampaignId]);
+  }, [pauseQuestionAudio, refreshCompletedCampaign, resetRecorder, room.phase, mode, resolvedSessionId, initialContext, room.generalSession?.interviewCampaignId, preGenerator.isCompleted]);
 
   // ── Pre-Generation: Kích hoạt tạo trước Technical khi câu hỏi 1 xuất hiện ──
   const preGenTriggeredRef = useRef(false);

@@ -10,6 +10,7 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
         public string Model { get; init; } = "gemini-3.5-flash";
         public string OllamaBaseUrl { get; init; } = "http://localhost:11434/v1/";
         public string OllamaModel { get; init; } = string.Empty;
+        public string OllamaEvaluationModel { get; init; } = string.Empty;
         public int MaxRetries { get; init; } = 3;
         public int TimeoutSeconds { get; init; } = 90;
         public int RealtimeMainQuestionCount { get; init; } = 3;
@@ -32,6 +33,7 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
                     "OLLAMA_BASE_URL",
                     "http://localhost:11434/v1/")),
                 OllamaModel = Get(configuration, "OLLAMA_MODEL", string.Empty),
+                OllamaEvaluationModel = Get(configuration, "BEHAVIOURAL_INTERVIEW_OLLAMA_EVALUATION_MODEL", string.Empty),
                 MaxRetries = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_MAX_RETRIES", 3, 0, 5),
                 TimeoutSeconds = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", 90, 5, 180),
                 RealtimeMainQuestionCount = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_REALTIME_MAIN_QUESTION_COUNT", 3, 1, 20),
