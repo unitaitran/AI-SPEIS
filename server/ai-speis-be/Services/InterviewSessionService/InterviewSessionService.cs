@@ -962,9 +962,11 @@ namespace ai_speis_be.Services.InterviewSessionService
             var quota = await GetQuotaMetadataAsync(user, now);
             var behaviourCompletedCounts = await GetBehaviourCompletedMainQuestionCountsAsync(
                 campaigns.Select(campaign => campaign.InterviewCampaignId));
+            var codingTestcaseCounts = await GetCodingTestcaseCountsAsync(
+                campaigns.Select(campaign => campaign.InterviewCampaignId));
 
             return campaigns
-                .Select(campaign => MapCampaignToResponse(campaign, quota, behaviourCompletedCounts))
+                .Select(campaign => MapCampaignToResponse(campaign, quota, behaviourCompletedCounts, codingTestcaseCounts))
                 .ToList();
         }
 
@@ -1411,18 +1413,46 @@ namespace ai_speis_be.Services.InterviewSessionService
                 .ToDictionaryAsync(group => group.Key, group => group.Count());
         }
 
+        private async Task<IReadOnlyDictionary<int, (int passed, int total)>> GetCodingTestcaseCountsAsync(
+            IEnumerable<int> campaignIds)
+        {
+            var ids = campaignIds.Distinct().ToList();
+            if (ids.Count == 0) return new Dictionary<int, (int passed, int total)>();
+
+            var submissions = await _context.CodingSubmissions
+                .AsNoTracking()
+                .Where(sub => ids.Contains(sub.InterviewSession.InterviewCampaignId))
+                .ToListAsync();
+
+            return submissions
+                .GroupBy(sub => sub.InterviewSessionId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => {
+                        var bestSubmissions = group.GroupBy(s => s.CodingQuestionId)
+                            .Select(g => g.OrderByDescending(s => s.PassedTestCases)
+                                          .ThenByDescending(s => s.TotalTestCases)
+                                          .First());
+                        return (passed: bestSubmissions.Sum(s => s.PassedTestCases), total: bestSubmissions.Sum(s => s.TotalTestCases));
+                    });
+        }
+
         private InterviewCampaignDto MapCampaignToResponse(
             InterviewCampaign campaign,
             QuotaMetadata? quota = null,
-            IReadOnlyDictionary<int, int>? behaviourCompletedCounts = null)
+            IReadOnlyDictionary<int, int>? behaviourCompletedCounts = null,
+            IReadOnlyDictionary<int, (int passed, int total)>? codingTestcaseCounts = null)
         {
-            var metadata = quota ?? new QuotaMetadata(campaign.User?.RemainingInterviewQuota ?? 0, BasicInterviewQuota, "Free");
+            var jobTitle = campaign.JDExtractedProfile?.JobTitle 
+                ?? campaign.JDExtractedProfile?.RoleTarget;
+
             return new InterviewCampaignDto
             {
                 InterviewCampaignId = campaign.InterviewCampaignId,
                 UserId = campaign.UserId,
                 CVExtractedProfileId = campaign.CVExtractedProfileId,
                 JDExtractedProfileId = campaign.JDExtractedProfileId,
+                JobTitle = string.IsNullOrWhiteSpace(jobTitle) ? null : jobTitle,
                 Language = campaign.Language,
                 Mode = campaign.Mode.ToString(),
                 DurationMinutes = campaign.DurationMinutes,
@@ -1436,6 +1466,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 PlanName = metadata.PlanName,
                 CreatedAt = AsUtc(campaign.CreatedAt),
                 UpdatedAt = AsUtc(campaign.UpdatedAt),
+                OverallScore = campaign.OverallScore,
                 Sessions = campaign.InterviewSessions
                     .Where(session => !session.IsDeleted)
                     .OrderBy(session => GetRoundOrder(session.InterviewRoundType))
@@ -1445,6 +1476,10 @@ namespace ai_speis_be.Services.InterviewSessionService
                         behaviourCompletedCounts is not null
                         && behaviourCompletedCounts.TryGetValue(session.InterviewSessionId, out var completedCount)
                             ? completedCount
+                            : null,
+                        codingTestcaseCounts is not null
+                        && codingTestcaseCounts.TryGetValue(session.InterviewSessionId, out var testcaseCount)
+                            ? testcaseCount
                             : null))
                     .ToList()
             };
@@ -1452,7 +1487,8 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private static InterviewSessionDto MapToResponse(
             InterviewSession session,
-            int? behaviourCompletedMainQuestionCount = null)
+            int? behaviourCompletedMainQuestionCount = null,
+            (int passed, int total)? codingTestcaseCount = null)
         {
             return new InterviewSessionDto
             {
@@ -1466,7 +1502,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                 UpdatedAt = AsUtc(session.UpdatedAt),
                 CompletedQuestionCount = session.InterviewRoundType == InterviewRoundType.Behavior
                     ? behaviourCompletedMainQuestionCount ?? 0
-                    : session.TechnicalCompletedMainQuestionCount
+                    : session.TechnicalCompletedMainQuestionCount,
+                PassedTestCases = session.InterviewRoundType == InterviewRoundType.Code ? codingTestcaseCount?.passed : null,
+                TotalTestCases = session.InterviewRoundType == InterviewRoundType.Code ? codingTestcaseCount?.total : null
             };
         }
 

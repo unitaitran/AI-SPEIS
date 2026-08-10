@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import AuthCard from '../../components/Auth/AuthCard';
 import Input from '../../components/UI/Input';
 import Button from '../../components/UI/Button';
+import Alert from '../../components/UI/Alert';
 import { ENDPOINTS } from '../../config/api';
 
 const ForgotPasswordPage = () => {
@@ -28,10 +29,10 @@ const ForgotPasswordPage = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || t('forgot_failed', 'Gửi yêu cầu thất bại. Vui lòng thử lại.'));
+        throw new Error(data.message || t('forgot_failed', 'Gửi yêu cầu thất bại. Vui lòng kiểm tra lại email.'));
       }
 
-      setSuccessMsg(data.message || t('forgot_success', 'Yêu cầu đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email của bạn.'));
+      setSuccessMsg(data.message || t('forgot_success', 'Link đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư email của bạn.'));
       setEmail('');
     } catch (err) {
       setError(err.message);
@@ -41,52 +42,69 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="h-screen overflow-hidden w-full flex flex-col relative">
-      <AuthCard 
-        footerText={t('forgot_footer')}
-        mascotText={t('forgot_mascot')}
-      >
-        <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both delay-100">
-          <h1 className="text-[32px] font-bold text-text-primary mb-2">{t('forgot_title')}</h1>
-          <p className="text-[15px] font-normal text-text-secondary">
-            {t('forgot_subtitle')}
+    <AuthCard 
+      footerText={t('forgot_footer', 'Nếu bạn cần hỗ trợ thêm, vui lòng liên hệ bộ phận hỗ trợ AI-SPEIS.')}
+      mascotText={t('forgot_mascot', 'Đừng lo! Tôi sẽ giúp bạn lấy lại mật khẩu ⭐')}
+    >
+      <div className="w-full flex flex-col">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-xl font-extrabold text-text-primary mb-1">
+            {t('forgot_title', 'Quên mật khẩu?')}
+          </h1>
+          <p className="text-xs text-text-secondary leading-relaxed">
+            {t('forgot_subtitle', 'Nhập địa chỉ email đăng ký để nhận liên kết đặt lại mật khẩu.')}
           </p>
         </div>
 
+        {/* Alerts */}
         {error && (
-          <div className="mb-3 p-3 bg-error-light border border-error rounded-xl text-error text-[13px] animate-in fade-in duration-300">
+          <Alert variant="error" className="mb-4 text-xs" onClose={() => setError('')}>
             {error}
-          </div>
+          </Alert>
         )}
 
         {successMsg && (
-          <div className="mb-3 p-3 bg-success-light border border-success rounded-xl text-success text-[13px] animate-in fade-in duration-300">
+          <Alert variant="success" className="mb-4 text-xs" onClose={() => setSuccessMsg('')}>
             {successMsg}
-          </div>
+          </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both delay-200">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
-            label={t('email_label')}
+            label={t('email_label', 'EMAIL DĂNG NHẬP')}
             id="email"
             type="email"
-            placeholder={t('email_placeholder')}
+            placeholder={t('email_placeholder', 'name@example.com')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={loading}
           />
-          <Button type="submit" disabled={loading}>
-            {loading ? t('processing', 'Đang xử lý...') : t('forgot_button')}
+          <Button 
+            type="submit" 
+            variant="primary" 
+            size="md" 
+            fullWidth 
+            loading={loading}
+            className="mt-1"
+          >
+            {t('forgot_button', 'GỬI LINK KHÔI PHỤC')}
           </Button>
         </form>
-        <div className="text-center mt-6 animate-in fade-in duration-500 fill-mode-both delay-300">
-          <a href="#login" className="text-[14px] font-semibold text-text-primary underline hover:text-primary transition-colors duration-200">
-            {t('back_to_login')}
+
+        {/* Back to login link */}
+        <div className="text-center mt-5 text-xs">
+          <a 
+            href="#login" 
+            className="font-bold text-text-primary hover:text-primary underline transition-colors focus-ring rounded-sm"
+          >
+            {t('back_to_login', 'Quay lại trang đăng nhập')}
           </a>
         </div>
-      </AuthCard>
-    </div>
+      </div>
+    </AuthCard>
   );
 };
 

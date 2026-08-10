@@ -196,11 +196,11 @@ function DashboardPage() {
             </div>
             <button
               className={`relative z-10 py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between shadow-md transition-all duration-300 w-full sm:w-auto self-start group ${quotaExhausted ? 'bg-white/60 text-white/80 cursor-not-allowed' : 'bg-white text-primary-dark hover:bg-primary-xlight hover:shadow-lg hover:-translate-y-1 cursor-pointer'}`}
-                onClick={() => {
-                  if (quotaExhausted) return;
-                  beginNewInterviewCampaign();
-                  navigate(USER_ROUTES.INTERVIEW_MODE);
-                }}
+              onClick={() => {
+                if (quotaExhausted) return;
+                beginNewInterviewCampaign();
+                navigate(USER_ROUTES.INTERVIEW_MODE);
+              }}
               disabled={quotaExhausted}
             >
               {t('banner.button', 'BẮT ĐẦU PHỎNG VẤN')}
@@ -218,10 +218,6 @@ function DashboardPage() {
                 Warning: You only have 1 interview attempt left.
               </p>
             )}
-
-            <p className="relative z-10 mt-2 text-[11px] uppercase tracking-wide text-white/75">
-              Current Plan: {planName}
-            </p>
           </div>
 
           {/* Skill Progress Chart */}

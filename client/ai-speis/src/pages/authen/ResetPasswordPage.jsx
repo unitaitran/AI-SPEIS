@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import AuthCard from '../../components/Auth/AuthCard';
 import Input from '../../components/UI/Input';
 import Button from '../../components/UI/Button';
+import Alert from '../../components/UI/Alert';
 import { ENDPOINTS } from '../../config/api';
 
 const ResetPasswordPage = () => {
@@ -78,34 +79,39 @@ const ResetPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col relative">
-      <AuthCard 
-        footerText=""
-        mascotText={t('reset_mascot', 'Đặt lại mật khẩu an toàn')}
-      >
-        <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both delay-100">
-          <h1 className="text-[32px] font-bold text-text-primary mb-2">{t('reset_title', 'Đặt lại mật khẩu')}</h1>
-          <p className="text-[15px] font-normal text-text-secondary">
-            {t('reset_subtitle', 'Nhập mật khẩu mới cho tài khoản của bạn')}
+    <AuthCard 
+      footerText=""
+      mascotText={t('reset_mascot', 'Hãy tạo một mật khẩu mới đủ an toàn nhé ⭐')}
+    >
+      <div className="w-full flex flex-col">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-xl font-extrabold text-text-primary mb-1">
+            {t('reset_title', 'Đặt lại mật khẩu')}
+          </h1>
+          <p className="text-xs text-text-secondary leading-relaxed">
+            {t('reset_subtitle', 'Nhập mật khẩu mới cho tài khoản ứng viên của bạn')}
           </p>
         </div>
 
+        {/* Alerts */}
         {error && (
-          <div className="mb-3 p-3 bg-error-light border border-error rounded-xl text-error text-[13px] animate-in fade-in duration-300">
+          <Alert variant="error" className="mb-4 text-xs" onClose={() => setError('')}>
             {error}
-          </div>
+          </Alert>
         )}
 
         {successMsg && (
-          <div className="mb-3 p-3 bg-success-light border border-success rounded-xl text-success text-[13px] animate-in fade-in duration-300">
+          <Alert variant="success" className="mb-4 text-xs">
             {successMsg}
-          </div>
+          </Alert>
         )}
 
+        {/* Form */}
         {token && (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both delay-200">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
-              label={t('new_password_label', 'Mật khẩu mới')}
+              label={t('new_password_label', 'MẬT KHẨU MỚI')}
               id="newPassword"
               type="password"
               placeholder="••••••••"
@@ -115,7 +121,7 @@ const ResetPasswordPage = () => {
               disabled={loading}
             />
             <Input
-              label={t('confirm_password_label', 'Xác nhận mật khẩu mới')}
+              label={t('confirm_password_label', 'XÁC NHẬN MẬT KHẨU MỚI')}
               id="confirmPassword"
               type="password"
               placeholder="••••••••"
@@ -124,19 +130,30 @@ const ResetPasswordPage = () => {
               required
               disabled={loading}
             />
-            <Button type="submit" disabled={loading}>
-              {loading ? t('processing', 'Đang xử lý...') : t('reset_button', 'Cập nhật mật khẩu')}
+            <Button 
+              type="submit" 
+              variant="primary" 
+              size="md" 
+              fullWidth 
+              loading={loading}
+              className="mt-1"
+            >
+              {t('reset_button', 'CẬP NHẬT MẬT KHẨU')}
             </Button>
           </form>
         )}
 
-        <div className="text-center mt-6 animate-in fade-in duration-500 fill-mode-both delay-300">
-          <a href="#login" className="text-[14px] font-semibold text-text-primary underline hover:text-primary transition-colors duration-200">
+        {/* Back to login link */}
+        <div className="text-center mt-5 text-xs">
+          <a 
+            href="#login" 
+            className="font-bold text-text-primary hover:text-primary underline transition-colors focus-ring rounded-sm"
+          >
             {t('back_to_login', 'Quay lại đăng nhập')}
           </a>
         </div>
-      </AuthCard>
-    </div>
+      </div>
+    </AuthCard>
   );
 };
 

@@ -19,7 +19,7 @@ import technicalInterviewApi from '../../services/technicalInterviewApi';
 import behavioralInterviewApi from '../../services/behavioralInterviewApi';
 import { normalizeTechnicalInterviewResult } from '../../features/technicalInterview/technicalInterviewResult';
 import { navigate } from '../../routes/navigation';
-import { USER_ROUTES } from '../../routes/routePaths';
+import { USER_ROUTES, getCampaignResultPath } from '../../routes/routePaths';
 import { getInterviewHistoryCopy } from '../../features/interviewHistory/interviewHistoryCopy';
 import '../../styles/user/InterviewHistory.css';
 
@@ -107,6 +107,10 @@ function InterviewReviewPage({ sessionId }) {
     setError('');
     try {
       const sessionData = await interviewSessionService.getSession(sessionId);
+      if (sessionData?.interviewCampaignId) {
+        navigate(getCampaignResultPath(sessionData.interviewCampaignId), { replace: true });
+        return;
+      }
       const round = sessionData.interviewRoundType;
       let nextReview;
       if (round === 'Technical') {
@@ -115,7 +119,7 @@ function InterviewReviewPage({ sessionId }) {
           technicalInterviewApi.getSession(sessionId),
         ]);
         nextReview = normalizeTechnicalReview(result, state);
-      } else if (round === 'Behavior') {
+      } else if (round === 'Behavior' || round === 'Behavioral') {
         const [result, state] = await Promise.all([
           behavioralInterviewApi.getResult(sessionId),
           behavioralInterviewApi.getState(sessionId),

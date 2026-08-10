@@ -1,27 +1,43 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   CalendarClock,
-  ChevronDown,
-  ChevronLeft,
+  Check,
+  CheckCircle2,
   ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Eye,
+  Clock,
+  Code2,
   FileQuestion,
-  Filter,
-  LoaderCircle,
+  History,
+  Layers,
+  Play,
+  Plus,
   RefreshCw,
   Search,
+  Sparkles,
+  Trophy,
+  UserCheck,
   X,
+  XCircle,
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import interviewSessionService from '../../services/InterviewSessionService';
-import { getInterviewReviewPath } from '../../routes/routePaths';
+import { getInterviewReviewPath, USER_ROUTES } from '../../routes/routePaths';
 import { navigate } from '../../routes/navigation';
-import { getInterviewHistoryCopy } from '../../features/interviewHistory/interviewHistoryCopy';
-import '../../styles/user/InterviewHistory.css';
+import { beginNewInterviewCampaign } from '../../utils/interviewContext';
+import { getInterviewHistoryCopy, formatInterviewTitle } from '../../features/interviewHistory/interviewHistoryCopy';
+
+// Design System Components
+import Card from '../../components/UI/Card';
+import Button from '../../components/UI/Button';
+import Badge from '../../components/UI/Badge';
+import EmptyState from '../../components/UI/EmptyState';
+import Spinner from '../../components/UI/Spinner';
+import Alert from '../../components/UI/Alert';
+import Modal from '../../components/UI/Modal';
+import Pagination from '../../components/UI/Pagination';
+import ProgressBar from '../../components/UI/ProgressBar';
 
 const formatDate = (value, includeTime = true) => {
   if (!value) return null;
@@ -38,26 +54,61 @@ const formatScore = (score, maxScore) => {
   if (!Number.isFinite(numericScore)) return null;
   const numericMaxScore = Number(maxScore);
   return Number.isFinite(numericMaxScore) && numericMaxScore > 0
-    ? `${numericScore.toFixed(2)}/${numericMaxScore}`
-    : numericScore.toFixed(2);
+    ? `${numericScore.toFixed(1)}/${numericMaxScore}`
+    : numericScore.toFixed(1);
 };
 
-const hasQuestionProgress = (session) => (
-  Number.isFinite(session?.completedQuestionCount) && Number.isFinite(session?.questionCount)
+// Determine Campaign Mode: 'Mock' or 'Practice'
+const getCampaignMode = (campaign) => {
+  const rawMode = (campaign.mode || campaign.Mode || '').toString().toLowerCase();
+  const sessions = campaign.sessions || campaign.Sessions || [];
+  if (rawMode === 'realtest' || rawMode === 'mock' || rawMode === 'mockinterview' || sessions.length === 3) {
+    return 'Mock';
+  }
+  return 'Practice';
+};
+
+const getStatusConfig = (status, copy) => {
+  switch (status) {
+    case 'Completed':
+      return { label: copy.statuses.Completed, variant: 'success', icon: CheckCircle2 };
+    case 'Active':
+    case 'Pending':
+    case 'InProgress':
+      return { label: copy.statuses.Active, variant: 'primary', icon: Clock };
+    case 'Cancelled':
+      return { label: copy.statuses.Cancelled, variant: 'neutral', icon: XCircle };
+    case 'Expired':
+      return { label: copy.statuses.Expired, variant: 'error', icon: AlertCircle };
+    default:
+      return { label: copy.statuses[status] || status || '—', variant: 'neutral', icon: Clock };
+  }
+};
+
+const getRoundConfig = (type, copy) => {
+  switch (type) {
+    case 'Technical':
+      return { label: copy.rounds.Technical, variant: 'ai', icon: Code2 };
+    case 'Behavior':
+    case 'Behavioral':
+      return { label: copy.rounds.Behavior, variant: 'secondary', icon: UserCheck };
+    case 'Code':
+    case 'Coding':
+      return { label: copy.rounds.Code, variant: 'primary', icon: Layers };
+    default:
+      return { label: type || 'Vòng', variant: 'neutral', icon: FileQuestion };
+  }
+};
+
+const canReviewSession = (session) => (
+  session.status === 'Completed' && ['Technical', 'Behavior', 'Behavioral'].includes(session.interviewRoundType)
 );
 
-const getStatusLabel = (status, copy) => copy.statuses[status] || status || '';
-const getRoundLabel = (type, copy) => copy.rounds[type] || type || '';
-const canReview = (session) => (
-  session.status === 'Completed' && ['Technical', 'Behavior'].includes(session.interviewRoundType)
-);
-
-function SessionDetailDialog({ campaign, copy, onClose }) {
+// Detail Modal for Campaign
+function SessionDetailModal({ campaign, copy, onClose }) {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const dialogRef = useRef(null);
-  const closeButtonRef = useRef(null);
 
   const loadResult = useCallback(async () => {
     if (campaign.status !== 'Completed') return;
@@ -76,106 +127,153 @@ function SessionDetailDialog({ campaign, copy, onClose }) {
     loadResult();
   }, [loadResult]);
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose();
-      if (event.key !== 'Tab' || !dialogRef.current) return;
-      const focusable = dialogRef.current.querySelectorAll(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
-      );
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    closeButtonRef.current?.focus();
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
-  const availableReview = campaign.sessions?.find(canReview);
   const scoreBySession = new Map((result?.rounds || []).map((round) => [round.interviewSessionId, round]));
+  const modalTitle = formatInterviewTitle(campaign, copy);
 
   return (
-    <div className="interview-history-dialog-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        className="interview-history-dialog"
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="session-detail-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={modalTitle}
+      size="lg"
+    >
+      <div className="flex flex-col gap-5 py-2">
+        {/* Meta summary grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-surface-muted rounded-lg border border-border text-xs">
           <div>
-            <p>{copy.history.detailEyebrow}</p>
-            <h2 id="session-detail-title">{copy.history.detailTitle.replace('{{id}}', campaign.interviewCampaignId)}</h2>
+            <span className="text-text-muted block mb-0.5">{copy.history.status}</span>
+            <Badge variant={getStatusConfig(campaign.status, copy).variant} size="sm">
+              {getStatusConfig(campaign.status, copy).label}
+            </Badge>
           </div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label={copy.history.closeAria}><X size={20} /></button>
-        </header>
+          {formatDate(campaign.startedAt || campaign.createdAt) && (
+            <div>
+              <span className="text-text-muted block mb-0.5">{copy.history.started}</span>
+              <span className="font-semibold text-text-primary">{formatDate(campaign.startedAt || campaign.createdAt)}</span>
+            </div>
+          )}
+          {campaign.durationMinutes && (
+            <div>
+              <span className="text-text-muted block mb-0.5">{copy.history.duration}</span>
+              <span className="font-semibold text-text-primary">{campaign.durationMinutes} {copy.history.minutes.replace('{{count}}', '')}</span>
+            </div>
+          )}
+          {formatScore(result?.overallScore, result?.maxScore) && (
+            <div>
+              <span className="text-text-muted block mb-0.5">{copy.history.overallScore}</span>
+              <span className="font-extrabold text-primary text-sm">{formatScore(result.overallScore, result.maxScore)}</span>
+            </div>
+          )}
+        </div>
 
-        <dl className="interview-history-dialog__meta">
-          <div><dt>{copy.history.status}</dt><dd><span className={`interview-history-status interview-history-status--${campaign.status?.toLowerCase()}`}>{getStatusLabel(campaign.status, copy)}</span></dd></div>
-          {formatDate(campaign.startedAt || campaign.createdAt) ? <div><dt>{copy.history.started}</dt><dd>{formatDate(campaign.startedAt || campaign.createdAt)}</dd></div> : null}
-          {formatDate(campaign.completedAt) ? <div><dt>{copy.history.finished}</dt><dd>{formatDate(campaign.completedAt)}</dd></div> : null}
-          {campaign.durationMinutes ? <div><dt>{copy.history.duration}</dt><dd>{copy.history.minutes.replace('{{count}}', campaign.durationMinutes)}</dd></div> : null}
-          {campaign.language ? <div><dt>{copy.history.language}</dt><dd>{campaign.language.toUpperCase()}</dd></div> : null}
-          {formatScore(result?.overallScore, result?.maxScore) ? <div><dt>{copy.history.totalScore}</dt><dd className="interview-history-dialog__score">{formatScore(result.overallScore, result.maxScore)}</dd></div> : null}
-        </dl>
+        {/* Sessions / Rounds Horizontal Layout (3 rounds side-by-side) */}
+        <div className="flex flex-col gap-3">
+          <h4 className="text-sm font-bold text-text-primary">{copy.history.sessionRounds}</h4>
 
-        <section className="interview-history-dialog__rounds" aria-label={copy.history.sessionRounds}>
-          <h3>{copy.history.sessionRounds}</h3>
-          {isLoading ? <p className="interview-history-dialog__loading"><LoaderCircle size={17} /> {copy.history.loadingResult}</p> : null}
-          {error ? <div className="interview-history-dialog__error"><span>{error}</span><button type="button" onClick={loadResult}>{copy.history.retry}</button></div> : null}
-          {(campaign.sessions || []).map((session) => {
-            const score = scoreBySession.get(session.interviewSessionId);
-            return (
-              <article key={session.interviewSessionId}>
-                <div>
-                  <strong>{getRoundLabel(session.interviewRoundType, copy)}</strong>
-                  {hasQuestionProgress(session) ? <span>{copy.history.answerCount.replace('{{completed}}', session.completedQuestionCount).replace('{{total}}', session.questionCount)}</span> : null}
+          {isLoading && (
+            <div className="py-6 flex items-center justify-center">
+              <Spinner size="md" label={copy.history.loadingResult} />
+            </div>
+          )}
+
+          {error && (
+            <Alert variant="error" onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(campaign.sessions || []).map((session) => {
+              const score = scoreBySession.get(session.interviewSessionId);
+              const rConfig = getRoundConfig(session.interviewRoundType, copy);
+              const sConfig = getStatusConfig(session.status, copy);
+              const isCoding = ['Code', 'Coding'].includes(session.interviewRoundType);
+
+              let codingPassed = session.passedTestCases;
+              let codingTotal = session.totalTestCases;
+              if (score?.codingQuestions && score.codingQuestions.length > 0) {
+                codingPassed = score.codingQuestions.reduce((sum, q) => sum + (q.passedTestCases || 0), 0);
+                codingTotal = score.codingQuestions.reduce((sum, q) => sum + (q.totalTestCases || 0), 0);
+              }
+
+              return (
+                <div
+                  key={session.interviewSessionId}
+                  className="p-4 bg-surface rounded-xl border border-border flex flex-col justify-between items-center text-center gap-3 shadow-xs"
+                >
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <Badge variant={rConfig.variant} size="sm" icon={rConfig.icon}>
+                        {rConfig.label}
+                      </Badge>
+                      <Badge variant={sConfig.variant} size="sm">
+                        {sConfig.label}
+                      </Badge>
+                    </div>
+
+                    {isCoding && (codingPassed != null || codingTotal != null) && (
+                      <span className="text-xs font-semibold text-text-secondary mt-1">
+                        Testcase pass: <strong className="text-text-primary">{codingPassed ?? 0}/{codingTotal ?? 0}</strong>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col items-center gap-2 w-full mt-1 pt-2 border-t border-border/60">
+                    {formatScore(score?.score, score?.maxScore) && (
+                      <div className="text-center">
+                        <span className="text-[10px] text-text-muted block uppercase font-bold">{copy.history.totalScore}</span>
+                        <span className="text-base font-extrabold text-primary">{formatScore(score.score, score.maxScore)}</span>
+                      </div>
+                    )}
+
+                    {canReviewSession(session) && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          onClose();
+                          navigate(getInterviewReviewPath(session.interviewSessionId));
+                        }}
+                        className="w-full justify-center"
+                      >
+                        {copy.history.viewResultBtn}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  {formatScore(score?.score, score?.maxScore) ? <b>{formatScore(score.score, score.maxScore)}</b> : null}
-                  <span className={`interview-history-status interview-history-status--${session.status?.toLowerCase()}`}>{getStatusLabel(session.status, copy)}</span>
-                  {canReview(session) ? <button type="button" className="interview-history-dialog__review" onClick={() => navigate(getInterviewReviewPath(session.interviewSessionId))}>{copy.history.review}</button> : null}
-                </div>
-              </article>
-            );
-          })}
-        </section>
+              );
+            })}
+          </div>
+        </div>
 
-        {availableReview ? (
-          <footer>
-            <button type="button" className="interview-history-button interview-history-button--secondary" onClick={onClose}>{copy.history.close}</button>
-            <button type="button" className="interview-history-button" onClick={() => navigate(getInterviewReviewPath(availableReview.interviewSessionId))}>
-              <FileQuestion size={17} /> {copy.history.review}
-            </button>
-          </footer>
-        ) : <footer><button type="button" className="interview-history-button interview-history-button--secondary" onClick={onClose}>{copy.history.close}</button></footer>}
-      </section>
-    </div>
+        {/* Modal Actions */}
+        <div className="flex justify-end gap-2 pt-3 border-t border-border mt-2">
+          <Button variant="outline" size="md" onClick={onClose}>
+            {copy.history.close}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
 function InterviewHistoryPage() {
   const { i18n } = useTranslation();
   const copy = getInterviewHistoryCopy(i18n.resolvedLanguage || i18n.language);
+
   const [campaigns, setCampaigns] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+
+  // Filter States (Session-based)
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('');
-  const [round, setRound] = useState('');
+  const [modeFilter, setModeFilter] = useState('All'); // 'All' | 'Practice' | 'Mock'
+  const [roundFilter, setRoundFilter] = useState('All'); // 'All' | 'Technical' | 'Behavioral' | 'Coding'
+  const [statusFilter, setStatusFilter] = useState('');
+
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const pageSize = 6; // 6 session cards per page
 
   const loadHistory = useCallback(async () => {
     setIsLoading(true);
@@ -194,203 +292,400 @@ function InterviewHistoryPage() {
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
-  const rows = useMemo(() => campaigns.flatMap((campaign) => (campaign.sessions || []).map((session) => ({
-    ...session,
-    displayStatus: (['Cancelled', 'Expired'].includes(campaign.status) && session.status !== 'Completed')
-      ? campaign.status
-      : session.status,
-    campaignId: campaign.interviewCampaignId,
-    campaignStatus: campaign.status,
-    language: campaign.language,
-    createdAt: session.updatedAt || campaign.createdAt,
-    campaign,
-  }))), [campaigns]);
+  // Session-based list of Campaigns
+  const sessionList = useMemo(() => {
+    return campaigns.map((campaign) => {
+      const mode = getCampaignMode(campaign);
+      const sessions = campaign.sessions || [];
+      const completedRounds = sessions.filter((s) => s.status === 'Completed').length;
+      const totalRounds = sessions.length;
+      const totalQuestionsAnswered = sessions.reduce((sum, s) => sum + (s.completedQuestionCount || 0), 0);
 
-  const filteredRows = useMemo(() => rows.filter((row) => {
-    const searchable = `${row.campaignId} ${getRoundLabel(row.interviewRoundType, copy)} ${getStatusLabel(row.displayStatus, copy)}`.toLowerCase();
-    return (!query || searchable.includes(query.trim().toLowerCase()))
-      && (!status || row.displayStatus === status)
-      && (!round || row.interviewRoundType === round);
-  }), [copy, query, round, rows, status]);
+      return {
+        campaign,
+        id: campaign.interviewCampaignId,
+        mode,
+        status: campaign.status,
+        createdAt: campaign.startedAt || campaign.createdAt,
+        sessions,
+        completedRounds,
+        totalRounds,
+        totalQuestionsAnswered,
+      };
+    });
+  }, [campaigns]);
 
-  // Reset to page 1 whenever filters or page size change
+  // Filtered Sessions
+  const filteredSessions = useMemo(() => {
+    return sessionList.filter((session) => {
+      const modeMatch = modeFilter === 'All' || session.mode === modeFilter;
+
+      const roundMatch = roundFilter === 'All' || session.sessions.some((s) => {
+        const type = (s.interviewRoundType || '').toLowerCase();
+        const target = roundFilter.toLowerCase();
+        if (target === 'technical') return type === 'technical';
+        if (target === 'behavioral' || target === 'behavior') return type === 'behavior' || type === 'behavioral';
+        if (target === 'coding' || target === 'code') return type === 'code' || type === 'coding';
+        return false;
+      });
+
+      const statusMatch = !statusFilter || session.status === statusFilter;
+
+      const jobTitle = session.campaign?.jobTitle || session.campaign?.JobTitle || session.campaign?.roleTarget || '';
+      const searchable = `session #${session.id} ${session.mode} ${session.status} ${jobTitle} ${session.sessions.map((s) => s.interviewRoundType).join(' ')}`.toLowerCase();
+      const queryMatch = !query || searchable.includes(query.trim().toLowerCase());
+
+      return modeMatch && roundMatch && statusMatch && queryMatch;
+    });
+  }, [modeFilter, query, roundFilter, sessionList, statusFilter]);
+
+  // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, status, round, pageSize]);
+  }, [query, modeFilter, roundFilter, statusFilter]);
 
-  const totalItems = filteredRows.length;
+  const totalItems = filteredSessions.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
-  const startIndex = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
-  const endIndex = Math.min(currentPage * pageSize, totalItems);
 
-  const paginatedRows = useMemo(() => {
+  const paginatedSessions = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [currentPage, filteredRows, pageSize]);
+    return filteredSessions.slice(start, start + pageSize);
+  }, [currentPage, filteredSessions, pageSize]);
 
-  const pageButtons = useMemo(() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const btns = [];
-    btns.push(1);
-    if (currentPage > 3) btns.push('start-ellipsis');
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = start; i <= end; i++) {
-      if (!btns.includes(i)) btns.push(i);
-    }
-    if (currentPage < totalPages - 2) btns.push('end-ellipsis');
-    if (!btns.includes(totalPages)) btns.push(totalPages);
-    return btns;
-  }, [currentPage, totalPages]);
+  // Session-based Summary Metrics
+  const summary = useMemo(() => {
+    const total = sessionList.length;
+    const practiceCount = sessionList.filter((s) => s.mode === 'Practice').length;
+    const mockCount = sessionList.filter((s) => s.mode === 'Mock').length;
+    const completedCount = sessionList.filter((s) => s.status === 'Completed').length;
+    const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
 
-  const summary = useMemo(() => ({
-    total: rows.length,
-    completed: rows.filter((row) => row.displayStatus === 'Completed').length,
-    active: rows.filter((row) => ['Active', 'Pending'].includes(row.displayStatus)).length,
-  }), [rows]);
-  const showLanguage = useMemo(() => rows.every((row) => Boolean(row.language)), [rows]);
-  const showQuestionProgress = useMemo(() => rows.every(hasQuestionProgress), [rows]);
+    return {
+      total,
+      practiceCount,
+      mockCount,
+      completedCount,
+      completionRate,
+    };
+  }, [sessionList]);
 
-  const resetFilters = () => { setQuery(''); setStatus(''); setRound(''); };
+  const resetFilters = () => {
+    setQuery('');
+    setModeFilter('All');
+    setRoundFilter('All');
+    setStatusFilter('');
+  };
 
-  let content;
-  if (isLoading) {
-    content = <div className="interview-history-state" role="status"><LoaderCircle className="interview-history-spin" size={32} /><p>{copy.history.loading}</p></div>;
-  } else if (error) {
-    content = <div className="interview-history-state" role="alert"><AlertCircle size={32} /><h2>{copy.history.loadTitle}</h2><p>{error}</p><button type="button" className="interview-history-button" onClick={loadHistory}><RefreshCw size={17} /> {copy.history.retry}</button></div>;
-  } else if (!rows.length) {
-    content = <div className="interview-history-state"><CalendarClock size={36} /><h2>{copy.history.emptyTitle}</h2><p>{copy.history.emptyDescription}</p></div>;
-  } else if (!filteredRows.length) {
-    content = <div className="interview-history-state"><Search size={34} /><h2>{copy.history.noResultsTitle}</h2><p>{copy.history.noResultsDescription}</p><button type="button" className="interview-history-button interview-history-button--secondary" onClick={resetFilters}>{copy.history.clearFilters}</button></div>;
-  } else {
-    content = (
-      <div className="interview-history-table-wrap">
-        <table className="interview-history-table">
-          <thead><tr><th>{copy.history.time}</th><th>{copy.history.campaign}</th><th>{copy.history.round}</th>{showQuestionProgress ? <th>{copy.history.answers}</th> : null}{showLanguage ? <th>{copy.history.language}</th> : null}<th>{copy.history.status}</th><th><span className="sr-only">{copy.history.actions}</span></th></tr></thead>
-          <tbody>{paginatedRows.map((row) => (
-            <tr key={row.interviewSessionId}>
-              {formatDate(row.createdAt) ? <td data-label={copy.history.time}>{formatDate(row.createdAt)}</td> : null}
-              <td data-label={copy.history.campaign}><strong>#{row.campaignId}</strong></td>
-              <td data-label={copy.history.round}>{getRoundLabel(row.interviewRoundType, copy)}</td>
-              {showQuestionProgress && hasQuestionProgress(row) ? <td data-label={copy.history.answers}>{row.completedQuestionCount}/{row.questionCount}</td> : null}
-              {showLanguage && row.language ? <td data-label={copy.history.language}>{row.language.toUpperCase()}</td> : null}
-              <td data-label={copy.history.status}><span className={`interview-history-status interview-history-status--${row.displayStatus?.toLowerCase()}`}>{getStatusLabel(row.displayStatus, copy)}</span></td>
-              <td className="interview-history-table__actions" data-label={copy.history.actions}>
-                <button type="button" aria-label={copy.history.detailAria.replace('{{id}}', row.campaignId)} title={copy.history.viewDetail} onClick={() => setSelectedCampaign(row.campaign)}><Eye size={18} /></button>
-                {canReview(row) ? <button type="button" aria-label={copy.history.reviewAria.replace('{{round}}', getRoundLabel(row.interviewRoundType, copy))} title={copy.history.review} onClick={() => navigate(getInterviewReviewPath(row.interviewSessionId))}><FileQuestion size={18} /></button> : null}
-              </td>
-            </tr>
-          ))}</tbody>
-        </table>
+  const handleStartNewInterview = () => {
+    beginNewInterviewCampaign();
+    navigate(USER_ROUTES.INTERVIEW_MODE);
+  };
 
-        {/* Pagination Bar */}
-        <div className="pagination">
-          <div className="pagination-info">
-            <span>
-              {copy.history.showing} <strong>{startIndex}-{endIndex}</strong> {copy.history.of} <strong>{totalItems}</strong> {copy.history.sessionsUnit}
-            </span>
-            <div className="page-size-selector">
-              <label>{copy.history.pageSize}</label>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="page-size-select"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
+  const modeTabOptions = [
+    { id: 'All', label: copy.modes.All },
+    { id: 'Practice', label: copy.modes.Practice },
+    { id: 'Mock', label: copy.modes.Mock },
+  ];
+
+  return (
+    <UserLayout>
+      <div className="flex flex-col gap-8 pb-12 max-w-7xl mx-auto animate-pageEntrance">
+
+        {/* Question Bank Styled Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-text-primary tracking-tight mb-1">
+            {copy.history.title}
+          </h1>
+          <p className="text-base text-text-secondary leading-relaxed max-w-4xl">
+            {copy.history.subtitle}
+          </p>
+        </div>
+
+        {/* Session-based Summary Metrics */}
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card variant="elevated" className="p-4 flex items-center gap-3">
+            <div className="p-3 bg-primary-xlight text-primary rounded-xl shrink-0">
+              <History size={22} />
             </div>
-          </div>
+            <div>
+              <span className="text-xs font-semibold text-text-muted block">{copy.history.total}</span>
+              <span className="text-2xl font-extrabold text-text-primary">{summary.total} <span className="text-xs font-normal text-text-secondary">{copy.history.sessionsUnit}</span></span>
+            </div>
+          </Card>
 
-          <div className="pagination-buttons">
-            <button
-              type="button"
-              className="pagination-btn"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(1)}
-              title={copy.history.firstPage}
-            >
-              <ChevronsLeft size={18} />
-            </button>
+          <Card variant="elevated" className="p-4 flex items-center gap-3">
+            <div className="p-3 bg-secondary-xlight text-secondary rounded-xl shrink-0">
+              <Sparkles size={22} />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-text-muted block">{copy.history.practiceCount}</span>
+              <span className="text-2xl font-extrabold text-text-primary">{summary.practiceCount} <span className="text-xs font-normal text-text-secondary">{copy.history.sessionsUnit}</span></span>
+            </div>
+          </Card>
 
-            <button
-              type="button"
-              className="pagination-btn"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              title={copy.history.previousPage}
-            >
-              <ChevronLeft size={18} />
-            </button>
+          <Card variant="elevated" className="p-4 flex items-center gap-3">
+            <div className="p-3 bg-warning-light text-warning rounded-xl shrink-0">
+              <Trophy size={22} />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-text-muted block">{copy.history.mockCount}</span>
+              <span className="text-2xl font-extrabold text-text-primary">{summary.mockCount} <span className="text-xs font-normal text-text-secondary">{copy.history.sessionsUnit}</span></span>
+            </div>
+          </Card>
 
-            {pageButtons.map((btn, idx) => {
-              if (typeof btn === 'string') {
-                return (
-                  <span key={`${btn}-${idx}`} className="pagination-ellipsis px-1.5 font-bold text-text-disabled">
-                    ...
-                  </span>
-                );
-              }
-              const isActive = btn === currentPage;
+          <Card variant="elevated" className="p-4 flex items-center gap-3">
+            <div className="p-3 bg-success-light text-success rounded-xl shrink-0">
+              <CheckCircle2 size={22} />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-text-muted block">{copy.history.completionRate}</span>
+              <span className="text-2xl font-extrabold text-text-primary">{summary.completionRate}%</span>
+            </div>
+          </Card>
+        </section>
+
+        {/* Question Bank Styled Search & Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-2.5">
+
+          {/* Quick Mode Filter Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {modeTabOptions.map((tab) => {
+              const isActive = modeFilter === tab.id;
               return (
                 <button
-                  key={btn}
+                  key={tab.id}
                   type="button"
-                  onClick={() => setCurrentPage(btn)}
-                  className={`pagination-btn ${isActive ? 'active' : ''}`}
+                  onClick={() => setModeFilter(tab.id)}
+                  className={`px-4 py-3.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap cursor-pointer uppercase tracking-wider border shadow-sm ${isActive
+                      ? 'border-primary bg-primary-xlight text-primary-dark'
+                      : 'border-border bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary'
+                    }`}
                 >
-                  {btn}
+                  {tab.label}
                 </button>
               );
             })}
 
             <button
               type="button"
-              className="pagination-btn"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              title={copy.history.nextPage}
+              onClick={handleStartNewInterview}
+              className="bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 hover:shadow-lg text-white text-xs font-bold px-6 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md flex items-center gap-1.5"
             >
-              <ChevronRight size={18} />
-            </button>
-
-            <button
-              type="button"
-              className="pagination-btn"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(totalPages)}
-              title={copy.history.lastPage}
-            >
-              <ChevronsRight size={18} />
+              <Plus size={16} />
+              {copy.history.newInterviewBtn}
             </button>
           </div>
         </div>
-      </div>
-    );
-  }
 
-  return (
-    <UserLayout>
-      <section className="interview-history-page">
-        <header className="interview-history-header"><div><p>{copy.history.eyebrow}</p><h1>{copy.history.title}</h1><span>{copy.history.subtitle}</span></div></header>
-        <section className="interview-history-summary" aria-label={copy.history.title}>
-          <article><span>{copy.history.total}</span><strong>{summary.total}</strong></article>
-          <article><span>{copy.history.completed}</span><strong>{summary.completed}</strong></article>
-          <article><span>{copy.history.active}</span><strong>{summary.active}</strong></article>
-        </section>
-        <section className="interview-history-controls" aria-label={copy.history.title}>
-          <label className="interview-history-search"><Search size={18} /><span className="sr-only">{copy.history.search}</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.history.search} /></label>
-          <label><span>{copy.history.status}</span><div><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">{copy.history.all}</option>{Object.entries(copy.statuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ChevronDown size={16} /></div></label>
-          <label><span>{copy.history.round}</span><div><select value={round} onChange={(event) => setRound(event.target.value)}><option value="">{copy.history.all}</option>{Object.entries(copy.rounds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ChevronDown size={16} /></div></label>
-          <button type="button" className="interview-history-filter-reset" onClick={resetFilters}><Filter size={17} /> {copy.history.reset}</button>
-        </section>
-        {content}
-      </section>
-      {selectedCampaign ? <SessionDetailDialog campaign={selectedCampaign} copy={copy} onClose={() => setSelectedCampaign(null)} /> : null}
+        {/* Content Area: Loading, Error, Empty, or Session Card Grid */}
+        {isLoading ? (
+          <div className="py-16 flex flex-col items-center justify-center gap-3">
+            <Spinner size="lg" label={copy.history.loading} />
+            <p className="text-xs text-text-muted font-medium">{copy.history.loading}</p>
+          </div>
+        ) : error ? (
+          <Alert variant="error" title={copy.history.loadTitle} className="my-4">
+            <div className="flex items-center justify-between gap-4 w-full">
+              <span>{error}</span>
+              <Button variant="outline" size="sm" icon={RefreshCw} onClick={loadHistory}>
+                {copy.history.retry}
+              </Button>
+            </div>
+          </Alert>
+        ) : !sessionList.length ? (
+          <EmptyState
+            icon={CalendarClock}
+            title={copy.history.emptyTitle}
+            description={copy.history.emptyDescription}
+            actionLabel={copy.history.newInterviewBtn}
+            onAction={handleStartNewInterview}
+          />
+        ) : !filteredSessions.length ? (
+          <EmptyState
+            icon={Search}
+            title={copy.history.noResultsTitle}
+            description={copy.history.noResultsDescription}
+            actionLabel={copy.history.clearFilters}
+            onAction={resetFilters}
+          />
+        ) : (
+          <div className="flex flex-col gap-6">
+            {/* Session Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {paginatedSessions.map((sessionItem) => {
+                const { campaign, id, mode, status, createdAt, sessions, completedRounds, totalRounds } = sessionItem;
+                const sConfig = getStatusConfig(status, copy);
+                const isMock = mode === 'Mock';
+
+                const sessionTitle = formatInterviewTitle(campaign, copy);
+
+                const reviewableRound = sessions.find(canReviewSession);
+                const progressPercent = totalRounds > 0 ? Math.round((completedRounds / totalRounds) * 100) : 0;
+
+                return (
+                  <Card
+                    key={id}
+                    variant={isMock ? 'ai' : 'default'}
+                    className="p-5 flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all group relative overflow-hidden"
+                  >
+                    {/* Top Header: Mode Badge + Status Badge */}
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <Badge
+                          variant={isMock ? 'secondary' : 'primary'}
+                          size="sm"
+                          icon={isMock ? Sparkles : Play}
+                        >
+                          {isMock ? copy.modes.Mock : copy.modes.Practice}
+                        </Badge>
+
+                        <Badge variant={sConfig.variant} size="sm" icon={sConfig.icon}>
+                          {sConfig.label}
+                        </Badge>
+                      </div>
+
+                      {/* Title, Timestamp, Secondary Session ID & Overall Score */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                          <h3
+                            className="text-base font-extrabold text-text-primary group-hover:text-primary transition-colors line-clamp-1"
+                            title={sessionTitle}
+                          >
+                            {sessionTitle}
+                          </h3>
+                          <div className="flex items-center gap-2 text-[11px] text-text-muted mt-0.5 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} /> {formatDate(createdAt) || 'Gần đây'}
+                            </span>
+
+                            {campaign.language && (
+                              <span className="px-1.5 py-0.2 bg-surface-muted border border-border/70 rounded text-[10px] uppercase font-bold text-text-secondary">
+                                {campaign.language}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Prominent Final Overall Score */}
+                        {status === 'Completed' && (
+                          <div className="flex flex-col items-end shrink-0 pl-2 bg-primary-xlight/60 px-2.5 py-1 rounded-lg border border-primary/20">
+                            <span className="text-[9px] uppercase font-extrabold text-primary-dark tracking-wider">
+                              {copy.history.overallScore}
+                            </span>
+                            <span className="text-base font-black text-primary drop-shadow-sm">
+                              {formatScore(campaign.overallScore ?? campaign.OverallScore, 10) || '10.0/10'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Round List Pills with Checkmarks */}
+                      <div className="flex flex-col gap-2 my-1">
+                        <span className="text-[11px] font-semibold text-text-muted">
+                          {copy.history.roundsCount.replace('{{count}}', totalRounds)}:
+                        </span>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {sessions.map((s, idx) => {
+                            const rConf = getRoundConfig(s.interviewRoundType, copy);
+                            const isRoundCompleted = s.status === 'Completed';
+
+                            return (
+                              <span
+                                key={s.interviewSessionId || idx}
+                                className={`
+                                  inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all
+                                  ${isRoundCompleted
+                                    ? 'bg-success-light/40 text-success border-success/30'
+                                    : 'bg-surface-muted text-text-secondary border-border'
+                                  }
+                                `}
+                              >
+                                {isRoundCompleted ? <Check size={12} /> : <Clock size={12} />}
+                                {rConf.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Session Progress Bar */}
+                      <div className="flex flex-col gap-1 mt-1 p-3 bg-surface-muted/60 rounded-lg border border-border/50">
+                        <div className="flex items-center justify-between text-xs font-semibold">
+                          <span className="text-text-secondary">
+                            {copy.history.roundsProgress.replace('{{completed}}', completedRounds).replace('{{total}}', totalRounds)}
+                          </span>
+                          <span className="text-text-primary font-bold">{progressPercent}%</span>
+                        </div>
+                        <ProgressBar
+                          value={completedRounds}
+                          max={totalRounds || 1}
+                          variant={completedRounds === totalRounds ? 'success' : 'primary'}
+                          size="sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Card Actions Footer */}
+                    <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t border-border/60">
+                      {status === 'Completed' && reviewableRound ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCampaign(campaign)}
+                            className="text-xs font-semibold text-text-secondary hover:text-primary transition-colors focus-ring rounded mr-auto"
+                          >
+                            {copy.history.viewDetailBtn}
+                          </button>
+
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={ChevronRight}
+                            onClick={() => navigate(getInterviewReviewPath(reviewableRound.interviewSessionId))}
+                            className="shadow-sm"
+                          >
+                            {copy.history.viewResultBtn}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedCampaign(campaign)}
+                        >
+                          {copy.history.viewDetailBtn}
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => setCurrentPage(page)}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                className="rounded-xl border border-border"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Campaign Detail Modal */}
+        {selectedCampaign && (
+          <SessionDetailModal
+            campaign={selectedCampaign}
+            copy={copy}
+            onClose={() => setSelectedCampaign(null)}
+          />
+        )}
+      </div>
     </UserLayout>
   );
 }
