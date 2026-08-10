@@ -40,6 +40,19 @@ public enum NotificationActionStatus
     CANCELLED
 }
 
+public enum DeliveryChannel
+{
+    IN_APP,
+    EMAIL
+}
+
+public enum DeliveryStatus
+{
+    Pending,
+    Sent,
+    Failed
+}
+
 // The public notification contract. Do not add operational/transient states here.
 public enum NotificationType
 {

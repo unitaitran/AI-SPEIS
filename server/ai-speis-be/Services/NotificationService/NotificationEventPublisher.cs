@@ -5,16 +5,18 @@ public sealed class NotificationEventPublisher : INotificationEventPublisher
 {
     private readonly INotificationService _notificationService;
     private readonly INotificationRealtimeNotifier _realtimeNotifier;
+    private readonly INotificationEmailDeliveryService? _emailDeliveryService;
 
     public NotificationEventPublisher(INotificationService notificationService)
         : this(notificationService, NoopNotificationRealtimeNotifier.Instance)
     {
     }
 
-    public NotificationEventPublisher(INotificationService notificationService, INotificationRealtimeNotifier realtimeNotifier)
+    public NotificationEventPublisher(INotificationService notificationService, INotificationRealtimeNotifier realtimeNotifier, INotificationEmailDeliveryService? emailDeliveryService = null)
     {
         _notificationService = notificationService;
         _realtimeNotifier = realtimeNotifier;
+        _emailDeliveryService = emailDeliveryService;
     }
 
     public async Task PublishAsync(NotificationEvent notificationEvent, CancellationToken cancellationToken = default)
@@ -24,9 +26,13 @@ public sealed class NotificationEventPublisher : INotificationEventPublisher
             notificationEvent.Category, notificationEvent.Severity, notificationEvent.Title,
             notificationEvent.Message, notificationEvent.EntityType, notificationEvent.EntityId,
             notificationEvent.ActionUrl, notificationEvent.ActionStatus, notificationEvent.DeduplicationKey,
-            notificationEvent.Metadata, notificationEvent.ExpiresAt), cancellationToken);
+            notificationEvent.Metadata, notificationEvent.ExpiresAt, notificationEvent.EmailDelivery), cancellationToken);
         if (notification is not null)
+        {
+            if (notification.DeliveryChannel == Models.Enums.DeliveryChannel.EMAIL && _emailDeliveryService is not null)
+                await _emailDeliveryService.AttemptPendingAsync(notification.NotificationId, cancellationToken);
             await _realtimeNotifier.CreatedAsync(notification, cancellationToken);
+        }
     }
 
     public Task UpdateActionStatusAsync(int recipientId, Models.Enums.NotificationRecipientRole recipientRole, Models.Enums.NotificationEntityType entityType, string entityId, Models.Enums.NotificationActionStatus actionStatus, CancellationToken cancellationToken = default) =>

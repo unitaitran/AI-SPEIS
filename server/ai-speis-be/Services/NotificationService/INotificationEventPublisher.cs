@@ -22,4 +22,5 @@ public sealed record NotificationEvent(
     string DeduplicationKey,
     object? Metadata = null,
     NotificationActionStatus ActionStatus = NotificationActionStatus.ACTIVE,
-    DateTime? ExpiresAt = null);
+    DateTime? ExpiresAt = null,
+    TransactionalEmailContent? EmailDelivery = null);
