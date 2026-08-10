@@ -392,18 +392,10 @@ namespace ai_speis_be.Services.PaymentService
                             </div>
                         </div>";
 
-                    // Fire and forget email sending to not block the transaction commit
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await _emailSender.SendEmailAsync(user.Email, subject, emailBody);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[EmailError] Failed to send Premium Activation Email to {user.Email}: {ex.Message}");
-                        }
-                    });
+                    // Delivery is queued and tracked by PublishSubscriptionActivatedNotificationAsync
+                    // after the payment transaction commits. Do not send a fire-and-forget email here.
+                    _ = subject;
+                    _ = emailBody;
                 }
 
                 await transaction.CommitAsync(cancellationToken);
@@ -472,7 +464,10 @@ namespace ai_speis_be.Services.PaymentService
                     NotificationCategory.SUBSCRIPTION, NotificationSeverity.SUCCESS, "Subscription activated",
                     $"Your {subscription.Plan.Name} subscription is now active.", NotificationEntityType.SUBSCRIPTION,
                     subscription.UserSubscriptionId.ToString(), "/user/packages",
-                    $"SUBSCRIPTION_ACTIVATED:{payment.PaymentId}:{payment.UserId}", new { planName = subscription.Plan.Name }), cancellationToken);
+                    $"SUBSCRIPTION_ACTIVATED:{payment.PaymentId}:{payment.UserId}", new { planName = subscription.Plan.Name },
+                    EmailDelivery: new TransactionalEmailContent(
+                        "Subscription activated - AI-SPEIS",
+                        $"<p>Your {subscription.Plan.Name} subscription is now active.</p>")), cancellationToken);
             }
             catch (Exception exception)
             {

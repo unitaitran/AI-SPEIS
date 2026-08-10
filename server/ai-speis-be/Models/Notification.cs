@@ -68,5 +68,16 @@ public class Notification
 
     public DateTime? ArchivedAt { get; set; }
 
+    public DeliveryChannel DeliveryChannel { get; set; } = DeliveryChannel.IN_APP;
+    public DeliveryStatus DeliveryStatus { get; set; } = DeliveryStatus.Pending;
+    public int RetryCount { get; set; }
+    public DateTime? LastAttemptAt { get; set; }
+    public DateTime? NextRetryAt { get; set; }
+    [MaxLength(500)] public string? LastError { get; set; }
+    [MaxLength(200)] public string? EmailSubject { get; set; }
+    [Column(TypeName = "nvarchar(max)")] public string? EmailBody { get; set; }
+    [MaxLength(64)] public string? DeliveryLeaseToken { get; set; }
+    public DateTime? DeliveryLeaseExpiresAt { get; set; }
+
     public virtual User Recipient { get; set; } = null!;
 }

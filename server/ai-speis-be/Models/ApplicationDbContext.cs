@@ -93,6 +93,10 @@ namespace ai_speis_be.Models
                 .HasForeignKey(notification => notification.RecipientId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Notification>()
+                .HasIndex(notification => new { notification.DeliveryChannel, notification.DeliveryStatus, notification.NextRetryAt })
+                .HasDatabaseName("IX_Notification_EmailRetry");
+
             modelBuilder.Entity<CVFile>()
                 .HasOne(cv => cv.User)
                 .WithMany(u => u.CVFiles)

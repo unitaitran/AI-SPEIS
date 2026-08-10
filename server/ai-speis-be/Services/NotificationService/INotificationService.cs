@@ -30,4 +30,7 @@ public sealed record NotificationCreateRequest(
     NotificationActionStatus ActionStatus,
     string DeduplicationKey,
     object? Metadata = null,
-    DateTime? ExpiresAt = null);
+    DateTime? ExpiresAt = null,
+    TransactionalEmailContent? EmailDelivery = null);
+
+public sealed record TransactionalEmailContent(string Subject, string Body);

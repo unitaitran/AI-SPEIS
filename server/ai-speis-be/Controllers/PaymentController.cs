@@ -1,5 +1,7 @@
+using ai_speis_be.BackgroundJobs;
 using ai_speis_be.Models.DTOs.Payment;
 using ai_speis_be.Services.PaymentService;
+using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -12,10 +14,12 @@ namespace ai_speis_be.Controllers
     public class PaymentController : ControllerBase
     {
         private readonly IPaymentService _paymentService;
+        private readonly IBackgroundJobClient _backgroundJobs;
 
-        public PaymentController(IPaymentService paymentService)
+        public PaymentController(IPaymentService paymentService, IBackgroundJobClient backgroundJobs)
         {
             _paymentService = paymentService;
+            _backgroundJobs = backgroundJobs;
         }
 
         [HttpPost("create")]
@@ -63,13 +67,9 @@ namespace ai_speis_be.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Webhook([FromBody] PaymentWebhookRequestDto request, CancellationToken cancellationToken)
         {
-            var (success, errorMessage) = await _paymentService.HandleWebhookAsync(request, cancellationToken);
-            if (!success)
-            {
-                // MoMo expects 204 No Content even on failure, to acknowledge receipt
-                return NoContent();
-            }
-
+            // Return an acknowledgement only after durable enqueue succeeds. Signature
+            // verification and all payment/subscription mutations run in JOB-01.
+            _backgroundJobs.Enqueue<PaymentStatusCheckJob>(job => job.ExecuteAsync(request));
             return NoContent();
         }
 
