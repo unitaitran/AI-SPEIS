@@ -47,8 +47,11 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             CancellationToken cancellationToken = default)
         {
             var code = NormalizeCode(request.Code);
+            var name = NormalizeCode(request.Name);
             if (await _context.SubscriptionPlans.AnyAsync(plan => plan.Code == code, cancellationToken))
                 return (false, "Mã gói đã tồn tại.", null);
+             if (await _context.SubscriptionPlans.AnyAsync(plan => plan.Name == name, cancellationToken))
+                return (false, "Tên gói đã tồn tại.", null);
             if (request.IsFree && request.QuotaResetDays.HasValue)
                 return (false, "Gói Free không được cấu hình chu kỳ reset quota.", null);
 
@@ -83,8 +86,11 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             if (plan is null) return (false, "Không tìm thấy gói.", null);
 
             var code = NormalizeCode(request.Code);
+            var name = NormalizeCode(request.Name); 
             if (await _context.SubscriptionPlans.AnyAsync(item => item.PlanId != planId && item.Code == code, cancellationToken))
                 return (false, "Mã gói đã tồn tại.", null);
+            if (await _context.SubscriptionPlans.AnyAsync(item => item.PlanId != planId && item.Name == name, cancellationToken))
+                return (false, "Tên gói đã tồn tại.", null);
             if (request.IsFree && request.QuotaResetDays.HasValue)
                 return (false, "Gói Free không được cấu hình chu kỳ reset quota.", null);
 
@@ -153,8 +159,12 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             CreateSubscriptionPriceRequestDto request,
             CancellationToken cancellationToken = default)
         {
-            if (!await _context.SubscriptionPlans.AnyAsync(plan => plan.PlanId == planId, cancellationToken))
-                return (false, new SubscriptionPriceValidationErrorDto { Message = "Không tìm thấy gói." }, null);
+            var plan = await _context.SubscriptionPlans.FirstOrDefaultAsync(item => item.PlanId == planId, cancellationToken);
+            if (plan is null) return (false, new SubscriptionPriceValidationErrorDto { Message = "Không tìm thấy gói." }, null);
+            if(plan.IsFree)
+            {
+                return (false, new SubscriptionPriceValidationErrorDto { Message = "Không thể thêm giá cho gói Free." }, null);
+            }
             var validationError = await ValidatePriceAsync(planId, null, request, cancellationToken);
             if (validationError is not null) return (false, validationError, null);
 
@@ -180,8 +190,12 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             UpdateSubscriptionPriceRequestDto request,
             CancellationToken cancellationToken = default)
         {
-            var price = await _context.SubscriptionPrices.FirstOrDefaultAsync(item => item.PriceId == priceId, cancellationToken);
+            var price = await _context.SubscriptionPrices.Include(i => i.Plan).FirstOrDefaultAsync(item => item.PriceId == priceId, cancellationToken);
             if (price is null) return (false, new SubscriptionPriceValidationErrorDto { Message = "Không tìm thấy giá gói." }, null);
+            if(price.Plan.IsFree)
+            {
+                return (false, new SubscriptionPriceValidationErrorDto { Message = "Không thể cập nhật giá cho gói Free." }, null);
+            }
             var validationError = await ValidatePriceAsync(price.PlanId, priceId, request, cancellationToken);
             if (validationError is not null) return (false, validationError, null);
 
