@@ -11,6 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using ai_speis_be.Helpers;
+using ai_speis_be.Services.NotificationService;
 
 namespace ai_speis_be.Services.BackgroundWorker
 {
@@ -139,6 +140,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                     cvFile.Status = CVFileStatus.AnalysisFailed;
                     dbContext.CVExtractedProfiles.Add(extractedProfile);
                     await dbContext.SaveChangesAsync(stoppingToken);
+                    await PublishCvProcessingFailedAsync(cvFile, stoppingToken);
                     _logger.LogWarning("CVFileId {CVFileId} rejected: confidence={Score}, reason={Reason}",
                         request.CVFileId, parsedData.CvConfidenceScore, extractedProfile.ErrorMessage);
                     return;
@@ -151,6 +153,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                     cvFile.Status = CVFileStatus.AnalysisFailed;
                     dbContext.CVExtractedProfiles.Add(extractedProfile);
                     await dbContext.SaveChangesAsync(stoppingToken);
+                    await PublishCvProcessingFailedAsync(cvFile, stoppingToken);
                     _logger.LogWarning("CVFileId {CVFileId} rejected: Role '{RoleTarget}' is not supported.",
                         request.CVFileId, parsedData.RoleTarget);
                     return;
@@ -202,6 +205,7 @@ namespace ai_speis_be.Services.BackgroundWorker
                 cvFile.UpdatedAt = DateTime.UtcNow;
 
                 await dbContext.SaveChangesAsync(stoppingToken);
+                await PublishCvProcessingCompletedAsync(cvFile, stoppingToken);
 
                 _logger.LogInformation("Successfully processed CVFileId: {CVFileId} (confidence={Score}, skills={SkillCount}, projects={ProjectCount})",
                     request.CVFileId, parsedData.CvConfidenceScore, extractedProfile.Skills.Count, extractedProfile.Projects.Count);
@@ -246,11 +250,36 @@ namespace ai_speis_be.Services.BackgroundWorker
                 }
 
                 await dbContext.SaveChangesAsync(ct);
+                await PublishCvProcessingFailedAsync(cvFile, ct);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save AnalysisFailed status for CVFileId: {CVFileId}", cvFile.CVFileId);
             }
+        }
+
+        private async Task PublishCvProcessingFailedAsync(CVFile cvFile, CancellationToken cancellationToken)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var publisher = scope.ServiceProvider.GetRequiredService<INotificationEventPublisher>();
+            await publisher.PublishAsync(new NotificationEvent(
+                cvFile.UserId, NotificationRecipientRole.USER, NotificationType.CV_PROCESSING_FAILED,
+                NotificationCategory.PROFILE, NotificationSeverity.ERROR, "CV processing failed",
+                "We could not process your CV. Please review the file and upload it again.",
+                NotificationEntityType.CV, cvFile.CVFileId.ToString(), "/user/cv-management",
+                $"CV_PROCESSING_FAILED:{cvFile.CVFileId}:1", new { cvFileId = cvFile.CVFileId }), cancellationToken);
+        }
+
+        private async Task PublishCvProcessingCompletedAsync(CVFile cvFile, CancellationToken cancellationToken)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var publisher = scope.ServiceProvider.GetRequiredService<INotificationEventPublisher>();
+            await publisher.PublishAsync(new NotificationEvent(
+                cvFile.UserId, NotificationRecipientRole.USER, NotificationType.CV_PROCESSING_COMPLETED,
+                NotificationCategory.PROFILE, NotificationSeverity.SUCCESS, "CV processing completed",
+                "Your CV has been processed successfully. Please review and confirm the extracted information.",
+                NotificationEntityType.CV, cvFile.CVFileId.ToString(), "/user/cv-management",
+                $"CV_PROCESSING_COMPLETED:{cvFile.CVFileId}:1", new { cvFileId = cvFile.CVFileId }), cancellationToken);
         }
     }
 }

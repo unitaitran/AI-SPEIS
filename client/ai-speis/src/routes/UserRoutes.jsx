@@ -17,6 +17,7 @@ import PackagesPage from '../pages/user/PackagesPage';
 import PaymentResultPage from '../pages/user/PaymentResultPage';
 import InterviewHistoryPage from '../pages/user/InterviewHistoryPage';
 import InterviewReviewPage from '../pages/user/InterviewReviewPage';
+import NotificationCenterPage from '../pages/user/NotificationCenterPage';
 
 function UserRoutes({ pathname }) {
   const isInterviewRoomRoute = pathname === USER_ROUTES.INTERVIEW_ROOM
@@ -51,7 +52,8 @@ function UserRoutes({ pathname }) {
     isInterviewResultRoute ||
     isCampaignResultRoute ||
     isInterviewReviewRoute ||
-    pathname === USER_ROUTES.PAYMENT_RESULT;
+    pathname === USER_ROUTES.PAYMENT_RESULT ||
+    pathname === USER_ROUTES.NOTIFICATIONS;
 
   useEffect(() => {
     if ((isUserRoot || !isKnownRoute) && !isProfileRoute) {
@@ -85,6 +87,10 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.INTERVIEW_HISTORY) {
     return <InterviewHistoryPage />;
+  }
+
+  if (pathname === USER_ROUTES.NOTIFICATIONS) {
+    return <NotificationCenterPage />;
   }
 
   if (isInterviewReviewRoute) {

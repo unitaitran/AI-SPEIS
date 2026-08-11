@@ -1,5 +1,6 @@
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace ai_speis_be.Services.SubscriptionPlanService
@@ -19,7 +20,6 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             var plans = await _context.SubscriptionPlans
                 .AsNoTracking()
                 .Where(plan => plan.IsActive)
-                .Include(plan => plan.Features.Where(feature => feature.IsEnabled))
                 .Include(plan => plan.Prices.Where(price => price.IsActive
                     && price.EffectiveFrom <= now
                     && (!price.EffectiveTo.HasValue || price.EffectiveTo.Value > now)))
@@ -34,7 +34,6 @@ namespace ai_speis_be.Services.SubscriptionPlanService
         {
             var plans = await _context.SubscriptionPlans
                 .AsNoTracking()
-                .Include(plan => plan.Features)
                 .Include(plan => plan.Prices)
                 .OrderBy(plan => plan.DisplayOrder)
                 .ThenBy(plan => plan.PlanId)
@@ -62,7 +61,10 @@ namespace ai_speis_be.Services.SubscriptionPlanService
                 QuotaResetDays = request.QuotaResetDays,
                 IsFree = request.IsFree,
                 DisplayOrder = request.DisplayOrder,
-                IsActive = true,
+                IsActive = request.IsActive ?? true,
+                AiTier = NormalizeAiTier(request.AiTier),
+                AdvancedAnalyticsEnabled = request.AdvancedAnalyticsEnabled ?? false,
+                IsPopular = request.IsPopular ?? false,
                 CreatedAt = DateTime.UtcNow
             };
             _context.SubscriptionPlans.Add(plan);
@@ -77,7 +79,6 @@ namespace ai_speis_be.Services.SubscriptionPlanService
         {
             var plan = await _context.SubscriptionPlans
                 .Include(item => item.Prices)
-                .Include(item => item.Features)
                 .FirstOrDefaultAsync(item => item.PlanId == planId, cancellationToken);
             if (plan is null) return (false, "Không tìm thấy gói.", null);
 
@@ -94,9 +95,44 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             plan.QuotaResetDays = request.QuotaResetDays;
             plan.IsFree = request.IsFree;
             plan.DisplayOrder = request.DisplayOrder;
+            plan.AiTier = NormalizeAiTier(request.AiTier);
+            plan.AdvancedAnalyticsEnabled = request.AdvancedAnalyticsEnabled ?? plan.AdvancedAnalyticsEnabled;
+            plan.IsPopular = request.IsPopular ?? plan.IsPopular;
+            if (request.IsActive.HasValue)
+            {
+                plan.IsActive = request.IsActive.Value;
+            }
             plan.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
             return (true, null, MapPlan(plan));
+        }
+
+        public async Task<(bool Success, string? Error)> DeletePlanAsync(int planId, CancellationToken cancellationToken = default)
+        {
+            var plan = await _context.SubscriptionPlans
+                .Include(item => item.Prices)
+                .FirstOrDefaultAsync(item => item.PlanId == planId, cancellationToken);
+            if (plan is null) return (false, "Không tìm thấy gói.");
+            if (plan.IsFree) return (false, "Không thể xóa gói Free mặc định.");
+
+            var planPriceIds = plan.Prices.Select(price => price.PriceId).ToList();
+            var hasPaymentHistory = planPriceIds.Count > 0 && await _context.Payments.AnyAsync(payment =>
+                payment.PriceId.HasValue && planPriceIds.Contains(payment.PriceId.Value), cancellationToken);
+            if (hasPaymentHistory)
+                return (false, "This subscription plan has payment history and cannot be deleted.");
+
+            var hasSubscriptionHistory = await _context.UserSubscriptions.AnyAsync(subscription => subscription.PlanId == planId, cancellationToken)
+                || (planPriceIds.Count > 0 && await _context.SubscriptionTerms.AnyAsync(term => planPriceIds.Contains(term.PriceId), cancellationToken));
+            if (hasSubscriptionHistory)
+                return (false, "This subscription plan has subscription history and cannot be deleted.");
+
+            await using IDbContextTransaction transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            _context.SubscriptionPrices.RemoveRange(plan.Prices);
+            _context.SubscriptionPlans.Remove(plan);
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return (true, null);
         }
 
         public async Task<(bool Success, string? Error)> SetPlanActiveAsync(int planId, bool isActive, CancellationToken cancellationToken = default)
@@ -112,13 +148,13 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             return (true, null);
         }
 
-        public async Task<(bool Success, string? Error, SubscriptionPriceDto? Price)> CreatePriceAsync(
+        public async Task<(bool Success, SubscriptionPriceValidationErrorDto? Error, SubscriptionPriceDto? Price)> CreatePriceAsync(
             int planId,
             CreateSubscriptionPriceRequestDto request,
             CancellationToken cancellationToken = default)
         {
             if (!await _context.SubscriptionPlans.AnyAsync(plan => plan.PlanId == planId, cancellationToken))
-                return (false, "Không tìm thấy gói.", null);
+                return (false, new SubscriptionPriceValidationErrorDto { Message = "Không tìm thấy gói." }, null);
             var validationError = await ValidatePriceAsync(planId, null, request, cancellationToken);
             if (validationError is not null) return (false, validationError, null);
 
@@ -139,13 +175,13 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             return (true, null, MapPrice(price));
         }
 
-        public async Task<(bool Success, string? Error, SubscriptionPriceDto? Price)> UpdatePriceAsync(
+        public async Task<(bool Success, SubscriptionPriceValidationErrorDto? Error, SubscriptionPriceDto? Price)> UpdatePriceAsync(
             int priceId,
             UpdateSubscriptionPriceRequestDto request,
             CancellationToken cancellationToken = default)
         {
             var price = await _context.SubscriptionPrices.FirstOrDefaultAsync(item => item.PriceId == priceId, cancellationToken);
-            if (price is null) return (false, "Không tìm thấy giá gói.", null);
+            if (price is null) return (false, new SubscriptionPriceValidationErrorDto { Message = "Không tìm thấy giá gói." }, null);
             var validationError = await ValidatePriceAsync(price.PlanId, priceId, request, cancellationToken);
             if (validationError is not null) return (false, validationError, null);
 
@@ -170,25 +206,59 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             return (true, null);
         }
 
-        private async Task<string?> ValidatePriceAsync(
+        private async Task<SubscriptionPriceValidationErrorDto?> ValidatePriceAsync(
             int planId,
             int? priceId,
             CreateSubscriptionPriceRequestDto request,
             CancellationToken cancellationToken)
         {
-            if (!Enum.IsDefined(request.BillingCycle)) return "Chu kỳ thanh toán không hợp lệ.";
+            if (!Enum.IsDefined(request.BillingCycle))
+            {
+                return new SubscriptionPriceValidationErrorDto
+                {
+                    Field = nameof(CreateSubscriptionPriceRequestDto.BillingCycle),
+                    Message = "Chu kỳ thanh toán không hợp lệ.",
+                };
+            }
+
             var start = AsUtc(request.EffectiveFrom);
             var end = request.EffectiveTo.HasValue ? AsUtc(request.EffectiveTo.Value) : (DateTime?)null;
-            if (end.HasValue && end.Value <= start) return "Ngày kết thúc hiệu lực phải sau ngày bắt đầu.";
+            if (end.HasValue && end.Value <= start)
+            {
+                return new SubscriptionPriceValidationErrorDto
+                {
+                    Field = nameof(CreateSubscriptionPriceRequestDto.EffectiveTo),
+                    Message = "Ngày kết thúc hiệu lực phải sau ngày bắt đầu.",
+                };
+            }
 
-            var overlaps = await _context.SubscriptionPrices.AnyAsync(price =>
+            var candidatePrices = _context.SubscriptionPrices.Where(price =>
                 price.PlanId == planId
-                && price.PriceId != priceId
                 && price.BillingCycle == request.BillingCycle
-                && price.IsActive
-                && (!price.EffectiveTo.HasValue || price.EffectiveTo.Value > start)
-                && (!end.HasValue || price.EffectiveFrom < end.Value), cancellationToken);
-            return overlaps ? "Khoảng hiệu lực giá bị trùng với một giá đang hoạt động." : null;
+                && price.IsActive);
+
+            if (priceId.HasValue)
+            {
+                candidatePrices = candidatePrices.Where(price => price.PriceId != priceId.Value);
+            }
+
+            var conflict = await candidatePrices
+                .OrderBy(price => price.EffectiveFrom)
+                .FirstOrDefaultAsync(price =>
+                    (!price.EffectiveTo.HasValue || price.EffectiveTo.Value > start)
+                    && (!end.HasValue || price.EffectiveFrom < end.Value), cancellationToken);
+
+            return conflict is null
+                ? null
+                : new SubscriptionPriceValidationErrorDto
+                {
+                    Field = nameof(CreateSubscriptionPriceRequestDto.EffectiveFrom),
+                    Message = "Khoảng hiệu lực giá bị trùng với một giá đang hoạt động.",
+                    ConflictPriceId = conflict.PriceId,
+                    ConflictBillingCycle = conflict.BillingCycle,
+                    ConflictEffectiveFrom = conflict.EffectiveFrom,
+                    ConflictEffectiveTo = conflict.EffectiveTo,
+                };
         }
 
         private static SubscriptionPlanDto MapPlan(SubscriptionPlan plan) => new()
@@ -202,15 +272,10 @@ namespace ai_speis_be.Services.SubscriptionPlanService
             IsFree = plan.IsFree,
             DisplayOrder = plan.DisplayOrder,
             IsActive = plan.IsActive,
-            Prices = plan.Prices.OrderBy(price => price.BillingCycle).ThenBy(price => price.EffectiveFrom).Select(MapPrice).ToList(),
-            Features = plan.Features.OrderBy(feature => feature.DisplayOrder).Select(feature => new PlanFeatureDto
-            {
-                PlanFeatureId = feature.PlanFeatureId,
-                FeatureCode = feature.FeatureCode,
-                LimitValue = feature.LimitValue,
-                DisplayOrder = feature.DisplayOrder,
-                IsEnabled = feature.IsEnabled
-            }).ToList()
+            AiTier = plan.AiTier,
+            AdvancedAnalyticsEnabled = plan.AdvancedAnalyticsEnabled,
+            IsPopular = plan.IsPopular,
+            Prices = plan.Prices.OrderBy(price => price.BillingCycle).ThenBy(price => price.EffectiveFrom).Select(MapPrice).ToList()
         };
 
         private static SubscriptionPriceDto MapPrice(SubscriptionPrice price) => new()
@@ -226,6 +291,12 @@ namespace ai_speis_be.Services.SubscriptionPlanService
         };
 
         private static string NormalizeCode(string code) => code.Trim().ToUpperInvariant();
+
+        private static string NormalizeAiTier(string? aiTier)
+        {
+            var normalized = string.IsNullOrWhiteSpace(aiTier) ? "ADVANCED" : aiTier.Trim().ToUpperInvariant();
+            return normalized is "STANDARD" or "ADVANCED" or "ENTERPRISE" ? normalized : "ADVANCED";
+        }
         private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime();
     }
 }

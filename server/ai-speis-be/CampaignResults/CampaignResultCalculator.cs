@@ -16,7 +16,7 @@ namespace ai_speis_be.CampaignResults
         {
             if (totalTestCases <= 0 || passedTestCases <= 0) return 0m;
             var passRate = Math.Clamp((decimal)passedTestCases / totalTestCases * 100m, 0m, 100m);
-            return passRate >= 100m ? 10m : Math.Floor(passRate / 10m);
+            return Round(passRate / 10m, 2);
         }
 
         public static decimal ApplyRoundWeights(ICollection<CampaignRoundResultDto> rounds)

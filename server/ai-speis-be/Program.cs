@@ -3,6 +3,7 @@ using ai_speis_be.Models;
 using ai_speis_be.Repositories.UserRepo;
 using ai_speis_be.Repositories.CVRepo;
 using ai_speis_be.Services.UserService;
+using ai_speis_be.Services.AdminDashboardService;
 using ai_speis_be.Services.TokenService;
 using ai_speis_be.Services.EmailService;
 using ai_speis_be.Services.CVService;
@@ -34,6 +35,8 @@ using ai_speis_be.Services.PaymentService;
 using ai_speis_be.Services.SubscriptionPlanService;
 using ai_speis_be.Services.RewardService;
 using ai_speis_be.Services.SubscriptionService;
+using ai_speis_be.Services.NotificationService;
+using ai_speis_be.Hubs;
 using ai_speis_be.BehaviouralInterviews.AI;
 using ai_speis_be.BehaviouralInterviews.Configuration;
 using ai_speis_be.BehaviouralInterviews.Orchestration;
@@ -63,6 +66,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+builder.Services.AddSignalR();
     
 builder.Services.AddHttpClient();
 var technicalInterviewOptions = TechnicalInterviewOptions.FromConfiguration(builder.Configuration);
@@ -152,6 +156,10 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<IRewardService, RewardService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationEventPublisher, NotificationEventPublisher>();
+builder.Services.AddScoped<IAdminNotificationPublisher, AdminNotificationPublisher>();
+builder.Services.AddScoped<INotificationRealtimeNotifier, NotificationRealtimeNotifier>();
 
 // Background Worker for CV Parsing
 builder.Services.AddSingleton<ICvParseQueue, CvParseQueue>();
@@ -162,6 +170,8 @@ builder.Services.AddSingleton<IJdParseQueue, JdParseQueue>();
 builder.Services.AddHostedService<JdParsingBackgroundService>();
 builder.Services.AddHostedService<PremiumQuotaResetBackgroundService>();
 builder.Services.AddHostedService<PendingPaymentExpiryBackgroundService>();
+builder.Services.AddHostedService<SubscriptionNotificationBackgroundService>();
+builder.Services.AddHostedService<AdminOperationalNotificationBackgroundService>();
 
 // Register Question Bank
 builder.Services.AddScoped<IQuestionRepoitory, QuestionRepository>();
@@ -221,6 +231,17 @@ builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalIntervie
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
 
+// Google Cloud Quota & Billing Cost Monitoring
+builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.GoogleQuotaConfig>();
+builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.IGoogleQuotaService,
+    ai_speis_be.Services.GoogleQuotaService.GoogleQuotaService>();
+builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.ICloudCostService,
+    ai_speis_be.Services.GoogleQuotaService.CloudCostService>();
+
+// Admin Payment Service
+builder.Services.AddScoped<ai_speis_be.Services.AdminPaymentService.IAdminPaymentService, ai_speis_be.Services.AdminPaymentService.AdminPaymentService>();
+builder.Services.AddScoped<IAdminDashboardService, ai_speis_be.Services.AdminDashboardService.AdminDashboardService>();
+
 var googleCookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
     : CookieSecurePolicy.Always;
@@ -266,6 +287,16 @@ builder.Services.AddAuthentication(options =>
     };
     options.Events = new JwtBearerEvents
     {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            if (!string.IsNullOrWhiteSpace(accessToken)
+                && context.HttpContext.Request.Path.StartsWithSegments("/hubs/notifications"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        },
         OnTokenValidated = async context =>
         {
             var userIdClaim = context.Principal?.FindFirst("UserId")?.Value;
@@ -375,6 +406,7 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();
 

@@ -14,6 +14,7 @@ using ai_speis_be.Repositories.CVRepo;
 using ai_speis_be.Services.FileValidatorService;
 using ai_speis_be.Services.BackgroundWorker;
 using ai_speis_be.Helpers;
+using ai_speis_be.Services.NotificationService;
 
 namespace ai_speis_be.Services.CVService
 {
@@ -23,17 +24,20 @@ namespace ai_speis_be.Services.CVService
         private readonly IFileValidatorService _fileValidatorService;
         private readonly ICvParseQueue _cvParseQueue;
         private readonly ApplicationDbContext _dbContext;
+        private readonly INotificationEventPublisher _notificationPublisher;
 
         public CVService(
             ICVRepository cvRepository,
             IFileValidatorService fileValidatorService,
             ICvParseQueue cvParseQueue,
-            ApplicationDbContext dbContext)
+            ApplicationDbContext dbContext,
+            INotificationEventPublisher notificationPublisher)
         {
             _cvRepository = cvRepository;
             _fileValidatorService = fileValidatorService;
             _cvParseQueue = cvParseQueue;
             _dbContext = dbContext;
+            _notificationPublisher = notificationPublisher;
         }
 
         public async Task<(bool Success, string? ErrorMessage, CVDto? CVDto)> UploadCVAsync(int userId, IFormFile file)
@@ -81,6 +85,7 @@ namespace ai_speis_be.Services.CVService
                 };
 
                 var savedCV = await _cvRepository.AddCVAsync(cvFile);
+                await PublishUploadNotificationAsync(savedCV);
 
                 return (true, null, MapToDto(savedCV));
             }
@@ -88,6 +93,20 @@ namespace ai_speis_be.Services.CVService
             {
                 return (false, $"Lỗi hệ thống khi tải file: {ex.Message}", null);
             }
+        }
+
+        private async Task PublishUploadNotificationAsync(CVFile cvFile)
+        {
+            try
+            {
+                await _notificationPublisher.PublishAsync(new NotificationEvent(
+                    cvFile.UserId, NotificationRecipientRole.USER, NotificationType.CV_UPLOADED,
+                    NotificationCategory.PROFILE, NotificationSeverity.SUCCESS, "CV uploaded",
+                    "Your CV was uploaded successfully and is ready to be processed.",
+                    NotificationEntityType.CV, cvFile.CVFileId.ToString(), "/user/cv-management",
+                    $"CV_UPLOADED:{cvFile.CVFileId}:{cvFile.UserId}", new { cvFileId = cvFile.CVFileId }));
+            }
+            catch { }
         }
 
         public async Task<PagedResultDto<CVDto>> GetAllCVsAsync(CVQueryParameters query)

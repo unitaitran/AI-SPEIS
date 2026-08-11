@@ -15,13 +15,14 @@ namespace ai_speis_be.Models.DTOs
         public bool IsActive { get; init; }
     }
 
-    public sealed class PlanFeatureDto
+    public sealed class SubscriptionPriceValidationErrorDto
     {
-        public int PlanFeatureId { get; init; }
-        public string FeatureCode { get; init; } = string.Empty;
-        public int? LimitValue { get; init; }
-        public int DisplayOrder { get; init; }
-        public bool IsEnabled { get; init; }
+        public string Message { get; init; } = string.Empty;
+        public string? Field { get; init; }
+        public int? ConflictPriceId { get; init; }
+        public BillingCycle? ConflictBillingCycle { get; init; }
+        public DateTime? ConflictEffectiveFrom { get; init; }
+        public DateTime? ConflictEffectiveTo { get; init; }
     }
 
     public sealed class SubscriptionPlanDto
@@ -35,8 +36,10 @@ namespace ai_speis_be.Models.DTOs
         public bool IsFree { get; init; }
         public int DisplayOrder { get; init; }
         public bool IsActive { get; init; }
+        public string AiTier { get; init; } = "ADVANCED";
+        public bool AdvancedAnalyticsEnabled { get; init; }
+        public bool IsPopular { get; init; }
         public IReadOnlyList<SubscriptionPriceDto> Prices { get; init; } = Array.Empty<SubscriptionPriceDto>();
-        public IReadOnlyList<PlanFeatureDto> Features { get; init; } = Array.Empty<PlanFeatureDto>();
     }
 
     public class CreateSubscriptionPlanRequestDto
@@ -59,6 +62,15 @@ namespace ai_speis_be.Models.DTOs
         public bool IsFree { get; set; }
 
         public int DisplayOrder { get; set; }
+
+        [RegularExpression("STANDARD|ADVANCED|ENTERPRISE")]
+        public string? AiTier { get; set; }
+
+        public bool? AdvancedAnalyticsEnabled { get; set; }
+
+        public bool? IsPopular { get; set; }
+
+        public bool? IsActive { get; set; }
     }
 
     public sealed class UpdateSubscriptionPlanRequestDto : CreateSubscriptionPlanRequestDto

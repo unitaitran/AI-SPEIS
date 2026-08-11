@@ -1,0 +1,1403 @@
+﻿ExtractedProfileId,CVFileId,Education,Experience,RawAiOutput,ConfidenceScore,IsConfirmed,ConfirmedBy,ConfirmedAt,CreatedAt,UpdatedAt,RoleTarget,ErrorMessage,OverallAssessment,Strengths,Weaknesses
+1,5,"[{""School"":""FPT University Hanoi"",""Major"":""Software Engineering"",""Gpa"":"""",""GraduationYear"":""2026""}]",[],"{
+  ""roleTarget"": ""Intern Developer"",
+  ""education"": [
+    {
+      ""school"": ""FPT University Hanoi"",
+      ""major"": ""Software Engineering"",
+      ""gpa"": """",
+      ""graduationYear"": ""2026""
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""DỰ ÁN TRANG WEB “BÁN GIÀY THỂ THAO”"",
+      ""roleDescription"": ""Code backend"",
+      ""technologyStack"": ""Java Servlet, MySQL, HTML, CSS, Git"",
+      ""projectSummary"": ""Developed the backend for a sports shoe sales website. This project involved handling server-side logic and database interactions."",
+      ""duration"": ""19/10/2024 - 6/11/2024""
+    },
+    {
+      ""projectName"": ""DỰ ÁN DRIVING CERTIFICATE APP"",
+      ""roleDescription"": ""Code fullstack"",
+      ""technologyStack"": ""C#, WPF, MySQL, Git"",
+      ""projectSummary"": ""Developed a fullstack application for managing driving certificates. This project included both frontend user interface and backend data management."",
+      ""duration"": ""10/3/2025 - 31/3/2025""
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""C#"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""SQL"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Jira"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Balsamiq"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Visual paradigm"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""draw.io"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Java Servlet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""WPF"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    }
+  ]
+}",NULL,1,7,14:03.0,13:45.6,14:03.0,Intern Developer,NULL,NULL,NULL,NULL
+2,6,"[{""School"":""\u0110\u1EA1i h\u1ECDc FPT"",""Major"":""K\u1EF9 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""""}]",[],"{
+  ""roleTarget"": ""Fullstack Developer"",
+  ""education"": [
+    {
+      ""school"": ""Đại học FPT"",
+      ""major"": ""Kỹ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": """"
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""EcoShipper- Hệ thống Quản lý Giao hàng Nội khu Dân cư Đô thị"",
+      ""roleDescription"": ""Full Stack Developer (Phát triển theo từng chức năng)"",
+      ""technologyStack"": ""React, HTML, CSS, Bootstrap, JavaScript, MySQL, Express.js, Node.js"",
+      ""projectSummary"": ""Hệ thống quản lý vấn đề giao hàng của một sàn thương mại điện tử trong nội khu dân cư đô thị, bao gồm cả phần backend và frontend."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""MovieBox - Ứng dụng đặt lịch chiếu phim"",
+      ""roleDescription"": ""Developer"",
+      ""technologyStack"": ""React Native, HTML, CSS, Bootstrap, JavaScript, MongoDB, Express.js, Node.js"",
+      ""projectSummary"": ""Ứng dụng di động cho phép người dùng đặt lịch chiếu phim, phát triển với công nghệ di động và backend API."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""GameHub - Ứng dụng mua bán game"",
+      ""roleDescription"": ""Developer"",
+      ""technologyStack"": ""Flet, Python, MySQL"",
+      ""projectSummary"": ""Ứng dụng mua bán game tích hợp chức năng gợi ý AI dựa trên thông tin người dùng để cá nhân hóa trải nghiệm."",
+      ""duration"": """"
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Python"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""SQL Server"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""MongoDB"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""React"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Node.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Bootstrap"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Express.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""React Native"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Flet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    }
+  ]
+}",NULL,0,NULL,NULL,24:06.3,NULL,Fullstack Developer,NULL,NULL,NULL,NULL
+3,7,"[{""School"":""Tr\u01B0\u1EDDng \u0110\u1EA1i h\u1ECDc FPT H\u00E0 N\u1ED9i"",""Major"":""K\u0129 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""2026""}]",[],"{
+  ""roleTarget"": ""Intern Developer"",
+  ""education"": [
+    {
+      ""school"": ""Trường Đại học FPT Hà Nội"",
+      ""major"": ""Kĩ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": ""2026""
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""DỰ ÁN TRANG WEB “BÁN GIÀY THỂ THAO”"",
+      ""roleDescription"": ""Code backend"",
+      ""technologyStack"": ""Java Servlet, MySQL, HTML/CSS, Github"",
+      ""projectSummary"": ""This project involved developing a backend for a website designed for selling sports shoes."",
+      ""duration"": ""19/10/2024 - 6/11/2024""
+    ,
+      ""projectSummary"": ""This project involved developing a backend for a website designed for selling sports shoes.""
+    },
+    {
+      ""projectName"": ""DỰ ÁN DRIVING CERTIFICATE APP"",
+      ""roleDescription"": ""Code fullstack"",
+      ""technologyStack"": ""C#, WPF, MySQL, Github"",
+      ""projectSummary"": ""This project involved fullstack development for a driving certificate application."",
+      ""duration"": ""10/3/2025 - 31/3/2025""
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""C#"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""SQL"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Jira"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Balsamiq"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Visual paradigm"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""draw.io"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Java Servlet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""WPF"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    }
+  ]
+}",NULL,1,7,04:20.8,03:20.6,04:20.8,Intern Developer,NULL,NULL,NULL,NULL
+4,8,[],[],"{
+  ""roleTarget"": ""Frontend Developer"",
+  ""education"": [],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""AI-SPEIS (AI-Integrated System for the Practice and Evaluation of Interview Skills)"",
+      ""roleDescription"": ""Project Leader, Frontend Developer, and UI/UX Designer, responsible for managing the overall project plan, leading UI/UX design, implementing frontend screens, and ensuring system integration and quality."",
+      ""technologyStack"": ""React, ASP.NET Core, Python, SQL Server, LLM API, Google Cloud Speech-to-Text, Google Text-to-Speech, Git, Figma"",
+      ""projectSummary"": ""An AI-integrated system designed to help Vietnamese IT students practice and evaluate their interview skills. It provides CV-based interview personalization, AI mock interview simulations with voice input/output, AI-generated feedback, and progress tracking."",
+      ""duration"": ""14 weeks""
+    }
+  ],
+  ""skills"": [
+    { ""skillName"": ""Python"", ""source"": ""CV"", ""category"": ""Language"" },
+    { ""skillName"": ""C#"", ""source"": ""CV"", ""category"": ""Language"" },
+    { ""skillName"": ""JavaScript"", ""source"": ""CV"", ""category"": ""Language"" },
+    { ""skillName"": ""React"", ""source"": ""CV"", ""category"": ""Framework"" },
+    { ""skillName"": ""ASP.NET Core"", ""source"": ""CV"", ""category"": ""Framework"" },
+    { ""skillName"": ""SQL Server"", ""source"": ""CV"", ""category"": ""Database"" },
+    { ""skillName"": ""Git"", ""source"": ""CV"", ""category"": ""Tool"" },
+    { ""skillName"": ""Visual Studio Code"", ""source"": ""CV"", ""category"": ""Tool"" },
+    { ""skillName"": ""Visual Studio"", ""source"": ""CV"", ""category"": ""Tool"" },
+    { ""skillName"": ""Figma"", ""source"": ""CV"", ""category"": ""Tool"" },
+    { ""skillName"": ""DrawIO"", ""source"": ""CV"", ""category"": ""Tool"" },
+    { ""skillName"": ""Google Cloud"", ""source"": ""CV"", ""category"": ""Cloud"" },
+    { ""skillName"": ""UI/UX Design"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""RESTful API Design"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""JWT Authentication"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""API Integration"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""Unit Testing"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""Integration Testing"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""System Testing"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""User Acceptance Testing"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""Prompt Engineering"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""AI Engineering"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""Conventional Commits"", ""source"": ""CV"", ""category"": ""Other"" }
+  ]
+}",NULL,0,NULL,NULL,29:32.1,NULL,Frontend Developer,NULL,NULL,NULL,NULL
+5,11,"[{""School"":""Tr\u01B0\u1EDDng \u0110\u1EA1i h\u1ECDc FPT H\u00E0 N\u1ED9i"",""Major"":""K\u0129 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""2026""}]",[],"{
+  ""roleTarget"": ""Intern Developer"",
+  ""education"": [
+    {
+      ""school"": ""Trường Đại học FPT Hà Nội"",
+      ""major"": ""Kĩ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": ""2026""
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""DỰ ÁN TRANG WEB “BÁN GIÀY THỂ THAO”"",
+      ""roleDescription"": ""Code backend"",
+      ""technologyStack"": ""Java Servlet, MySQL, HTML/CSS, Github"",
+      ""projectSummary"": ""Developed a backend for a website focused on selling sports shoes. This project involved handling data and logic for the e-commerce platform."",
+      ""duration"": ""19/10/2024 - 6/11/2024""
+    ,
+    ""projectName"": ""DỰ ÁN DRIVING CERTIFICATE APP"",
+      ""roleDescription"": ""Code fullstack"",
+      ""technologyStack"": ""C#, WPF, MySQL, Github"",
+      ""projectSummary"": ""Developed a fullstack application designed for managing driving certificates. This included both front-end user interface and back-end logic and database interactions."",
+      ""duration"": ""10/3/2025 - 31/3/2025""
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""C#"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""SQL"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Jira"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Balsamiq"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""Visual Paradigm"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""Draw.io"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""Java Servlet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""WPF"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    }
+  ]
+}",NULL,0,NULL,NULL,31:38.6,NULL,Intern Developer,NULL,NULL,NULL,NULL
+6,12,"[{""School"":""FPT University"",""Major"":"""",""Gpa"":"""",""GraduationYear"":""""}]",[],"{
+  ""roleTarget"": ""AI Project Lead"",
+  ""education"": [
+    {
+      ""school"": ""FPT University"",
+      ""major"": """",
+      ""gpa"": """",
+      ""graduationYear"": """"
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""Stechdy - AI hỗ trợ quản lí học tập thông minh"",
+      ""roleDescription"": ""Team Leader"",
+      ""technologyStack"": """",
+      ""projectSummary"": ""Stechdy is an AI-powered smart learning management system designed to assist users with their learning process."",
+      ""duration"": """"
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""AI"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    }
+  ]
+}",NULL,0,NULL,NULL,34:39.3,NULL,AI Project Lead,NULL,NULL,NULL,NULL
+7,13,"[{""School"":""FPT University Hanoi"",""Major"":""Software Engineering"",""Gpa"":"""",""GraduationYear"":""2026""}]",[],"{
+  ""roleTarget"": ""Intern Developer"",
+  ""education"": [
+    {
+      ""school"": ""FPT University Hanoi"",
+      ""major"": ""Software Engineering"",
+      ""gpa"": """",
+      ""graduationYear"": ""2026""
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""SPORTS SHOES SELLING WEBSITE"",
+      ""roleDescription"": ""Backend Developer"",
+      ""technologyStack"": ""Java Servlet, MySQL, HTML, CSS, Git"",
+      ""projectSummary"": ""Developed the backend for a website focused on selling sports shoes, handling server-side logic and database interactions."",
+      ""duration"": ""19/10/2024 - 6/11/2024""
+    },
+    {
+      ""projectName"": ""DRIVING CERTIFICATE APP"",
+      ""roleDescription"": ""Fullstack Developer"",
+      ""technologyStack"": ""C#, WPF, MySQL, Git"",
+      ""projectSummary"": ""Contributed to both frontend and backend development of a driving certificate application, utilizing C# and WPF for the interface and MySQL for data management."",
+      ""duration"": ""10/3/2025 - 31/3/2025""
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""C#"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""SQL"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java Servlet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""WPF"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Jira"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Balsamiq"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Visual Paradigm"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""draw.io"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    }
+  ]
+}",NULL,1,7,36:20.0,36:07.7,36:20.0,Intern Developer,NULL,NULL,NULL,NULL
+8,14,"[{""School"":""Tr\u01B0\u1EDDng \u0110\u1EA1i h\u1ECDc FPT H\u00E0 N\u1ED9i"",""Major"":""K\u0129 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""2026""}]",[],"{
+  ""isValidCv"": true,
+  ""invalidReason"": """",
+  ""cvConfidenceScore"": 1.0,
+  ""overallAssessment"": ""Trần Trung Kiên là một ứng viên Intern Developer có tiềm năng với nền tảng học vấn vững chắc và sự chủ động trong việc tích lũy các kỹ năng kỹ thuật thông qua khóa học và dự án. Ứng viên thể hiện rõ sự nhiệt huyết và mong muốn học hỏi để phát triển sự nghiệp trong ngành lập trình."",
+  ""strengths"": ""- Kỹ năng kỹ thuật đa dạng bao gồm các ngôn ngữ lập trình (C, C#, Java, JavaScript), framework (Java Servlet, WPF) và cơ sở dữ liệu (SQL, MySQL).\n- Thành thạo các công cụ quản lý mã nguồn và dự án như Git, Github, Jira.\n- Có kinh nghiệm thực hiện các dự án web và ứng dụng, thể hiện khả năng áp dụng kiến thức vào thực tế.\n- Nền tảng học vấn tốt từ Đại học FPT Hà Nội và liên tục học hỏi qua các chứng chỉ trực tuyến."",
+  ""weaknesses"": ""- Kinh nghiệm làm việc thực tế tại các công ty còn thiếu, tất cả các \""kinh nghiệm\"" hiện tại đều là dự án cá nhân hoặc trong môi trường học tập.\n- Thời gian tham gia các dự án khá ngắn, chưa thể hiện được khả năng làm việc lâu dài trong một quy trình phát triển phần mềm chuyên nghiệp.\n- Chưa cung cấp thông tin về điểm trung bình học tập (GPA)."",
+  ""roleTarget"": ""INTERN DEVELOPER"",
+  ""education"": [
+    {
+      ""school"": ""Trường Đại học FPT Hà Nội"",
+      ""major"": ""Kĩ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": ""2026""
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""DỰ ÁN TRANG WEB “BÁN GIÀY THỂ THAO”"",
+      ""roleDescription"": ""Code backend"",
+      ""technologyStack"": ""Java Servlet, MySQL, HTML/CSS, Github"",
+      ""projectSummary"": ""Dự án phát triển phần backend cho một trang web bán giày thể thao, sử dụng Java Servlet và MySQL."",
+      ""duration"": ""19/10/2024 - 6/11/2024""
+    ,
+      ""projectName"": ""DỰ ÁN DRIVING CERTIFICATE APP"",
+      ""roleDescription"": ""Code fullstack"",
+      ""technologyStack"": ""C#, WPF, MySQL, Github"",
+      ""projectSummary"": ""Dự án phát triển ứng dụng fullstack về chứng chỉ lái xe, sử dụng C#, WPF và MySQL."",
+      ""duration"": ""10/3/2025 - 31/3/2025""
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""C#"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""SQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Github"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Jira"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Balsamiq"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Visual paradigm"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""draw.io"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Java Servlet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""WPF"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    }
+  ]
+}",1,0,NULL,NULL,07:01.8,NULL,INTERN DEVELOPER,NULL,Trần Trung Kiên là một ứng viên Intern Developer có tiềm năng với nền tảng học vấn vững chắc và sự chủ động trong việc tích lũy các kỹ năng kỹ thuật thông qua khóa học và dự án. Ứng viên thể hiện rõ sự nhiệt huyết và mong muốn học hỏi để phát triển sự nghiệp trong ngành lập trình.,"- Kỹ năng kỹ thuật đa dạng bao gồm các ngôn ngữ lập trình (C, C#, Java, JavaScript), framework (Java Servlet, WPF) và cơ sở dữ liệu (SQL, MySQL).
+- Thành thạo các công cụ quản lý mã nguồn và dự án như Git, Github, Jira.
+- Có kinh nghiệm thực hiện các dự án web và ứng dụng, thể hiện khả năng áp dụng kiến thức vào thực tế.
+- Nền tảng học vấn tốt từ Đại học FPT Hà Nội và liên tục học hỏi qua các chứng chỉ trực tuyến.","- Kinh nghiệm làm việc thực tế tại các công ty còn thiếu, tất cả các ""kinh nghiệm"" hiện tại đều là dự án cá nhân hoặc trong môi trường học tập.
+- Thời gian tham gia các dự án khá ngắn, chưa thể hiện được khả năng làm việc lâu dài trong một quy trình phát triển phần mềm chuyên nghiệp.
+- Chưa cung cấp thông tin về điểm trung bình học tập (GPA)."
+9,15,"[{""School"":""\u0110\u1EA1i h\u1ECDc FPT H\u00E0 N\u1ED9i"",""Major"":""K\u0129 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""2026""}]",[],"{
+  ""isValidCv"": true,
+  ""invalidReason"": """",
+  ""cvConfidenceScore"": 1.0,
+  ""overallAssessment"": ""Trần Trung Kiên là một sinh viên ngành Kỹ thuật phần mềm tại Đại học FPT Hà Nội, có định hướng rõ ràng muốn trở thành một Developer chuyên nghiệp. Ứng viên đã trang bị nền tảng kỹ năng lập trình cơ bản và thể hiện sự chủ động trong việc học hỏi, thực hành qua các dự án cá nhân."",
+  ""strengths"": ""Điểm mạnh bao gồm nền tảng kỹ năng lập trình vững chắc (C, C#, Java, HTML/CSS/JavaScript, SQL) và quen thuộc với các công cụ quản lý dự án như Git, Github, Jira. Ứng viên cũng có kinh nghiệm thực tế ban đầu qua các dự án phát triển web và ứng dụng, cùng với các chứng chỉ Coursera thể hiện tinh thần học hỏi liên tục."",
+  ""weaknesses"": ""Điểm yếu chính là thiếu kinh nghiệm làm việc chính thức tại doanh nghiệp, với các dự án được liệt kê có thời lượng tương đối ngắn. Ứng viên cần tìm kiếm cơ hội thực tập để tích lũy kinh nghiệm chuyên sâu hơn và phát triển kỹ năng với các framework/thư viện phức tạp hơn."",
+  ""roleTarget"": ""Intern Developer"",
+  ""education"": [
+    {
+      ""school"": ""Đại học FPT Hà Nội"",
+      ""major"": ""Kĩ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": ""2026""
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""DỰ ÁN TRANG WEB “BÁN GIÀY THỂ THAO”"",
+      ""roleDescription"": ""Code backend"",
+      ""technologyStack"": ""Java Servlet, MySQL, HTML, CSS"",
+      ""projectSummary"": ""Phát triển phần backend cho một trang web thương mại điện tử chuyên bán giày thể thao."",
+      ""duration"": ""19/10/2024 - 6/11/2024""
+    , ""projectName"": ""DỰ ÁN DRIVING CERTIFICATE APP"",
+      ""roleDescription"": ""Code fullstack"",
+      ""technologyStack"": ""C#, WPF, MySQL"",
+      ""projectSummary"": ""Phát triển một ứng dụng đầy đủ (fullstack) liên quan đến việc cấp giấy phép lái xe."",
+      ""duration"": ""10/3/2025 - 31/3/2025""
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""C#"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""SQL"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Github"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Jira"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Balsamiq"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Visual Paradigm"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""draw.io"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Java Servlet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""WPF"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    }
+  ]
+}",1,0,NULL,NULL,13:09.3,NULL,Intern Developer,NULL,"Trần Trung Kiên là một sinh viên ngành Kỹ thuật phần mềm tại Đại học FPT Hà Nội, có định hướng rõ ràng muốn trở thành một Developer chuyên nghiệp. Ứng viên đã trang bị nền tảng kỹ năng lập trình cơ bản và thể hiện sự chủ động trong việc học hỏi, thực hành qua các dự án cá nhân.","Điểm mạnh bao gồm nền tảng kỹ năng lập trình vững chắc (C, C#, Java, HTML/CSS/JavaScript, SQL) và quen thuộc với các công cụ quản lý dự án như Git, Github, Jira. Ứng viên cũng có kinh nghiệm thực tế ban đầu qua các dự án phát triển web và ứng dụng, cùng với các chứng chỉ Coursera thể hiện tinh thần học hỏi liên tục.","Điểm yếu chính là thiếu kinh nghiệm làm việc chính thức tại doanh nghiệp, với các dự án được liệt kê có thời lượng tương đối ngắn. Ứng viên cần tìm kiếm cơ hội thực tập để tích lũy kinh nghiệm chuyên sâu hơn và phát triển kỹ năng với các framework/thư viện phức tạp hơn."
+10,16,"[{""School"":""\u0110\u1EA1i h\u1ECDc FPT"",""Major"":""K\u1EF9 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""""}]",[],"{
+  ""isValidCv"": true,
+  ""invalidReason"": """",
+  ""cvConfidenceScore"": 1.0,
+  ""overallAssessment"": ""Ứng viên là sinh viên Kỹ thuật phần mềm có nền tảng kỹ thuật vững chắc, thể hiện qua kiến thức về nhiều ngôn ngữ lập trình và framework phổ biến. Đặc biệt có kinh nghiệm thực tế qua các dự án cá nhân và nhóm, cho thấy khả năng ứng dụng lý thuyết vào thực tiễn."",
+  ""strengths"": ""Điểm mạnh bao gồm thành thạo các ngôn ngữ như C, Java, JavaScript, Python và các framework như React, Node.js, Express.js. Ứng viên có kinh nghiệm với các hệ cơ sở dữ liệu MySQL, SQL Server, MongoDB và Git. Khả năng phát triển full stack qua dự án nhóm EcoShipper và các dự án cá nhân (MovieBox, GameHub) là điểm cộng lớn. Kỹ năng mềm về giao tiếp, tự học và làm việc nhóm cũng được đề cập."",
+  ""weaknesses"": ""Hạn chế chính là thiếu kinh nghiệm làm việc chính thức (internship hoặc full-time) tại các công ty, chỉ tập trung vào dự án học thuật. Thông tin về quy mô và thời gian thực hiện dự án chưa rõ ràng, cần làm nổi bật hơn. Có thể bổ sung các công cụ phát triển tiên tiến hơn (như Docker, CI/CD) để tăng cường hồ sơ kỹ thuật."",
+  ""roleTarget"": ""Full Stack Developer"",
+  ""education"": [
+    {
+      ""school"": ""Đại học FPT"",
+      ""major"": ""Kỹ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": """"
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""EcoShipper - Hệ thống Quản lý Giao hàng Nội khu Dân cư Đô thị"",
+      ""roleDescription"": ""Full Stack Developer (Phát triển theo từng chức năng)"",
+      ""technologyStack"": ""Reactjs, HTML, CSS, Bootstrap, JavaScript, MySQL, Express.js, NodeJS"",
+      ""projectSummary"": ""Hệ thống quản lý vấn đề giao hàng của một sàn thương mại điện tử trong nội khu dân cư đô thị."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""MovieBox - Ứng dụng đặt lịch chiếu phim"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""React Native, HTML, CSS, Bootstrap, JavaScript, MongoSQL, Express.js, NodeJS"",
+      ""projectSummary"": ""Ứng dụng mobile đặt lịch chiếu phim."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""GameHub - Ứng dụng mua bán game"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""Flet, Python, MySQL"",
+      ""projectSummary"": ""Ứng dụng mua bán game, tích hợp AI recommend dựa trên thông tin người dùng."",
+      ""duration"": """"
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Python"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""React"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Node.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Bootstrap"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Express.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""React Native"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Flet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""SQL Server"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""MongoDB"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""AI/Machine Learning"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    }
+  ]
+}",1,1,7,19:40.0,19:19.8,19:40.0,Full Stack Developer,NULL,"Ứng viên là sinh viên Kỹ thuật phần mềm có nền tảng kỹ thuật vững chắc, thể hiện qua kiến thức về nhiều ngôn ngữ lập trình và framework phổ biến. Đặc biệt có kinh nghiệm thực tế qua các dự án cá nhân và nhóm, cho thấy khả năng ứng dụng lý thuyết vào thực tiễn.","Điểm mạnh bao gồm thành thạo các ngôn ngữ như C, Java, JavaScript, Python và các framework như React, Node.js, Express.js. Ứng viên có kinh nghiệm với các hệ cơ sở dữ liệu MySQL, SQL Server, MongoDB và Git. Khả năng phát triển full stack qua dự án nhóm EcoShipper và các dự án cá nhân (MovieBox, GameHub) là điểm cộng lớn. Kỹ năng mềm về giao tiếp, tự học và làm việc nhóm cũng được đề cập.","Hạn chế chính là thiếu kinh nghiệm làm việc chính thức (internship hoặc full-time) tại các công ty, chỉ tập trung vào dự án học thuật. Thông tin về quy mô và thời gian thực hiện dự án chưa rõ ràng, cần làm nổi bật hơn. Có thể bổ sung các công cụ phát triển tiên tiến hơn (như Docker, CI/CD) để tăng cường hồ sơ kỹ thuật."
+11,19,"[{""School"":""\u0110\u1EA1i h\u1ECDc FPT"",""Major"":""K\u1EF9 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""""}]",[],"{
+  ""isValidCv"": true,
+  ""invalidReason"": """",
+  ""cvConfidenceScore"": 1.0,
+  ""overallAssessment"": ""Ứng viên là sinh viên ngành Kỹ thuật phần mềm với nền tảng kỹ thuật vững chắc và kinh nghiệm phát triển dự án thực tế. Có khả năng lập trình đa ngôn ngữ và làm việc với nhiều framework, cơ sở dữ liệu."",
+  ""strengths"": ""Điểm mạnh bao gồm thành thạo các ngôn ngữ lập trình như C, Java, JavaScript, Python, HTML/CSS, cùng với kinh nghiệm sử dụng các framework phổ biến như React, Node.js, Express.js và React Native. Ứng viên có kinh nghiệm với MySQL, SQL Server và MongoDB, đã tham gia phát triển nhiều dự án full-stack."",
+  ""weaknesses"": ""Hạn chế chính là chưa có kinh nghiệm làm việc chính thức tại công ty (thực tập hoặc toàn thời gian), và các dự án chưa nêu rõ thời gian thực hiện, điều này có thể gây khó khăn trong việc đánh giá mức độ chuyên sâu của kinh nghiệm thực tế."",
+  ""roleTarget"": ""Software Developer / Full Stack Developer"",
+  ""education"": [
+    {
+      ""school"": ""Đại học FPT"",
+      ""major"": ""Kỹ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": """"
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""EcoShipper- Hệ thống Quản lý Giao hàng Nội khu Dân cư Đô thị"",
+      ""roleDescription"": ""Full Stack Developer (Phát triển theo từng chức năng)"",
+      ""technologyStack"": ""Reactjs, HTML, CSS, Bootstrap, JavaScript, MySQL, Express.js, NodeJS"",
+      ""projectSummary"": ""Hệ thống quản lý vấn đề giao hàng của một sàn thương mại điện tử trong nội khu dân cư đô thị."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""MovieBox - Ứng dụng đặt lịch chiếu phim"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""React Native, HTML, CSS, Bootstrap, JavaScript, MongoSQL, Express.js, NodeJS"",
+      ""projectSummary"": ""Ứng dụng mobile đặt lịch chiếu phim."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""GameHub - Ứng dụng mua bán game"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""Flet, Python, MySQL"",
+      ""projectSummary"": ""Ứng dụng mua bán game, tích hợp AI recommend dựa trên thông tin người dùng."",
+      ""duration"": """"
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Python"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""React"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Node.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Bootstrap"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Express.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""React Native"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Flet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""SQL Server"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""MongoDB"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    }
+  ]
+}",1,1,7,20:16.4,18:52.9,20:16.4,Software Developer / Full Stack Developer,NULL,"Ứng viên là sinh viên ngành Kỹ thuật phần mềm với nền tảng kỹ thuật vững chắc và kinh nghiệm phát triển dự án thực tế. Có khả năng lập trình đa ngôn ngữ và làm việc với nhiều framework, cơ sở dữ liệu.","Điểm mạnh bao gồm thành thạo các ngôn ngữ lập trình như C, Java, JavaScript, Python, HTML/CSS, cùng với kinh nghiệm sử dụng các framework phổ biến như React, Node.js, Express.js và React Native. Ứng viên có kinh nghiệm với MySQL, SQL Server và MongoDB, đã tham gia phát triển nhiều dự án full-stack.","Hạn chế chính là chưa có kinh nghiệm làm việc chính thức tại công ty (thực tập hoặc toàn thời gian), và các dự án chưa nêu rõ thời gian thực hiện, điều này có thể gây khó khăn trong việc đánh giá mức độ chuyên sâu của kinh nghiệm thực tế."
+12,20,"[{""School"":""\u0110\u1EA1i h\u1ECDc FPT"",""Major"":""K\u1EF9 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""""}]",[],"{
+  ""isValidCv"": true,
+  ""invalidReason"": """",
+  ""cvConfidenceScore"": 1.0,
+  ""overallAssessment"": ""Ứng viên là sinh viên ngành Kỹ thuật phần mềm với nền tảng kỹ thuật vững chắc thể hiện qua các ngôn ngữ lập trình, cơ sở dữ liệu và framework. Khả năng thực hành được chứng minh qua nhiều dự án nhóm và cá nhân, cho thấy tiềm năng phát triển tốt trong lĩnh vực phần mềm."",
+  ""strengths"": ""Điểm mạnh của ứng viên bao gồm kiến thức chuyên sâu về nhiều ngôn ngữ lập trình (C, Java, JavaScript, Python), kinh nghiệm với các framework phổ biến (React, Node.js, Express.js) và cơ sở dữ liệu (MySQL, MongoDB). Ứng viên cũng có kinh nghiệm thực tế qua việc tham gia và phát triển nhiều dự án full-stack và ứng dụng di động, cùng với các kỹ năng mềm như giao tiếp và làm việc nhóm."",
+  ""weaknesses"": ""Ứng viên chưa có kinh nghiệm làm việc chuyên nghiệp (thực tập hoặc chính thức) tại công ty. Thông tin về các dự án còn thiếu thời gian thực hiện cụ thể. Ngoài ra, thông tin về học vấn như điểm trung bình (GPA) hoặc năm tốt nghiệp cũng chưa được cung cấp."",
+  ""roleTarget"": ""Lập trình viên phần mềm / Lập trình viên Full Stack"",
+  ""education"": [
+    {
+      ""school"": ""Đại học FPT"",
+      ""major"": ""Kỹ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": """"
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""EcoShipper- Hệ thống Quản lý Giao hàng Nội khu Dân cư Đô thị"",
+      ""roleDescription"": ""Full Stack Developer (Phát triển theo từng chức năng)"",
+      ""technologyStack"": ""React, HTML, CSS, Bootstrap, JavaScript, MySQL, Express.js, Node.js"",
+      ""projectSummary"": ""Hệ thống quản lý vấn đề giao hàng của một sàn thương mại điện tử trong nội khu dân cư đô thị."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""MovieBox - Ứng dụng đặt lịch chiếu phim"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""React Native, HTML, CSS, Bootstrap, JavaScript, MongoSQL, Express.js, Node.js"",
+      ""projectSummary"": ""Ứng dụng mobile đặt lịch chiếu phim."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""GameHub - Ứng dụng mua bán game"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""Flet, Python, MySQL"",
+      ""projectSummary"": ""Ứng dụng mua bán game, tích hợp AI recommend dựa trên thông tin người dùng."",
+      ""duration"": """"
+    }
+  ],
+  ""skills"": [
+    { ""skillName"": ""C"", ""source"": ""CV"", ""category"": ""Language"" },
+    { ""skillName"": ""Java"", ""source"": ""CV"", ""category"": ""Language"" },
+    { ""skillName"": ""JavaScript"", ""source"": ""CV"", ""category"": ""Language"" },
+    { ""skillName"": ""Python"", ""source"": ""CV"", ""category"": ""Language"" },
+    { ""skillName"": ""MySQL"", ""source"": ""CV"", ""category"": ""Database"" },
+    { ""skillName"": ""SQL Server"", ""source"": ""CV"", ""category"": ""Database"" },
+    { ""skillName"": ""MongoDB"", ""source"": ""CV"", ""category"": ""Database"" },
+    { ""skillName"": ""MongoSQL"", ""source"": ""CV"", ""category"": ""Database"" },
+    { ""skillName"": ""React"", ""source"": ""CV"", ""category"": ""Framework"" },
+    { ""skillName"": ""Node.js"", ""source"": ""CV"", ""category"": ""Framework"" },
+    { ""skillName"": ""Bootstrap"", ""source"": ""CV"", ""category"": ""Framework"" },
+    { ""skillName"": ""Express.js"", ""source"": ""CV"", ""category"": ""Framework"" },
+    { ""skillName"": ""React Native"", ""source"": ""CV"", ""category"": ""Framework"" },
+    { ""skillName"": ""Flet"", ""source"": ""CV"", ""category"": ""Framework"" },
+    { ""skillName"": ""Github"", ""source"": ""CV"", ""category"": ""Tool"" },
+    { ""skillName"": ""HTML"", ""source"": ""CV"", ""category"": ""Other"" },
+    { ""skillName"": ""CSS"", ""source"": ""CV"", ""category"": ""Other"" }
+  ]
+}",1,1,7,42:00.9,25:34.6,42:00.9,Lập trình viên phần mềm / Lập trình viên Full Stack,NULL,"Ứng viên là sinh viên ngành Kỹ thuật phần mềm với nền tảng kỹ thuật vững chắc thể hiện qua các ngôn ngữ lập trình, cơ sở dữ liệu và framework. Khả năng thực hành được chứng minh qua nhiều dự án nhóm và cá nhân, cho thấy tiềm năng phát triển tốt trong lĩnh vực phần mềm.","Điểm mạnh của ứng viên bao gồm kiến thức chuyên sâu về nhiều ngôn ngữ lập trình (C, Java, JavaScript, Python), kinh nghiệm với các framework phổ biến (React, Node.js, Express.js) và cơ sở dữ liệu (MySQL, MongoDB). Ứng viên cũng có kinh nghiệm thực tế qua việc tham gia và phát triển nhiều dự án full-stack và ứng dụng di động, cùng với các kỹ năng mềm như giao tiếp và làm việc nhóm.","Ứng viên chưa có kinh nghiệm làm việc chuyên nghiệp (thực tập hoặc chính thức) tại công ty. Thông tin về các dự án còn thiếu thời gian thực hiện cụ thể. Ngoài ra, thông tin về học vấn như điểm trung bình (GPA) hoặc năm tốt nghiệp cũng chưa được cung cấp."
+13,21,[],[],NULL,NULL,0,NULL,NULL,29:25.9,50:26.2,NULL,Không thể trích xuất nội dung từ file PDF.,NULL,NULL,NULL
+14,22,"[{""School"":""\u0110\u1EA1i h\u1ECDc FPT"",""Major"":""K\u1EF9 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""""}]",[],"{
+  ""isValidCv"": true,
+  ""invalidReason"": """",
+  ""cvConfidenceScore"": 1.0,
+  ""overallAssessment"": ""Trần Hữu Tài là một sinh viên Kỹ thuật phần mềm với nền tảng vững chắc về các ngôn ngữ lập trình, framework và hệ quản trị cơ sở dữ liệu phổ biến. Ứng viên đã thể hiện kỹ năng thực tế thông qua các dự án cá nhân và nhóm, đặc biệt trong vai trò phát triển full-stack. Tài có tinh thần học hỏi cao và sẵn sàng đóng góp vào môi trường làm việc chuyên nghiệp."",
+  ""strengths"": ""Ứng viên có kiến thức vững chắc về các ngôn ngữ lập trình như C, Java, JavaScript, HTML/CSS, Python và kinh nghiệm với các framework như React, Node.js, Express.js, React Native. Kỹ năng làm việc với nhiều hệ quản trị cơ sở dữ liệu như MySQL, SQL Server, MongoDB là một điểm cộng. Tài đã thực hiện thành công nhiều dự án phát triển phần mềm, bao gồm cả ứng dụng web và di động, thể hiện khả năng làm việc độc lập và nhóm."",
+  ""weaknesses"": ""Điểm yếu chính là thiếu kinh nghiệm làm việc chính thức tại các công ty (thực tập hoặc vị trí toàn thời gian). Thời gian thực hiện các dự án không được nêu rõ, gây khó khăn trong việc đánh giá mức độ sâu rộng của sự tham gia. GPA hoặc thành tích học tập cụ thể không được cung cấp, và một số chứng chỉ khá chung chung."",
+  ""roleTarget"": ""Lập trình viên Full Stack"",
+  ""education"": [
+    {
+      ""school"": ""Đại học FPT"",
+      ""major"": ""Kỹ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": """"
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""EcoShipper - Hệ thống Quản lý Giao hàng Nội khu Dân cư Đô thị"",
+      ""roleDescription"": ""Full Stack Developer (Phát triển theo từng chức năng)"",
+      ""technologyStack"": ""Reactjs, HTML, CSS, Bootstrap, JavaScript, MySQL, Express.js, NodeJS"",
+      ""projectSummary"": ""Đây là một hệ thống quản lý các vấn đề liên quan đến giao hàng của một sàn thương mại điện tử trong nội khu dân cư đô thị."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""MovieBox - Ứng dụng đặt lịch chiếu phim"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""React Native, HTML, CSS, Bootstrap, JavaScript, MongoSQL, Express.js, NodeJS"",
+      ""projectSummary"": ""Đây là một ứng dụng di động cho phép người dùng đặt lịch chiếu phim."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""GameHub - Ứng dụng mua bán game"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""Flet, Python, MySQL"",
+      ""projectSummary"": ""Đây là một ứng dụng mua bán game, tích hợp tính năng đề xuất game bằng AI dựa trên thông tin người dùng."",
+      ""duration"": """"
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""SQL Server"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""MongoDB"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""React"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Node.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Bootstrap"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""Express.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""React Native"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MongoSQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""Flet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Python"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    }
+  ]
+}",1,1,7,58:11.3,52:08.5,58:11.3,Lập trình viên Full Stack,NULL,"Trần Hữu Tài là một sinh viên Kỹ thuật phần mềm với nền tảng vững chắc về các ngôn ngữ lập trình, framework và hệ quản trị cơ sở dữ liệu phổ biến. Ứng viên đã thể hiện kỹ năng thực tế thông qua các dự án cá nhân và nhóm, đặc biệt trong vai trò phát triển full-stack. Tài có tinh thần học hỏi cao và sẵn sàng đóng góp vào môi trường làm việc chuyên nghiệp.","Ứng viên có kiến thức vững chắc về các ngôn ngữ lập trình như C, Java, JavaScript, HTML/CSS, Python và kinh nghiệm với các framework như React, Node.js, Express.js, React Native. Kỹ năng làm việc với nhiều hệ quản trị cơ sở dữ liệu như MySQL, SQL Server, MongoDB là một điểm cộng. Tài đã thực hiện thành công nhiều dự án phát triển phần mềm, bao gồm cả ứng dụng web và di động, thể hiện khả năng làm việc độc lập và nhóm.","Điểm yếu chính là thiếu kinh nghiệm làm việc chính thức tại các công ty (thực tập hoặc vị trí toàn thời gian). Thời gian thực hiện các dự án không được nêu rõ, gây khó khăn trong việc đánh giá mức độ sâu rộng của sự tham gia. GPA hoặc thành tích học tập cụ thể không được cung cấp, và một số chứng chỉ khá chung chung."
+15,23,"[{""School"":""\u0110\u1EA1i h\u1ECDc FPT"",""Major"":""K\u1EF9 thu\u1EADt ph\u1EA7n m\u1EC1m"",""Gpa"":"""",""GraduationYear"":""""}]",[],"{
+  ""isValidCv"": true,
+  ""invalidReason"": """",
+  ""cvConfidenceScore"": 1.0,
+  ""overallAssessment"": ""Ứng viên là một sinh viên ngành Kỹ thuật phần mềm với nền tảng vững chắc về nhiều ngôn ngữ lập trình, framework và hệ quản trị cơ sở dữ liệu. Ứng viên đã tích lũy kinh nghiệm thực tế thông qua các dự án nhóm và cá nhân, thể hiện khả năng phát triển full-stack. Thái độ học hỏi và kỹ năng làm việc nhóm của ứng viên cũng được đánh giá cao."",
+  ""strengths"": ""Điểm mạnh của ứng viên bao gồm thành thạo nhiều ngôn ngữ lập trình như C, Java, JavaScript, Python và quen thuộc với các framework phổ biến như React, Node.js, Express.js, React Native. Ứng viên có kinh nghiệm với các hệ quản trị cơ sở dữ liệu như MySQL, SQL Server, MongoDB và đã tham gia vào nhiều dự án phát triển web và ứng dụng di động, thể hiện khả năng phát triển cả frontend và backend. Kỹ năng giao tiếp và làm việc nhóm cũng là một ưu điểm."",
+  ""weaknesses"": ""Ứng viên chưa có kinh nghiệm làm việc chính thức tại công ty (thực tập hoặc toàn thời gian), và thời gian thực hiện các dự án không được nêu rõ, gây khó khăn trong việc đánh giá mức độ chuyên sâu và cam kết. Thông tin về điểm trung bình học tập (GPA) chưa được cung cấp. Cần làm rõ thêm về mức độ sử dụng các công cụ như Git và các chứng chỉ đã đạt được."",
+  ""roleTarget"": ""Lập trình viên Full Stack"",
+  ""education"": [
+    {
+      ""school"": ""Đại học FPT"",
+      ""major"": ""Kỹ thuật phần mềm"",
+      ""gpa"": """",
+      ""graduationYear"": """"
+    }
+  ],
+  ""experience"": [],
+  ""projects"": [
+    {
+      ""projectName"": ""EcoShipper- Hệ thống Quản lý Giao hàng Nội khu Dân cư Đô thị"",
+      ""roleDescription"": ""Full Stack Developer (Phát triển theo từng chức năng)"",
+      ""technologyStack"": ""Reactjs, HTML, CSS, Bootstrap, JavaScript, MySQL, Express.js, NodeJS"",
+      ""projectSummary"": ""Hệ thống quản lý các vấn đề giao hàng của một sàn thương mại điện tử trong nội khu dân cư đô thị."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""MovieBox - Ứng dụng đặt lịch chiếu phim"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""React Native, HTML, CSS, Bootstrap, JavaScript, MongoSQL, Express.js, NodeJS"",
+      ""projectSummary"": ""Ứng dụng di động cho phép người dùng đặt lịch chiếu phim."",
+      ""duration"": """"
+    },
+    {
+      ""projectName"": ""GameHub - Ứng dụng mua bán game"",
+      ""roleDescription"": """",
+      ""technologyStack"": ""Flet, Python, MySQL"",
+      ""projectSummary"": ""Ứng dụng mua bán trò chơi, tích hợp tính năng đề xuất AI dựa trên thông tin người dùng."",
+      ""duration"": """"
+    }
+  ],
+  ""skills"": [
+    {
+      ""skillName"": ""C"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Java"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""JavaScript"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""Python"",
+      ""source"": ""CV"",
+      ""category"": ""Language""
+    },
+    {
+      ""skillName"": ""React"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Node.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Bootstrap"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Express.js"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""React Native"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""Flet"",
+      ""source"": ""CV"",
+      ""category"": ""Framework""
+    },
+    {
+      ""skillName"": ""MySQL"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""SQL Server"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""MongoDB"",
+      ""source"": ""CV"",
+      ""category"": ""Database""
+    },
+    {
+      ""skillName"": ""Git"",
+      ""source"": ""CV"",
+      ""category"": ""Tool""
+    },
+    {
+      ""skillName"": ""HTML"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    },
+    {
+      ""skillName"": ""CSS"",
+      ""source"": ""CV"",
+      ""category"": ""Other""
+    }
+  ]
+}",1,1,7,07:06.5,40:53.8,07:06.5,Lập trình viên Full Stack,NULL,"Ứng viên là một sinh viên ngành Kỹ thuật phần mềm với nền tảng vững chắc về nhiều ngôn ngữ lập trình, framework và hệ quản trị cơ sở dữ liệu. Ứng viên đã tích lũy kinh nghiệm thực tế thông qua các dự án nhóm và cá nhân, thể hiện khả năng phát triển full-stack. Thái độ học hỏi và kỹ năng làm việc nhóm của ứng viên cũng được đánh giá cao.","Điểm mạnh của ứng viên bao gồm thành thạo nhiều ngôn ngữ lập trình như C, Java, JavaScript, Python và quen thuộc với các framework phổ biến như React, Node.js, Express.js, React Native. Ứng viên có kinh nghiệm với các hệ quản trị cơ sở dữ liệu như MySQL, SQL Server, MongoDB và đã tham gia vào nhiều dự án phát triển web và ứng dụng di động, thể hiện khả năng phát triển cả frontend và backend. Kỹ năng giao tiếp và làm việc nhóm cũng là một ưu điểm.","Ứng viên chưa có kinh nghiệm làm việc chính thức tại công ty (thực tập hoặc toàn thời gian), và thời gian thực hiện các dự án không được nêu rõ, gây khó khăn trong việc đánh giá mức độ chuyên sâu và cam kết. Thông tin về điểm trung bình học tập (GPA) chưa được cung cấp. Cần làm rõ thêm về mức độ sử dụng các công cụ như Git và các chứng chỉ đã đạt được."

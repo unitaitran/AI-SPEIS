@@ -1197,6 +1197,89 @@ namespace ai_speis_be.Migrations
                     b.ToTable("JDFile");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.Notification", b =>
+                {
+                    b.Property<long>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("NotificationId"));
+
+                    b.Property<int>("ActionStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeduplicationKey")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("EntityId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("EntityType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ReadStatus")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RecipientId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RecipientRole")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex(new[] { "RecipientId", "RecipientRole", "CreatedAt" }, "IX_Notification_Recipient_CreatedAt");
+
+                    b.HasIndex(new[] { "DeduplicationKey" }, "UX_Notification_DeduplicationKey")
+                        .IsUnique();
+
+                    b.ToTable("Notification");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.Payment", b =>
                 {
                     b.Property<int>("PaymentId")
@@ -1272,81 +1355,6 @@ namespace ai_speis_be.Migrations
                     b.HasIndex(new[] { "UserId" }, "IX_Payment_UserId");
 
                     b.ToTable("Payment");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.PlanFeature", b =>
-                {
-                    b.Property<int>("PlanFeatureId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PlanFeatureId"));
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("FeatureCode")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("LimitValue")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PlanId")
-                        .HasColumnType("int");
-
-                    b.HasKey("PlanFeatureId");
-
-                    b.HasIndex("PlanId", "FeatureCode")
-                        .IsUnique();
-
-                    b.ToTable("PlanFeature");
-
-                    b.HasData(
-                        new
-                        {
-                            PlanFeatureId = 1,
-                            DisplayOrder = 1,
-                            FeatureCode = "BASIC_AI_INTERVIEW",
-                            IsEnabled = true,
-                            PlanId = 1
-                        },
-                        new
-                        {
-                            PlanFeatureId = 2,
-                            DisplayOrder = 2,
-                            FeatureCode = "GENERAL_SKILL_ASSESSMENT",
-                            IsEnabled = true,
-                            PlanId = 1
-                        },
-                        new
-                        {
-                            PlanFeatureId = 3,
-                            DisplayOrder = 1,
-                            FeatureCode = "COMPREHENSIVE_AI_INTERVIEW",
-                            IsEnabled = true,
-                            PlanId = 2
-                        },
-                        new
-                        {
-                            PlanFeatureId = 4,
-                            DisplayOrder = 2,
-                            FeatureCode = "ADVANCED_ANALYSIS",
-                            IsEnabled = true,
-                            PlanId = 2
-                        },
-                        new
-                        {
-                            PlanFeatureId = 5,
-                            DisplayOrder = 3,
-                            FeatureCode = "QUOTA_REFRESH_30_DAYS",
-                            IsEnabled = true,
-                            PlanId = 2
-                        });
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
@@ -1773,6 +1781,16 @@ namespace ai_speis_be.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PlanId"));
 
+                    b.Property<bool>("AdvancedAnalyticsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AiTier")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("ADVANCED");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1795,6 +1813,9 @@ namespace ai_speis_be.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsFree")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPopular")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
@@ -1830,6 +1851,8 @@ namespace ai_speis_be.Migrations
                         new
                         {
                             PlanId = 1,
+                            AdvancedAnalyticsEnabled = false,
+                            AiTier = "STANDARD",
                             Code = "FREE",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "3 lượt phỏng vấn miễn phí.",
@@ -1837,12 +1860,15 @@ namespace ai_speis_be.Migrations
                             InterviewQuota = 3,
                             IsActive = true,
                             IsFree = true,
+                            IsPopular = false,
                             Name = "Gói Cơ Bản",
                             RowVersion = new byte[0]
                         },
                         new
                         {
                             PlanId = 2,
+                            AdvancedAnalyticsEnabled = true,
+                            AiTier = "ADVANCED",
                             Code = "PREMIUM",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "15 lượt phỏng vấn, làm mới sau mỗi 30 ngày.",
@@ -1850,6 +1876,7 @@ namespace ai_speis_be.Migrations
                             InterviewQuota = 15,
                             IsActive = true,
                             IsFree = false,
+                            IsPopular = true,
                             Name = "Premium",
                             QuotaResetDays = 30,
                             RowVersion = new byte[0]
@@ -2820,6 +2847,17 @@ namespace ai_speis_be.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ai_speis_be.Models.Notification", b =>
+                {
+                    b.HasOne("ai_speis_be.Models.User", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipient");
+                });
+
             modelBuilder.Entity("ai_speis_be.Models.Payment", b =>
                 {
                     b.HasOne("ai_speis_be.Models.SubscriptionPrice", "SubscriptionPrice")
@@ -2836,17 +2874,6 @@ namespace ai_speis_be.Migrations
                     b.Navigation("SubscriptionPrice");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("ai_speis_be.Models.PlanFeature", b =>
-                {
-                    b.HasOne("ai_speis_be.Models.SubscriptionPlan", "Plan")
-                        .WithMany("Features")
-                        .HasForeignKey("PlanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Plan");
                 });
 
             modelBuilder.Entity("ai_speis_be.Models.Question", b =>
@@ -3138,8 +3165,6 @@ namespace ai_speis_be.Migrations
 
             modelBuilder.Entity("ai_speis_be.Models.SubscriptionPlan", b =>
                 {
-                    b.Navigation("Features");
-
                     b.Navigation("Prices");
                 });
 

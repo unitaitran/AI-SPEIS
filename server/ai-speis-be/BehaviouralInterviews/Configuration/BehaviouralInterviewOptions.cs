@@ -8,8 +8,11 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
         public string ApiKey { get; init; } = string.Empty;
         public string BaseUrl { get; init; } = "https://generativelanguage.googleapis.com/v1beta/openai/"; // Default to Gemini's OpenAI-compatible endpoint
         public string Model { get; init; } = "gemini-3.5-flash";
+        public string OllamaBaseUrl { get; init; } = "http://localhost:11434/v1/";
+        public string OllamaModel { get; init; } = string.Empty;
         public int MaxRetries { get; init; } = 3;
         public int TimeoutSeconds { get; init; } = 90;
+        public int RealtimeMainQuestionCount { get; init; } = 3;
         public decimal InputTokenCostPerMillion { get; init; }
         public decimal OutputTokenCostPerMillion { get; init; }
 
@@ -24,8 +27,14 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
                     "BEHAVIOURAL_INTERVIEW_AI_BASE_URL",
                     "https://generativelanguage.googleapis.com/v1beta/openai/")),
                 Model = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_MODEL", "gemini-3.5-flash"),
+                OllamaBaseUrl = EnsureTrailingSlash(Get(
+                    configuration,
+                    "OLLAMA_BASE_URL",
+                    "http://localhost:11434/v1/")),
+                OllamaModel = Get(configuration, "OLLAMA_MODEL", string.Empty),
                 MaxRetries = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_MAX_RETRIES", 3, 0, 5),
                 TimeoutSeconds = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_AI_TIMEOUT_SECONDS", 90, 5, 180),
+                RealtimeMainQuestionCount = GetInt(configuration, "BEHAVIOURAL_INTERVIEW_REALTIME_MAIN_QUESTION_COUNT", 3, 1, 20),
                 InputTokenCostPerMillion = GetDecimal(
                     configuration,
                     "BEHAVIOURAL_INTERVIEW_AI_INPUT_TOKEN_COST_PER_MILLION",

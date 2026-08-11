@@ -29,29 +29,6 @@ function formatVnd(amount, t) {
   return `${amount.toLocaleString('vi-VN')} VND`;
 }
 
-function translateFeature(featureCode, t) {
-  if (!featureCode) return '';
-  const normalized = featureCode.toLowerCase().replace(/[\s_]+/g, '_');
-
-  if (normalized.includes('basic') && normalized.includes('interview')) {
-    return t('basicAiInterview', 'Phỏng vấn AI cơ bản');
-  }
-  if (normalized.includes('general') || normalized.includes('skill')) {
-    return t('generalSkillAssessment', 'Đánh giá kỹ năng tổng quan');
-  }
-  if (normalized.includes('comprehensive')) {
-    return t('comprehensiveAiInterview', 'Phỏng vấn AI toàn diện');
-  }
-  if (normalized.includes('advanced') || normalized.includes('analysis')) {
-    return t('advancedAnalysis', 'Phân tích & Đánh giá nâng cao');
-  }
-  if (normalized.includes('quota') || normalized.includes('refresh') || normalized.includes('30')) {
-    return t('quotaRefresh30Days', 'Làm mới 15 lượt sau mỗi 30 ngày');
-  }
-
-  return t(normalized, featureCode.replaceAll('_', ' '));
-}
-
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -120,9 +97,21 @@ function PackagesPage() {
         plan.isFree
           ? `${plan.interviewQuota} ${t('freeInterviewQuotaText', 'lượt phỏng vấn miễn phí')}`
           : `${plan.interviewQuota} ${t('monthlyQuotaText', 'lượt phỏng vấn mỗi chu kỳ 30 ngày')}`,
-        ...(plan.features || []).filter((feature) => feature.isEnabled).map((feature) =>
-          translateFeature(feature.featureCode, t)
-        ),
+        plan.aiTier === 'STANDARD'
+          ? t('basicAiInterview', 'Phỏng vấn AI cơ bản')
+          : t('comprehensiveAiInterview', 'Phỏng vấn AI toàn diện'),
+        ...(plan.aiTier === 'STANDARD'
+          ? [t('generalSkillAssessment', 'Đánh giá kỹ năng tổng quan')]
+          : []),
+        ...(plan.advancedAnalyticsEnabled
+          ? [t('advancedAnalysis', 'Phân tích & Đánh giá nâng cao')]
+          : []),
+        ...(plan.quotaResetDays
+          ? [t('quotaRefreshDays', 'Làm mới {{quota}} lượt sau mỗi {{days}} ngày', {
+            quota: plan.interviewQuota,
+            days: plan.quotaResetDays,
+          })]
+          : []),
       ];
 
       const planName = plan.isFree

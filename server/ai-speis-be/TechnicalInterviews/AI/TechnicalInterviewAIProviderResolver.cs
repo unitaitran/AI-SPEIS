@@ -19,7 +19,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
         {
             return _options.Provider.ToLowerInvariant() switch
             {
-                "external" or "gemini" => _geminiProvider,
+                "external" or "gemini" or "ollama" or "local" => _geminiProvider,
                 _ => throw new InvalidOperationException(
                     $"Unsupported Technical Interview AI provider '{_options.Provider}'.")
             };

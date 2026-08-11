@@ -379,6 +379,52 @@
     "retryFeedback": "Retry final feedback",
     "generatingFeedback": "Generating feedback..."
   },
+  "feedback": {
+    "title": "Report AI Evaluation",
+    "subtitle": "Help us improve AI evaluation quality. Your report will only be used to improve the AI model and scoring rubric.",
+    "reportButton": "Report AI Feedback",
+    "scopeLabel": "What are you reporting?",
+    "scopeHelper": "Feedback Scope",
+    "categoryLabel": "Category",
+    "categoryGroupAria": "Feedback Categories",
+    "questionSelectorLabel": "Question Selector",
+    "questionSelectorPlaceholder": "Select a question",
+    "questionItem": "Question {{index}}",
+    "commentLabel": "Comment",
+    "commentPlaceholder": "Please describe what the AI evaluated incorrectly...",
+    "consentLabel": "I understand this feedback will be reviewed to improve the AI system.",
+    "cancel": "Cancel",
+    "submit": "Submit Feedback",
+    "submitting": "Submitting...",
+    "toastSuccess": "Feedback submitted successfully.",
+    "toastError": "Unable to submit feedback. Please try again later.",
+    "apiNotImplemented": "API not implemented. Backend does not support this feature yet.",
+    "emptyResult": "No evaluation found.",
+    "scopeOptions": {
+      "overallEvaluation": "Overall Evaluation",
+      "overallScore": "Overall Score",
+      "specificQuestion": "Specific Question",
+      "specificFeedback": "Specific Feedback"
+    },
+    "categoryOptions": {
+      "incorrectScore": "Incorrect Score",
+      "incorrectFeedback": "Incorrect Feedback",
+      "hallucination": "Hallucination",
+      "bias": "Bias",
+      "unclearExplanation": "Unclear Explanation",
+      "grammarIssue": "Grammar Issue",
+      "missingFeedback": "Missing Feedback",
+      "offensive": "Offensive",
+      "other": "Other"
+    },
+    "validation": {
+      "scopeRequired": "This field is required.",
+      "categoryRequired": "Select at least one category.",
+      "questionRequired": "This field is required.",
+      "commentRequired": "Comment is required.",
+      "consentRequired": "Please accept the consent."
+    }
+  },
   "behavioralRoom": {
     "behavioralInterview": "Behavioral interview",
     "interviewSession": "Interview session",

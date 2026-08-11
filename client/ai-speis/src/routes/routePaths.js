@@ -21,6 +21,7 @@ export const USER_ROUTES = {
   CAMPAIGN_RESULT: '/user/interview/campaign-result',
   CODING_INTERVIEW_ROOM: '/user/coding-interview',
   PAYMENT_RESULT: '/user/packages/payment-result',
+  NOTIFICATIONS: '/user/notifications',
 };
 
 export const getInterviewRoomPath = (sessionId) => (
@@ -48,4 +49,10 @@ export const getCodingInterviewRoomPath = (sessionId) => (
 export const AUTHENTICATED_ADMIN_ROUTES = {
   ROOT: '/admin',
   DASHBOARD: '/admin/dashboard',
+  USERS: '/admin/users',
+  QUESTIONS: '/admin/questions',
+  SUBSCRIPTION: '/admin/subscription',
+  PAYMENTS: '/admin/payments',
+  AI_USAGE: '/admin/ai-usage',
+  NOTIFICATIONS: '/admin/notifications',
 };

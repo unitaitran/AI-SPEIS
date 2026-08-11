@@ -59,6 +59,9 @@ public sealed class TechnicalAnswerEvaluationProcessorTests
     private abstract class FakeProvider : ITechnicalInterviewAIProvider
     {
         public string ProviderName => "fake";
+        public Task<AIProviderResult<TechnicalAISelectionResponse>> SelectQuestionsAsync(
+            TechnicalAISelectionRequest request,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
         public abstract Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken);

@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu, Bell, ChevronDown, Ticket, User, LogOut, Settings, Globe, Loader2, Crown } from 'lucide-react';
+import { Menu, ChevronDown, Ticket, User, LogOut, Settings, Globe, Loader2, Crown } from 'lucide-react';
 import { navigate } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import { getAvatarUrl } from '../../../routes/auth';
 import cvService from '../../../services/CVService';
 import jdService from '../../../services/JDService';
 import interviewSessionService from '../../../services/InterviewSessionService';
+import { NotificationBell } from '../../../features/notifications/NotificationBell';
+import { NOTIFICATION_STATE_RESET_EVENT } from '../../../features/notifications/NotificationProvider';
 
 function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   const { t, i18n } = useTranslation('dashboard');
@@ -148,6 +150,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    window.dispatchEvent(new Event(NOTIFICATION_STATE_RESET_EVENT));
     window.location.href = '/#login';
   };
 
@@ -209,12 +212,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
           </div>
         )}
 
-        {/* Notification */}
-        <button className="relative p-2 text-text-secondary hover:text-primary-dark hover:bg-primary-xlight rounded-full transition-colors" aria-label="Notifications">
-          <Bell size={20} />
-          {/* Notification Badge */}
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border border-surface-2 shadow-sm"></span>
-        </button>
+        <NotificationBell variant="user" />
 
         <div className="w-px h-6 bg-border mx-1"></div>
 

@@ -32,6 +32,13 @@ namespace ai_speis_be.Models
 
         public bool IsActive { get; set; } = true;
 
+        [Required, MaxLength(20)]
+        public string AiTier { get; set; } = "ADVANCED";
+
+        public bool AdvancedAnalyticsEnabled { get; set; }
+
+        public bool IsPopular { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }
@@ -40,7 +47,6 @@ namespace ai_speis_be.Models
         public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
         public virtual ICollection<SubscriptionPrice> Prices { get; set; } = new List<SubscriptionPrice>();
-        public virtual ICollection<PlanFeature> Features { get; set; } = new List<PlanFeature>();
     }
 
     [Table("SubscriptionPrice")]
@@ -79,25 +85,4 @@ namespace ai_speis_be.Models
         public virtual SubscriptionPlan Plan { get; set; } = null!;
     }
 
-    [Table("PlanFeature")]
-    [Index(nameof(PlanId), nameof(FeatureCode), IsUnique = true)]
-    public class PlanFeature
-    {
-        [Key]
-        public int PlanFeatureId { get; set; }
-
-        [ForeignKey(nameof(Plan))]
-        public int PlanId { get; set; }
-
-        [Required, MaxLength(80)]
-        public string FeatureCode { get; set; } = string.Empty;
-
-        public int? LimitValue { get; set; }
-
-        public int DisplayOrder { get; set; }
-
-        public bool IsEnabled { get; set; } = true;
-
-        public virtual SubscriptionPlan Plan { get; set; } = null!;
-    }
 }

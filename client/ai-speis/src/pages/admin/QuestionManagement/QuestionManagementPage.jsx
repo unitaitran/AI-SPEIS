@@ -39,7 +39,7 @@ function QuestionManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   const [roleOptions, setRoleOptions] = useState(['all']);
   const [majorOptions, setMajorOptions] = useState(['all']);
@@ -413,24 +413,23 @@ function QuestionManagementPage() {
           <table className="question-table">
             <thead>
               <tr>
-                <th style={{ width: '8%' }}>{t('tableId', 'ID')}</th>
-                <th style={{ width: '30%' }}>{t('tableQuestion', 'Question')}</th>
-                <th style={{ width: '15%' }}>{t('tableRole', 'Role Target')}</th>
-                <th style={{ width: '15%' }}>{t('tableMajor', 'Major')}</th>
-                <th style={{ width: '10%' }}>{t('tableDifficulty', 'Difficulty')}</th>
-                <th style={{ width: '12%', textAlign: 'center' }}>{t('tableActions', 'Actions')}</th>
+                <th style={{ width: '10%' }}>{t('tableId', 'ID')}</th>
+                <th style={{ width: '40%' }}>{t('tableQuestion', 'Question')}</th>
+                <th style={{ width: '20%' }}>{t('tableRole', 'Role Target')}</th>
+                <th style={{ width: '15%' }}>{t('tableDifficulty', 'Difficulty')}</th>
+                <th style={{ width: '15%', textAlign: 'center' }}>{t('tableActions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>
                     {t('loading', 'Loading questions...')}
                   </td>
                 </tr>
               ) : questions.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>
                     {t('noResults', 'No questions found.')}
                   </td>
                 </tr>
@@ -444,7 +443,6 @@ function QuestionManagementPage() {
                       </div>
                     </td>
                     <td>{question.roleTarget}</td>
-                    <td>{question.major}</td>
                     <td>
                       <span className={`status-badge status-${getDifficultyClass(question.difficulty)}`}>
                         {getDifficultyLabel(question.difficulty)}
@@ -477,14 +475,37 @@ function QuestionManagementPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="pagination">
-            <div className="pagination-buttons">
+        {/* Pagination Bar */}
+        <div className="pagination">
+          <div className="pagination-info">
+            <span>
+              Hiển thị {totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalItems)} trên tổng số {totalItems} câu hỏi
+            </span>
+            <div className="page-size-selector">
+              <label>Số lượng mỗi trang:</label>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="page-size-select"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-buttons">
+            <div className="pagination-desktop">
               <button
                 className="pagination-btn"
                 type="button"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(1)}
+                title="Trang đầu"
               >
                 <ChevronsLeft size={18} />
               </button>
@@ -493,14 +514,15 @@ function QuestionManagementPage() {
                 type="button"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                title="Trang trước"
               >
                 <ChevronLeft size={18} />
               </button>
 
-              {pageNumbers.map((button) =>
+              {pageNumbers.map((button, index) =>
                 button === 'start-ellipsis' || button === 'end-ellipsis' ? (
-                  <span key={button} className="pagination-ellipsis">
-                    …
+                  <span key={`ellipsis-${index}`} className="pagination-ellipsis">
+                    ...
                   </span>
                 ) : (
                   <button
@@ -517,22 +539,24 @@ function QuestionManagementPage() {
               <button
                 className="pagination-btn"
                 type="button"
-                disabled={currentPage === totalPages}
+                disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                title="Trang sau"
               >
                 <ChevronRight size={18} />
               </button>
               <button
                 className="pagination-btn"
                 type="button"
-                disabled={currentPage === totalPages}
+                disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage(totalPages)}
+                title="Trang cuối"
               >
                 <ChevronsRight size={18} />
               </button>
             </div>
           </div>
-        )}
+        </div>
       </section>
 
       {/* Delete Confirmation Modal */}

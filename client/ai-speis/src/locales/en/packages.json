@@ -75,6 +75,7 @@
   "comprehensiveAiInterview": "Comprehensive AI interview",
   "advancedAnalysis": "In-depth analysis & scoring",
   "quotaRefresh30Days": "15 attempts refreshed every 30 days",
+  "quotaRefreshDays": "{{quota}} attempts refreshed every {{days}} days",
   "freeInterviewQuotaText": "free interview attempts",
   "monthlyQuotaText": "interviews per fixed 30-day cycle",
   "checkoutConfirmTitle": "Checkout Confirmation",

@@ -46,6 +46,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
         private readonly IQuestionRepoitory _questionRepository;
         private readonly IBehaviouralInterviewAIProviderResolver _providerResolver;
         private readonly IBehaviouralAIResponseValidator _validator;
+        private readonly BehaviouralInterviewOptions _options;
         private readonly ILogger<BehaviouralQuestionSelectionService> _logger;
 
         public BehaviouralQuestionSelectionService(
@@ -58,6 +59,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
             _questionRepository = questionRepository;
             _providerResolver = providerResolver;
             _validator = validator;
+            _options = options;
             _logger = logger;
         }
 
@@ -112,7 +114,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
                 question => question.QuestionId,
                 question => question.Skill);
 
-            var aiProvider = _providerResolver.Resolve("external");
+            var aiProvider = _providerResolver.Resolve(_options.Provider);
             BehaviouralAIProviderResult<BehaviouralAISelectionResponse>? aiResult = null;
 
             // Retry 1 lần khi AI trả kết quả không hợp lệ (brief §21)

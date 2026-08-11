@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Flag, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import FeedbackModal from '../../components/feedback/FeedbackModal';
 import TechnicalInterviewErrorState from '../../components/technicalInterview/TechnicalInterviewErrorState';
 import TechnicalQuestionBreakdown from '../../components/technicalInterview/TechnicalQuestionBreakdown';
 import TechnicalRecommendations from '../../components/technicalInterview/TechnicalRecommendations';
@@ -11,7 +12,9 @@ import useTechnicalInterviewResult from '../../features/technicalInterview/useTe
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { getCampaignResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { submitEvaluationFeedback } from '../../services/aiEvaluationFeedbackApi';
 import interviewSessionService from '../../services/InterviewSessionService';
+import notify from '../../utils/notification';
 import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
@@ -27,6 +30,13 @@ function TechnicalInterviewResultPage({ sessionId }) {
   const resolvedSessionId = sessionId || activeContext?.activeSessionId || null;
   const [campaign, setCampaign] = useState(activeContext?.campaign || null);
   const [campaignError, setCampaignError] = useState('');
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const autoFeedbackOpenedRef = useRef(false);
+  const shouldOpenFeedbackDirectly = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('report') === '1';
+  }, []);
   const interviewLanguage = resolveInterviewLanguage(campaign?.language, setupDraft?.language);
   const { t: translate } = useTranslation('interview');
   const t = useCallback((key, options = {}) => (
@@ -43,6 +53,32 @@ function TechnicalInterviewResultPage({ sessionId }) {
   } = useTechnicalInterviewResult(resolvedSessionId);
   const nextRoundSession = getNextOpenSession(campaign, resolvedSessionId);
   const campaignCompleted = campaign?.status === 'Completed';
+  const canBypassResultForFeedback = Boolean(
+    shouldOpenFeedbackDirectly
+    && error
+    && (Number(error?.status) === 409 || String(error?.code || '').toUpperCase() === 'SESSION_NOT_COMPLETED')
+  );
+  const hasEvaluation = Boolean(
+    result
+    && (
+      result.technicalScore != null
+      || result.summaryFeedback
+      || result.questionResults?.length
+      || result.recommendations?.length
+    )
+  );
+  const evaluationId = result?.evaluationId
+    ?? result?.technicalEvaluationId
+    ?? result?.resultId
+    ?? null;
+  const feedbackQuestions = useMemo(() => (
+    Array.isArray(result?.questionResults)
+      ? result.questionResults.map((question, index) => ({
+        id: question?.sessionQuestionId ?? question?.attemptId ?? question?.mainQuestionIndex ?? index + 1,
+        label: t('feedback.questionItem', { index: question?.mainQuestionIndex || index + 1 }),
+      }))
+      : []
+  ), [result?.questionResults, t]);
 
   const syncCampaign = useCallback(async () => {
     if (!resolvedSessionId) return;
@@ -75,6 +111,34 @@ function TechnicalInterviewResultPage({ sessionId }) {
       : USER_ROUTES.DEVICE_CHECK);
   };
 
+  const handleSubmitFeedback = async (payload) => {
+    setIsSubmittingFeedback(true);
+    try {
+      await submitEvaluationFeedback(payload);
+      setIsFeedbackModalOpen(false);
+      notify.success(t('feedback.toastSuccess'));
+    } catch (submitError) {
+      if (Number(submitError?.status) === 404) {
+        notify.warning(t('feedback.apiNotImplemented'));
+      } else {
+        notify.error(t('feedback.toastError'));
+      }
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!shouldOpenFeedbackDirectly) return;
+    if (isLoading) return;
+    if (!hasEvaluation && !canBypassResultForFeedback) return;
+    if (error && !canBypassResultForFeedback) return;
+    if (autoFeedbackOpenedRef.current) return;
+
+    autoFeedbackOpenedRef.current = true;
+    setIsFeedbackModalOpen(true);
+  }, [canBypassResultForFeedback, error, hasEvaluation, isLoading, shouldOpenFeedbackDirectly]);
+
   let content;
   if (!resolvedSessionId) {
     content = (
@@ -93,7 +157,7 @@ function TechnicalInterviewResultPage({ sessionId }) {
         <div className="technical-skeleton technical-skeleton--large" />
       </div>
     );
-  } else if (error) {
+  } else if (error && !canBypassResultForFeedback) {
     content = (
       <TechnicalInterviewErrorState
         title={t('result.loadFailedTitle')}
@@ -105,6 +169,25 @@ function TechnicalInterviewResultPage({ sessionId }) {
         retryLabel={t('common.retry')}
         backLabel={t('room.backToDashboard')}
       />
+    );
+  } else if (canBypassResultForFeedback) {
+    content = (
+      <div className="technical-result-stack">
+        <div className="technical-inline-error" role="status">
+          <span>{t('feedback.emptyResult')}</span>
+        </div>
+        <div className="technical-feedback-report">
+          <button
+            type="button"
+            className="technical-report-button"
+            onClick={() => setIsFeedbackModalOpen(true)}
+            aria-label={t('feedback.reportButton')}
+          >
+            <Flag size={16} aria-hidden="true" />
+            {t('feedback.reportButton')}
+          </button>
+        </div>
+      </div>
     );
   } else if (result) {
     const feedbackFailed = String(result.finalFeedbackStatus || '').toUpperCase() === 'FAILED';
@@ -130,6 +213,19 @@ function TechnicalInterviewResultPage({ sessionId }) {
         )}
         <TechnicalQuestionBreakdown questions={result.questionResults} t={t} />
         <TechnicalRecommendations recommendations={result.recommendations} t={t} />
+        {hasEvaluation ? (
+          <div className="technical-feedback-report">
+            <button
+              type="button"
+              className="technical-report-button"
+              onClick={() => setIsFeedbackModalOpen(true)}
+              aria-label={t('feedback.reportButton')}
+            >
+              <Flag size={16} aria-hidden="true" />
+              {t('feedback.reportButton')}
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   } else {
@@ -180,6 +276,18 @@ function TechnicalInterviewResultPage({ sessionId }) {
           </div>
         ) : null}
         {content}
+        <FeedbackModal
+          isOpen={isFeedbackModalOpen}
+          onClose={() => {
+            if (!isSubmittingFeedback) setIsFeedbackModalOpen(false);
+          }}
+          onSubmit={handleSubmitFeedback}
+          isSubmitting={isSubmittingFeedback}
+          questions={feedbackQuestions}
+          interviewSessionId={resolvedSessionId}
+          evaluationId={evaluationId}
+          t={t}
+        />
       </div>
     </UserLayout>
   );
