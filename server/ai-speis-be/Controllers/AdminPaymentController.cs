@@ -112,7 +112,11 @@ namespace ai_speis_be.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<PaymentDetailDto>> GetPaymentDetail(
             int id, CancellationToken cancellationToken)
-        {
+        { 
+            if (id <= 0)
+            {
+                return BadRequest(new { Message = "ID giao dịch phải là số nguyên dương." });
+            }
             var detail = await _adminPaymentService.GetPaymentDetailAsync(id, cancellationToken);
             if (detail == null)
             {
@@ -130,6 +134,10 @@ namespace ai_speis_be.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> VerifyPayment(int id, CancellationToken cancellationToken)
         {
+            if (id <= 0)
+            {
+                return BadRequest(new { Message = "ID giao dịch phải là số nguyên dương." });
+            }
             _logger.LogInformation("Admin initiated re-verification for payment ID: {PaymentId}", id);
             var (success, message, updatedDetail) = await _adminPaymentService.VerifyPaymentWithMoMoAsync(id, cancellationToken);
 
