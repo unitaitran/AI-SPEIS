@@ -43,6 +43,14 @@ namespace ai_speis_be.Controllers
             [FromQuery] string? sortBy = "newest",
             CancellationToken cancellationToken = default)
         {
+            if(page <= 0 || pageSize <= 0)
+            {
+                return BadRequest(new { Message = "Page và pageSize phải là các số nguyên dương." });
+            }
+            if(dateFrom.HasValue && dateTo.HasValue && dateFrom > dateTo)
+            {
+                return BadRequest(new { Message = "Ngày bắt đầu không thể lớn hơn ngày kết thúc." });
+            }
             var result = await _adminPaymentService.GetPaymentsAsync(
                 page, pageSize, status, planId, dateFrom, dateTo, search, sortBy, cancellationToken);
             return Ok(result);
