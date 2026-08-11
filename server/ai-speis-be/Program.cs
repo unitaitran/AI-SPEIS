@@ -401,27 +401,33 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Recurring registration occurs after migrations so the application's SQL Server is
-// ready. Hangfire creates and maintains its own schema in the same SQL Server storage.
-var subscriptionExpiryCron = builder.Configuration["BackgroundJobs:SubscriptionExpiryCron"] ?? "10 0 * * *";
-RecurringJob.AddOrUpdate<SubscriptionExpiryJob>(
-    "job-02-subscription-expiry",
-    job => job.ExecuteAsync(),
-    subscriptionExpiryCron,
-    new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+// ready. Resolve Hangfire from DI rather than using its static API, which depends on
+// JobStorage.Current and is not initialized in an ASP.NET Core service-based setup.
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
 
-var quotaResetCron = builder.Configuration["BackgroundJobs:QuotaResetCron"] ?? "5 0 1 * *";
-RecurringJob.AddOrUpdate<QuotaResetJob>(
-    "job-03-quota-reset",
-    job => job.ExecuteAsync(),
-    quotaResetCron,
-    new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+    var subscriptionExpiryCron = app.Configuration["BackgroundJobs:SubscriptionExpiryCron"] ?? "10 0 * * *";
+    recurringJobs.AddOrUpdate<SubscriptionExpiryJob>(
+        "job-02-subscription-expiry",
+        job => job.ExecuteAsync(),
+        subscriptionExpiryCron,
+        new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
 
-var notificationRetryCron = builder.Configuration["BackgroundJobs:NotificationRetryCron"] ?? "20 0 * * *";
-RecurringJob.AddOrUpdate<NotificationRetryJob>(
-    "job-04-notification-retry",
-    job => job.ExecuteAsync(),
-    notificationRetryCron,
-    new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+    var quotaResetCron = app.Configuration["BackgroundJobs:QuotaResetCron"] ?? "5 0 1 * *";
+    recurringJobs.AddOrUpdate<QuotaResetJob>(
+        "job-03-quota-reset",
+        job => job.ExecuteAsync(),
+        quotaResetCron,
+        new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+
+    var notificationRetryCron = app.Configuration["BackgroundJobs:NotificationRetryCron"] ?? "20 0 * * *";
+    recurringJobs.AddOrUpdate<NotificationRetryJob>(
+        "job-04-notification-retry",
+        job => job.ExecuteAsync(),
+        notificationRetryCron,
+        new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
