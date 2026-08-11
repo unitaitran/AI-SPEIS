@@ -1,249 +1,166 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import technicalInterviewApi from '../../services/technicalInterviewApi';
-import useTechnicalInterviewSession, { TechnicalInterviewFlowStatus } from './useTechnicalInterviewSession';
+import interviewSessionService from '../../services/InterviewSessionService';
+import technicalV2InterviewApi, { TechnicalV2InterviewError } from '../../services/technicalV2InterviewApi';
+import useTechnicalInterviewSession from './useTechnicalInterviewSession';
+import { TechnicalV2ErrorCode, TechnicalV2FlowPhase } from './technicalV2Interview.types';
 
-jest.mock('../../services/technicalInterviewApi', () => ({
+jest.mock('../../services/InterviewSessionService', () => ({
   __esModule: true,
   default: {
-    initializeSession: jest.fn(),
     getSession: jest.fn(),
-    getCurrentQuestion: jest.fn(),
-    startSession: jest.fn(),
+    getActiveCampaign: jest.fn(),
+    getCampaign: jest.fn(),
   },
 }));
 
-describe('useTechnicalInterviewSession', () => {
+jest.mock('../../services/technicalV2InterviewApi', () => ({
+  __esModule: true,
+  TechnicalV2InterviewError: class TechnicalV2InterviewError extends Error {
+    constructor(message, options = {}) {
+      super(message);
+      this.name = 'TechnicalV2InterviewError';
+      Object.assign(this, options);
+    }
+  },
+  default: {
+    initialize: jest.fn(),
+    start: jest.fn(),
+    getState: jest.fn(),
+    getCurrentQuestion: jest.fn(),
+    submitAnswer: jest.fn(),
+    complete: jest.fn(),
+    generateFeedback: jest.fn(),
+    getResult: jest.fn(),
+  },
+}));
+
+const session = {
+  interviewSessionId: 17,
+  interviewCampaignId: 7,
+  interviewRoundType: 'Technical',
+  status: 'Active',
+};
+
+const campaign = {
+  interviewCampaignId: 7,
+  status: 'Active',
+  sessions: [session],
+};
+
+const question = {
+  sessionQuestionId: 101,
+  questionId: 201,
+  questionType: 'Main',
+  questionOrder: 1,
+  totalMainQuestions: 2,
+  content: 'Explain dependency inversion.',
+  timeLimitSeconds: 120,
+};
+
+const state = (overrides = {}) => ({
+  sessionId: 17,
+  runtimeVersion: 'V2',
+  targetMainQuestionCount: 2,
+  completedMainQuestionCount: 0,
+  sessionStatus: 'Active',
+  questionSetStatus: 'Ready',
+  evaluationStatus: 'NOT_STARTED',
+  isComplete: false,
+  currentQuestion: question,
+  transcript: [],
+  ...overrides,
+});
+
+describe('useTechnicalInterviewSession V2', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    technicalInterviewApi.initializeSession.mockResolvedValue({ sessionId: 'session-1', status: 'CREATED' });
+    interviewSessionService.getSession.mockResolvedValue(session);
+    interviewSessionService.getActiveCampaign.mockResolvedValue(campaign);
+    technicalV2InterviewApi.getState.mockResolvedValue(state());
   });
 
-  test('resumes an active session from backend session and current-question state', async () => {
-    technicalInterviewApi.getSession.mockResolvedValue({
-      sessionId: 'session-1',
-      sessionStatus: 'QUESTION_READY',
-      lockedMainQuestions: [
-        { mainQuestionIndex: 1, selectedQuestionId: 101 },
-        { mainQuestionIndex: 2, selectedQuestionId: 102 },
-        { mainQuestionIndex: 3, selectedQuestionId: 103 },
-      ],
-    });
-    technicalInterviewApi.getCurrentQuestion.mockResolvedValue({
-      attemptId: 'attempt-2',
-      questionId: null,
-      questionType: 'FOLLOW_UP',
-      content: 'What changes at scale?',
-      mainQuestionIndex: 2,
-      totalMainQuestions: 3,
-      subQuestionIndex: 1,
-      requiredSubQuestionCount: 2,
-      completedFollowUpCount: 0,
-      sessionStatus: 'QUESTION_READY',
-    });
+  test('loads the server-authoritative current question', async () => {
+    const { result } = renderHook(() => useTechnicalInterviewSession(17));
 
-    const { result } = renderHook(() => useTechnicalInterviewSession('session-1'));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.phase).toBe(TechnicalV2FlowPhase.READY_TO_ANSWER));
 
-    expect(technicalInterviewApi.initializeSession).toHaveBeenCalledWith('session-1');
-    expect(technicalInterviewApi.getSession).toHaveBeenCalledWith('session-1');
-    expect(technicalInterviewApi.getCurrentQuestion).toHaveBeenCalledWith('session-1');
-    expect(result.current.currentQuestion).toMatchObject({
-      attemptId: 'attempt-2',
-      questionId: null,
-      mainQuestionIndex: 2,
-      completedSubQuestionCount: 0,
-    });
-    expect(result.current.session.lockedMainQuestions.map((item) => item.selectedQuestionId))
-      .toEqual([101, 102, 103]);
+    expect(technicalV2InterviewApi.getState).toHaveBeenCalledWith(17, { signal: expect.any(AbortSignal) });
+    expect(technicalV2InterviewApi.start).not.toHaveBeenCalled();
+    expect(result.current.currentQuestion).toEqual(question);
+    expect(result.current.transcriptMessages[0].content).toBe(question.content);
   });
 
-  test('does not request another question after backend marks the session completed', async () => {
-    technicalInterviewApi.getSession.mockResolvedValue({
-      sessionId: 'session-1',
-      sessionStatus: 'COMPLETED',
-    });
-    const { result } = renderHook(() => useTechnicalInterviewSession('session-1'));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(technicalInterviewApi.getCurrentQuestion).not.toHaveBeenCalled();
-    expect(result.current.currentQuestion).toBeNull();
-  });
-
-  test('accepts a question-ready session from the Technical backend contract', async () => {
-    technicalInterviewApi.getSession.mockResolvedValue({
-      sessionId: 17,
-      status: 'QUESTION_READY',
-    });
-    technicalInterviewApi.getCurrentQuestion.mockResolvedValue({
-      attemptId: 'attempt-17',
-      questionType: 'MAIN',
-      content: 'Explain the browser event loop.',
-      mainQuestionIndex: 1,
-      totalMainQuestions: 3,
-    });
+  test('initializes and starts an uninitialized V2 session', async () => {
+    technicalV2InterviewApi.getState
+      .mockRejectedValueOnce(new TechnicalV2InterviewError('not initialized', { code: TechnicalV2ErrorCode.NOT_INITIALIZED }))
+      .mockResolvedValueOnce(state({ currentQuestion: null }));
+    technicalV2InterviewApi.initialize.mockResolvedValue(state({ currentQuestion: null }));
+    technicalV2InterviewApi.start.mockResolvedValue(question);
 
     const { result } = renderHook(() => useTechnicalInterviewSession(17));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.phase).toBe(TechnicalV2FlowPhase.READY_TO_ANSWER));
 
-    expect(result.current.error).toBeNull();
-    expect(result.current.currentQuestion?.attemptId).toBe('attempt-17');
+    expect(technicalV2InterviewApi.initialize).toHaveBeenCalledWith(17, undefined, { signal: expect.any(AbortSignal) });
+    expect(technicalV2InterviewApi.start).toHaveBeenCalledWith(17, { signal: expect.any(AbortSignal) });
+    expect(result.current.currentQuestion).toEqual(question);
   });
 
-  test('keeps a found session when only the current-question endpoint is unavailable', async () => {
-    technicalInterviewApi.getSession.mockResolvedValue({
-      sessionId: 17,
-      status: 'QUESTION_READY',
-    });
-    technicalInterviewApi.getCurrentQuestion.mockRejectedValue({ status: 404, code: 'SESSION_NOT_FOUND' });
+  test('opens a completed round through the V2 result endpoint', async () => {
+    technicalV2InterviewApi.getState.mockResolvedValue(state({ isComplete: true, currentQuestion: null }));
+    technicalV2InterviewApi.getResult.mockResolvedValue({ sessionId: 17, overallScore: 8.25, mainQuestions: [] });
 
     const { result } = renderHook(() => useTechnicalInterviewSession(17));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.phase).toBe(TechnicalV2FlowPhase.COMPLETED));
 
-    expect(result.current.session?.sessionId).toBe(17);
-    expect(result.current.error).toBeNull();
-    expect(result.current.questionError).toMatchObject({ status: 404 });
+    expect(technicalV2InterviewApi.getResult).toHaveBeenCalledWith(17, { signal: expect.any(AbortSignal) });
+    expect(result.current.completionResult.overallScore).toBe(8.25);
   });
 
-  test('uses the question returned by start and nextQuestion returned by answer submission', async () => {
-    technicalInterviewApi.getSession.mockResolvedValue({ sessionId: 17, status: 'CREATED' });
-    technicalInterviewApi.startSession.mockResolvedValue({
-      attemptId: 'attempt-main',
-      questionType: 'MAIN',
-      content: 'Explain dependency inversion.',
-      sessionStatus: 'QUESTION_READY',
-    });
+  test('reconciles a timed-out answer when the server has advanced', async () => {
+    const nextQuestion = { ...question, sessionQuestionId: 102, questionId: 202, questionOrder: 2, content: 'Give a concrete example.' };
+    technicalV2InterviewApi.submitAnswer.mockRejectedValue(new TechnicalV2InterviewError('timeout', { code: TechnicalV2ErrorCode.REQUEST_TIMEOUT }));
+    technicalV2InterviewApi.getState
+      .mockResolvedValueOnce(state())
+      .mockResolvedValueOnce(state({ completedMainQuestionCount: 1, currentQuestion: nextQuestion }));
 
     const { result } = renderHook(() => useTechnicalInterviewSession(17));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.phase).toBe(TechnicalV2FlowPhase.READY_TO_ANSWER));
 
+    let response;
     await act(async () => {
-      await result.current.startSession();
+      response = await result.current.submitAnswer({ transcript: 'A valid answer' });
     });
-    expect(result.current.currentQuestion?.attemptId).toBe('attempt-main');
-    expect(result.current.session?.status).toBe('QUESTION_READY');
 
-    act(() => {
-      result.current.applyAnswerResponse({
-        sessionStatus: 'QUESTION_READY',
-        nextQuestion: {
-          attemptId: 'attempt-follow-up',
-          questionType: 'FOLLOW_UP',
-          content: 'Give a concrete example.',
-          sessionStatus: 'QUESTION_READY',
-        },
-      });
-    });
-    expect(result.current.currentQuestion?.attemptId).toBe('attempt-follow-up');
+    expect(response).toMatchObject({ accepted: true, reconciled: true });
+    expect(result.current.currentQuestion.sessionQuestionId).toBe(102);
+    expect(technicalV2InterviewApi.submitAnswer).toHaveBeenCalledWith(17, 101, { transcript: 'A valid answer' }, expect.objectContaining({ idempotencyKey: expect.any(String) }));
   });
 
-  test('reports question generation separately and prevents duplicate start requests', async () => {
-    let resolveStart;
-    technicalInterviewApi.getSession.mockResolvedValue({ sessionId: 17, status: 'CREATED' });
-    technicalInterviewApi.startSession.mockImplementation(() => new Promise((resolve) => {
-      resolveStart = resolve;
-    }));
+  test('reuses the same idempotency key for a retry of the same question', async () => {
+    technicalV2InterviewApi.submitAnswer.mockRejectedValue(new TechnicalV2InterviewError('network', { code: TechnicalV2ErrorCode.NETWORK_ERROR }));
+    technicalV2InterviewApi.getState.mockResolvedValue(state());
 
     const { result } = renderHook(() => useTechnicalInterviewSession(17));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.phase).toBe(TechnicalV2FlowPhase.READY_TO_ANSWER));
 
-    let firstRequest;
-    await act(async () => {
-      firstRequest = result.current.startSession();
-      await result.current.startSession();
-    });
-    expect(technicalInterviewApi.startSession).toHaveBeenCalledTimes(1);
-    expect(technicalInterviewApi.startSession).toHaveBeenCalledWith(17, {
-      signal: expect.any(AbortSignal),
-    });
-    expect(result.current.flowStatus).toBe(TechnicalInterviewFlowStatus.GENERATING_QUESTION);
+    await act(async () => { await expect(result.current.submitAnswer({ transcript: 'Retryable answer' })).rejects.toBeTruthy(); });
+    await act(async () => { await expect(result.current.submitAnswer({ transcript: 'Retryable answer' })).rejects.toBeTruthy(); });
 
-    await act(async () => {
-      resolveStart({
-        attemptId: 'attempt-main',
-        questionType: 'MAIN',
-        content: 'Explain immutability.',
-        sessionStatus: 'QUESTION_READY',
-      });
-      await firstRequest;
-    });
-    expect(result.current.flowStatus).toBe(TechnicalInterviewFlowStatus.QUESTION_READY);
+    const firstKey = technicalV2InterviewApi.submitAnswer.mock.calls[0][3].idempotencyKey;
+    const secondKey = technicalV2InterviewApi.submitAnswer.mock.calls[1][3].idempotencyKey;
+    expect(firstKey).toBeTruthy();
+    expect(secondKey).toBe(firstKey);
   });
 
-  test('resumes an evaluating session without requesting a ready question and keeps polling state', async () => {
-    technicalInterviewApi.getSession.mockResolvedValue({
-      sessionId: 17,
-      status: 'EVALUATING',
-      processingStatus: 'EVALUATING',
+  test('blocks a second active session with an explicit conflict phase', async () => {
+    interviewSessionService.getActiveCampaign.mockResolvedValue({
+      ...campaign,
+      sessions: [session, { ...session, interviewSessionId: 18, status: 'Active' }],
     });
 
     const { result } = renderHook(() => useTechnicalInterviewSession(17));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.isProcessing).toBe(true);
-    expect(result.current.currentQuestion).toBeNull();
-    expect(technicalInterviewApi.getCurrentQuestion).not.toHaveBeenCalled();
-  });
-
-  test('reconciles a timed-out submit as accepted when backend is processing it', async () => {
-    technicalInterviewApi.getSession
-      .mockResolvedValueOnce({ sessionId: 17, status: 'QUESTION_READY' })
-      .mockResolvedValueOnce({ sessionId: 17, status: 'EVALUATING' });
-    technicalInterviewApi.getCurrentQuestion.mockResolvedValueOnce({
-      attemptId: 'attempt-main',
-      questionType: 'MAIN',
-      content: 'Explain closures.',
-      mainQuestionIndex: 1,
-      totalMainQuestions: 3,
-    });
-
-    const { result } = renderHook(() => useTechnicalInterviewSession(17));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    let recovery;
-    await act(async () => {
-      result.current.markProcessing('attempt-main');
-      recovery = await result.current.reconcileAfterSubmission('attempt-main');
-    });
-
-    expect(recovery).toEqual({ state: 'PROCESSING' });
-    expect(technicalInterviewApi.getCurrentQuestion).toHaveBeenCalledTimes(1);
-    expect(result.current.currentQuestion).not.toBeNull();
-  });
-
-  test('detects that a timed-out answer was accepted when the next attempt is already ready', async () => {
-    technicalInterviewApi.getSession
-      .mockResolvedValueOnce({ sessionId: 17, status: 'QUESTION_READY' })
-      .mockResolvedValueOnce({ sessionId: 17, status: 'QUESTION_READY' });
-    technicalInterviewApi.getCurrentQuestion
-      .mockResolvedValueOnce({
-        attemptId: 'attempt-main',
-        questionType: 'MAIN',
-        content: 'Explain closures.',
-        mainQuestionIndex: 1,
-        totalMainQuestions: 3,
-      })
-      .mockResolvedValueOnce({
-        attemptId: 'attempt-follow-up',
-        questionId: null,
-        questionType: 'FOLLOW_UP',
-        content: 'How do closures affect memory?',
-        mainQuestionIndex: 1,
-        totalMainQuestions: 3,
-        subQuestionIndex: 1,
-        requiredSubQuestionCount: 1,
-      });
-
-    const { result } = renderHook(() => useTechnicalInterviewSession(17));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    let recovery;
-    await act(async () => {
-      recovery = await result.current.reconcileAfterSubmission('attempt-main');
-    });
-
-    expect(recovery).toMatchObject({
-      state: 'ACCEPTED_NEXT_QUESTION',
-      currentQuestion: { attemptId: 'attempt-follow-up', questionId: null },
-    });
+    await waitFor(() => expect(result.current.phase).toBe(TechnicalV2FlowPhase.SESSION_CONFLICT));
+    expect(result.current.conflict.sessionId).toBe(18);
+    expect(technicalV2InterviewApi.getState).not.toHaveBeenCalled();
   });
 });

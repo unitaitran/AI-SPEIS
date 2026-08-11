@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
@@ -24,8 +25,10 @@ import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
 import technicalInterviewApi from '../../services/technicalInterviewApi';
+import technicalV2InterviewApi from '../../services/technicalV2InterviewApi';
 import behavioralInterviewApi from '../../services/behavioralInterviewApi';
 import { normalizeTechnicalInterviewResult } from '../../features/technicalInterview/technicalInterviewResult';
+import { normalizeTechnicalV2Review } from '../../features/technicalInterview/technicalV2InterviewResult';
 import { getInterviewHistoryCopy, formatInterviewTitle } from '../../features/interviewHistory/interviewHistoryCopy';
 
 // UI Primitives
@@ -54,6 +57,9 @@ const formatScore = (score, maxScore = 10) => {
     ? `${numericScore.toFixed(1)}/${numericMaxScore}`
     : numericScore.toFixed(1);
 };
+
+const formatWeight = (weight) => new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 }).format(Number(weight) || 0);
+const technicalCriterionLabel = (code, t) => t(`technicalRoom.rubric.${String(code || '').toUpperCase()}`, { defaultValue: code || '' });
 
 const getStatusConfig = (status, copy) => {
   switch (status) {
@@ -89,24 +95,49 @@ const getRoundConfig = (type, copy) => {
 
 const normalizeBehaviorReview = (result, state) => {
   const answers = (state?.transcript || []).filter((entry) => String(entry.role).toLowerCase() === 'candidate');
+  const roundFeedback = result?.summary?.overallBehavioralAssessment || result?.summary?.executiveSummary || '';
   return {
     overallScore: result?.overallScore,
     maxScore: result?.maxScore,
-    questions: (result?.mainQuestions || []).map((question) => ({
-      id: question.sessionQuestionId,
-      order: question.mainQuestionIndex,
-      question: question.question,
-      questionType: 'MAIN',
-      skill: question.skill,
-      score: question.score,
-      maxScore: result?.maxScore || 10,
-      dimensions: question.dimensions || [],
-      strengths: question.strengths || [],
-      missingPoints: question.missingPoints || [],
-      transcript: answers.find((answer) => answer.sessionQuestionId === question.sessionQuestionId)?.content || '',
-      feedbackSummary: '',
-      suggestions: result?.summary?.recommendationsForImprovement || [],
-    })),
+    questions: (result?.mainQuestions || []).map((question) => {
+      const subQuestions = (question.subQuestions || []).map((subQ, subIndex) => ({
+        id: subQ.sessionQuestionId || subQ.questionId || subIndex,
+        attemptId: subQ.sessionQuestionId || subIndex,
+        questionOrder: subQ.mainQuestionIndex || subIndex + 1,
+        question: subQ.question || '',
+        questionType: subQ.questionType || 'SUB',
+        skill: subQ.skill || question.skill || '',
+        score: Number.isFinite(Number(subQ.score)) ? Number(subQ.score) : 0,
+        maxScore: 10,
+        dimensions: subQ.dimensions || [],
+        strengths: subQ.strengths || [],
+        missingPoints: subQ.missingPoints || [],
+        transcript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
+        answerTranscript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
+      }));
+
+      const mainTranscript = question.answerTranscript
+        || answers.find((answer) => answer.sessionQuestionId === question.sessionQuestionId)?.content
+        || '';
+
+      return {
+        id: question.sessionQuestionId,
+        order: question.mainQuestionIndex,
+        question: question.question,
+        questionType: 'MAIN',
+        skill: question.skill,
+        score: question.score,
+        maxScore: result?.maxScore || 10,
+        dimensions: question.dimensions || [],
+        strengths: question.strengths || [],
+        missingPoints: question.missingPoints || [],
+        transcript: mainTranscript,
+        feedbackSummary: roundFeedback,
+        suggestions: result?.summary?.recommendationsForImprovement || [],
+        subQuestions,
+        adaptiveHistory: subQuestions,
+      };
+    }),
   };
 };
 
@@ -156,8 +187,63 @@ function FeedbackList({ icon: Icon, title, items, tone = 'neutral' }) {
   );
 }
 
+function CollapsibleCriterionCard({ dim, isTechnicalV2Review, technicalCriterionLabel, t }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const title = isTechnicalV2Review ? technicalCriterionLabel(dim.rubricCode, t) : (dim.name || dim.rubricCode);
+  const hasDetails = dim.evidence?.length > 0 || dim.strengths?.length > 0 || dim.gaps?.length > 0 || dim.missingEvidence?.length > 0;
+
+  return (
+    <div
+      onClick={() => hasDetails && setIsOpen((prev) => !prev)}
+      className={`
+        p-3.5 bg-surface-muted rounded-xl border border-border flex flex-col gap-1 text-xs transition-all duration-200
+        ${hasDetails ? 'cursor-pointer hover:border-primary/50 hover:bg-surface-2' : ''}
+      `}
+    >
+      <div className="flex items-center justify-between gap-2 select-none">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <strong className="text-text-primary font-bold line-clamp-1">{title}</strong>
+          {hasDetails && (
+            <ChevronDown size={14} className={`text-text-muted transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+          )}
+        </div>
+        {formatScore(dim.score, dim.maxScore) && (
+          <span className="font-extrabold text-primary shrink-0">{formatScore(dim.score, dim.maxScore)}</span>
+        )}
+      </div>
+
+      {isTechnicalV2Review && (
+        <span className="text-[11px] text-text-secondary">
+          {t('technicalRoom.result.weight', { weight: formatWeight(dim.weight) })}
+        </span>
+      )}
+
+      {isOpen && (
+        <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-border/60">
+          {dim.evidence?.length > 0 && (
+            <p className="text-[11px] text-text-secondary leading-relaxed">
+              <strong>{isTechnicalV2Review ? t('technicalRoom.result.evidence') : 'Evidence:'}</strong>{' '}
+              {dim.evidence.join(' ')}
+            </p>
+          )}
+          {isTechnicalV2Review && dim.strengths?.length > 0 && (
+            <p className="text-[11px] text-text-secondary leading-relaxed">
+              <strong>{t('technicalRoom.result.strengths')}</strong> {dim.strengths.join(' ')}
+            </p>
+          )}
+          {isTechnicalV2Review && (dim.gaps?.length > 0 || dim.missingEvidence?.length > 0) && (
+            <p className="text-[11px] text-text-secondary leading-relaxed">
+              <strong>{t('technicalRoom.result.gaps')}</strong> {(dim.gaps?.length ? dim.gaps : dim.missingEvidence).join(' ')}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function CampaignInterviewResultPage({ campaignId }) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation('interview');
   const copy = getInterviewHistoryCopy(i18n.resolvedLanguage || i18n.language);
 
   const [campaignResult, setCampaignResult] = useState(null);
@@ -171,6 +257,7 @@ function CampaignInterviewResultPage({ campaignId }) {
   const [isRoundLoading, setIsRoundLoading] = useState(false);
   const [roundError, setRoundError] = useState('');
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
+  const [expandedQuestions, setExpandedQuestions] = useState({});
 
   const loadCampaign = useCallback(async () => {
     if (!campaignId) {
@@ -227,11 +314,17 @@ function CampaignInterviewResultPage({ campaignId }) {
     try {
       let reviewData;
       if (roundType === 'Technical') {
-        const [res, state] = await Promise.all([
-          technicalInterviewApi.getResult(activeRoundSessionId),
-          technicalInterviewApi.getSession(activeRoundSessionId),
-        ]);
-        reviewData = normalizeTechnicalReview(res, state);
+        try {
+          const res = await technicalV2InterviewApi.getResult(activeRoundSessionId);
+          reviewData = normalizeTechnicalV2Review(res);
+        } catch (v2Error) {
+          if (v2Error?.code !== 'LEGACY_SESSION') throw v2Error;
+          const [res, state] = await Promise.all([
+            technicalInterviewApi.getResult(activeRoundSessionId),
+            technicalInterviewApi.getSession(activeRoundSessionId),
+          ]);
+          reviewData = normalizeTechnicalReview(res, state);
+        }
       } else if (['Behavior', 'Behavioral'].includes(roundType)) {
         const [res, state] = await Promise.all([
           behavioralInterviewApi.getResult(activeRoundSessionId),
@@ -251,6 +344,155 @@ function CampaignInterviewResultPage({ campaignId }) {
   useEffect(() => {
     loadRoundDetail();
   }, [loadRoundDetail]);
+
+  const flatQuestionList = useMemo(() => {
+    if (!roundReview?.questions) return [];
+    const list = [];
+    roundReview.questions.forEach((q, mainIdx) => {
+      list.push({
+        ...q,
+        key: `main-${q.id || mainIdx}`,
+        displayIndex: `Q${q.order || mainIdx + 1}`,
+        isSubQuestion: false,
+        mainIndex: mainIdx,
+        questionLabel: copy.review.mainQuestion || 'MAIN QUESTION',
+      });
+      (q.subQuestions || []).forEach((subQ, subIdx) => {
+        list.push({
+          ...subQ,
+          key: `sub-${subQ.id || subIdx}`,
+          displayIndex: `Q${q.order || mainIdx + 1}.${subIdx + 1}`,
+          isSubQuestion: true,
+          mainIndex: mainIdx,
+          parentQuestion: q,
+          questionLabel: subQ.questionType === 'Clarification' ? 'CÂU HỎI LÀM RÕ (CLARIFICATION)' : 'CÂU HỎI PHỤ (FOLLOW-UP)',
+        });
+      });
+    });
+    return list;
+  }, [roundReview?.questions, copy.review.mainQuestion]);
+
+  const competencyMetrics = useMemo(() => {
+    if (!campaignResult && !campaignData) return null;
+
+    const rounds = campaignResult?.rounds || campaignData?.sessions || [];
+
+    // 1. Coding score
+    const codingRound = rounds.find((r) => ['Code', 'Coding'].includes(r.interviewRoundType || r.roundType));
+    const codingScore = Math.min(10, Math.max(0, Number(codingRound?.score ?? 0)));
+
+    // 2. Technical round overall & fallback
+    const techRound = rounds.find((r) => (r.interviewRoundType || r.roundType) === 'Technical');
+    const techOverall = Math.min(10, Math.max(0, Number(techRound?.score ?? 0)));
+
+    // 3. Behavioral round overall & fallback
+    const behaRound = rounds.find((r) => ['Behavior', 'Behavioral'].includes(r.interviewRoundType || r.roundType));
+    const behaOverall = Math.min(10, Math.max(0, Number(behaRound?.score ?? 0)));
+
+    let techAccuracy = techOverall;
+    let techDepth = techOverall;
+    let techApp = techOverall;
+    let techReasoning = techOverall;
+    let techComm = techOverall;
+
+    let behaComm = behaOverall;
+    let behaAction = behaOverall;
+
+    if (roundReview?.questions?.length) {
+      let accSum = 0, accCount = 0;
+      let depthSum = 0, depthCount = 0;
+      let appSum = 0, appCount = 0;
+      let reasSum = 0, reasCount = 0;
+      let commSum = 0, commCount = 0;
+      let actionSum = 0, actionCount = 0;
+
+      roundReview.questions.forEach((q) => {
+        (q.dimensions || []).forEach((d) => {
+          const code = String(d.rubricCode || d.name || '').toUpperCase();
+          const s = Number(d.score || 0);
+          if (code.includes('ACCURACY')) { accSum += s; accCount++; }
+          else if (code.includes('DEPTH') || code.includes('COMPETENCY')) { depthSum += s; depthCount++; }
+          else if (code.includes('APPLICATION') || code.includes('APP')) { appSum += s; appCount++; }
+          else if (code.includes('REASONING') || code.includes('REASON') || code.includes('RESULT')) { reasSum += s; reasCount++; }
+          else if (code.includes('COMMUNICATION') || code.includes('COMM')) { commSum += s; commCount++; }
+          else if (code.includes('ACTION')) { actionSum += s; actionCount++; }
+        });
+
+        (q.subQuestions || []).forEach((sq) => {
+          (sq.dimensions || []).forEach((d) => {
+            const code = String(d.rubricCode || d.name || '').toUpperCase();
+            const s = Number(d.score || 0);
+            if (code.includes('ACCURACY')) { accSum += s; accCount++; }
+            else if (code.includes('DEPTH') || code.includes('COMPETENCY')) { depthSum += s; depthCount++; }
+            else if (code.includes('APPLICATION') || code.includes('APP')) { appSum += s; appCount++; }
+            else if (code.includes('REASONING') || code.includes('REASON') || code.includes('RESULT')) { reasSum += s; reasCount++; }
+            else if (code.includes('COMMUNICATION') || code.includes('COMM')) { commSum += s; commCount++; }
+            else if (code.includes('ACTION')) { actionSum += s; actionCount++; }
+          });
+        });
+      });
+
+      if (accCount > 0) techAccuracy = accSum / accCount;
+      if (depthCount > 0) techDepth = depthSum / depthCount;
+      if (appCount > 0) techApp = appSum / appCount;
+      if (reasCount > 0) techReasoning = reasSum / reasCount;
+
+      if (roundReview.runtimeVersion === 'V2') {
+        if (commCount > 0) techComm = commSum / commCount;
+      } else {
+        if (commCount > 0) behaComm = commSum / commCount;
+        if (actionCount > 0) behaAction = actionSum / actionCount;
+      }
+    }
+
+    // Formulas:
+    // 1. Professional Knowledge = 35% Accuracy + 25% Depth + 15% Application + 25% Coding
+    const profKnowledge = (0.35 * techAccuracy) + (0.25 * techDepth) + (0.15 * techApp) + (0.25 * codingScore);
+
+    // 2. Communication Skills = 40% Technical Communication + 60% Behavioral Communication
+    const commSkills = (0.40 * techComm) + (0.60 * behaComm);
+
+    // 3. CV Understanding = 30% Application + 30% Reasoning + 40% Action
+    const cvUnderstanding = (0.30 * techApp) + (0.30 * techReasoning) + (0.40 * behaAction);
+
+    // 4. Problem Solving = 35% Coding + 35% Depth + 30% Reasoning
+    const problemSolving = (0.35 * codingScore) + (0.35 * techDepth) + (0.30 * techReasoning);
+
+    return [
+      {
+        title: 'Professional Knowledge',
+        labelVi: 'Kiến thức chuyên môn',
+        score: profKnowledge.toFixed(1),
+        formula: '35% Accuracy + 25% Depth + 15% App + 25% Coding',
+        color: 'from-blue-50/80 to-indigo-50/80 border-blue-200 dark:from-blue-950/40 dark:to-indigo-950/40 dark:border-blue-800 text-blue-900 dark:text-blue-100',
+        badgeColor: 'bg-blue-600 text-white',
+      },
+      {
+        title: 'Communication Skills',
+        labelVi: 'Kỹ năng giao tiếp',
+        score: commSkills.toFixed(1),
+        formula: '40% Tech Comm + 60% Beha Comm',
+        color: 'from-purple-50/80 to-pink-50/80 border-purple-200 dark:from-purple-950/40 dark:to-pink-950/40 dark:border-purple-800 text-purple-900 dark:text-purple-100',
+        badgeColor: 'bg-purple-600 text-white',
+      },
+      {
+        title: 'CV Understanding',
+        labelVi: 'Độ thấu hiểu CV',
+        score: cvUnderstanding.toFixed(1),
+        formula: '30% App + 30% Reasoning + 40% Action',
+        color: 'from-amber-50/80 to-orange-50/80 border-amber-200 dark:from-amber-950/40 dark:to-orange-950/40 dark:border-amber-800 text-amber-900 dark:text-amber-100',
+        badgeColor: 'bg-amber-600 text-white',
+      },
+      {
+        title: 'Problem Solving',
+        labelVi: 'Tư duy giải quyết vấn đề',
+        score: problemSolving.toFixed(1),
+        formula: '35% Coding + 35% Depth + 30% Reasoning',
+        color: 'from-emerald-50/80 to-teal-50/80 border-emerald-200 dark:from-emerald-950/40 dark:to-teal-950/40 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100',
+        badgeColor: 'bg-emerald-600 text-white',
+      },
+    ];
+  }, [campaignResult, campaignData, roundReview]);
 
   if (isLoading) {
     return (
@@ -289,7 +531,9 @@ function CampaignInterviewResultPage({ campaignId }) {
   const sConfig = getStatusConfig(status, copy);
   const overallScore = campaignResult?.overallScore ?? campaignData?.overallScore ?? campaignData?.OverallScore;
   const sessionsList = campaignData?.sessions || campaignResult?.rounds || [];
-  const selectedQuestion = roundReview?.questions?.[selectedQuestionIndex] || null;
+
+  const selectedQuestion = flatQuestionList[selectedQuestionIndex] || flatQuestionList[0] || roundReview?.questions?.[0] || null;
+  const isTechnicalV2Review = roundReview?.runtimeVersion === 'V2';
 
   return (
     <UserLayout>
@@ -346,6 +590,33 @@ function CampaignInterviewResultPage({ campaignId }) {
             </div>
           </div>
         </div>
+
+        {/* Dashboard 4 Chỉ số Đánh giá Cuối cùng (Competency Benchmark Metrics) */}
+        {competencyMetrics && (
+          <section className="flex flex-col gap-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+              <Target size={15} /> Chỉ số đánh giá năng lực tổng hợp (Competency Benchmarks)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {competencyMetrics.map((metric) => (
+                <div key={metric.title} className={`p-4 rounded-xl border bg-gradient-to-br ${metric.color} flex flex-col justify-between gap-3 shadow-xs`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-extrabold tracking-tight">{metric.title}</span>
+                      <span className="text-[11px] font-medium opacity-80">{metric.labelVi}</span>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-sm font-black shadow-2xs ${metric.badgeColor}`}>
+                      {metric.score}/10
+                    </span>
+                  </div>
+                  <div className="text-[10px] opacity-75 font-mono border-t border-current/15 pt-2 leading-relaxed" title={metric.formula}>
+                    {metric.formula}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Khối "CÁC VÒNG PHỎNG VẤN TRONG BUỔI NÀY" Container */}
         <section className="flex flex-col gap-3">
@@ -461,36 +732,101 @@ function CampaignInterviewResultPage({ campaignId }) {
                         {copy.review.questionList}
                       </h4>
                       <span className="px-2 py-0.5 bg-surface-2 border border-border rounded-full text-xs font-bold text-text-primary">
-                        ({selectedQuestionIndex + 1}/{roundReview.questions.length})
+                        ({selectedQuestionIndex + 1}/{flatQuestionList.length})
                       </span>
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      {roundReview.questions.map((q, index) => {
-                        const isQSelected = index === selectedQuestionIndex;
+                      {roundReview.questions.map((q, mainIdx) => {
+                        const mainFlatIndex = flatQuestionList.findIndex((item) => item.key === `main-${q.id || mainIdx}`);
+                        const isMainSelected = selectedQuestionIndex === mainFlatIndex;
+                        const subQuestions = q.subQuestions || [];
+                        const hasSub = subQuestions.length > 0;
+
+                        const selectedItem = flatQuestionList[selectedQuestionIndex];
+                        const isParentOfSelected = selectedItem?.isSubQuestion && selectedItem?.mainIndex === mainIdx;
+                        const isExpanded = expandedQuestions[mainIdx] || isParentOfSelected;
+
                         return (
-                          <button
-                            key={q.id || index}
-                            type="button"
-                            onClick={() => setSelectedQuestionIndex(index)}
-                            className={`
-                              p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 relative overflow-hidden
-                              ${isQSelected
-                                ? 'border-primary bg-[#F0F7FF] border-l-4 border-l-primary shadow-xs'
-                                : 'border-border bg-surface hover:bg-surface-2'
-                              }
-                            `}
-                          >
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-extrabold text-primary">Q{q.order || index + 1}</span>
-                              {formatScore(q.score, q.maxScore) && (
-                                <span className="font-bold text-text-primary">{formatScore(q.score, q.maxScore)}</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-text-secondary line-clamp-2 font-medium leading-snug">
-                              {q.question || copy.review.missingQuestion}
-                            </p>
-                          </button>
+                          <div key={q.id || mainIdx} className="flex flex-col gap-1.5">
+                            {/* Main Question Card Q1, Q2... */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedQuestionIndex(mainFlatIndex !== -1 ? mainFlatIndex : 0);
+                                if (hasSub) {
+                                  setExpandedQuestions((prev) => ({ ...prev, [mainIdx]: !prev[mainIdx] }));
+                                }
+                              }}
+                              className={`
+                                p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 relative overflow-hidden group
+                                ${isMainSelected
+                                  ? 'border-primary bg-[#F0F7FF] border-l-4 border-l-primary shadow-xs'
+                                  : 'border-border bg-surface hover:bg-surface-2'
+                                }
+                              `}
+                            >
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-extrabold text-primary">Q{q.order || mainIdx + 1}</span>
+                                  {hasSub && (
+                                    <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-full flex items-center gap-1">
+                                      +{subQuestions.length}
+                                      <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                    </span>
+                                  )}
+                                </div>
+                                {formatScore(q.score, q.maxScore) && (
+                                  <span className="font-bold text-text-primary">{formatScore(q.score, q.maxScore)}</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-text-secondary line-clamp-2 font-medium leading-snug">
+                                {q.question || copy.review.missingQuestion}
+                              </p>
+                            </button>
+
+                            {/* Sub-questions Dropdown List (Collapsed by default, expands on click) */}
+                            {hasSub && isExpanded && (
+                              <div className="pl-3 flex flex-col gap-1 border-l-2 border-primary/20 ml-2 animate-fadeIn">
+                                {subQuestions.map((subQ, subIdx) => {
+                                  const subFlatIndex = flatQuestionList.findIndex((item) => item.key === `sub-${subQ.id || subIdx}`);
+                                  const isSubSelected = selectedQuestionIndex === subFlatIndex;
+
+                                  return (
+                                    <button
+                                      key={subQ.id || subIdx}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedQuestionIndex(subFlatIndex !== -1 ? subFlatIndex : mainFlatIndex);
+                                      }}
+                                      className={`
+                                        p-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-1 text-xs
+                                        ${isSubSelected
+                                          ? 'border-primary/80 bg-primary-xlight/40 font-semibold shadow-2xs'
+                                          : 'border-border/60 bg-surface-2 hover:bg-surface-muted'
+                                        }
+                                      `}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded uppercase ${
+                                          subQ.questionType === 'Clarification'
+                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                        }`}>
+                                          {subQ.questionType === 'Clarification' ? 'Làm rõ' : 'Hỏi phụ'}
+                                        </span>
+                                        <span className="font-extrabold text-primary">{formatScore(subQ.score, subQ.maxScore)}</span>
+                                      </div>
+                                      <p className="text-[11px] text-text-secondary line-clamp-1 font-medium">
+                                        {subQ.question}
+                                      </p>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -556,17 +892,13 @@ function CampaignInterviewResultPage({ campaignId }) {
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {selectedQuestion.dimensions.map((dim, idx) => (
-                          <div key={dim.rubricCode || idx} className="p-3.5 bg-surface-muted rounded-xl border border-border flex flex-col gap-1 text-xs">
-                            <div className="flex items-center justify-between">
-                              <strong className="text-text-primary font-bold">{dim.name || dim.rubricCode}</strong>
-                              {formatScore(dim.score, dim.maxScore) && (
-                                <span className="font-extrabold text-primary">{formatScore(dim.score, dim.maxScore)}</span>
-                              )}
-                            </div>
-                            {dim.evidence?.length > 0 && (
-                              <p className="text-[11px] text-text-secondary mt-1">{dim.evidence.join(' ')}</p>
-                            )}
-                          </div>
+                          <CollapsibleCriterionCard
+                            key={dim.rubricCode || idx}
+                            dim={dim}
+                            isTechnicalV2Review={isTechnicalV2Review}
+                            technicalCriterionLabel={technicalCriterionLabel}
+                            t={t}
+                          />
                         ))}
                       </div>
                     </div>
@@ -591,12 +923,12 @@ function CampaignInterviewResultPage({ campaignId }) {
                       {copy.review.previous}
                     </Button>
                     <span className="text-xs font-semibold text-text-muted">
-                      {selectedQuestionIndex + 1} / {roundReview.questions.length}
+                      {selectedQuestionIndex + 1} / {flatQuestionList.length}
                     </span>
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={selectedQuestionIndex === roundReview.questions.length - 1}
+                      disabled={selectedQuestionIndex === flatQuestionList.length - 1}
                       onClick={() => setSelectedQuestionIndex((prev) => prev + 1)}
                     >
                       {copy.review.next}

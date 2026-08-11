@@ -14,6 +14,7 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
     public sealed class SubmitTechnicalAnswerRequest
     {
         public Guid AttemptId { get; set; }
+        public int SessionQuestionId { get; set; }
 
         [Required]
         [MinLength(1)]
@@ -21,6 +22,7 @@ namespace ai_speis_be.TechnicalInterviews.DTOs
 
         [MaxLength(200)]
         public string? AudioId { get; set; }
+        public decimal? SttConfidence { get; set; }
     }
 
     public sealed class TechnicalInterviewSessionDto

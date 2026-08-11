@@ -22,8 +22,8 @@ namespace ai_speis_be.Services.GoogleQuotaService
     {
         private readonly ILogger<GoogleQuotaService> _logger;
         private readonly GoogleQuotaConfig _config;
-        private readonly ServiceUsageClient _serviceUsageClient;
-        private readonly MetricServiceClient _metricClient;
+        private readonly ServiceUsageClient? _serviceUsageClient;
+        private readonly MetricServiceClient? _metricClient;
 
         public GoogleQuotaService(
             GoogleQuotaConfig config,
@@ -32,26 +32,38 @@ namespace ai_speis_be.Services.GoogleQuotaService
             _config = config;
             _logger = logger;
 
-            // Load service account credentials once (clients are thread-safe singletons).
-            var jsonText = File.ReadAllText(_config.CredentialsPath);
-            var serviceAccountCred = ServiceAccountCredential.FromServiceAccountData(
-                new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonText)));
-            var credential = serviceAccountCred.ToGoogleCredential()
-                .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
-
-            _serviceUsageClient = new ServiceUsageClientBuilder
+            if (!_config.IsConfigured)
             {
-                GoogleCredential = credential
-            }.Build();
+                _logger.LogInformation("GoogleQuotaService running in disabled/mock mode (GOOGLE_CLOUD_PROJECT or credentials missing).");
+                return;
+            }
 
-            _metricClient = new MetricServiceClientBuilder
+            try
             {
-                GoogleCredential = credential
-            }.Build();
+                var jsonText = File.ReadAllText(_config.CredentialsPath);
+                var serviceAccountCred = ServiceAccountCredential.FromServiceAccountData(
+                    new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonText)));
+                var credential = serviceAccountCred.ToGoogleCredential()
+                    .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
 
-            _logger.LogInformation(
-                "GoogleQuotaService initialized for project {ProjectId}",
-                _config.ProjectId);
+                _serviceUsageClient = new ServiceUsageClientBuilder
+                {
+                    GoogleCredential = credential
+                }.Build();
+
+                _metricClient = new MetricServiceClientBuilder
+                {
+                    GoogleCredential = credential
+                }.Build();
+
+                _logger.LogInformation(
+                    "GoogleQuotaService initialized for project {ProjectId}",
+                    _config.ProjectId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to initialize GoogleQuotaService clients.");
+            }
         }
 
         /// <inheritdoc />
@@ -64,6 +76,11 @@ namespace ai_speis_be.Services.GoogleQuotaService
                 QueriedAt = DateTime.UtcNow,
                 Services = new List<GoogleResourceDto>()
             };
+
+            if (!_config.IsConfigured || _serviceUsageClient is null || _metricClient is null)
+            {
+                return response;
+            }
 
             try
             {

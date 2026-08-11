@@ -29,6 +29,9 @@ namespace ai_speis_be.Repositories.InterviewCampaignRepo
                 .Include(c => c.CVExtractedProfile)
                 .Include(c => c.JDExtractedProfile)
                 .Include(c => c.InterviewSessions.Where(s => !s.IsDeleted))
+                    .ThenInclude(s => s.TechnicalQuestionSet)
+                        .ThenInclude(set => set!.Questions)
+                            .ThenInclude(question => question.Answer)
                 .FirstOrDefaultAsync(c => c.InterviewCampaignId == campaignId && !c.IsDeleted);
         }
 
@@ -39,6 +42,9 @@ namespace ai_speis_be.Repositories.InterviewCampaignRepo
                 .Include(c => c.CVExtractedProfile)
                 .Include(c => c.JDExtractedProfile)
                 .Include(c => c.InterviewSessions.Where(s => !s.IsDeleted))
+                    .ThenInclude(s => s.TechnicalQuestionSet)
+                        .ThenInclude(set => set!.Questions)
+                            .ThenInclude(question => question.Answer)
                 .Where(c => c.UserId == userId && !c.IsDeleted)
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();

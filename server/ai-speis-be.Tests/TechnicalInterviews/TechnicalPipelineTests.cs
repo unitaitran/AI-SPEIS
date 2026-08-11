@@ -242,12 +242,8 @@ public sealed class TechnicalPipelineTests
         }
         
         var decisionEngine = new Mock<ITechnicalFollowUpDecisionEngine>();
-        decisionEngine.Setup(item => item.Resolve(It.IsAny<TechnicalInterviewDecision>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<TechnicalQuestionLimits>()))
-            .Returns((TechnicalInterviewDecision aiDecision, int cl, int f, int c, int t, bool h, TechnicalQuestionLimits l) => 
-            {
-                var finalDecision = c + 1 >= t ? TechnicalInterviewDecision.EndInterview : TechnicalInterviewDecision.NextQuestion;
-                return new TechnicalDecisionOutcome(finalDecision, true, null);
-            });
+        decisionEngine.Setup(item => item.Resolve(It.IsAny<decimal?>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<TechnicalQuestionLimits>()))
+            .Returns(new TechnicalDecisionOutcome(TechnicalInterviewDecision.NextQuestion, true, null));
             
         var arbiter = new TechnicalInterviewDecisionArbiter(
             new TechnicalAIResponseValidator(),

@@ -1,329 +1,503 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import technicalInterviewApi from '../../services/technicalInterviewApi';
-import { TechnicalSessionStatus } from './technicalInterview.types';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { getInterviewRoomPath } from '../../routes/routePaths';
+import interviewSessionService from '../../services/InterviewSessionService';
+import technicalV2InterviewApi, {
+  TechnicalV2InterviewError,
+} from '../../services/technicalV2InterviewApi';
+import {
+  TechnicalV2ErrorCode,
+  TechnicalV2FlowPhase,
+} from './technicalV2Interview.types';
 
-const PROCESSING_POLL_INTERVAL_MS = 1500;
-const QUESTION_GENERATION_UI_TIMEOUT_MS = 45000;
-
-export const TechnicalInterviewFlowStatus = Object.freeze({
-  IDLE: 'idle',
-  INITIALIZING_SESSION: 'initializingSession',
-  GENERATING_QUESTION: 'generatingQuestion',
-  QUESTION_READY: 'questionReady',
-  GENERATING_NEXT_QUESTION: 'generatingNextQuestion',
-  ENDING_SESSION: 'endingSession',
-  ERROR: 'error',
-});
-
-const LEGACY_SESSION_STATUS = Object.freeze({
-  Pending: TechnicalSessionStatus.CREATED,
-  Active: TechnicalSessionStatus.QUESTION_READY,
-  Completed: TechnicalSessionStatus.COMPLETED,
-  Cancelled: TechnicalSessionStatus.FAILED,
-});
-
-export const getTechnicalSessionStatus = (session) => {
-  const status = session?.sessionStatus || session?.status || null;
-  return LEGACY_SESSION_STATUS[status] || status;
+const initialState = {
+  phase: TechnicalV2FlowPhase.CHECKING_SESSION,
+  generalSession: null,
+  session: null,
+  currentQuestion: null,
+  transcriptMessages: [],
+  completionResult: null,
+  feedbackRetrying: false,
+  error: null,
+  conflict: null,
+  resumed: false,
 };
 
-const canFetchCurrentQuestion = (status) => (
-  status === TechnicalSessionStatus.QUESTION_READY
-  || status === TechnicalSessionStatus.ANSWERING
-);
+const isCompletedStatus = (status) => String(status || '').toLowerCase() === 'completed';
 
-const isProcessingStatus = (status) => (
-  status === TechnicalSessionStatus.EVALUATING
-  || status === TechnicalSessionStatus.SELECTING_QUESTION
-);
+const isReadyToComplete = (sessionState) => {
+  const targetCount = Number(sessionState?.targetMainQuestionCount || 0);
+  const completedCount = Number(sessionState?.completedMainQuestionCount || 0);
+  return targetCount > 0 && completedCount >= targetCount;
+};
 
-const firstDefined = (...values) => values.find((value) => value !== undefined && value !== null);
-
-export const normalizeTechnicalProgress = (source = {}, fallback = {}) => ({
-  mainQuestionIndex: firstDefined(source.mainQuestionIndex, fallback.mainQuestionIndex),
-  totalMainQuestions: firstDefined(source.totalMainQuestions, fallback.totalMainQuestions),
-  subQuestionIndex: firstDefined(source.subQuestionIndex, fallback.subQuestionIndex, null),
-  requiredSubQuestionCount: firstDefined(
-    source.requiredSubQuestionCount,
-    fallback.requiredSubQuestionCount,
-    source.requiredFollowUpCount,
-    fallback.requiredFollowUpCount,
-    0,
-  ),
-  completedSubQuestionCount: firstDefined(
-    source.completedSubQuestionCount,
-    fallback.completedSubQuestionCount,
-    source.completedFollowUpCount,
-    fallback.completedFollowUpCount,
-    0,
-  ),
+const interviewerMessage = (question) => ({
+  id: `question-${question.sessionQuestionId}`,
+  speaker: 'interviewer',
+  content: question.content,
+  questionType: question.questionType,
+  status: 'current',
+  createdAt: question.askedAt || new Date().toISOString(),
 });
 
-export const normalizeTechnicalQuestion = (question, progress) => {
-  if (!question) return null;
-  const normalizedProgress = normalizeTechnicalProgress(progress || question.progress || question, question);
-  return {
-    ...question,
-    questionId: question.questionId ?? null,
-    ...normalizedProgress,
-    progress: normalizedProgress,
-  };
+const candidateMessage = (question, transcript) => ({
+  id: `answer-${question.sessionQuestionId}`,
+  speaker: 'candidate',
+  content: transcript,
+  questionType: question.questionType,
+  status: 'submitted',
+  createdAt: new Date().toISOString(),
+});
+
+const normalizeServerTranscript = (entries = []) => entries
+  .filter((entry) => entry?.sessionQuestionId && entry?.content)
+  .map((entry) => {
+    const candidate = String(entry.role || '').toUpperCase() === 'CANDIDATE';
+    return {
+      id: `${candidate ? 'answer' : 'question'}-${entry.sessionQuestionId}`,
+      speaker: candidate ? 'candidate' : 'interviewer',
+      content: entry.content,
+      questionType: entry.questionType,
+      status: candidate ? 'submitted' : 'current',
+      createdAt: entry.createdAt || new Date().toISOString(),
+    };
+  });
+
+const appendUnique = (messages, additions) => {
+  const existingIds = new Set(messages.map((message) => message.id));
+  const additionIds = new Set(additions.map((message) => message.id));
+  return [
+    ...messages.map((message) => (
+      message.status === 'current' && !additionIds.has(message.id)
+        ? { ...message, status: 'submitted' }
+        : message
+    )),
+    ...additions.filter((message) => !existingIds.has(message.id)),
+  ];
 };
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'PHASE':
+      return { ...state, phase: action.phase, error: null };
+    case 'READY': {
+      const additions = action.question ? [interviewerMessage(action.question)] : [];
+      const restoredTranscript = action.transcript
+        ? normalizeServerTranscript(action.transcript)
+        : state.transcriptMessages;
+      return {
+        ...state,
+        phase: TechnicalV2FlowPhase.READY_TO_ANSWER,
+        generalSession: action.generalSession || state.generalSession,
+        session: action.session || state.session,
+        currentQuestion: action.question,
+        transcriptMessages: appendUnique(restoredTranscript, additions),
+        resumed: action.resumed ?? state.resumed,
+        error: null,
+        conflict: null,
+      };
+    }
+    case 'ANSWER_ACCEPTED': {
+      const additions = [candidateMessage(action.question, action.transcript)];
+      if (action.nextQuestion) additions.push(interviewerMessage(action.nextQuestion));
+      return {
+        ...state,
+        phase: action.nextQuestion
+          ? TechnicalV2FlowPhase.READY_TO_ANSWER
+          : TechnicalV2FlowPhase.COMPLETING,
+        session: action.session || state.session,
+        currentQuestion: action.nextQuestion || null,
+        transcriptMessages: appendUnique(state.transcriptMessages, additions),
+        error: null,
+      };
+    }
+    case 'COMPLETED':
+      return {
+        ...state,
+        phase: TechnicalV2FlowPhase.COMPLETED,
+        generalSession: action.generalSession || state.generalSession,
+        currentQuestion: null,
+        completionResult: action.result,
+        feedbackRetrying: false,
+        error: null,
+      };
+    case 'FEEDBACK_RETRYING':
+      return { ...state, feedbackRetrying: true };
+    case 'FEEDBACK_RETRY_FAILED':
+      return { ...state, feedbackRetrying: false };
+    case 'CONFLICT':
+      return {
+        ...state,
+        phase: TechnicalV2FlowPhase.SESSION_CONFLICT,
+        conflict: action.conflict,
+        generalSession: action.generalSession || state.generalSession,
+        error: null,
+      };
+    case 'ERROR':
+      return {
+        ...state,
+        phase: action.fatal
+          ? TechnicalV2FlowPhase.FATAL_ERROR
+          : TechnicalV2FlowPhase.RECOVERABLE_ERROR,
+        error: action.error,
+      };
+    case 'DISMISS_ERROR':
+      return {
+        ...state,
+        phase: state.currentQuestion
+          ? TechnicalV2FlowPhase.READY_TO_ANSWER
+          : TechnicalV2FlowPhase.LOADING_QUESTION,
+        error: null,
+      };
+    default:
+      return state;
+  }
+}
+
+const normalizeError = (error, fallbackCode = TechnicalV2ErrorCode.UNKNOWN_ERROR) => {
+  if (error instanceof TechnicalV2InterviewError) return error;
+  return new TechnicalV2InterviewError(error?.message || 'Technical V2 interview request failed', {
+    code: error?.code || fallbackCode,
+    status: error?.status,
+    details: error?.details,
+  });
+};
+
+const createConflict = (campaign, activeSession) => ({
+  campaign,
+  sessionId: activeSession.interviewSessionId,
+  interviewType: activeSession.interviewRoundType,
+  status: activeSession.status,
+  completedQuestionCount: activeSession.completedQuestionCount || 0,
+  canResume: true,
+  resumePath: getInterviewRoomPath(activeSession.interviewSessionId),
+});
 
 export default function useTechnicalInterviewSession(sessionId) {
-  const [session, setSession] = useState(null);
-  const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [processingStatus, setProcessingStatus] = useState(null);
-  const [isLoading, setIsLoading] = useState(Boolean(sessionId));
-  const [error, setError] = useState(null);
-  const [questionError, setQuestionError] = useState(null);
-  const [flowStatus, setFlowStatus] = useState(
-    sessionId ? TechnicalInterviewFlowStatus.INITIALIZING_SESSION : TechnicalInterviewFlowStatus.IDLE,
-  );
-  const requestIdRef = useRef(0);
-  const startingRef = useRef(false);
-  const startAbortRef = useRef(null);
-  const sessionRef = useRef(null);
-  const currentQuestionRef = useRef(null);
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const loadControllerRef = useRef(null);
+  const submitInFlightRef = useRef(false);
+  const completeInFlightRef = useRef(false);
+  const feedbackInFlightRef = useRef(false);
+  const idempotencyKeysRef = useRef(new Map());
 
-  const commitSession = useCallback((nextSession) => {
-    sessionRef.current = nextSession;
-    setSession(nextSession);
-  }, []);
-
-  const commitQuestion = useCallback((nextQuestion) => {
-    currentQuestionRef.current = nextQuestion;
-    setCurrentQuestion(nextQuestion);
-  }, []);
-
-  const synchronize = useCallback(async ({ initialize = false, showLoading = false } = {}) => {
-    if (!sessionId) {
-      if (showLoading) setIsLoading(false);
-      return { session: null, currentQuestion: null, status: null };
-    }
-
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    if (showLoading) setIsLoading(true);
-    if (showLoading) setFlowStatus(TechnicalInterviewFlowStatus.INITIALIZING_SESSION);
-    setQuestionError(null);
-    if (showLoading) setError(null);
-
+  const completeInterview = useCallback(async () => {
+    if (!sessionId || completeInFlightRef.current) return null;
+    completeInFlightRef.current = true;
+    dispatch({ type: 'PHASE', phase: TechnicalV2FlowPhase.COMPLETING });
     try {
-      if (initialize) await technicalInterviewApi.initializeSession(sessionId);
-      if (requestIdRef.current !== requestId) return null;
-
-      const sessionResponse = await technicalInterviewApi.getSession(sessionId);
-      if (requestIdRef.current !== requestId) return null;
-      const nextSession = sessionResponse?.session || sessionResponse;
-      const status = getTechnicalSessionStatus(nextSession);
-      let nextQuestion = currentQuestionRef.current;
-      let nextQuestionError = null;
-
-      commitSession(nextSession);
-      setError(null);
-      if (canFetchCurrentQuestion(status)) {
-        try {
-          const questionResponse = await technicalInterviewApi.getCurrentQuestion(sessionId);
-          if (requestIdRef.current !== requestId) return null;
-          nextQuestion = normalizeTechnicalQuestion(
-            questionResponse?.currentQuestion || questionResponse?.question || questionResponse,
-          );
-          commitQuestion(nextQuestion);
-          setError(null);
-          setFlowStatus(TechnicalInterviewFlowStatus.QUESTION_READY);
-        } catch (requestError) {
-          if (requestIdRef.current !== requestId) return null;
-          nextQuestion = null;
-          nextQuestionError = requestError;
-          commitQuestion(null);
-          setQuestionError(requestError);
-        }
-      } else if (!isProcessingStatus(status)) {
-        nextQuestion = null;
-        commitQuestion(null);
-      }
-
-      if (status === TechnicalSessionStatus.SELECTING_QUESTION) {
-        setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_QUESTION);
-      } else if (status === TechnicalSessionStatus.EVALUATING) {
-        setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_NEXT_QUESTION);
-      } else if (status === TechnicalSessionStatus.FAILED) {
-        setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
-      } else if (status === TechnicalSessionStatus.CREATED) {
-        setFlowStatus(TechnicalInterviewFlowStatus.INITIALIZING_SESSION);
-      }
-
-      return {
-        session: nextSession,
-        currentQuestion: nextQuestion,
-        status,
-        questionError: nextQuestionError,
-      };
-    } catch (requestError) {
-      if (requestIdRef.current === requestId) {
-        setError(requestError);
-        setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
-      }
-      return { error: requestError };
+      const result = await technicalV2InterviewApi.complete(sessionId);
+      dispatch({ type: 'COMPLETED', result });
+      return result;
+    } catch (error) {
+      const normalized = normalizeError(error);
+      dispatch({ type: 'ERROR', error: normalized, fatal: false });
+      throw normalized;
     } finally {
-      if (requestIdRef.current === requestId && showLoading) setIsLoading(false);
+      completeInFlightRef.current = false;
     }
-  }, [commitQuestion, commitSession, sessionId]);
+  }, [sessionId]);
 
-  const load = useCallback(() => synchronize({ initialize: true, showLoading: true }), [synchronize]);
+  const retryFeedback = useCallback(async () => {
+    if (!sessionId || feedbackInFlightRef.current) return null;
+    feedbackInFlightRef.current = true;
+    dispatch({ type: 'FEEDBACK_RETRYING' });
+    try {
+      const result = await technicalV2InterviewApi.generateFeedback(sessionId);
+      dispatch({ type: 'COMPLETED', result });
+      return result;
+    } catch (error) {
+      const normalized = normalizeError(error);
+      dispatch({ type: 'FEEDBACK_RETRY_FAILED' });
+      throw normalized;
+    } finally {
+      feedbackInFlightRef.current = false;
+    }
+  }, [sessionId]);
 
-  useEffect(() => {
-    load();
-    return () => {
-      requestIdRef.current += 1;
-      startAbortRef.current?.abort();
-    };
-  }, [load]);
+  const completeIfReady = useCallback(async (sessionState, generalSession) => {
+    if (!isReadyToComplete(sessionState)) return null;
+    const result = await technicalV2InterviewApi.complete(sessionId);
+    dispatch({ type: 'COMPLETED', result, generalSession });
+    return result;
+  }, [sessionId]);
 
-  const status = getTechnicalSessionStatus(session);
-  useEffect(() => {
-    if (!isProcessingStatus(status)) return undefined;
-    let cancelled = false;
-    let timer = null;
-    const poll = async () => {
-      await synchronize();
-      if (!cancelled) timer = window.setTimeout(poll, PROCESSING_POLL_INTERVAL_MS);
-    };
-    timer = window.setTimeout(poll, PROCESSING_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [status, synchronize]);
-
-  useEffect(() => {
-    if (status !== TechnicalSessionStatus.SELECTING_QUESTION) return undefined;
-    const timer = window.setTimeout(() => {
-      setError({
-        code: 'QUESTION_GENERATION_TIMEOUT',
-        message: 'Question generation timed out.',
-      });
-      setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
-    }, QUESTION_GENERATION_UI_TIMEOUT_MS);
-    return () => window.clearTimeout(timer);
-  }, [status]);
-
-  const startSession = useCallback(async () => {
-    if (!sessionId || startingRef.current) return null;
-    startingRef.current = true;
-    setError(null);
-    setQuestionError(null);
-    setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_QUESTION);
-    commitQuestion(null);
+  const loadRoom = useCallback(async () => {
+    loadControllerRef.current?.abort();
     const controller = new AbortController();
-    startAbortRef.current = controller;
-    const timeout = window.setTimeout(() => controller.abort(), QUESTION_GENERATION_UI_TIMEOUT_MS);
-    try {
-      const response = await technicalInterviewApi.startSession(sessionId, { signal: controller.signal });
-      const question = normalizeTechnicalQuestion(
-        response?.currentQuestion || response?.question || response,
-        response?.progress,
-      );
-      const nextSession = response?.session || {
-        ...sessionRef.current,
-        sessionId,
-        status: question?.sessionStatus || TechnicalSessionStatus.QUESTION_READY,
-        sessionStatus: question?.sessionStatus || TechnicalSessionStatus.QUESTION_READY,
-      };
-      commitSession(nextSession);
-      if (question?.attemptId) {
-        commitQuestion(question);
-        setFlowStatus(TechnicalInterviewFlowStatus.QUESTION_READY);
-      } else {
-        await synchronize();
-      }
-      return nextSession;
-    } catch (requestError) {
-      const resolvedError = controller.signal.aborted
-        ? { code: 'QUESTION_GENERATION_TIMEOUT', message: 'Question generation timed out.' }
-        : requestError;
-      setError(resolvedError);
-      setFlowStatus(TechnicalInterviewFlowStatus.ERROR);
-      throw resolvedError;
-    } finally {
-      window.clearTimeout(timeout);
-      if (startAbortRef.current === controller) startAbortRef.current = null;
-      startingRef.current = false;
+    loadControllerRef.current = controller;
+
+    if (!sessionId) {
+      dispatch({
+        type: 'ERROR',
+        fatal: true,
+        error: new TechnicalV2InterviewError('Interview session ID is missing', {
+          code: TechnicalV2ErrorCode.SESSION_NOT_FOUND,
+        }),
+      });
+      return;
     }
-  }, [commitQuestion, commitSession, sessionId, synchronize]);
 
-  const markProcessing = useCallback((attemptId) => {
-    setProcessingStatus({ attemptId, evaluation: 'PROCESSING' });
-    setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_NEXT_QUESTION);
-    commitSession({
-      ...sessionRef.current,
-      sessionId,
-      status: TechnicalSessionStatus.EVALUATING,
-      sessionStatus: TechnicalSessionStatus.EVALUATING,
-    });
-  }, [commitSession, sessionId]);
+    dispatch({ type: 'PHASE', phase: TechnicalV2FlowPhase.CHECKING_SESSION });
+    try {
+      const [generalSession, activeCampaign] = await Promise.all([
+        interviewSessionService.getSession(sessionId),
+        interviewSessionService.getActiveCampaign(),
+      ]);
+      if (controller.signal.aborted) return;
 
-  const applyAnswerResponse = useCallback((response) => {
-    if (!response) return;
-    setProcessingStatus(response.processing || null);
-    const responseStatus = response.sessionStatus || getTechnicalSessionStatus(response.session);
-    if (response.session) commitSession(response.session);
-    else if (responseStatus) {
-      commitSession({
-        ...sessionRef.current,
-        sessionStatus: responseStatus,
-        status: responseStatus,
+      if (generalSession?.interviewRoundType !== 'Technical') {
+        throw new TechnicalV2InterviewError('Session is not a technical interview round', {
+          code: TechnicalV2ErrorCode.WRONG_ROUND_TYPE,
+          status: 400,
+        });
+      }
+
+      if (isCompletedStatus(generalSession.status)) {
+        dispatch({ type: 'PHASE', phase: TechnicalV2FlowPhase.COMPLETING });
+        const result = await technicalV2InterviewApi.getResult(sessionId, { signal: controller.signal });
+        dispatch({ type: 'COMPLETED', result, generalSession });
+        return;
+      }
+
+      if (generalSession.status === 'Cancelled') {
+        throw new TechnicalV2InterviewError('Technical interview session is cancelled', {
+          code: TechnicalV2ErrorCode.SESSION_CANCELLED,
+          status: 409,
+        });
+      }
+
+      const targetCampaign = String(activeCampaign?.interviewCampaignId)
+        === String(generalSession.interviewCampaignId)
+        ? activeCampaign
+        : await interviewSessionService.getCampaign(generalSession.interviewCampaignId);
+      if (targetCampaign?.status === 'Expired' || targetCampaign?.status === 'Cancelled' || targetCampaign?.status === 'Completed') {
+        throw new TechnicalV2InterviewError('Interview campaign is closed', {
+          code: TechnicalV2ErrorCode.CAMPAIGN_NOT_ACTIVE,
+          status: 409,
+        });
+      }
+
+      const otherActiveSession = activeCampaign?.sessions?.find((session) => (
+        session.status === 'Active'
+        && String(session.interviewSessionId) !== String(sessionId)
+      ));
+      if (otherActiveSession) {
+        dispatch({
+          type: 'CONFLICT',
+          generalSession,
+          conflict: createConflict(activeCampaign, otherActiveSession),
+        });
+        return;
+      }
+
+      dispatch({ type: 'PHASE', phase: TechnicalV2FlowPhase.INITIALIZING });
+      let sessionState;
+      try {
+        sessionState = await technicalV2InterviewApi.getState(sessionId, { signal: controller.signal });
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        if (error?.code !== TechnicalV2ErrorCode.NOT_INITIALIZED) throw error;
+        sessionState = await technicalV2InterviewApi.initialize(sessionId, undefined, {
+          signal: controller.signal,
+        });
+      }
+
+      if (sessionState?.isComplete || isCompletedStatus(sessionState?.sessionStatus)) {
+        const result = await technicalV2InterviewApi.getResult(sessionId, { signal: controller.signal });
+        dispatch({ type: 'COMPLETED', result, generalSession });
+        return;
+      }
+
+      dispatch({ type: 'PHASE', phase: TechnicalV2FlowPhase.LOADING_QUESTION });
+      let question = sessionState?.currentQuestion || null;
+      if (!question) {
+        try {
+          question = await technicalV2InterviewApi.start(sessionId, { signal: controller.signal });
+        } catch (error) {
+          if (error?.code === TechnicalV2ErrorCode.ALL_QUESTIONS_ANSWERED) {
+            const latestState = await technicalV2InterviewApi.getState(sessionId, {
+              signal: controller.signal,
+            });
+            const result = await completeIfReady(latestState, generalSession);
+            if (result) return;
+          }
+          if (error?.code === TechnicalV2ErrorCode.ROUND_COMPLETED) {
+            const result = await technicalV2InterviewApi.getResult(sessionId, { signal: controller.signal });
+            dispatch({ type: 'COMPLETED', result, generalSession });
+            return;
+          }
+          throw error;
+        }
+      }
+
+      const latestState = sessionState || await technicalV2InterviewApi.getState(
+        sessionId,
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
+      dispatch({
+        type: 'READY',
+        generalSession,
+        session: latestState,
+        question,
+        transcript: latestState?.transcript,
+        resumed: (latestState?.completedMainQuestionCount || 0) > 0,
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      const normalized = normalizeError(error);
+      const fatal = normalized.status === 401
+        || normalized.status === 403
+        || normalized.status === 404
+        || normalized.code === TechnicalV2ErrorCode.SESSION_NOT_FOUND
+        || normalized.code === TechnicalV2ErrorCode.CAMPAIGN_NOT_ACTIVE
+        || normalized.code === TechnicalV2ErrorCode.WRONG_ROUND_TYPE
+        || normalized.code === TechnicalV2ErrorCode.LEGACY_SESSION;
+      dispatch({ type: 'ERROR', error: normalized, fatal });
+    }
+  }, [completeIfReady, sessionId]);
+
+  useEffect(() => {
+    loadRoom();
+    return () => loadControllerRef.current?.abort();
+  }, [loadRoom]);
+
+  const reconcileSubmission = useCallback(async (submittedQuestion, transcript, generalSession) => {
+    const latestState = await technicalV2InterviewApi.getState(sessionId);
+    if (latestState?.isComplete || isReadyToComplete(latestState)) {
+      dispatch({
+        type: 'ANSWER_ACCEPTED',
+        question: submittedQuestion,
+        transcript,
+        nextQuestion: null,
+        session: latestState,
+      });
+      const result = await completeIfReady(latestState, generalSession);
+      return result ? { accepted: true, reconciled: true, completed: true, result } : { accepted: true, reconciled: true };
+    }
+
+    let currentQuestion = latestState?.currentQuestion || null;
+    if (!currentQuestion) {
+      try {
+        currentQuestion = await technicalV2InterviewApi.getCurrentQuestion(sessionId);
+      } catch (error) {
+        if (error?.code !== TechnicalV2ErrorCode.ALL_QUESTIONS_ANSWERED) throw error;
+      }
+    }
+
+    if (currentQuestion
+      && String(currentQuestion.sessionQuestionId) !== String(submittedQuestion.sessionQuestionId)) {
+      dispatch({
+        type: 'ANSWER_ACCEPTED',
+        question: submittedQuestion,
+        transcript,
+        nextQuestion: currentQuestion,
+        session: latestState,
+      });
+      return { accepted: true, reconciled: true };
+    }
+
+    if (String(latestState?.evaluationStatus || '').toUpperCase() === 'PROCESSING') {
+      return { accepted: false, processing: true };
+    }
+    return { accepted: false };
+  }, [completeIfReady, sessionId]);
+
+  const submitAnswer = useCallback(async ({ transcript, audioId, durationSeconds, sttConfidence }) => {
+    const question = state.currentQuestion;
+    const normalizedTranscript = transcript?.trim();
+    if (!normalizedTranscript) {
+      throw new TechnicalV2InterviewError('Transcript is required', {
+        code: TechnicalV2ErrorCode.TRANSCRIPT_REQUIRED,
       });
     }
+    if (!question?.sessionQuestionId || submitInFlightRef.current) return null;
 
-    const nextQuestion = normalizeTechnicalQuestion(
-      response.nextQuestion || response.currentQuestion || response.question,
-      response.progress,
-    );
-    if (nextQuestion) {
-      commitQuestion(nextQuestion);
-      setFlowStatus(TechnicalInterviewFlowStatus.QUESTION_READY);
-    } else if (responseStatus === TechnicalSessionStatus.COMPLETED) {
-      commitQuestion(null);
-      setFlowStatus(TechnicalInterviewFlowStatus.IDLE);
-    } else if (responseStatus === TechnicalSessionStatus.EVALUATING) {
-      setFlowStatus(TechnicalInterviewFlowStatus.GENERATING_NEXT_QUESTION);
-    }
-  }, [commitQuestion, commitSession]);
-
-  const reconcileAfterSubmission = useCallback(async (submittedAttemptId) => {
-    const synchronized = await synchronize();
-    if (!synchronized || synchronized.error) {
-      return { state: 'UNKNOWN', error: synchronized?.error };
+    const keyId = String(question.sessionQuestionId);
+    if (!idempotencyKeysRef.current.has(keyId)) {
+      const runtimeCrypto = typeof window !== 'undefined' ? window.crypto : null;
+      const suffix = typeof runtimeCrypto?.randomUUID === 'function'
+        ? runtimeCrypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      idempotencyKeysRef.current.set(keyId, `technical-v2-${sessionId}-${keyId}-${suffix}`);
     }
 
-    const nextStatus = synchronized.status;
-    const nextQuestion = synchronized.currentQuestion;
-    if (nextStatus === TechnicalSessionStatus.COMPLETED) return { state: 'ACCEPTED_COMPLETED' };
-    if (isProcessingStatus(nextStatus)) return { state: 'PROCESSING' };
-    if (canFetchCurrentQuestion(nextStatus) && nextQuestion?.attemptId) {
-      return String(nextQuestion.attemptId) === String(submittedAttemptId)
-        ? { state: 'RETRYABLE', currentQuestion: nextQuestion }
-        : { state: 'ACCEPTED_NEXT_QUESTION', currentQuestion: nextQuestion };
+    submitInFlightRef.current = true;
+    dispatch({ type: 'PHASE', phase: TechnicalV2FlowPhase.SUBMITTING_ANSWER });
+    try {
+      dispatch({ type: 'PHASE', phase: TechnicalV2FlowPhase.EVALUATING_ANSWER });
+      const response = await technicalV2InterviewApi.submitAnswer(
+        sessionId,
+        question.sessionQuestionId,
+        {
+          transcript: normalizedTranscript,
+          ...(audioId ? { audioId } : {}),
+          ...(Number.isFinite(durationSeconds) ? { answerDurationSeconds: durationSeconds } : {}),
+          ...(Number.isFinite(sttConfidence) ? { sttConfidence } : {}),
+        },
+        { idempotencyKey: idempotencyKeysRef.current.get(keyId) },
+      );
+
+      const nextState = response?.state || state.session;
+      const nextQuestion = response?.nextQuestion || null;
+      dispatch({
+        type: 'ANSWER_ACCEPTED',
+        question,
+        transcript: normalizedTranscript,
+        nextQuestion,
+        session: nextState,
+      });
+      idempotencyKeysRef.current.delete(keyId);
+
+      if (response?.decision === 'COMPLETE' || isReadyToComplete(nextState)) {
+        try {
+          const result = await completeInterview();
+          return { accepted: true, completed: true, result, response };
+        } catch (completionError) {
+          dispatch({ type: 'ERROR', error: normalizeError(completionError), fatal: false });
+          return { accepted: true, completionPending: true, response };
+        }
+      }
+
+      return { accepted: true, response };
+    } catch (error) {
+      if (error?.name === 'AbortError') return null;
+      const normalized = normalizeError(error);
+      try {
+        const reconciliation = await reconcileSubmission(question, normalizedTranscript, state.generalSession);
+        if (reconciliation.accepted) {
+          idempotencyKeysRef.current.delete(keyId);
+          return reconciliation;
+        }
+        if (reconciliation.processing) {
+          dispatch({ type: 'PHASE', phase: TechnicalV2FlowPhase.EVALUATING_ANSWER });
+          return { accepted: false, processing: true };
+        }
+      } catch {
+        // Keep the stable idempotency key so a retry represents the same submission.
+      }
+
+      dispatch({ type: 'ERROR', error: normalized, fatal: false });
+      throw normalized;
+    } finally {
+      submitInFlightRef.current = false;
     }
-    return { state: 'UNKNOWN' };
-  }, [synchronize]);
+  }, [completeInterview, reconcileSubmission, sessionId, state.currentQuestion, state.generalSession, state.session]);
 
   return {
-    session,
-    currentQuestion,
-    processingStatus,
-    isProcessing: isProcessingStatus(status),
-    isLoading,
-    error,
-    questionError,
-    flowStatus,
-    reload: load,
-    synchronize,
-    startSession,
-    markProcessing,
-    applyAnswerResponse,
-    reconcileAfterSubmission,
+    ...state,
+    isBusy: [
+      TechnicalV2FlowPhase.CHECKING_SESSION,
+      TechnicalV2FlowPhase.INITIALIZING,
+      TechnicalV2FlowPhase.LOADING_QUESTION,
+      TechnicalV2FlowPhase.SUBMITTING_ANSWER,
+      TechnicalV2FlowPhase.EVALUATING_ANSWER,
+      TechnicalV2FlowPhase.COMPLETING,
+    ].includes(state.phase),
+    reload: loadRoom,
+    submitAnswer,
+    completeInterview,
+    retryFeedback,
+    dismissError: () => dispatch({ type: 'DISMISS_ERROR' }),
   };
 }

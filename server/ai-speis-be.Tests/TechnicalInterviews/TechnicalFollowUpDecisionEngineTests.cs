@@ -14,56 +14,56 @@ public sealed class TechnicalFollowUpDecisionEngineTests
     };
 
     [Fact]
-    public void Resolve_AllowsClarificationWithinLimitWithoutCompletingMainQuestion()
+    public void Resolve_TriggersClarificationWhenScoreBelowThreshold()
     {
         var engine = new TechnicalFollowUpDecisionEngine();
 
         var result = engine.Resolve(
-            TechnicalInterviewDecision.Clarification,
+            2.5m,
             0,
             0,
-            0,
-            5,
+            true,
+            true,
             true,
             Limits);
 
         Assert.False(result.FinalizeMainQuestion);
-        Assert.Equal(TechnicalAttemptType.Clarification, result.NextAttemptType);
+        Assert.Equal(TechnicalSessionQuestionType.Clarification, result.NextQuestionType);
     }
 
     [Fact]
-    public void Resolve_ForcesNextQuestionWhenSubQuestionLimitReached()
+    public void Resolve_TriggersFollowUpWhenScoreIsMedium()
     {
         var engine = new TechnicalFollowUpDecisionEngine();
 
         var result = engine.Resolve(
-            TechnicalInterviewDecision.FollowUp,
-            1,
-            1,
-            2,
-            5,
+            4.5m,
+            0,
+            0,
+            true,
+            true,
+            true,
+            Limits);
+
+        Assert.False(result.FinalizeMainQuestion);
+        Assert.Equal(TechnicalSessionQuestionType.FollowUp, result.NextQuestionType);
+    }
+
+    [Fact]
+    public void Resolve_AdvancesToNextQuestionWhenScoreIsHigh()
+    {
+        var engine = new TechnicalFollowUpDecisionEngine();
+
+        var result = engine.Resolve(
+            8.5m,
+            0,
+            0,
+            true,
+            true,
             true,
             Limits);
 
         Assert.True(result.FinalizeMainQuestion);
         Assert.Equal(TechnicalInterviewDecision.NextQuestion, result.Decision);
-    }
-
-    [Fact]
-    public void Resolve_BackendEndsOnlyAfterTargetMainQuestionCount()
-    {
-        var engine = new TechnicalFollowUpDecisionEngine();
-
-        var result = engine.Resolve(
-            TechnicalInterviewDecision.EndInterview,
-            0,
-            0,
-            4,
-            5,
-            false,
-            Limits);
-
-        Assert.Equal(TechnicalInterviewDecision.EndInterview, result.Decision);
-        Assert.True(result.FinalizeMainQuestion);
     }
 }

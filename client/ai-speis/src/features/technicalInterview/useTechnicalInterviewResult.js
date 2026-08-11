@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import technicalInterviewApi from '../../services/technicalInterviewApi';
-import { normalizeTechnicalInterviewResult } from './technicalInterviewResult';
+import technicalV2InterviewApi from '../../services/technicalV2InterviewApi';
 
 export default function useTechnicalInterviewResult(sessionId) {
   const [result, setResult] = useState(null);
@@ -21,10 +20,8 @@ export default function useTechnicalInterviewResult(sessionId) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await technicalInterviewApi.getResult(sessionId);
-      if (requestIdRef.current === requestId) {
-        setResult(normalizeTechnicalInterviewResult(response?.result || response));
-      }
+      const response = await technicalV2InterviewApi.getResult(sessionId);
+      if (requestIdRef.current === requestId) setResult(response?.result || response);
     } catch (requestError) {
       if (requestIdRef.current === requestId) setError(requestError);
     } finally {
@@ -34,9 +31,7 @@ export default function useTechnicalInterviewResult(sessionId) {
 
   useEffect(() => {
     load();
-    return () => {
-      requestIdRef.current += 1;
-    };
+    return () => { requestIdRef.current += 1; };
   }, [load]);
 
   const retryFeedback = useCallback(async () => {
@@ -45,10 +40,10 @@ export default function useTechnicalInterviewResult(sessionId) {
     setIsRetryingFeedback(true);
     setFeedbackError(null);
     try {
-      const response = await technicalInterviewApi.generateFeedback(sessionId);
-      const normalized = normalizeTechnicalInterviewResult(response?.result || response);
-      setResult(normalized);
-      return normalized;
+      const response = await technicalV2InterviewApi.generateFeedback(sessionId);
+      const nextResult = response?.result || response;
+      setResult(nextResult);
+      return nextResult;
     } catch (requestError) {
       setFeedbackError(requestError);
       throw requestError;

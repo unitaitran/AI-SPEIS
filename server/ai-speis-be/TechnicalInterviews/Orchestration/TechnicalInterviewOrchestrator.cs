@@ -1893,7 +1893,8 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                     .ThenInclude(attempt => attempt.Evaluations)
                 .FirstOrDefaultAsync(session =>
                     session.InterviewSessionId == sessionId
-                    && session.InterviewCampaign.UserId == userId,
+                    && session.InterviewCampaign.UserId == userId
+                    && session.TechnicalRuntimeVersion != "V2",
                     cancellationToken);
         }
 

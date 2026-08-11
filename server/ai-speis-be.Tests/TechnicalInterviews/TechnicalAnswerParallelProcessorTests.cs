@@ -65,6 +65,9 @@ public sealed class TechnicalAnswerEvaluationProcessorTests
         public abstract Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
             TechnicalAnswerProcessingContext context,
             CancellationToken cancellationToken);
+        public Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAnswerV2Async(
+            TechnicalV2AnswerProcessingContext context,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
             TechnicalAIFinalSummaryRequest request,
             CancellationToken cancellationToken) => throw new NotSupportedException();

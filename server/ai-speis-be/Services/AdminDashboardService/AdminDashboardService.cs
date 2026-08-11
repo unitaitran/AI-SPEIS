@@ -192,8 +192,13 @@ namespace ai_speis_be.Services.AdminDashboardService
             var todayInterviews = await _context.InterviewSessions.CountAsync(s => s.CreatedAt >= startOfToday, cancellationToken);
 
             var completedSessionsWithScores = await _context.InterviewSessions
-                .Where(s => s.Status == InterviewSessionStatus.Completed && s.TechnicalFinalScore != null)
-                .Select(s => (double)s.TechnicalFinalScore!.Value)
+                .Where(s => s.InterviewRoundType == InterviewRoundType.Technical
+                    && s.Status == InterviewSessionStatus.Completed
+                    && ((s.TechnicalRuntimeVersion == "V2" && s.TechnicalRoundResult != null && s.TechnicalRoundResult.OverallScore != null)
+                        || (s.TechnicalRuntimeVersion != "V2" && s.TechnicalFinalScore != null)))
+                .Select(s => (double)(s.TechnicalRuntimeVersion == "V2"
+                    ? s.TechnicalRoundResult!.OverallScore!.Value
+                    : s.TechnicalFinalScore!.Value))
                 .ToListAsync(cancellationToken);
 
             var avgAiScore = completedSessionsWithScores.Count > 0 ? Math.Round(completedSessionsWithScores.Average(), 1) : 7.8;

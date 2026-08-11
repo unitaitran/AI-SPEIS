@@ -183,26 +183,26 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             else
             {
                 var legacy = _decisionEngine.Resolve(
-                    ResolveRubricAction(
-                        evaluation,
-                        score.FinalOverallScore,
-                        canClarify: true,
-                        canFollowUp: true),
+                    score.FinalOverallScore,
                     context.ClarificationCount,
                     context.FollowUpCount,
-                    context.CompletedMainQuestionCount,
-                    context.TargetMainQuestionCount,
-                    hasValidNextQuestion: true,
+                    true,
+                    true,
+                    true,
                     rubric.Limits);
                 resolvedDecision = legacy.Decision;
                 finalizeMainQuestion = legacy.FinalizeMainQuestion;
-                nextAttemptType = legacy.NextAttemptType;
+                nextAttemptType = legacy.NextQuestionType == TechnicalSessionQuestionType.Clarification
+                    ? TechnicalAttemptType.Clarification
+                    : legacy.NextQuestionType == TechnicalSessionQuestionType.FollowUp
+                        ? TechnicalAttemptType.FollowUp
+                        : null;
                 nextGenerationReason = TechnicalQuestionGenerationReason.AdaptiveScoreRule;
                 requiredClarificationCount = context.RequiredClarificationCount;
                 requiredFollowUpCount = context.RequiredFollowUpCount;
                 adaptiveStage = legacy.FinalizeMainQuestion
                     ? TechnicalAdaptiveStage.Finalized
-                    : legacy.NextAttemptType == TechnicalAttemptType.Clarification
+                    : nextAttemptType == TechnicalAttemptType.Clarification
                         ? TechnicalAdaptiveStage.AwaitingClarification
                         : TechnicalAdaptiveStage.AwaitingFollowUp;
                 finalMainQuestionScore = legacy.FinalizeMainQuestion ? score.FinalOverallScore : null;

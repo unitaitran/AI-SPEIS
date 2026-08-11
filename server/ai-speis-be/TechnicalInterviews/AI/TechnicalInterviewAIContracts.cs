@@ -7,6 +7,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
     {
         public const string Selection = "technical-selection-v1";
         public const string Evaluation = "technical-evaluation-rubric-v8";
+        public const string EvaluationV2 = "technical-v2-evaluation-v5";
         public const string Summary = "technical-round-feedback-v2";
     }
 
@@ -85,6 +86,26 @@ namespace ai_speis_be.TechnicalInterviews.AI
 
     }
 
+    // Technical V2 has an explicit response contract for the official five
+    // Technical criteria; its transport and persistence flow is separate from legacy.
+    public sealed class TechnicalV2EvaluationResponse
+    {
+        public TechnicalV2EvaluationPayload? Evaluation { get; set; }
+    }
+
+    public sealed class TechnicalV2EvaluationPayload
+    {
+        public List<TechnicalV2DimensionEvaluation>? DimensionEvaluations { get; set; }
+    }
+
+    public sealed class TechnicalV2DimensionEvaluation
+    {
+        public string? RubricCode { get; set; }
+        public decimal? SuggestedScore { get; set; }
+        public List<string>? Evidence { get; set; }
+        public List<string>? MissingEvidence { get; set; }
+    }
+
     public sealed class TechnicalAIFinalSummaryRequest
     {
         public string RubricVersion { get; init; } = string.Empty;
@@ -118,6 +139,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public int? InputTokens { get; init; }
         public int? OutputTokens { get; init; }
         public string? ErrorCode { get; init; }
+        public bool PartialEvaluation { get; init; }
+        public IReadOnlyList<string> InvalidCriterionCodes { get; init; } = Array.Empty<string>();
         public string? RawResponse { get; init; }
         public AiJsonRecoveryMetadata? JsonRecovery { get; init; }
         public int RetryCount { get; init; }

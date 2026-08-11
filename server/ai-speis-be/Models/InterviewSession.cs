@@ -28,6 +28,11 @@ namespace ai_speis_be.Models
         [Required]
         public InterviewSessionStatus Status { get; set; } = InterviewSessionStatus.Pending;
 
+        // Explicit cutover marker for Technical rounds only. The foundation migration
+        // backfills pre-cutover Technical rows as LEGACY.
+        [MaxLength(20)]
+        public string? TechnicalRuntimeVersion { get; set; }
+
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -120,6 +125,10 @@ namespace ai_speis_be.Models
         public virtual InterviewCampaign InterviewCampaign { get; set; } = null!;
 
         public virtual ICollection<TechnicalQuestionAttempt> TechnicalQuestionAttempts { get; set; } = new List<TechnicalQuestionAttempt>();
+
+        public virtual TechnicalQuestionSet? TechnicalQuestionSet { get; set; }
+
+        public virtual TechnicalRoundResult? TechnicalRoundResult { get; set; }
 
         public virtual ICollection<AIInteractionLog> AIInteractionLogs { get; set; } = new List<AIInteractionLog>();
     }

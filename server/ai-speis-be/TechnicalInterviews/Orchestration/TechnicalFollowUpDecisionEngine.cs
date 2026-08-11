@@ -6,58 +6,89 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
     public sealed record TechnicalDecisionOutcome(
         TechnicalInterviewDecision Decision,
         bool FinalizeMainQuestion,
-        TechnicalAttemptType? NextAttemptType);
+        TechnicalSessionQuestionType? NextQuestionType);
 
     public interface ITechnicalFollowUpDecisionEngine
     {
         TechnicalDecisionOutcome Resolve(
-            TechnicalInterviewDecision aiDecision,
+            decimal? baseScore,
             int clarificationsUsed,
             int followUpsUsed,
-            int completedMainQuestions,
-            int targetMainQuestions,
-            bool hasValidNextQuestion,
+            bool hasClarificationQuestion,
+            bool hasFollowUp1,
+            bool hasFollowUp2,
             TechnicalQuestionLimits limits);
     }
 
     public sealed class TechnicalFollowUpDecisionEngine : ITechnicalFollowUpDecisionEngine
     {
+        private const decimal ClarificationThreshold = 3m;
+        private const decimal TwoFollowUpsThreshold = 6m;
+        private const decimal OneFollowUpThreshold = 8m;
+
         public TechnicalDecisionOutcome Resolve(
-            TechnicalInterviewDecision aiDecision,
+            decimal? baseScore,
             int clarificationsUsed,
             int followUpsUsed,
-            int completedMainQuestions,
-            int targetMainQuestions,
-            bool hasValidNextQuestion,
+            bool hasClarificationQuestion,
+            bool hasFollowUp1,
+            bool hasFollowUp2,
             TechnicalQuestionLimits limits)
         {
             var totalSubQuestions = clarificationsUsed + followUpsUsed;
-            if (hasValidNextQuestion && totalSubQuestions < limits.MaxTotalSubQuestionsPerMainQuestion)
+            if (baseScore is null || totalSubQuestions >= limits.MaxTotalSubQuestionsPerMainQuestion)
             {
-                if (aiDecision == TechnicalInterviewDecision.Clarification
-                    && clarificationsUsed < limits.MaxClarificationsPerMainQuestion)
+                return Next();
+            }
+
+            var score = baseScore.Value;
+
+            if (score < ClarificationThreshold)
+            {
+                if (clarificationsUsed < limits.MaxClarificationsPerMainQuestion && hasClarificationQuestion)
                 {
                     return new TechnicalDecisionOutcome(
                         TechnicalInterviewDecision.Clarification,
                         false,
-                        TechnicalAttemptType.Clarification);
+                        TechnicalSessionQuestionType.Clarification);
                 }
 
-                if (aiDecision == TechnicalInterviewDecision.FollowUp
-                    && followUpsUsed < limits.MaxFollowUpsPerMainQuestion)
+                return Next();
+            }
+
+            if (score >= OneFollowUpThreshold)
+            {
+                return Next();
+            }
+
+            var desiredFollowUps = score < TwoFollowUpsThreshold ? 2 : 1;
+            desiredFollowUps = Math.Min(desiredFollowUps, limits.MaxFollowUpsPerMainQuestion);
+
+            if (followUpsUsed < desiredFollowUps)
+            {
+                if (followUpsUsed == 0 && hasFollowUp1)
                 {
                     return new TechnicalDecisionOutcome(
                         TechnicalInterviewDecision.FollowUp,
                         false,
-                        TechnicalAttemptType.FollowUp);
+                        TechnicalSessionQuestionType.FollowUp);
+                }
+
+                if (followUpsUsed == 1 && hasFollowUp2)
+                {
+                    return new TechnicalDecisionOutcome(
+                        TechnicalInterviewDecision.FollowUp,
+                        false,
+                        TechnicalSessionQuestionType.FollowUp);
                 }
             }
 
-            var finalDecision = completedMainQuestions + 1 >= targetMainQuestions
-                ? TechnicalInterviewDecision.EndInterview
-                : TechnicalInterviewDecision.NextQuestion;
+            return Next();
+        }
 
-            return new TechnicalDecisionOutcome(finalDecision, true, null);
+        private static TechnicalDecisionOutcome Next()
+        {
+            return new TechnicalDecisionOutcome(TechnicalInterviewDecision.NextQuestion, true, null);
         }
     }
 }

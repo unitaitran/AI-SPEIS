@@ -242,7 +242,8 @@ builder.Services.AddScoped<IBehaviouralInterviewOrchestrator, BehaviouralIntervi
 builder.Services.AddSingleton<ITechnicalRubricProvider, TechnicalRubricProvider>();
 builder.Services.AddSingleton<ITechnicalAIConcurrencyGate, TechnicalAIConcurrencyGate>();
 builder.Services.AddScoped<ExternalTechnicalInterviewAIProvider>();
-builder.Services.AddScoped<GeminiTechnicalInterviewAIProvider>();
+builder.Services.AddScoped<ITechnicalInterviewAIProvider, GeminiTechnicalInterviewAIProvider>();
+builder.Services.AddScoped<ITechnicalInterviewAIProvider, OllamaTechnicalInterviewAIProvider>();
 builder.Services.AddScoped<ITechnicalInterviewAIProviderResolver, TechnicalInterviewAIProviderResolver>();
 builder.Services.AddScoped<ITechnicalAIResponseValidator, TechnicalAIResponseValidator>();
 builder.Services.AddScoped<ITechnicalRubricScoringService, TechnicalRubricScoringService>();
@@ -254,6 +255,7 @@ builder.Services.AddScoped<ITechnicalAnswerEvaluationProcessor, TechnicalAnswerE
 builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
+builder.Services.AddScoped<ai_speis_be.TechnicalInterviews.V2.ITechnicalV2InterviewOrchestrator, ai_speis_be.TechnicalInterviews.V2.TechnicalV2InterviewOrchestrator>();
 builder.Services.AddSingleton<ITechnicalPreGenerationService, TechnicalPreGenerationService>();
 
 // Google Cloud Quota & Billing Cost Monitoring
@@ -391,6 +393,11 @@ using (var scope = app.Services.CreateScope())
                     CONSTRAINT [FK_UserSkillScore_InterviewCampaign] FOREIGN KEY ([InterviewCampaignId]) REFERENCES [InterviewCampaign]([InterviewCampaignId]),
                     CONSTRAINT [FK_UserSkillScore_InterviewSession] FOREIGN KEY ([InterviewSessionId]) REFERENCES [InterviewSession]([InterviewSessionId])
                 );
+            END;
+
+            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[TechnicalAnswer]') AND name = N'AiApplicationScore')
+            BEGIN
+                ALTER TABLE [dbo].[TechnicalAnswer] ADD [AiApplicationScore] decimal(18,2) NULL;
             END;
         ");
     }

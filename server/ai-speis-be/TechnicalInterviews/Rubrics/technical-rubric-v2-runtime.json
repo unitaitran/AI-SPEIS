@@ -1,0 +1,146 @@
+{
+  "version": "technical-v2-runtime",
+  "scoringPolicyVersion": "technical-v2-scoring",
+  "minimumScore": 0,
+  "maximumScore": 10,
+  "roundingPrecision": 2,
+  "evidenceRequiredWhenScoreAbove": 0,
+  "dimensions": [
+    {
+      "code": "ACCURACY",
+      "name": "Accuracy",
+      "description": "Technical correctness: 9-10 fully correct, 7-8 few errors, 5-6 partly correct, 0-4 many errors or incorrect.",
+      "weight": 0.30
+    },
+    {
+      "code": "TECHNICAL_DEPTH",
+      "name": "Technical Depth",
+      "description": "Depth of understanding: 9-10 explains essence and analyzes deeply, 7-8 is clear, 5-6 is surface-level, 0-4 shows no understanding.",
+      "weight": 0.25
+    },
+    {
+      "code": "REASONING",
+      "name": "Reasoning",
+      "description": "Reasoning quality: 9-10 is logical with examples, 7-8 relatively logical, 5-6 fragmented, 0-4 has no reasoning.",
+      "weight": 0.20
+    },
+    {
+      "code": "APPLICATION",
+      "name": "Application",
+      "description": "Practical application: 9-10 relates to a real project, 7-8 gives an example, 5-6 gives a simple example, 0-4 cannot apply it.",
+      "weight": 0.15
+    },
+    {
+      "code": "COMMUNICATION",
+      "name": "Communication",
+      "description": "Communication quality: 9-10 clear and professional, 7-8 understandable, 5-6 hesitant, 0-4 hard to understand.",
+      "weight": 0.10
+    }
+  ],
+  "levels": [
+    {
+      "code": "SCORE_0",
+      "score": 0,
+      "description": "No demonstrated evidence."
+    },
+    {
+      "code": "SCORE_1",
+      "score": 1,
+      "description": "Almost no correct or relevant evidence."
+    },
+    {
+      "code": "SCORE_2",
+      "score": 2,
+      "description": "Very weak understanding with major errors."
+    },
+    {
+      "code": "SCORE_3",
+      "score": 3,
+      "description": "Weak understanding with substantial gaps."
+    },
+    {
+      "code": "SCORE_4",
+      "score": 4,
+      "description": "Partial understanding below the expected requirement."
+    },
+    {
+      "code": "SCORE_5",
+      "score": 5,
+      "description": "Minimum requirement met."
+    },
+    {
+      "code": "SCORE_6",
+      "score": 6,
+      "description": "Generally correct with missing depth or evidence."
+    },
+    {
+      "code": "SCORE_7",
+      "score": 7,
+      "description": "Good answer with clear reasoning and relevant application."
+    },
+    {
+      "code": "SCORE_8",
+      "score": 8,
+      "description": "Very good answer with strong technical evidence."
+    },
+    {
+      "code": "SCORE_9",
+      "score": 9,
+      "description": "Excellent, complete and precise answer."
+    },
+    {
+      "code": "SCORE_10",
+      "score": 10,
+      "description": "Exceptional mastery with complete evidence and trade-off analysis."
+    }
+  ],
+  "performanceBands": [
+    {
+      "code": "EXCELLENT",
+      "name": "Excellent",
+      "minimum": 9.0,
+      "maximum": 10.0,
+      "maximumExclusive": false
+    },
+    {
+      "code": "VERY_GOOD",
+      "name": "Very Good",
+      "minimum": 8.0,
+      "maximum": 9.0,
+      "maximumExclusive": true
+    },
+    {
+      "code": "GOOD",
+      "name": "Good",
+      "minimum": 6.5,
+      "maximum": 8.0,
+      "maximumExclusive": true
+    },
+    {
+      "code": "FAIR",
+      "name": "Fair",
+      "minimum": 5.0,
+      "maximum": 6.5,
+      "maximumExclusive": true
+    },
+    {
+      "code": "WEAK",
+      "name": "Weak",
+      "minimum": 3.0,
+      "maximum": 5.0,
+      "maximumExclusive": true
+    },
+    {
+      "code": "POOR",
+      "name": "Poor",
+      "minimum": 0.0,
+      "maximum": 3.0,
+      "maximumExclusive": true
+    }
+  ],
+  "limits": {
+    "maxClarificationsPerMainQuestion": 1,
+    "maxFollowUpsPerMainQuestion": 2,
+    "maxTotalSubQuestionsPerMainQuestion": 3
+  }
+}

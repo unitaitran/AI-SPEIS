@@ -9,6 +9,22 @@ namespace ai_speis_be.TechnicalInterviews.Rubrics
 
     public sealed class TechnicalRubricProvider : ITechnicalRubricProvider
     {
+        private static readonly string[] TechnicalV2DimensionCodes =
+        {
+            "ACCURACY",
+            "TECHNICAL_DEPTH",
+            "REASONING",
+            "APPLICATION",
+            "COMMUNICATION"
+        };
+        private static readonly decimal[] TechnicalV2DimensionWeights =
+        {
+            0.30m,
+            0.25m,
+            0.20m,
+            0.15m,
+            0.10m
+        };
         private readonly IReadOnlyDictionary<string, TechnicalRubricDefinition> _rubrics;
 
         public TechnicalRubricProvider(IWebHostEnvironment environment)
@@ -57,6 +73,16 @@ namespace ai_speis_be.TechnicalInterviews.Rubrics
             if (string.IsNullOrWhiteSpace(rubric.Version) || rubric.Dimensions.Count == 0)
             {
                 throw new InvalidOperationException($"Technical rubric file {file} is incomplete.");
+            }
+
+            if (string.Equals(rubric.Version, "technical-v2-runtime", StringComparison.OrdinalIgnoreCase)
+                && (!rubric.Dimensions.Select(item => item.Code).SequenceEqual(TechnicalV2DimensionCodes, StringComparer.OrdinalIgnoreCase)
+                    || !rubric.Dimensions.Select(item => item.Weight).SequenceEqual(TechnicalV2DimensionWeights)
+                    || rubric.MinimumScore != 0m
+                    || rubric.MaximumScore != 10m
+                    || rubric.RoundingPrecision != 2))
+            {
+                throw new InvalidOperationException($"Technical V2 rubric file {file} must contain exactly the canonical five criteria with weights 0.30/0.25/0.20/0.15/0.10, score range 0-10 and precision 2.");
             }
 
             if (rubric.Dimensions.Select(item => item.Code).Distinct(StringComparer.OrdinalIgnoreCase).Count()

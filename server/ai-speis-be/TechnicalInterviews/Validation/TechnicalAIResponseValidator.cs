@@ -12,7 +12,12 @@ namespace ai_speis_be.TechnicalInterviews.Validation
 
     public sealed record TechnicalEvaluationValidationResult(
         bool IsValid,
-        string? ErrorCode);
+        string? ErrorCode)
+    {
+        public bool IsPartial { get; init; }
+        public TechnicalV2EvaluationResponse? NormalizedEvaluation { get; init; }
+        public IReadOnlyList<string> InvalidCriterionCodes { get; init; } = Array.Empty<string>();
+    }
 
     public interface ITechnicalAIResponseValidator
     {
@@ -25,6 +30,11 @@ namespace ai_speis_be.TechnicalInterviews.Validation
 
         TechnicalEvaluationValidationResult ValidateEvaluation(
             TechnicalAIEvaluationResponse evaluation,
+            TechnicalRubricDefinition rubric,
+            IReadOnlyList<TechnicalAnswerContext> answerContext);
+
+        TechnicalEvaluationValidationResult ValidateEvaluationV2(
+            TechnicalV2EvaluationResponse evaluation,
             TechnicalRubricDefinition rubric,
             IReadOnlyList<TechnicalAnswerContext> answerContext);
     }
@@ -169,6 +179,120 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             return new TechnicalEvaluationValidationResult(true, null);
         }
 
+        public TechnicalEvaluationValidationResult ValidateEvaluationV2(
+            TechnicalV2EvaluationResponse evaluation,
+            TechnicalRubricDefinition rubric,
+            IReadOnlyList<TechnicalAnswerContext> answerContext)
+        {
+            if (evaluation?.Evaluation is null
+                || evaluation.Evaluation.DimensionEvaluations is null
+                || evaluation.Evaluation.DimensionEvaluations.Count == 0)
+            {
+                return Invalid("INVALID_V2_EVALUATION");
+            }
+
+            var expected = rubric.Dimensions.ToList();
+            var dimensions = evaluation.Evaluation.DimensionEvaluations;
+            var transcript = NormalizeEvidence(string.Join(" ", answerContext.Select(item => item.Answer)));
+            var normalized = new List<TechnicalV2DimensionEvaluation>(expected.Count);
+            var invalidCodes = new List<string>();
+            var recognizableDimensions = dimensions
+                .Where(item => expected.Any(expectedDimension => IsRubricMatch(item.RubricCode, expectedDimension)))
+                .ToList();
+            if (recognizableDimensions.Count == 0)
+            {
+                return Invalid("INVALID_V2_DIMENSIONS");
+            }
+
+            var partial = false;
+            string? firstError = null;
+            if (recognizableDimensions.Count != dimensions.Count)
+            {
+                partial = true;
+                firstError ??= "INVALID_V2_DIMENSIONS";
+            }
+
+            foreach (var rubricDimension in expected)
+            {
+                var matches = recognizableDimensions
+                    .Where(item => IsRubricMatch(item.RubricCode, rubricDimension))
+                    .ToList();
+                if (matches.Count != 1)
+                {
+                    partial = true;
+                    var errorCode = matches.Count == 0 ? "MISSING_V2_CRITERION" : "INVALID_V2_DIMENSIONS";
+                    firstError ??= errorCode;
+                    invalidCodes.Add(rubricDimension.Code);
+                    normalized.Add(BuildInvalidDimension(rubricDimension, errorCode));
+                    continue;
+                }
+
+                var dimension = matches[0];
+                dimension.RubricCode = rubricDimension.Code;
+                var criterionError = ValidateCriterion(dimension, rubric, transcript);
+                if (criterionError is not null)
+                {
+                    partial = true;
+                    firstError ??= criterionError;
+                    invalidCodes.Add(rubricDimension.Code);
+                    normalized.Add(BuildInvalidDimension(rubricDimension, criterionError));
+                    continue;
+                }
+
+                normalized.Add(dimension);
+            }
+
+            evaluation.Evaluation.DimensionEvaluations = normalized;
+
+            return new TechnicalEvaluationValidationResult(true, firstError)
+            {
+                IsPartial = partial,
+                NormalizedEvaluation = evaluation,
+                InvalidCriterionCodes = invalidCodes
+            };
+        }
+
+        private static bool IsRubricMatch(string? code, TechnicalRubricDimension rubricDimension)
+        {
+            return !string.IsNullOrWhiteSpace(code)
+                && (string.Equals(code.Trim(), rubricDimension.Code, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(code.Trim(), rubricDimension.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string? ValidateCriterion(
+            TechnicalV2DimensionEvaluation dimension,
+            TechnicalRubricDefinition rubric,
+            string transcript)
+        {
+            if (dimension.SuggestedScore is null
+                || dimension.SuggestedScore < rubric.MinimumScore
+                || dimension.SuggestedScore > rubric.MaximumScore
+                || !HasPrecision(dimension.SuggestedScore.Value, rubric.RoundingPrecision))
+            {
+                return "INVALID_V2_SCORE";
+            }
+
+            dimension.Evidence ??= new List<string>();
+            dimension.MissingEvidence ??= new List<string>();
+            dimension.Evidence.RemoveAll(string.IsNullOrWhiteSpace);
+            dimension.MissingEvidence.RemoveAll(string.IsNullOrWhiteSpace);
+
+            return null;
+        }
+
+        private static TechnicalV2DimensionEvaluation BuildInvalidDimension(
+            TechnicalRubricDimension rubricDimension,
+            string errorCode)
+        {
+            return new TechnicalV2DimensionEvaluation
+            {
+                RubricCode = rubricDimension.Code,
+                SuggestedScore = 0m,
+                Evidence = new List<string>(),
+                MissingEvidence = new List<string> { $"AI evaluation unavailable ({errorCode})." }
+            };
+        }
+
         private static TechnicalEvaluationValidationResult Invalid(string errorCode)
         {
             return new TechnicalEvaluationValidationResult(
@@ -184,18 +308,39 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             }
 
             var normalizedEvidence = NormalizeEvidence(evidence);
-            return normalizedEvidence.Length > 0
-                && normalizedTranscript.Contains(normalizedEvidence, StringComparison.Ordinal);
+            if (normalizedEvidence.Length == 0) return false;
+
+            // 1. Direct contiguous substring match
+            if (normalizedTranscript.Contains(normalizedEvidence, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            // 2. Token overlap fallback for local AI models (e.g., Ollama / aispeis) that summarize/paraphrase evidence
+            var evidenceTokens = normalizedEvidence.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (evidenceTokens.Length == 0) return false;
+
+            var transcriptTokens = normalizedTranscript.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .ToHashSet(StringComparer.Ordinal);
+
+            var significantEvidenceTokens = evidenceTokens
+                .Where(t => t.Length > 2 && t is not "the" and not "and" and not "for" and not "with" and not "that" and not "this" and not "from")
+                .ToList();
+
+            if (significantEvidenceTokens.Count == 0)
+            {
+                significantEvidenceTokens = evidenceTokens.ToList();
+            }
+
+            int matchedCount = significantEvidenceTokens.Count(token => transcriptTokens.Contains(token));
+            return (double)matchedCount / significantEvidenceTokens.Count >= 0.40;
         }
+
+        private static bool HasPrecision(decimal value, int precision) =>
+            decimal.Round(value, precision, MidpointRounding.AwayFromZero) == value;
 
         private static string NormalizeEvidence(string value)
         {
-            // AI providers and speech-to-text engines may return canonically
-            // equivalent Unicode, omit Vietnamese diacritics, or change only
-            // punctuation around an otherwise verbatim quote. Ground evidence
-            // against the candidate transcript after removing those formatting
-            // differences; word order and content must still be a contiguous
-            // match, so invented or paraphrased evidence remains invalid.
             var decomposed = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
             var builder = new StringBuilder(decomposed.Length);
             var previousWasSeparator = true;
