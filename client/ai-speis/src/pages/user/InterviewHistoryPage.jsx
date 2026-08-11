@@ -4,6 +4,10 @@ import {
   AlertCircle,
   CalendarClock,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Eye,
   FileQuestion,
   Filter,
@@ -170,6 +174,8 @@ function InterviewHistoryPage() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [round, setRound] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const loadHistory = useCallback(async () => {
     setIsLoading(true);
@@ -207,6 +213,38 @@ function InterviewHistoryPage() {
       && (!round || row.interviewRoundType === round);
   }), [copy, query, round, rows, status]);
 
+  // Reset to page 1 whenever filters or page size change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, status, round, pageSize]);
+
+  const totalItems = filteredRows.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const startIndex = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const endIndex = Math.min(currentPage * pageSize, totalItems);
+
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [currentPage, filteredRows, pageSize]);
+
+  const pageButtons = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const btns = [];
+    btns.push(1);
+    if (currentPage > 3) btns.push('start-ellipsis');
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) {
+      if (!btns.includes(i)) btns.push(i);
+    }
+    if (currentPage < totalPages - 2) btns.push('end-ellipsis');
+    if (!btns.includes(totalPages)) btns.push(totalPages);
+    return btns;
+  }, [currentPage, totalPages]);
+
   const summary = useMemo(() => ({
     total: rows.length,
     completed: rows.filter((row) => row.displayStatus === 'Completed').length,
@@ -231,7 +269,7 @@ function InterviewHistoryPage() {
       <div className="interview-history-table-wrap">
         <table className="interview-history-table">
           <thead><tr><th>{copy.history.time}</th><th>{copy.history.campaign}</th><th>{copy.history.round}</th>{showQuestionProgress ? <th>{copy.history.answers}</th> : null}{showLanguage ? <th>{copy.history.language}</th> : null}<th>{copy.history.status}</th><th><span className="sr-only">{copy.history.actions}</span></th></tr></thead>
-          <tbody>{filteredRows.map((row) => (
+          <tbody>{paginatedRows.map((row) => (
             <tr key={row.interviewSessionId}>
               {formatDate(row.createdAt) ? <td data-label={copy.history.time}>{formatDate(row.createdAt)}</td> : null}
               <td data-label={copy.history.campaign}><strong>#{row.campaignId}</strong></td>
@@ -246,6 +284,91 @@ function InterviewHistoryPage() {
             </tr>
           ))}</tbody>
         </table>
+
+        {/* Pagination Bar */}
+        <div className="pagination">
+          <div className="pagination-info">
+            <span>
+              {copy.history.showing} <strong>{startIndex}-{endIndex}</strong> {copy.history.of} <strong>{totalItems}</strong> {copy.history.sessionsUnit}
+            </span>
+            <div className="page-size-selector">
+              <label>{copy.history.pageSize}</label>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="page-size-select"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-buttons">
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+              title={copy.history.firstPage}
+            >
+              <ChevronsLeft size={18} />
+            </button>
+
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              title={copy.history.previousPage}
+            >
+              <ChevronLeft size={18} />
+            </button>
+
+            {pageButtons.map((btn, idx) => {
+              if (typeof btn === 'string') {
+                return (
+                  <span key={`${btn}-${idx}`} className="pagination-ellipsis px-1.5 font-bold text-text-disabled">
+                    ...
+                  </span>
+                );
+              }
+              const isActive = btn === currentPage;
+              return (
+                <button
+                  key={btn}
+                  type="button"
+                  onClick={() => setCurrentPage(btn)}
+                  className={`pagination-btn ${isActive ? 'active' : ''}`}
+                >
+                  {btn}
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              title={copy.history.nextPage}
+            >
+              <ChevronRight size={18} />
+            </button>
+
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              title={copy.history.lastPage}
+            >
+              <ChevronsRight size={18} />
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

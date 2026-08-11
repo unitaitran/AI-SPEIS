@@ -3,7 +3,7 @@ import { ArrowLeft, Loader2, LogOut, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import UserLayout from '../../layouts/user/UserLayout';
 import interviewSessionService from '../../services/InterviewSessionService';
-import { getActiveInterviewContext } from '../../utils/interviewContext';
+import { getActiveInterviewContext, getRoundOrder } from '../../utils/interviewContext';
 import BehavioralInterviewPage from './BehavioralInterviewPage';
 import TechnicalInterviewPage from './TechnicalInterviewPage';
 import { navigate } from '../../routes/navigation';
@@ -36,17 +36,18 @@ function AIInterviewRoomPage({ sessionId }) {
       .then((session) => {
         if (!active) return;
         const nextRoundType = session?.interviewRoundType;
-        if (!['Behavior', 'Technical', 'Code'].includes(nextRoundType)) {
+        const order = getRoundOrder(nextRoundType);
+        if (order === Number.MAX_SAFE_INTEGER) {
           throw new Error('Interview round type is not supported');
         }
-        if (nextRoundType === 'Code') {
+        if (order === 2) {
           if (session?.status !== 'Active') {
             interviewSessionService.startSession(resolvedSessionId).catch(() => {});
           }
           navigate(getCodingInterviewRoomPath(resolvedSessionId), { replace: true });
           return;
         }
-        setRoundType(nextRoundType);
+        setRoundType(order === 0 ? 'Behavior' : 'Technical');
       })
       .catch((loadError) => {
         if (active) setError(loadError);

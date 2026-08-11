@@ -85,9 +85,79 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             BehaviouralRubricDefinition rubric,
             IReadOnlyList<BehaviouralAnswerContext> answerContext)
         {
-            var expectedCodes = rubric.Dimensions
+            if (evaluation?.DimensionEvaluations == null || evaluation.DimensionEvaluations.Count == 0)
+            {
+                return Invalid("INVALID_RUBRIC_CODES");
+            }
+
+            var expectedDimensions = rubric.Dimensions.ToList();
+            var expectedCodes = expectedDimensions
                 .Select(item => item.Code)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // 1. Chuẩn hóa & ánh xạ RubricCode từ AI (Hỗ trợ match theo Code, Name, Keyword)
+            foreach (var dim in evaluation.DimensionEvaluations)
+            {
+                if (string.IsNullOrWhiteSpace(dim.RubricCode)) continue;
+                var rawCode = dim.RubricCode.Trim();
+
+                // Direct match theo Code
+                var matched = expectedDimensions.FirstOrDefault(d =>
+                    string.Equals(d.Code, rawCode, StringComparison.OrdinalIgnoreCase));
+
+                // Direct match theo Name
+                matched ??= expectedDimensions.FirstOrDefault(d =>
+                    string.Equals(d.Name, rawCode, StringComparison.OrdinalIgnoreCase));
+
+                // Keyword match
+                if (matched == null)
+                {
+                    var upper = rawCode.ToUpperInvariant();
+                    if (upper.Contains("SITUATION") || upper.Contains("CONTEXT") || upper.Contains("TASK"))
+                        matched = expectedDimensions.FirstOrDefault(d => d.Code.Equals("SITUATION_TASK", StringComparison.OrdinalIgnoreCase));
+                    else if (upper.Contains("ACTION") || upper.Contains("OWNERSHIP"))
+                        matched = expectedDimensions.FirstOrDefault(d => d.Code.Equals("ACTION", StringComparison.OrdinalIgnoreCase));
+                    else if (upper.Contains("RESULT") || upper.Contains("REFLECTION"))
+                        matched = expectedDimensions.FirstOrDefault(d => d.Code.Equals("RESULT", StringComparison.OrdinalIgnoreCase));
+                    else if (upper.Contains("COMPETENCY") || upper.Contains("FIT"))
+                        matched = expectedDimensions.FirstOrDefault(d => d.Code.Equals("COMPETENCY", StringComparison.OrdinalIgnoreCase));
+                    else if (upper.Contains("COMMUNICATION"))
+                        matched = expectedDimensions.FirstOrDefault(d => d.Code.Equals("COMMUNICATION", StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (matched != null)
+                {
+                    dim.RubricCode = matched.Code;
+                }
+            }
+
+            // 2. Khử trùng lặp & Tự động bổ sung các dimension bị thiếu (fallback an toàn cho dimension đó)
+            var existingByCode = evaluation.DimensionEvaluations
+                .Where(d => expectedCodes.Contains(d.RubricCode))
+                .GroupBy(d => d.RubricCode, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var normalizedEvaluations = new List<BehaviouralAIDimensionEvaluation>();
+            foreach (var dim in expectedDimensions)
+            {
+                if (existingByCode.TryGetValue(dim.Code, out var existing))
+                {
+                    normalizedEvaluations.Add(existing);
+                }
+                else
+                {
+                    normalizedEvaluations.Add(new BehaviouralAIDimensionEvaluation
+                    {
+                        RubricCode = dim.Code,
+                        SuggestedScore = 0m,
+                        Evidence = new List<string>(),
+                        MissingEvidence = new List<string> { dim.Name }
+                    });
+                }
+            }
+
+            evaluation.DimensionEvaluations = normalizedEvaluations;
+
             var actualCodes = evaluation.DimensionEvaluations
                 .Select(item => item.RubricCode)
                 .ToList();
@@ -106,7 +176,10 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                 if (dimension.SuggestedScore < rubric.MinimumScore
                     || dimension.SuggestedScore > rubric.MaximumScore)
                 {
-                    return Invalid("SCORE_OUT_OF_RANGE");
+                    dimension.SuggestedScore = 0m;
+                    dimension.Evidence.Clear();
+                    dimension.MissingEvidence ??= new List<string>();
+                    dimension.MissingEvidence.Add("Invalid score returned by AI.");
                 }
 
                 if (dimension.Evidence.Any(evidence =>
@@ -114,7 +187,7 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                     && !IsGroundedEvidence(evidence, transcript)))
                 {
                     // Filter out non-verbatim dimension evidence snippets instead of failing whole score
-                    dimension.Evidence.RemoveAll(evidence => !IsGroundedEvidence(evidence, transcript));
+                    dimension.Evidence.RemoveAll(evidence => string.IsNullOrWhiteSpace(evidence) || !IsGroundedEvidence(evidence, transcript));
                 }
             }
 

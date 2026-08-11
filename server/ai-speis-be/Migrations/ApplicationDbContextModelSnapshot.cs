@@ -53,6 +53,17 @@ namespace ai_speis_be.Migrations
                     b.Property<int>("InterviewSessionId")
                         .HasColumnType("int");
 
+                    b.Property<long?>("JsonErrorOffset")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("JsonErrorPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("JsonExceptionType")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
                     b.Property<long>("LatencyMs")
                         .HasColumnType("bigint");
 
@@ -77,6 +88,17 @@ namespace ai_speis_be.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("RawResponse")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecoveryFlags")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("RecoveryStatus")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<int>("RetryCount")
                         .HasColumnType("int");
 
@@ -84,6 +106,10 @@ namespace ai_speis_be.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SchemaVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("datetime2");
@@ -1226,6 +1252,26 @@ namespace ai_speis_be.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<int>("DeliveryChannel")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeliveryLeaseExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeliveryLeaseToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("DeliveryStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmailBody")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmailSubject")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("EntityId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1236,6 +1282,13 @@ namespace ai_speis_be.Migrations
                     b.Property<DateTime?>("ExpiresAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -1243,6 +1296,9 @@ namespace ai_speis_be.Migrations
 
                     b.Property<string>("Metadata")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("NextRetryAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
@@ -1254,6 +1310,9 @@ namespace ai_speis_be.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("RecipientRole")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RetryCount")
                         .HasColumnType("int");
 
                     b.Property<int>("Severity")
@@ -1271,6 +1330,9 @@ namespace ai_speis_be.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("NotificationId");
+
+                    b.HasIndex("DeliveryChannel", "DeliveryStatus", "NextRetryAt")
+                        .HasDatabaseName("IX_Notification_EmailRetry");
 
                     b.HasIndex(new[] { "RecipientId", "RecipientRole", "CreatedAt" }, "IX_Notification_Recipient_CreatedAt");
 

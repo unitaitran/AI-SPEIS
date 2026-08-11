@@ -14,8 +14,8 @@ namespace ai_speis_be.Services.GeminiAiParsingService
     public class GeminiAiParsingService : IGeminiAiParsingService
     {
         private readonly string _apiKey;
+        private readonly string _model;
         private readonly IHttpClientFactory _httpClientFactory;
-        private const string GeminiModel = "gemma-4-31b-it";
         private const string GeminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/";
 
         private static readonly JsonSerializerOptions JsonOptions = new()
@@ -28,6 +28,7 @@ namespace ai_speis_be.Services.GeminiAiParsingService
         {
             _apiKey = configuration["GeminiAI:ApiKey"] 
                 ?? throw new InvalidOperationException("Gemini API key is missing. Add GeminiAI:ApiKey to appsettings or environment variables.");
+            _model = configuration["GeminiAI:Model"] ?? "gemini-3-flash-preview";
             _httpClientFactory = httpClientFactory;
         }
 
@@ -279,7 +280,7 @@ IMPORTANT: YOU MUST OUTPUT ALL EXTRACTED DATA (Advice, SuitabilityLevel, etc.) S
 
         private async Task<string?> CallGeminiRestApiAsync(string prompt)
         {
-            var url = $"{GeminiApiBaseUrl}{GeminiModel}:generateContent?key={_apiKey}";
+            var url = $"{GeminiApiBaseUrl}{_model}:generateContent?key={_apiKey}";
 
             var requestBody = new
             {

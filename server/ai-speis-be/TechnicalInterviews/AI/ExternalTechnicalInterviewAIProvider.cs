@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ai_speis_be.AI.Json;
 using ai_speis_be.TechnicalInterviews.Configuration;
 
 namespace ai_speis_be.TechnicalInterviews.AI
@@ -13,24 +14,29 @@ namespace ai_speis_be.TechnicalInterviews.AI
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            Converters = { new LenientDecimalJsonConverter() }
         };
 
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ITechnicalAIConcurrencyGate _concurrencyGate;
         private readonly TechnicalInterviewOptions _options;
         private readonly ILogger<ExternalTechnicalInterviewAIProvider> _logger;
+        private readonly IAiJsonRecoveryService _jsonRecovery;
 
         public ExternalTechnicalInterviewAIProvider(
             IHttpClientFactory httpClientFactory,
             ITechnicalAIConcurrencyGate concurrencyGate,
             TechnicalInterviewOptions options,
-            ILogger<ExternalTechnicalInterviewAIProvider> logger)
+            ILogger<ExternalTechnicalInterviewAIProvider> logger,
+            IAiJsonRecoveryService? jsonRecovery = null)
         {
             _httpClientFactory = httpClientFactory;
             _concurrencyGate = concurrencyGate;
             _options = options;
             _logger = logger;
+            _jsonRecovery = jsonRecovery ?? new AiJsonRecoveryService();
         }
 
         public string ProviderName => "external";
@@ -45,6 +51,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 prompt.User,
                 _options.TimeoutSeconds * 1_000,
                 _options.MaxRetries,
+                null,
                 cancellationToken);
         }
 
@@ -58,6 +65,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 prompt.User,
                 _options.EvaluationTimeoutMs,
                 _options.EvaluationMaxRetries,
+                _options.OllamaEvaluationModel,
                 cancellationToken);
         }
 
@@ -71,6 +79,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 prompt.User,
                 _options.TimeoutSeconds * 1_000,
                 _options.MaxRetries,
+                null,
                 cancellationToken);
         }
 
@@ -79,6 +88,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
             string userPrompt,
             int timeoutMs,
             int maxRetries,
+            string? ollamaModelOverride,
             CancellationToken cancellationToken)
         {
             var startedAt = DateTime.UtcNow;
@@ -86,7 +96,13 @@ namespace ai_speis_be.TechnicalInterviews.AI
             var isOllama = string.Equals(_options.Provider, "ollama", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(_options.Provider, "local", StringComparison.OrdinalIgnoreCase);
             var baseUrl = isOllama ? _options.OllamaBaseUrl : _options.BaseUrl;
-            var model = isOllama && !string.IsNullOrWhiteSpace(_options.OllamaModel) ? _options.OllamaModel : _options.Model;
+            var model = isOllama
+                ? !string.IsNullOrWhiteSpace(ollamaModelOverride)
+                    ? ollamaModelOverride
+                    : !string.IsNullOrWhiteSpace(_options.OllamaModel)
+                        ? _options.OllamaModel
+                        : _options.Model
+                : _options.Model;
 
             if (!isOllama && string.IsNullOrWhiteSpace(_options.ApiKey))
             {
@@ -176,21 +192,38 @@ namespace ai_speis_be.TechnicalInterviews.AI
                         return Failure<T>(stopwatch, startedAt, "EMPTY_RESPONSE", attempt);
                     }
 
-                    var parsed = JsonSerializer.Deserialize<T>(StripMarkdownFence(content), JsonOptions);
-                    if (parsed is null)
+                    var recovery = _jsonRecovery.Deserialize<T>(content, JsonOptions);
+                    if (!recovery.Success || recovery.Data is null)
                     {
-                        return Failure<T>(stopwatch, startedAt, "MALFORMED_JSON", attempt);
+                        return Failure<T>(
+                            stopwatch,
+                            startedAt,
+                            "MALFORMED_JSON_UNRECOVERABLE",
+                            attempt,
+                            _jsonRecovery.CreateSafeRawResponse(content),
+                            recovery.Metadata);
+                    }
+
+                    if (recovery.Metadata.RecoveryFlags.Count > 0)
+                    {
+                        _logger.LogWarning(
+                            "Technical AI JSON recovered. Provider: {Provider}, Model: {Model}, Flags: {Flags}.",
+                            isOllama ? "ollama" : "external",
+                            model,
+                            string.Join(',', recovery.Metadata.RecoveryFlags));
                     }
 
                     stopwatch.Stop();
                     return new AIProviderResult<T>
                     {
                         Success = true,
-                        Data = parsed,
+                        Data = recovery.Data,
                         Model = envelope?.Model ?? _options.Model,
                         LatencyMs = stopwatch.ElapsedMilliseconds,
                         InputTokens = envelope?.Usage?.PromptTokens,
                         OutputTokens = envelope?.Usage?.CompletionTokens,
+                        RawResponse = _jsonRecovery.CreateSafeRawResponse(content),
+                        JsonRecovery = recovery.Metadata,
                         RetryCount = attempt,
                         StartedAt = startedAt,
                         CompletedAt = DateTime.UtcNow
@@ -214,6 +247,15 @@ namespace ai_speis_be.TechnicalInterviews.AI
                     _logger.LogWarning(exception, "Technical Interview AI request failed.");
                     return Failure<T>(stopwatch, startedAt, "NETWORK_ERROR", attempt);
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Technical Interview AI provider failed while processing response.");
+                    return Failure<T>(stopwatch, startedAt, "PROVIDER_EXCEPTION", attempt);
+                }
             }
 
             return Failure<T>(stopwatch, startedAt, "RETRY_EXHAUSTED", maxRetries);
@@ -223,7 +265,9 @@ namespace ai_speis_be.TechnicalInterviews.AI
             Stopwatch stopwatch,
             DateTime startedAt,
             string errorCode,
-            int retryCount)
+            int retryCount,
+            string? rawResponse = null,
+            AiJsonRecoveryMetadata? jsonRecovery = null)
         {
             stopwatch.Stop();
             return new AIProviderResult<T>
@@ -232,6 +276,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 Model = _options.Model,
                 LatencyMs = stopwatch.ElapsedMilliseconds,
                 ErrorCode = errorCode,
+                RawResponse = rawResponse,
+                JsonRecovery = jsonRecovery,
                 RetryCount = retryCount,
                 StartedAt = startedAt,
                 CompletedAt = DateTime.UtcNow
@@ -258,21 +304,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         private static bool ShouldRetry(HttpStatusCode statusCode)
         {
             return statusCode == HttpStatusCode.TooManyRequests || (int)statusCode >= 500;
-        }
-
-        private static string StripMarkdownFence(string content)
-        {
-            var trimmed = content.Trim();
-            if (!trimmed.StartsWith("```", StringComparison.Ordinal))
-            {
-                return trimmed;
-            }
-
-            var firstLineEnd = trimmed.IndexOf('\n');
-            var withoutOpening = firstLineEnd >= 0 ? trimmed[(firstLineEnd + 1)..] : trimmed[3..];
-            return withoutOpening.EndsWith("```", StringComparison.Ordinal)
-                ? withoutOpening[..^3].Trim()
-                : withoutOpening.Trim();
         }
 
         private sealed class ChatCompletionEnvelope

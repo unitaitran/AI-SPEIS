@@ -89,26 +89,115 @@ export function notifyInterviewQuotaChanged(quotaOrRemaining, maxInterviewQuota,
   }));
 }
 
-const ROUND_ORDER = Object.freeze({
-  Behavior: 0,
-  Technical: 1,
-  Code: 2,
-});
+export function getRoundOrder(roundType) {
+  if (!roundType || typeof roundType !== 'string') return Number.MAX_SAFE_INTEGER;
+  const normalized = roundType.trim().toLowerCase();
+  if (normalized.includes('behav')) return 0;
+  if (normalized.includes('tech')) return 1;
+  if (normalized.includes('code') || normalized.includes('coding')) return 2;
+  return Number.MAX_SAFE_INTEGER;
+}
 
 export function getNextPendingSession(campaign) {
   return [...(campaign?.sessions || [])]
     .filter((session) => session.status === 'Pending')
-    .sort((left, right) => {
-      const leftOrder = ROUND_ORDER[left.interviewRoundType] ?? Number.MAX_SAFE_INTEGER;
-      const rightOrder = ROUND_ORDER[right.interviewRoundType] ?? Number.MAX_SAFE_INTEGER;
-      return leftOrder - rightOrder;
-    })[0] || null;
+    .sort((left, right) => getRoundOrder(left.interviewRoundType) - getRoundOrder(right.interviewRoundType))[0] || null;
+}
+
+export const InterviewStage = Object.freeze({
+  BEHAVIORAL: 'Behavioral',
+  TECHNICAL: 'Technical',
+  CODING: 'Coding',
+  FINAL: 'Final',
+});
+
+export const QuestionPreparationState = Object.freeze({
+  IDLE: 'Idle',
+  PREPARING: 'Preparing',
+  READY: 'Ready',
+  FAILED: 'Failed',
+});
+
+export const BackgroundGenerationState = Object.freeze({
+  IDLE: 'Idle',
+  GENERATING: 'Generating',
+  COMPLETED: 'Completed',
+  FAILED: 'Failed',
+});
+
+export function resolveNextInterviewStage({ campaign, currentSessionId, technicalPrepState, backgroundState }) {
+  const currentSession = (campaign?.sessions || []).find((s) => (
+    String(s.interviewSessionId) === String(currentSessionId)
+  ));
+  const currentOrder = currentSession ? getRoundOrder(currentSession.interviewRoundType) : -1;
+
+  const openSessions = [...(campaign?.sessions || [])]
+    .filter((session) => {
+      const isCurrent = String(session.interviewSessionId) === String(currentSessionId);
+      const isDone = session.status === 'Completed' || session.status === 'Cancelled';
+      const roundOrder = getRoundOrder(session.interviewRoundType);
+      return !isCurrent && !isDone && roundOrder > currentOrder && roundOrder < Number.MAX_SAFE_INTEGER;
+    })
+    .sort((left, right) => getRoundOrder(left.interviewRoundType) - getRoundOrder(right.interviewRoundType));
+
+  const nextSession = openSessions[0] || null;
+
+  if (!nextSession) {
+    return {
+      nextStage: InterviewStage.FINAL,
+      targetSessionId: null,
+      showLoadingSpinner: false,
+      requiresFallbackSyncInit: false,
+    };
+  }
+
+  const order = getRoundOrder(nextSession.interviewRoundType);
+
+  if (order === 1) {
+    const prepState = technicalPrepState || nextSession.preparationState || QuestionPreparationState.READY;
+    const isPreparing = prepState === QuestionPreparationState.PREPARING || backgroundState === BackgroundGenerationState.GENERATING;
+    const isFailed = prepState === QuestionPreparationState.FAILED || backgroundState === BackgroundGenerationState.FAILED;
+
+    return {
+      nextStage: InterviewStage.TECHNICAL,
+      targetSessionId: nextSession.interviewSessionId,
+      showLoadingSpinner: isPreparing,
+      requiresFallbackSyncInit: isFailed,
+    };
+  }
+
+  if (order === 2) {
+    return {
+      nextStage: InterviewStage.CODING,
+      targetSessionId: nextSession.interviewSessionId,
+      showLoadingSpinner: false,
+      requiresFallbackSyncInit: false,
+    };
+  }
+
+  return {
+    nextStage: InterviewStage.FINAL,
+    targetSessionId: null,
+    showLoadingSpinner: false,
+    requiresFallbackSyncInit: false,
+  };
 }
 
 export function getNextOpenSession(campaign, currentSessionId) {
-  const activeSession = (campaign?.sessions || []).find((session) => (
-    session.status === 'Active'
-    && String(session.interviewSessionId) !== String(currentSessionId)
+  const currentSession = (campaign?.sessions || []).find((s) => (
+    String(s.interviewSessionId) === String(currentSessionId)
   ));
-  return activeSession || getNextPendingSession(campaign);
+  const currentOrder = currentSession ? getRoundOrder(currentSession.interviewRoundType) : -1;
+
+  const openSessions = [...(campaign?.sessions || [])]
+    .filter((session) => {
+      const isCurrent = String(session.interviewSessionId) === String(currentSessionId);
+      const isDone = session.status === 'Completed' || session.status === 'Cancelled';
+      const roundOrder = getRoundOrder(session.interviewRoundType);
+      return !isCurrent && !isDone && roundOrder > currentOrder && roundOrder < Number.MAX_SAFE_INTEGER;
+    })
+    .sort((left, right) => getRoundOrder(left.interviewRoundType) - getRoundOrder(right.interviewRoundType));
+
+  return openSessions[0] || null;
 }
+

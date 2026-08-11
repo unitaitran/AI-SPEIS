@@ -11,7 +11,7 @@ import { getTechnicalInterviewErrorKey } from '../../features/technicalInterview
 import useTechnicalInterviewResult from '../../features/technicalInterview/useTechnicalInterviewResult';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
-import { getCampaignResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { getCampaignResultPath, getCodingInterviewRoomPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import { submitEvaluationFeedback } from '../../services/aiEvaluationFeedbackApi';
 import interviewSessionService from '../../services/InterviewSessionService';
 import notify from '../../utils/notification';
@@ -106,9 +106,11 @@ function TechnicalInterviewResultPage({ sessionId }) {
 
   const handleContinue = () => {
     if (!nextRoundSession) return;
-    navigate(nextRoundSession.status === 'Active'
-      ? getInterviewRoomPath(nextRoundSession.interviewSessionId)
-      : USER_ROUTES.DEVICE_CHECK);
+    const isCoding = nextRoundSession.interviewRoundType === 'Coding' || nextRoundSession.interviewRoundType === 'Code';
+    const targetPath = isCoding
+      ? getCodingInterviewRoomPath(nextRoundSession.interviewSessionId)
+      : getInterviewRoomPath(nextRoundSession.interviewSessionId);
+    navigate(targetPath);
   };
 
   const handleSubmitFeedback = async (payload) => {

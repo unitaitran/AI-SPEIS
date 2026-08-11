@@ -44,15 +44,18 @@ import useTechnicalInterviewTranscript, {
   TechnicalTranscriptItemStatus,
 } from '../../features/technicalInterview/useTechnicalInterviewTranscript';
 import { navigate } from '../../routes/navigation';
-import { getInterviewResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { getCodingInterviewRoomPath, getInterviewResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import technicalInterviewApi from '../../services/technicalInterviewApi';
 import interviewSessionService from '../../services/InterviewSessionService';
+import codingService from '../../services/codingService';
 import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
   getNextOpenSession,
   saveActiveInterviewContext,
 } from '../../utils/interviewContext';
+import useInterviewStrategy from '../../features/interviewStrategy/useInterviewStrategy';
+import { InterviewMode } from '../../features/interviewStrategy/InterviewMode';
 import '../../styles/user/TechnicalInterview.css';
 import '../../styles/user/BehavioralInterview.css';
 
@@ -120,10 +123,34 @@ function TechnicalInterviewPage({ sessionId }) {
     syncQuestion,
     syncServerTranscript,
   } = transcriptLedger;
+
+  const {
+    mode,
+    strategy,
+    remainingSeconds,
+    stopTimer,
+    handleQuestionAudioEnded,
+    handleTimerExpired,
+  } = useInterviewStrategy(
+    room.session?.mode || activeContext?.campaign?.mode || setupDraft?.mode
+  );
+
+  const handleSubmitRef = useRef(null);
+
+  const handleAudioEnded = useCallback(() => {
+    handleQuestionAudioEnded({
+      startRecording: recorder.startRecording,
+      stopRecording: recorder.stopRecording,
+      submitAnswer: () => handleSubmitRef.current?.(),
+    });
+  }, [handleQuestionAudioEnded, recorder.startRecording, recorder.stopRecording]);
+
   const questionAudio = useQuestionAudio({
     question: room.currentQuestion,
     sessionId: resolvedSessionId,
     language: interviewLanguage,
+    onEnded: handleAudioEnded,
+    forceAutoPlay: strategy.forceAutoPlay,
   });
   const setRecorderTranscript = recorder.setTranscript;
   const [localError, setLocalError] = useState(null);
@@ -134,6 +161,8 @@ function TechnicalInterviewPage({ sessionId }) {
 
   const status = getTechnicalSessionStatus(room.session);
   const attemptId = room.currentQuestion?.attemptId || null;
+
+  // ── Coding round loads directly from Question Bank/Database upon Technical completion ──
   const processingDraft = status === TechnicalSessionStatus.EVALUATING
     ? readTechnicalInterviewSessionDraft(resolvedSessionId)
     : null;
@@ -147,9 +176,40 @@ function TechnicalInterviewPage({ sessionId }) {
 
   useEffect(() => {
     if (status === TechnicalSessionStatus.COMPLETED && resolvedSessionId) {
-      navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+      if (mode === InterviewMode.REAL) {
+        const navigateToNextRound = async () => {
+          const campaignId = room.session?.interviewCampaignId
+            || activeContext?.campaign?.interviewCampaignId;
+          if (!campaignId) {
+            navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+            return;
+          }
+          try {
+            const campaign = await interviewSessionService.getCampaign(campaignId);
+            const nextSession = getNextOpenSession(campaign, resolvedSessionId);
+            saveActiveInterviewContext({
+              campaign,
+              activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
+              configurationKey: activeContext?.configurationKey || null,
+            });
+            if (nextSession) {
+              const targetPath = nextSession.interviewRoundType === 'Coding' || nextSession.interviewRoundType === 'Code'
+                ? getCodingInterviewRoomPath(nextSession.interviewSessionId)
+                : getInterviewRoomPath(nextSession.interviewSessionId);
+              navigate(targetPath, { replace: true });
+              return;
+            }
+          } catch {
+            // Fallback
+          }
+          navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+        };
+        navigateToNextRound();
+      } else {
+        navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+      }
     }
-  }, [resolvedSessionId, status]);
+  }, [activeContext, mode, resolvedSessionId, room.session?.interviewCampaignId, status]);
 
   useEffect(() => {
     syncQuestion(room.currentQuestion);
@@ -240,6 +300,7 @@ function TechnicalInterviewPage({ sessionId }) {
   };
 
   const handleSubmit = async () => {
+    stopTimer();
     const transcript = recorder.transcript.trim();
     if (!transcript) {
       setLocalError({ code: 'TRANSCRIPT_REQUIRED' });
@@ -269,9 +330,6 @@ function TechnicalInterviewPage({ sessionId }) {
       const nextStatus = getTechnicalSessionStatus(response?.session) || response?.sessionStatus;
       if (nextStatus === TechnicalSessionStatus.COMPLETED) {
         setIsCompleting(true);
-        setTimeout(() => {
-          navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
-        }, 1200);
         return;
       }
       if (!response.nextQuestion && !response.currentQuestion && !response.question) await room.reload();
@@ -282,9 +340,6 @@ function TechnicalInterviewPage({ sessionId }) {
         clearTechnicalInterviewDraft(resolvedSessionId, attemptId);
         recorder.reset();
         setIsCompleting(true);
-        setTimeout(() => {
-          navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
-        }, 1200);
         return;
       }
       if (recovery.state === 'ACCEPTED_NEXT_QUESTION') {
@@ -302,6 +357,10 @@ function TechnicalInterviewPage({ sessionId }) {
       setLocalError(error);
     }
   };
+
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  });
 
   const autoSubmittingRef = useRef(false);
 
@@ -325,10 +384,16 @@ function TechnicalInterviewPage({ sessionId }) {
     setIsCompleting(true);
     setLocalError(null);
     try {
-      const response = await technicalInterviewApi.completeSession(resolvedSessionId);
-      room.applyAnswerResponse(response);
-      setIsEndConfirmOpen(false);
-      navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+      try {
+        const response = await technicalInterviewApi.completeSession(resolvedSessionId);
+        room.applyAnswerResponse(response);
+        setIsEndConfirmOpen(false);
+        navigate(getInterviewResultPath(resolvedSessionId), { replace: true });
+      } catch {
+        // Fallback to force end session and navigate to next round / result
+        setIsEndConfirmOpen(false);
+        await handleForceEndSession();
+      }
     } catch (error) {
       setLocalError(error);
     } finally {
@@ -499,40 +564,44 @@ function TechnicalInterviewPage({ sessionId }) {
             <span className="behavior-interviewer__ring" />
             <span className="behavior-interviewer__core"><Bot size={28} /></span>
           </div>
-          <div className="behavior-audio-controls" aria-label={t('room.playQuestionAudio')}>
-            {questionAudio.status === QuestionAudioStatus.LOADING
-              || questionAudio.status === QuestionAudioStatus.IDLE ? (
-                <Loader2 size={18} className="behavior-spin" />
+          {strategy.showAudioControls ? (
+            <div className="behavior-audio-controls" aria-label={t('room.playQuestionAudio')}>
+              {questionAudio.status === QuestionAudioStatus.LOADING
+                || questionAudio.status === QuestionAudioStatus.IDLE ? (
+                  <Loader2 size={18} className="behavior-spin" />
+                ) : null}
+              {questionAudio.status === QuestionAudioStatus.READY ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={questionAudio.isPlaying ? questionAudio.pause : questionAudio.play}
+                    disabled={recorder.recordingStatus === RecordingStatus.RECORDING
+                      || recorder.sttStatus === SttStatus.PROCESSING}
+                  >
+                    {questionAudio.isPlaying ? <Pause size={17} /> : <Volume2 size={17} />}
+                    {questionAudio.isPlaying ? t('room.pauseAudio') : t('room.playAudio')}
+                  </button>
+                  {strategy.allowReplayAudio ? (
+                    <button type="button" onClick={questionAudio.replay} aria-label={t('room.replayQuestionAudio')}>
+                      <RotateCcw size={17} />
+                    </button>
+                  ) : null}
+                </>
               ) : null}
-            {questionAudio.status === QuestionAudioStatus.READY ? (
-              <>
-                <button
-                  type="button"
-                  onClick={questionAudio.isPlaying ? questionAudio.pause : questionAudio.play}
-                  disabled={recorder.recordingStatus === RecordingStatus.RECORDING
-                    || recorder.sttStatus === SttStatus.PROCESSING}
-                >
-                  {questionAudio.isPlaying ? <Pause size={17} /> : <Volume2 size={17} />}
-                  {questionAudio.isPlaying ? t('room.pauseAudio') : t('room.playAudio')}
+              {questionAudio.status === QuestionAudioStatus.ERROR ? (
+                <button type="button" onClick={questionAudio.retry}>
+                  <RefreshCw size={17} />{t('room.retryAudio')}
                 </button>
-                <button type="button" onClick={questionAudio.replay} aria-label={t('room.replayQuestionAudio')}>
-                  <RotateCcw size={17} />
-                </button>
-              </>
-            ) : null}
-            {questionAudio.status === QuestionAudioStatus.ERROR ? (
-              <button type="button" onClick={questionAudio.retry}>
-                <RefreshCw size={17} />{t('room.retryAudio')}
+              ) : null}
+              <button
+                type="button"
+                onClick={questionAudio.toggleAutoPlay}
+                aria-pressed={questionAudio.autoPlay}
+              >
+                {t('room.autoPlayAudio')}: {questionAudio.autoPlay ? t('room.on') : t('room.off')}
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={questionAudio.toggleAutoPlay}
-              aria-pressed={questionAudio.autoPlay}
-            >
-              {t('room.autoPlayAudio')}: {questionAudio.autoPlay ? t('room.on') : t('room.off')}
-            </button>
-          </div>
+            </div>
+          ) : null}
         </section>
 
         <footer className="behavior-stage__controls">
@@ -555,7 +624,10 @@ function TechnicalInterviewPage({ sessionId }) {
               recorder={recorder}
               disabled={questionAudio.isPlaying}
               isSubmitting={submitMutation.isSubmitting}
-              timeLimitSeconds={room.currentQuestion.timeLimitSeconds}
+              timeLimitSeconds={strategy.defaultCountdownSeconds || room.currentQuestion.timeLimitSeconds}
+              remainingSeconds={remainingSeconds}
+              strategy={strategy}
+              isAudioPlaying={questionAudio.isPlaying}
               onSubmit={handleSubmit}
               t={recorderT}
             />

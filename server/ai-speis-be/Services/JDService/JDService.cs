@@ -234,21 +234,27 @@ namespace ai_speis_be.Services.JDService
             if (jdFile == null) return null;
 
             var profile = await _context.JDExtractedProfiles.FirstOrDefaultAsync(p => p.JDFileId == jdId);
-            if (profile == null) return null;
 
             return new JdParsedDataResponse
             {
-                ExtractedProfileId = profile.ExtractedProfileId,
-                JDFileId = profile.JDFileId,
-                JobTitle = profile.JobTitle,
-                ExperienceLevel = profile.ExperienceLevel,
-                RoleTarget = profile.RoleTarget,
-                RequiredSkills = JsonSerializer.Deserialize<List<string>>(profile.RequiredSkills) ?? new List<string>(),
-                NiceToHaveSkills = JsonSerializer.Deserialize<List<string>>(profile.NiceToHaveSkills) ?? new List<string>(),
-                Responsibilities = profile.Responsibilities,
-                CompanyCharacteristics = profile.CompanyCharacteristics,
-                ConfidenceScore = profile.ConfidenceScore,
-                WarningMessage = profile.ConfidenceScore < 0.80m ? "Confidence score is low. Please verify the extracted data carefully." : null
+                ExtractedProfileId = profile?.ExtractedProfileId ?? 0,
+                JDFileId = jdFile.JDFileId,
+                FileName = jdFile.FileName,
+                RawText = jdFile.RawText,
+                InputType = jdFile.InputType.ToString(),
+                JobTitle = profile?.JobTitle,
+                ExperienceLevel = profile?.ExperienceLevel,
+                RoleTarget = profile?.RoleTarget,
+                RequiredSkills = profile != null && !string.IsNullOrEmpty(profile.RequiredSkills) 
+                    ? (JsonSerializer.Deserialize<List<string>>(profile.RequiredSkills) ?? new List<string>()) 
+                    : new List<string>(),
+                NiceToHaveSkills = profile != null && !string.IsNullOrEmpty(profile.NiceToHaveSkills) 
+                    ? (JsonSerializer.Deserialize<List<string>>(profile.NiceToHaveSkills) ?? new List<string>()) 
+                    : new List<string>(),
+                Responsibilities = profile?.Responsibilities,
+                CompanyCharacteristics = profile?.CompanyCharacteristics,
+                ConfidenceScore = profile?.ConfidenceScore,
+                WarningMessage = (profile != null && profile.ConfidenceScore < 0.80m) ? "Confidence score is low. Please verify the extracted data carefully." : null
             };
         }
 

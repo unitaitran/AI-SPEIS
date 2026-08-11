@@ -69,9 +69,63 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             TechnicalRubricDefinition rubric,
             IReadOnlyList<TechnicalAnswerContext> answerContext)
         {
-            var expectedCodes = rubric.Dimensions
+            if (evaluation?.DimensionEvaluations == null || evaluation.DimensionEvaluations.Count == 0)
+            {
+                return Invalid("INVALID_RUBRIC_CODES");
+            }
+
+            var expectedDimensions = rubric.Dimensions.ToList();
+            var expectedCodes = expectedDimensions
                 .Select(item => item.Code)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // 1. Chuẩn hóa & ánh xạ RubricCode từ AI
+            foreach (var dim in evaluation.DimensionEvaluations)
+            {
+                if (string.IsNullOrWhiteSpace(dim.RubricCode)) continue;
+                var rawCode = dim.RubricCode.Trim();
+
+                // Direct match theo Code
+                var matched = expectedDimensions.FirstOrDefault(d =>
+                    string.Equals(d.Code, rawCode, StringComparison.OrdinalIgnoreCase));
+
+                // Direct match theo Name
+                matched ??= expectedDimensions.FirstOrDefault(d =>
+                    string.Equals(d.Name, rawCode, StringComparison.OrdinalIgnoreCase));
+
+                if (matched != null)
+                {
+                    dim.RubricCode = matched.Code;
+                }
+            }
+
+            // 2. Khử trùng lặp & Tự động bổ sung các dimension bị thiếu
+            var existingByCode = evaluation.DimensionEvaluations
+                .Where(d => expectedCodes.Contains(d.RubricCode))
+                .GroupBy(d => d.RubricCode, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var normalizedEvaluations = new List<TechnicalAIDimensionEvaluation>();
+            foreach (var dim in expectedDimensions)
+            {
+                if (existingByCode.TryGetValue(dim.Code, out var existing))
+                {
+                    normalizedEvaluations.Add(existing);
+                }
+                else
+                {
+                    normalizedEvaluations.Add(new TechnicalAIDimensionEvaluation
+                    {
+                        RubricCode = dim.Code,
+                        SuggestedScore = 0m,
+                        Evidence = new List<string>(),
+                        MissingEvidence = new List<string> { dim.Name }
+                    });
+                }
+            }
+
+            evaluation.DimensionEvaluations = normalizedEvaluations;
+
             var actualCodes = evaluation.DimensionEvaluations
                 .Select(item => item.RubricCode)
                 .ToList();
@@ -89,18 +143,26 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 if (dimension.SuggestedScore < rubric.MinimumScore
                     || dimension.SuggestedScore > rubric.MaximumScore)
                 {
-                    return Invalid("SCORE_OUT_OF_RANGE");
+                    dimension.SuggestedScore = 0m;
+                    dimension.Evidence.Clear();
+                    dimension.MissingEvidence ??= new List<string>();
+                    dimension.MissingEvidence.Add("Invalid score returned by AI.");
                 }
 
                 if (dimension.SuggestedScore > rubric.EvidenceRequiredWhenScoreAbove
                     && dimension.Evidence.Count == 0)
                 {
-                    return Invalid("MISSING_SCORE_EVIDENCE");
+                    dimension.SuggestedScore = 0m;
+                    dimension.MissingEvidence.Add("No grounded evidence returned by AI.");
                 }
 
-                if (dimension.Evidence.Any(evidence => !IsGroundedEvidence(evidence, transcript)))
+                if (dimension.Evidence.Any(evidence =>
+                    !string.IsNullOrWhiteSpace(evidence)
+                    && !IsGroundedEvidence(evidence, transcript)))
                 {
-                    return Invalid("EVIDENCE_NOT_IN_ANSWER");
+                    // Filter out non-verbatim dimension evidence snippets instead of failing whole evaluation,
+                    // matching Behavioural's resilient validation behavior.
+                    dimension.Evidence.RemoveAll(evidence => string.IsNullOrWhiteSpace(evidence) || !IsGroundedEvidence(evidence, transcript));
                 }
             }
 

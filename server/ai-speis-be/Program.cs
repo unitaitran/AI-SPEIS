@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Hangfire;
+using Hangfire.SqlServer;
+using ai_speis_be.BackgroundJobs;
 using ai_speis_be.Models;
 using ai_speis_be.Repositories.UserRepo;
 using ai_speis_be.Repositories.CVRepo;
@@ -44,6 +47,7 @@ using ai_speis_be.BehaviouralInterviews.Rubrics;
 using ai_speis_be.BehaviouralInterviews.Scoring;
 using ai_speis_be.BehaviouralInterviews.Selection;
 using ai_speis_be.BehaviouralInterviews.Validation;
+using ai_speis_be.AI.Json;
 using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Configuration;
 using ai_speis_be.TechnicalInterviews.Orchestration;
@@ -52,6 +56,7 @@ using ai_speis_be.TechnicalInterviews.Rubrics;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using ai_speis_be.TechnicalInterviews.Selection;
 using ai_speis_be.TechnicalInterviews.Validation;
+using ai_speis_be.TechnicalInterviews.PreGeneration;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
@@ -66,6 +71,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+builder.Services.AddSingleton<IAiJsonRecoveryService, AiJsonRecoveryService>();
 builder.Services.AddSignalR();
     
 builder.Services.AddHttpClient();
@@ -138,6 +144,24 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.")));
 
+var hangfireConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found for Hangfire.");
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(hangfireConnectionString, new SqlServerStorageOptions
+    {
+        PrepareSchemaIfNecessary = true,
+        QueuePollInterval = TimeSpan.FromSeconds(15),
+        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5)
+    }));
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Math.Max(1, builder.Configuration.GetValue<int?>("Hangfire:WorkerCount") ?? 4);
+    options.Queues = new[] { "default", "payments", "subscriptions", "notifications" };
+});
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -156,7 +180,9 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<IRewardService, RewardService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<ISubscriptionMaintenanceService, SubscriptionMaintenanceService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationEmailDeliveryService, NotificationEmailDeliveryService>();
 builder.Services.AddScoped<INotificationEventPublisher, NotificationEventPublisher>();
 builder.Services.AddScoped<IAdminNotificationPublisher, AdminNotificationPublisher>();
 builder.Services.AddScoped<INotificationRealtimeNotifier, NotificationRealtimeNotifier>();
@@ -168,9 +194,7 @@ builder.Services.AddHostedService<CvParsingBackgroundService>();
 // Background Worker for JD Parsing
 builder.Services.AddSingleton<IJdParseQueue, JdParseQueue>();
 builder.Services.AddHostedService<JdParsingBackgroundService>();
-builder.Services.AddHostedService<PremiumQuotaResetBackgroundService>();
 builder.Services.AddHostedService<PendingPaymentExpiryBackgroundService>();
-builder.Services.AddHostedService<SubscriptionNotificationBackgroundService>();
 builder.Services.AddHostedService<AdminOperationalNotificationBackgroundService>();
 
 // Register Question Bank
@@ -230,6 +254,7 @@ builder.Services.AddScoped<ITechnicalAnswerEvaluationProcessor, TechnicalAnswerE
 builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
+builder.Services.AddSingleton<ITechnicalPreGenerationService, TechnicalPreGenerationService>();
 
 // Google Cloud Quota & Billing Cost Monitoring
 builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.GoogleQuotaConfig>();
@@ -373,6 +398,35 @@ using (var scope = app.Services.CreateScope())
     {
         Console.WriteLine($"[Startup] Column check notice: {ex.Message}");
     }
+}
+
+// Recurring registration occurs after migrations so the application's SQL Server is
+// ready. Resolve Hangfire from DI rather than using its static API, which depends on
+// JobStorage.Current and is not initialized in an ASP.NET Core service-based setup.
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+    var subscriptionExpiryCron = app.Configuration["BackgroundJobs:SubscriptionExpiryCron"] ?? "10 0 * * *";
+    recurringJobs.AddOrUpdate<SubscriptionExpiryJob>(
+        "job-02-subscription-expiry",
+        job => job.ExecuteAsync(),
+        subscriptionExpiryCron,
+        new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+
+    var quotaResetCron = app.Configuration["BackgroundJobs:QuotaResetCron"] ?? "5 0 1 * *";
+    recurringJobs.AddOrUpdate<QuotaResetJob>(
+        "job-03-quota-reset",
+        job => job.ExecuteAsync(),
+        quotaResetCron,
+        new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+
+    var notificationRetryCron = app.Configuration["BackgroundJobs:NotificationRetryCron"] ?? "20 0 * * *";
+    recurringJobs.AddOrUpdate<NotificationRetryJob>(
+        "job-04-notification-retry",
+        job => job.ExecuteAsync(),
+        notificationRetryCron,
+        new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
 }
 
 // Configure the HTTP request pipeline.

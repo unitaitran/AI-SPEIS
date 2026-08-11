@@ -393,9 +393,33 @@ const CodingInterviewPage = ({ sessionId }) => {
   };
 
   const handleCompleteRound = async () => {
-    if (!canComplete || isCompleting) return;
+    if (isCompleting) return;
     setIsCompleting(true);
     try {
+      // Auto-submit code for any unsubmitted question if candidate entered code
+      if (questions && questions.length > 0 && selectedLanguage) {
+        for (const q of questions) {
+          const qId = getQuestionId(q);
+          if (!submittedQuestionIds.has(qId)) {
+            const codeKey = `${qId}_${selectedLanguage.id}`;
+            const writtenCode = userCodes[codeKey] || (qId === currentQId ? code : '');
+            if (writtenCode && writtenCode.trim().length > 10) {
+              try {
+                await codingService.submitCode({
+                  interviewSessionId: parseInt(sessionId, 10),
+                  codingQuestionId: qId,
+                  languageId: selectedLanguage.id,
+                  sourceCode: writtenCode,
+                  isTestRun: false,
+                });
+              } catch {
+                // Best-effort auto-submit before finishing round
+              }
+            }
+          }
+        }
+      }
+
       const campaign = await interviewSessionService.completeSession(sessionId);
       const nextSession = getNextOpenSession(campaign, sessionId);
       const currentContext = getActiveInterviewContext();
@@ -404,9 +428,10 @@ const CodingInterviewPage = ({ sessionId }) => {
         activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
         configurationKey: currentContext?.configurationKey || null,
       });
-      navigate(nextSession
+      setIsEndConfirmOpen(false);
+      navigate(nextSession?.status === 'Active'
         ? getInterviewRoomPath(nextSession.interviewSessionId)
-        : getCampaignResultPath(campaign.interviewCampaignId), { replace: true });
+        : getCampaignResultPath(campaign?.interviewCampaignId || currentContext?.campaign?.interviewCampaignId), { replace: true });
     } catch (err) {
       notify.error(err.message || 'Lỗi khi hoàn thành vòng Coding');
     } finally {

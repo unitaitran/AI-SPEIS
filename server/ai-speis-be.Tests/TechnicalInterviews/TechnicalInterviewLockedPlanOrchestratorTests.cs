@@ -291,8 +291,8 @@ public sealed class TechnicalInterviewLockedPlanOrchestratorTests
         Assert.Equal("EVIDENCE_NOT_IN_ANSWER", submitted.ErrorCode);
         Assert.Empty(context.TechnicalAnswerEvaluations);
         Assert.Equal(TechnicalAttemptStatus.Ready, attempt.Status);
-        Assert.Null(attempt.AnswerTranscript);
-        Assert.Null(attempt.SubmissionIdempotencyKey);
+        Assert.Equal("Dependency injection separates construction from use.", attempt.AnswerTranscript);
+        Assert.Equal("technical-invalid-evidence", attempt.SubmissionIdempotencyKey);
         Assert.Equal(TechnicalInterviewState.QuestionReady, context.InterviewSessions
             .Single(item => item.InterviewSessionId == 501)
             .TechnicalState);

@@ -43,6 +43,10 @@ public sealed class NotificationService : INotificationService
             DeduplicationKey = request.DeduplicationKey,
             Metadata = SerializeSafeMetadata(request.Metadata),
             ExpiresAt = request.ExpiresAt,
+            DeliveryChannel = request.EmailDelivery is null ? DeliveryChannel.IN_APP : DeliveryChannel.EMAIL,
+            DeliveryStatus = DeliveryStatus.Pending,
+            EmailSubject = request.EmailDelivery?.Subject,
+            EmailBody = request.EmailDelivery?.Body,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -163,6 +167,8 @@ public sealed class NotificationService : INotificationService
             throw new ArgumentException("Notification recipient, title, message and deduplication key are required.");
         if (request.Title.Length > 200 || request.Message.Length > 1000 || request.DeduplicationKey.Length > 300 || request.ActionUrl?.Length > 500)
             throw new ArgumentException("Notification fields exceed their configured limits.");
+        if (request.EmailDelivery is not null && (string.IsNullOrWhiteSpace(request.EmailDelivery.Subject) || string.IsNullOrWhiteSpace(request.EmailDelivery.Body) || request.EmailDelivery.Subject.Length > 200))
+            throw new ArgumentException("Transactional email subject and body are required.");
     }
 
     private static string? SerializeSafeMetadata(object? metadata)

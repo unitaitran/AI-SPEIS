@@ -79,16 +79,26 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             TechnicalRubricDefinition rubric,
             TechnicalAnswerEvaluationProcessingResult results)
         {
+            var evaluationFallbackUsed = false;
+            TechnicalAIEvaluationResponse evaluation;
             if (!results.Evaluation.IsFulfilled)
             {
-                return Failure(
-                    results.Evaluation.ErrorCode ?? "AI_EVALUATION_FAILED",
-                    results,
-                    results.Evaluation.Status);
+                if (!CanUseZeroScoreFallback(results.Evaluation))
+                {
+                    return Failure(
+                        results.Evaluation.ErrorCode ?? "AI_EVALUATION_FAILED",
+                        results,
+                        results.Evaluation.Status);
+                }
+
+                evaluation = CreateZeroScoreFallback(rubric);
+                evaluationFallbackUsed = true;
+            }
+            else
+            {
+                evaluation = results.Evaluation.ProviderResult!.Data!;
             }
 
-            var evaluationFallbackUsed = false;
-            var evaluation = results.Evaluation.ProviderResult!.Data!;
             var answerContext = context.BuildCompleteAnswerContext();
             var evidenceGroundedByBackend = GroundMissingScoreEvidence(
                 evaluation,
@@ -98,6 +108,21 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
                 evaluation,
                 rubric,
                 answerContext);
+            if (!validation.IsValid
+                && string.Equals(validation.ErrorCode, "INVALID_RUBRIC_CODES", StringComparison.Ordinal))
+            {
+                // A syntactically valid but empty evaluation has no usable
+                // criterion data. Treat it like malformed JSON: persist the
+                // attempt with all expected rubric dimensions at zero rather
+                // than leaving the interview in the evaluating state.
+                evaluation = CreateZeroScoreFallback(rubric);
+                evaluationFallbackUsed = true;
+                validation = _validator.ValidateEvaluation(
+                    evaluation,
+                    rubric,
+                    answerContext);
+            }
+
             if (!validation.IsValid)
             {
                 return Failure(
@@ -434,6 +459,35 @@ namespace ai_speis_be.TechnicalInterviews.Orchestration
             }
 
             return repaired;
+        }
+
+        private static bool CanUseZeroScoreFallback(
+            TechnicalAITaskOutcome<TechnicalAIEvaluationResponse> outcome)
+        {
+            return outcome.Status == TechnicalAITaskStatus.InvalidOutput
+                && outcome.ErrorCode is "MALFORMED_JSON"
+                    or "MALFORMED_JSON_UNRECOVERABLE"
+                    or "EMPTY_RESPONSE";
+        }
+
+        private static TechnicalAIEvaluationResponse CreateZeroScoreFallback(
+            TechnicalRubricDefinition rubric)
+        {
+            return new TechnicalAIEvaluationResponse
+            {
+                DimensionEvaluations = rubric.Dimensions
+                    .Select(dimension => new TechnicalAIDimensionEvaluation
+                    {
+                        RubricCode = dimension.Code,
+                        SuggestedScore = 0m,
+                        Evidence = new List<string>(),
+                        MissingEvidence = new List<string>
+                        {
+                            $"No usable AI evaluation was returned for {dimension.Name}."
+                        }
+                    })
+                    .ToList()
+            };
         }
 
         private static IReadOnlyList<string> ResolveTargetRubricCodes(

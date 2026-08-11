@@ -1,5 +1,7 @@
 using ai_speis_be.TechnicalInterviews.DTOs;
 using ai_speis_be.TechnicalInterviews.Orchestration;
+using ai_speis_be.TechnicalInterviews.PreGeneration;
+using ai_speis_be.TechnicalInterviews.AI;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -13,10 +15,17 @@ namespace ai_speis_be.Controllers
     public sealed class TechnicalInterviewsController : ControllerBase
     {
         private readonly ITechnicalInterviewOrchestrator _orchestrator;
+        private readonly ITechnicalPreGenerationService _preGenerationService;
+        private readonly ITechnicalInterviewAIProviderResolver _aiProviderResolver;
 
-        public TechnicalInterviewsController(ITechnicalInterviewOrchestrator orchestrator)
+        public TechnicalInterviewsController(
+            ITechnicalInterviewOrchestrator orchestrator,
+            ITechnicalPreGenerationService preGenerationService,
+            ITechnicalInterviewAIProviderResolver aiProviderResolver)
         {
             _orchestrator = orchestrator;
+            _preGenerationService = preGenerationService;
+            _aiProviderResolver = aiProviderResolver;
         }
 
         [HttpPost("sessions")]
@@ -94,6 +103,39 @@ namespace ai_speis_be.Controllers
                 : UnauthorizedProblem();
         }
 
+        /// <summary>
+        /// Kích hoạt tạo trước câu hỏi Technical chạy ngầm (background).
+        /// Gọi từ trang Behavioral khi câu hỏi đầu tiên xuất hiện.
+        /// </summary>
+        [HttpPost("{sessionId:int}/pre-generate")]
+        public async Task<IActionResult> PreGenerate(int sessionId, CancellationToken cancellationToken)
+        {
+            if (!TryGetUserId(out var userId)) return UnauthorizedProblem();
+            var status = await _preGenerationService.PreGenerateAsync(userId, sessionId, cancellationToken);
+            return Ok(status);
+        }
+
+        /// <summary>
+        /// Lấy trạng thái hiện tại của tiến trình tạo trước câu hỏi Technical.
+        /// </summary>
+        [HttpGet("{sessionId:int}/pre-generate-status")]
+        public IActionResult GetPreGenerateStatus(int sessionId)
+        {
+            if (!TryGetUserId(out _)) return UnauthorizedProblem();
+            return Ok(_preGenerationService.GetStatus(sessionId));
+        }
+
+        /// <summary>
+        /// Hủy tiến trình tạo trước câu hỏi Technical (khi user thoát phỏng vấn).
+        /// </summary>
+        [HttpPost("{sessionId:int}/cancel-pre-generate")]
+        public IActionResult CancelPreGenerate(int sessionId)
+        {
+            if (!TryGetUserId(out _)) return UnauthorizedProblem();
+            _preGenerationService.CancelPreGeneration(sessionId);
+            return NoContent();
+        }
+
         private bool TryGetUserId(out int userId)
         {
             return int.TryParse(User.FindFirst("UserId")?.Value, out userId) && userId > 0;
@@ -109,6 +151,19 @@ namespace ai_speis_be.Controllers
             });
         }
 
+        [HttpGet("health/ai")]
+        [AllowAnonymous]
+        public IActionResult CheckAIHealth()
+        {
+            var provider = _aiProviderResolver.Resolve();
+            return Ok(new
+            {
+                status = "healthy",
+                provider = provider.ProviderName,
+                timestamp = DateTime.UtcNow
+            });
+        }
+        
         private IActionResult ToActionResult<T>(TechnicalOperationResult<T> result)
         {
             return result.Status switch

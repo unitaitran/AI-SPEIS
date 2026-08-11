@@ -41,6 +41,8 @@ Each dimension evaluation must contain rubricCode, evidence, missingEvidence, an
 Do not recommend an interview action. Do not select, write, rewrite or generate any interview question.
 Clarification and follow-up decisions are made exclusively by backend rubric rules, and their text comes exclusively from the Question Bank.
 Never include adaptiveDecision, recommendedAction, suggestedQuestion, a main question or chain-of-thought.
+Return ONLY valid JSON. Do not include Markdown, code fences, explanations before or after JSON, or fields outside the defined schema.
+Use the exact rubric codes provided and do not invent rubric criteria.
 """;
             var request = new
             {

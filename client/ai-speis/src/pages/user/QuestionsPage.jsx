@@ -550,9 +550,6 @@ function QuestionsPage() {
                               <span className={`px-3 py-1 text-xs font-bold border rounded-md ${getDifficultyBadgeClass(q.difficulty)}`}>
                                 {getDifficultyText(q.difficulty)}
                               </span>
-                              <span className="px-2.5 py-1 text-xs font-bold bg-surface-3 text-text-secondary border border-border/80 rounded-md flex items-center gap-1">
-                                {(q.language || '').toLowerCase() === 'en' || (q.language || '').toLowerCase() === 'english' ? '🇬🇧 EN' : '🇻🇳 VI'}
-                              </span>
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">

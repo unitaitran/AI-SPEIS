@@ -49,6 +49,10 @@ namespace ai_speis_be.Controllers
         [HttpPost("{planId:int}/prices")]
         public async Task<IActionResult> CreatePrice(int planId, CreateSubscriptionPriceRequestDto request, CancellationToken cancellationToken)
         {
+            if( request.EffectiveTo.HasValue && request.EffectiveFrom > request.EffectiveTo)
+            {
+                return BadRequest(new { code = "INVALID_DATE_RANGE", message = "Ngày bắt đầu không thể lớn hơn ngày kết thúc." });
+            }
             var result = await _service.CreatePriceAsync(planId, request, cancellationToken);
             return result.Success ? Ok(result.Price) : BadRequest(new
             {
