@@ -478,7 +478,7 @@ function InterviewHistoryPage() {
             <button
               type="button"
               onClick={handleStartNewInterview}
-              className="bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 hover:shadow-lg text-white text-xs font-bold px-6 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md flex items-center gap-1.5"
+              className="bg-primary hover:bg-primary-dark hover:shadow-lg text-white text-xs font-bold px-6 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md flex items-center gap-1.5"
             >
               <Plus size={16} />
               {copy.history.newInterviewBtn}

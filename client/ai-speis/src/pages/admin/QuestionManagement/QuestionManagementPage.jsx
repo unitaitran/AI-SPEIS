@@ -19,6 +19,16 @@ import notify from '../../../utils/notification';
 import '../../../styles/admin/QuestionManagementPage.css';
 
 const DIFFICULTY_OPTIONS = ['all', 'Easy', 'Medium', 'Hard'];
+const DEFAULT_ROLES = [
+  'Backend Developer',
+  'Frontend Developer',
+  'Fullstack Developer',
+  'Mobile Developer',
+  'DevOps Engineer',
+  'QA / Tester',
+  'Data Engineer',
+  'AI / ML Engineer',
+];
 
 function QuestionManagementPage() {
   const { t } = useTranslation('questionBank');
@@ -44,8 +54,9 @@ function QuestionManagementPage() {
   const [roleOptions, setRoleOptions] = useState(['all']);
   const [majorOptions, setMajorOptions] = useState(['all']);
 
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [questionToDelete, setQuestionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [questionToEdit, setQuestionToEdit] = useState(null);
@@ -135,29 +146,56 @@ function QuestionManagementPage() {
     setCurrentPage(1);
   };
 
-  const openDeleteModal = (question) => {
-    setQuestionToDelete(question);
+  const toggleSelectAll = () => {
+    if (questions.length > 0 && selectedQuestionIds.length === questions.length) {
+      setSelectedQuestionIds([]);
+    } else {
+      setSelectedQuestionIds(questions.map((q) => q.questionId));
+    }
+  };
+
+  const toggleSelectQuestion = (questionId) => {
+    setSelectedQuestionIds((prev) =>
+      prev.includes(questionId)
+        ? prev.filter((id) => id !== questionId)
+        : [...prev, questionId]
+    );
+  };
+
+  const openDeleteModal = (question = null) => {
+    if (question) {
+      if (!selectedQuestionIds.includes(question.questionId)) {
+        setSelectedQuestionIds([question.questionId]);
+      }
+    }
     setIsDeleteModalOpen(true);
   };
 
   const closeDeleteModal = () => {
     setIsDeleteModalOpen(false);
-    setQuestionToDelete(null);
   };
 
   const confirmDelete = async () => {
-    if (!questionToDelete) return;
+    if (selectedQuestionIds.length === 0) return;
     try {
-      await questionService.deleteAdminQuestion(questionToDelete.questionId);
+      setDeleting(true);
+      await Promise.all(selectedQuestionIds.map((id) => questionService.deleteAdminQuestion(id)));
+      notify.success(`Đã xóa thành công ${selectedQuestionIds.length} câu hỏi.`);
+      setSelectedQuestionIds([]);
       closeDeleteModal();
       fetchQuestions();
     } catch (err) {
-      notify.error(err.message || 'Failed to delete question');
+      notify.error(err.message || 'Có lỗi xảy ra khi xóa câu hỏi.');
+    } finally {
+      setDeleting(false);
     }
   };
 
   const openEditModal = (question) => {
-    setQuestionToEdit({ ...question });
+    setQuestionToEdit({
+      ...question,
+      expectedKeyPoints: question.expectedKeyPoints || question.suggestedAnswer || '',
+    });
     setIsEditModalOpen(true);
   };
 
@@ -169,11 +207,20 @@ function QuestionManagementPage() {
   const confirmEdit = async () => {
     if (!questionToEdit) return;
     try {
-      await questionService.updateAdminQuestion(questionToEdit.questionId, questionToEdit);
+      const defaultMajor = (majorOptions && majorOptions.find((m) => m !== 'all')) || 'Công nghệ thông tin';
+      const keyPoints = questionToEdit.expectedKeyPoints ?? '';
+      const payload = {
+        ...questionToEdit,
+        expectedKeyPoints: keyPoints,
+        suggestedAnswer: questionToEdit.suggestedAnswer || keyPoints,
+        major: questionToEdit.major && questionToEdit.major.trim() !== '' ? questionToEdit.major : defaultMajor,
+      };
+      await questionService.updateAdminQuestion(questionToEdit.questionId, payload);
       closeEditModal();
       fetchQuestions();
+      notify.success('Cập nhật câu hỏi thành công.');
     } catch (err) {
-      notify.error(err.message || 'Failed to update question');
+      notify.error(err.message || 'Không thể cập nhật câu hỏi');
     }
   };
 
@@ -185,7 +232,7 @@ function QuestionManagementPage() {
   const openAddModal = () => setIsAddModalOpen(true);
   const closeAddModal = () => {
     setIsAddModalOpen(false);
-    setNewQuestion({ questionContent: '', suggestedAnswer: '', difficulty: 'Easy', roleTarget: '', major: '' });
+    setNewQuestion({ questionContent: '', expectedKeyPoints: '', suggestedAnswer: '', difficulty: 'Easy', roleTarget: '', major: '' });
   };
 
   const handleAddChange = (e) => {
@@ -195,11 +242,20 @@ function QuestionManagementPage() {
 
   const confirmAdd = async () => {
     try {
-      await questionService.createAdminQuestion(newQuestion);
+      const defaultMajor = (majorOptions && majorOptions.find((m) => m !== 'all')) || 'Công nghệ thông tin';
+      const keyPoints = newQuestion.expectedKeyPoints ?? '';
+      const payload = {
+        ...newQuestion,
+        expectedKeyPoints: keyPoints,
+        suggestedAnswer: newQuestion.suggestedAnswer || keyPoints,
+        major: newQuestion.major && newQuestion.major.trim() !== '' ? newQuestion.major : defaultMajor,
+      };
+      await questionService.createAdminQuestion(payload);
       closeAddModal();
       fetchQuestions();
+      notify.success('Thêm câu hỏi mới thành công.');
     } catch (err) {
-      notify.error(err.message || 'Failed to add question');
+      notify.error(err.message || 'Không thể thêm câu hỏi');
     }
   };
 
@@ -400,6 +456,15 @@ function QuestionManagementPage() {
           <p className="table-summary">
             {t('tableSummary', 'Showing {{total}} questions', { total: totalItems })}
           </p>
+          {selectedQuestionIds.length > 0 && (
+            <button
+              type="button"
+              className="btn-danger"
+              onClick={() => openDeleteModal()}
+            >
+              <Trash2 size={16} /> Xóa đã chọn ({selectedQuestionIds.length})
+            </button>
+          )}
         </div>
 
         {error && (
@@ -413,29 +478,45 @@ function QuestionManagementPage() {
           <table className="question-table">
             <thead>
               <tr>
+                <th style={{ width: '40px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    className="question-checkbox"
+                    checked={questions.length > 0 && selectedQuestionIds.length === questions.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th style={{ width: '10%' }}>{t('tableId', 'ID')}</th>
-                <th style={{ width: '40%' }}>{t('tableQuestion', 'Question')}</th>
+                <th style={{ width: '38%' }}>{t('tableQuestion', 'Question')}</th>
                 <th style={{ width: '20%' }}>{t('tableRole', 'Role Target')}</th>
                 <th style={{ width: '15%' }}>{t('tableDifficulty', 'Difficulty')}</th>
-                <th style={{ width: '15%', textAlign: 'center' }}>{t('tableActions', 'Actions')}</th>
+                <th style={{ width: '13%', textAlign: 'center' }}>{t('tableActions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
                     {t('loading', 'Loading questions...')}
                   </td>
                 </tr>
               ) : questions.length === 0 ? (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
                     {t('noResults', 'No questions found.')}
                   </td>
                 </tr>
               ) : (
                 questions.map((question, index) => (
                   <tr key={question.questionId} className="table-row-animate" style={{ '--delay': `${index * 40}ms` }}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        className="question-checkbox"
+                        checked={selectedQuestionIds.includes(question.questionId)}
+                        onChange={() => toggleSelectQuestion(question.questionId)}
+                      />
+                    </td>
                     <td>{question.questionCode || `Q-${question.questionId}`}</td>
                     <td>
                       <div className="question-content-preview">
@@ -564,20 +645,46 @@ function QuestionManagementPage() {
         <div className="modal-backdrop">
           <div className="modal-card">
             <div className="modal-header">
-              <h3 className="modal-title">{t('deleteConfirmTitle', 'Delete Question')}</h3>
-              <button type="button" className="btn-close" onClick={closeDeleteModal}>
+              <h3 className="modal-title">{t('deleteConfirmTitle', 'Xóa câu hỏi')}</h3>
+              <button type="button" className="btn-close" onClick={closeDeleteModal} disabled={deleting}>
                 <X size={20} />
               </button>
             </div>
             <div className="modal-body">
-              <p>{t('deleteConfirmText', 'Are you sure you want to delete this question? This action cannot be undone.')}</p>
+              <p style={{ margin: '0 0 12px', fontWeight: 500 }}>
+                Bạn có chắc chắn muốn xóa <strong>{selectedQuestionIds.length}</strong> câu hỏi đã chọn dưới đây không? Thao tác này không thể hoàn tác.
+              </p>
+
+              <div className="selected-questions-container">
+                {questions
+                  .filter((q) => selectedQuestionIds.includes(q.questionId))
+                  .map((q) => (
+                    <label key={q.questionId} className="selected-question-item">
+                      <input
+                        type="checkbox"
+                        className="question-checkbox"
+                        checked={selectedQuestionIds.includes(q.questionId)}
+                        onChange={() => toggleSelectQuestion(q.questionId)}
+                      />
+                      <span className="selected-question-text">
+                        <strong>{q.questionCode || `Q-${q.questionId}`}:</strong> {q.questionContent}
+                      </span>
+                    </label>
+                  ))}
+              </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn-secondary" onClick={closeDeleteModal}>
-                {t('cancel', 'Cancel')}
+              <button type="button" className="btn-secondary" onClick={closeDeleteModal} disabled={deleting}>
+                {t('cancel', 'Hủy')}
               </button>
-              <button type="button" className="btn-danger" onClick={confirmDelete}>
-                {t('confirmDelete', 'Delete')}
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={confirmDelete}
+                disabled={selectedQuestionIds.length === 0 || deleting}
+              >
+                <Trash2 size={16} />
+                {deleting ? 'Đang xóa...' : `Xóa (${selectedQuestionIds.length} câu hỏi)`}
               </button>
             </div>
           </div>
@@ -606,11 +713,11 @@ function QuestionManagementPage() {
                 />
               </div>
               <div className="modal-form-group">
-                <label className="modal-label">{t('tableAnswer', 'Suggested Answer')}</label>
+                <label className="modal-label">Ý chính gợi ý (Expected Key Points / Tips)</label>
                 <textarea
-                  name="suggestedAnswer"
+                  name="expectedKeyPoints"
                   className="modal-input textarea"
-                  value={questionToEdit.suggestedAnswer || ''}
+                  value={questionToEdit.expectedKeyPoints || ''}
                   onChange={handleEditChange}
                   rows={4}
                 />
@@ -629,23 +736,20 @@ function QuestionManagementPage() {
                 </div>
                 <div className="modal-form-group">
                   <label className="modal-label">{t('tableRole', 'Role Target')}</label>
-                  <input
-                    type="text"
+                  <select
                     name="roleTarget"
                     className="modal-input"
                     value={questionToEdit.roleTarget || ''}
                     onChange={handleEditChange}
-                  />
-                </div>
-                <div className="modal-form-group">
-                  <label className="modal-label">{t('tableMajor', 'Major')}</label>
-                  <input
-                    type="text"
-                    name="major"
-                    className="modal-input"
-                    value={questionToEdit.major || ''}
-                    onChange={handleEditChange}
-                  />
+                  >
+                    <option value="">-- Chọn vai trò --</option>
+                    {Array.from(new Set([...DEFAULT_ROLES, ...roleOptions.filter(r => r !== 'all')])).map(role => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                    {questionToEdit.roleTarget && !roleOptions.includes(questionToEdit.roleTarget) && !DEFAULT_ROLES.includes(questionToEdit.roleTarget) && (
+                      <option value={questionToEdit.roleTarget}>{questionToEdit.roleTarget}</option>
+                    )}
+                  </select>
                 </div>
               </div>
             </div>
@@ -683,11 +787,11 @@ function QuestionManagementPage() {
                 />
               </div>
               <div className="modal-form-group">
-                <label className="modal-label">{t('tableAnswer', 'Suggested Answer')}</label>
+                <label className="modal-label">Ý chính gợi ý (Expected Key Points / Tips)</label>
                 <textarea
-                  name="suggestedAnswer"
+                  name="expectedKeyPoints"
                   className="modal-input textarea"
-                  value={newQuestion.suggestedAnswer || ''}
+                  value={newQuestion.expectedKeyPoints || ''}
                   onChange={handleAddChange}
                   rows={4}
                 />
@@ -706,23 +810,17 @@ function QuestionManagementPage() {
                 </div>
                 <div className="modal-form-group">
                   <label className="modal-label">{t('tableRole', 'Role Target')}</label>
-                  <input
-                    type="text"
+                  <select
                     name="roleTarget"
                     className="modal-input"
                     value={newQuestion.roleTarget || ''}
                     onChange={handleAddChange}
-                  />
-                </div>
-                <div className="modal-form-group">
-                  <label className="modal-label">{t('tableMajor', 'Major')}</label>
-                  <input
-                    type="text"
-                    name="major"
-                    className="modal-input"
-                    value={newQuestion.major || ''}
-                    onChange={handleAddChange}
-                  />
+                  >
+                    <option value="">-- Chọn vai trò --</option>
+                    {Array.from(new Set([...DEFAULT_ROLES, ...roleOptions.filter(r => r !== 'all')])).map(role => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
