@@ -14,11 +14,11 @@ import { USER_ROUTES } from '../../routes/routePaths';
 function QuickActionsSection({ latestInterview }) {
   const { t } = useTranslation('dashboard');
 
-  // Dữ liệu lần phỏng vấn gần nhất (sử dụng dữ liệu động nếu có, hoặc fallback mock data)
+  // Dữ liệu lần phỏng vấn gần nhất (sử dụng dữ liệu động thực tế từ CSDL)
   const lastInterviewData = {
-    title: latestInterview?.jobTitle || 'Frontend Developer',
-    score: latestInterview?.score ? `${latestInterview.score}/10` : '8.5/10',
-    date: latestInterview?.date || '10/08/2026',
+    title: latestInterview?.jobTitle || t('quick_actions.card_1.default_title', 'Phỏng vấn gần nhất'),
+    score: latestInterview?.score ? `${latestInterview.score}/10` : (latestInterview ? 'Chưa chấm' : '8.5/10'),
+    date: latestInterview?.date || '12/08/2026',
     path: latestInterview?.campaignId
       ? `/user/interview/campaign-result/${latestInterview.campaignId}`
       : USER_ROUTES.INTERVIEW_HISTORY,

@@ -115,6 +115,7 @@ function DashboardPage() {
   }, []);
 
   const [totalSessionCount, setTotalSessionCount] = useState(0);
+  const [latestInterview, setLatestInterview] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -123,12 +124,33 @@ function DashboardPage() {
         const campaigns = await interviewSessionService.getMyCampaigns();
         if (isMounted && Array.isArray(campaigns)) {
           setTotalSessionCount(campaigns.length);
+          if (campaigns.length > 0) {
+            const sorted = [...campaigns].sort((a, b) => {
+              const dateA = new Date(a.createdAt || a.startedAt || 0).getTime();
+              const dateB = new Date(b.createdAt || b.startedAt || 0).getTime();
+              return dateB - dateA;
+            });
+            const latest = sorted[0];
+            const dateObj = new Date(latest.createdAt || latest.startedAt || Date.now());
+            const locale = (i18n?.language || '').toLowerCase().startsWith('en') ? 'en-US' : 'vi-VN';
+            const formattedDate = dateObj.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            const jobTitle = latest.jobTitle || latest.JobTitle || latest.roleTarget || latest.positionTitle || latest.jdTitle || (latest.mode === 'RealTest' ? 'Phỏng vấn mô phỏng' : 'Luyện tập theo kỹ năng');
+            const scoreVal = latest.overallScore ?? latest.OverallScore ?? latest.score;
+
+            setLatestInterview({
+              jobTitle,
+              score: scoreVal != null && Number(scoreVal) > 0 ? Number(scoreVal).toFixed(1) : null,
+              date: formattedDate,
+              campaignId: latest.interviewCampaignId || latest.id
+            });
+          }
         }
       } catch { }
     };
     loadTotalSessions();
     return () => { isMounted = false; };
-  }, []);
+  }, [i18n?.language]);
 
   const validScores = capabilities.filter((c) => c.score > 0);
   const avgScore = validScores.length > 0
@@ -246,51 +268,40 @@ function DashboardPage() {
           ))}
         </section>
 
-
-
         {/* Content Row 1: CTA and Chart */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Vibrant CTA Card */}
-          <div className="lg:col-span-4 bg-gradient-to-br from-primary to-[#4A90E2] text-white p-8 rounded-2xl flex flex-col justify-between min-h-[320px] shadow-lg relative overflow-hidden">
-            {/* Decorative circles */}
-            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></div>
-            <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-black opacity-10 rounded-full blur-2xl"></div>
-
-            <div className="relative z-10">
-              <h2 className="text-3xl font-bold mb-4 leading-tight drop-shadow-sm">
-                {t('banner.title', 'Sẵn sàng\nluyện phỏng\nvấn?').split('\n').map((line, idx) => (
-                  <React.Fragment key={idx}>
-                    {line}
-                    {idx < t('banner.title', 'Sẵn sàng\nluyện phỏng\nvấn?').split('\n').length - 1 && <br />}
-                  </React.Fragment>
-                ))}
-              </h2>
-              <p className="text-white/80 text-sm mb-8 leading-relaxed font-medium">
-                {t('banner.desc', 'Bắt đầu mock interview dựa trên CV và vị trí bạn đang ứng tuyển. Hệ thống AI sẽ phân tích và đưa ra phản hồi chi tiết.')}
-              </p>
+          {/* Frameless Interactive Mascot CTA (Speech Bubble + Mascot Avatar) */}
+          <div
+            onClick={() => {
+              if (quotaExhausted) return;
+              beginNewInterviewCampaign();
+              navigate(USER_ROUTES.INTERVIEW_MODE);
+            }}
+            className={`lg:col-span-4 flex flex-col items-center justify-center p-4 relative group transition-all duration-300 ${
+              quotaExhausted ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
+            }`}
+          >
+            {/* Speech Bubble above Mascot */}
+            <div className="relative mb-3 bg-surface-2 text-primary-dark dark:bg-slate-800 dark:text-blue-400 font-extrabold text-sm px-5 py-2.5 rounded-2xl shadow-sm border border-border/80 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300 flex items-center gap-2">
+              <span>{t('banner.mascot_speech', 'Luyện tập phỏng vấn ngay! 🚀')}</span>
+              <ArrowRight size={16} className="transform group-hover:translate-x-1 transition-transform" />
+              
+              {/* Speech Bubble Tail */}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[7px] border-l-transparent border-r-[7px] border-r-transparent border-t-[8px] border-t-surface-2 dark:border-t-slate-800 group-hover:border-t-primary transition-colors duration-300" />
             </div>
-            <button
-              className={`relative z-10 py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between shadow-md transition-all duration-300 w-full sm:w-auto self-start group ${quotaExhausted ? 'bg-white/60 text-white/80 cursor-not-allowed' : 'bg-white text-primary-dark hover:bg-primary-xlight hover:shadow-lg hover:-translate-y-1 cursor-pointer'}`}
-              onClick={() => {
-                if (quotaExhausted) return;
-                beginNewInterviewCampaign();
-                navigate(USER_ROUTES.INTERVIEW_MODE);
-              }}
-              disabled={quotaExhausted}
-            >
-              {t('banner.button', 'BẮT ĐẦU PHỎNG VẤN')}
-              <ArrowRight size={18} className="ml-4 transform group-hover:translate-x-1 transition-transform" />
-            </button>
+
+            {/* Circular Mascot Avatar Container */}
+            <div className="relative w-44 h-44 sm:w-48 sm:h-48 rounded-full p-2 bg-surface-2 border border-border shadow-md group-hover:shadow-xl group-hover:scale-105 transition-all duration-300 flex items-center justify-center overflow-hidden">
+              <img
+                src={process.env.PUBLIC_URL + '/ideaing_mascot.jpg'}
+                alt="AI Mascot Practice"
+                className="w-full h-full object-cover rounded-full"
+              />
+            </div>
 
             {quotaExhausted && (
-              <p className="relative z-10 mt-3 text-xs text-white/90 max-w-[320px]">
-                You have used all your interview attempts. Upgrade to Premium to get 15 interview attempts.
-              </p>
-            )}
-
-            {oneAttemptLeft && (
-              <p className="relative z-10 mt-3 text-xs font-semibold text-warning-light max-w-[320px]">
-                Warning: You only have 1 interview attempt left.
+              <p className="mt-3 text-xs text-rose-500 font-semibold text-center">
+                {t('banner.quota_exhausted', 'Bạn đã hết lượt phỏng vấn. Vui lòng nâng cấp gói.')}
               </p>
             )}
           </div>
@@ -380,7 +391,7 @@ function DashboardPage() {
         </section>
 
         {/* Quick Actions Section (3 Activity Cards) */}
-        <QuickActionsSection />
+        <QuickActionsSection latestInterview={latestInterview} />
 
         {/* Skill Trend Modal */}
         <SkillHistoryModal

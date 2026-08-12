@@ -37,8 +37,8 @@ const copy = {
     vi: ['Đã hoàn thành phỏng vấn {{round}}', 'Vòng phỏng vấn {{round}} của bạn đã hoàn thành thành công.', 'Xem tiến trình'],
   },
   ALL_INTERVIEW_ROUNDS_COMPLETED: {
-    en: ['Interview completed', 'You have completed all required interview rounds.', 'View interview summary'],
-    vi: ['Đã hoàn thành phỏng vấn', 'Bạn đã hoàn thành tất cả vòng phỏng vấn bắt buộc.', 'Xem tổng kết phỏng vấn'],
+    en: ['Interview completed', 'You have completed all required interview rounds{{pointsText}}', 'View interview summary'],
+    vi: ['Đã hoàn thành phỏng vấn', 'Bạn đã hoàn thành tất cả các vòng phỏng vấn{{pointsText}}', 'Xem tổng kết phỏng vấn'],
   },
   INTERVIEW_FEEDBACK_READY: {
     en: ['Interview feedback available', 'Your interview result and feedback are now available.', 'View feedback'],
@@ -154,12 +154,19 @@ export function getNotificationContent(notification, metadata, language) {
   const locale = isVietnamese(language) ? 'vi' : 'en';
   const definition = copy[notification?.type]?.[locale];
   if (!definition) return { title: notification?.title || (locale === 'vi' ? 'Thông báo' : 'Notification'), message: notification?.message || '', action: null };
+
+  const points = metadata?.earnedPoints ?? metadata?.points;
+  const pointsText = points
+    ? (locale === 'vi' ? ` và nhận được +${points} điểm thưởng!` : ` and earned +${points} reward points!`)
+    : '.';
+
   const values = {
     round: roundName(metadata?.roundType, language),
     plan: metadata?.planName || metadata?.newPlanName || (locale === 'vi' ? 'hiện tại' : 'current'),
     oldPlan: metadata?.oldPlanName || (locale === 'vi' ? 'gói trước' : 'previous plan'),
     expiryDate: formatDate(metadata?.expiryDate || notification?.expiresAt, language),
     user: metadata?.userName || (locale === 'vi' ? 'người dùng' : 'the user'),
+    pointsText,
   };
   return { title: interpolate(definition[0], values), message: interpolate(definition[1], values), action: definition[2] };
 }

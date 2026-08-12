@@ -23,5 +23,9 @@
 !client/ai-speis/src/locales/vi/cvjd.json
 !client/ai-speis/src/locales/vi/admin-subscription.json
 !client/ai-speis/src/locales/en/admin-subscription.json
+!client/ai-speis/src/locales/vi/admin-payments.json
+!client/ai-speis/src/locales/en/admin-payments.json
+!client/ai-speis/src/locales/vi/admin-ai-usage.json
+!client/ai-speis/src/locales/en/admin-ai-usage.json
 !client/ai-speis/src/locales/vi/dashboard.json
 !client/ai-speis/src/locales/en/dashboard.json

@@ -56,7 +56,11 @@
   "banner": {
     "title": "Ready to\npractice\ninterviews?",
     "desc": "Start a mock interview based on your CV and target role. The AI system will analyze and provide detailed feedback.",
-    "button": "START INTERVIEW"
+    "button": "START INTERVIEW",
+    "mascot_title": "Ready to practice interviews?",
+    "mascot_desc": "Start a mock interview based on your CV and target role.",
+    "practice_now": "PRACTICE NOW",
+    "mascot_speech": "Practice now! 🚀"
   },
   "chart": {
     "title": "Skills Progress",
