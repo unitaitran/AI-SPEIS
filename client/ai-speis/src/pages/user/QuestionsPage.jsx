@@ -371,7 +371,7 @@ function QuestionsPage() {
 
           <button
             type="submit"
-            className="bg-gradient-to-br from-primary to-[#4A90E2] hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 text-white text-xs font-bold px-7 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md"
+            className="bg-primary hover:bg-primary-dark hover:shadow-lg hover:-translate-y-0.5 text-white text-xs font-bold px-7 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md"
           >
             {t('questions.search_button', 'Tìm kiếm')}
           </button>
@@ -637,7 +637,7 @@ function QuestionsPage() {
                         key={button}
                         onClick={() => setCurrentPage(button)}
                         className={`w-9 h-9 text-xs font-bold rounded-lg border transition-all cursor-pointer ${isActive
-                            ? 'bg-gradient-to-br from-primary to-[#4A90E2] border-transparent text-white shadow-sm'
+                            ? 'bg-gradient-to-r from-primary to-primary-dark border-transparent text-white shadow-sm'
                             : 'border-border bg-surface-2 text-text-secondary hover:text-text-primary hover:bg-surface-3'
                           }`}
                       >

@@ -7,10 +7,10 @@
   /* ------------------------------------------------------------------------
      1. Brand & Primary Color Tokens (Trust & Professional Blue)
      ------------------------------------------------------------------------ */
-  --color-primary: #2563EB;             /* Blue 600 - Primary actions, active tabs */
-  --color-primary-hover: #1D4ED8;       /* Blue 700 - Hover state */
-  --color-primary-light: #DBEAFE;       /* Blue 100 - Active row fill, soft highlight */
-  --color-primary-xlight: #EFF6FF;      /* Blue 50  - Hover card background */
+  --color-primary: #6fb6e8;             /* Light Sky Blue - Primary actions (matching Xem kết quả / Thêm JD) */
+  --color-primary-hover: #3f7fae;       /* Primary dark hover state */
+  --color-primary-light: #b9dcf5;       /* Light blue row fill */
+  --color-primary-xlight: #eaf6ff;      /* Soft card background */
 
   /* Legacy primary variables alias for backwards compatibility */
   --primary: var(--color-primary);

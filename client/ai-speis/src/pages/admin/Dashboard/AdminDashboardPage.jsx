@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Users,
   CreditCard,
@@ -38,20 +38,20 @@ import './AdminDashboardPage.css';
 
 /* ────────────────────────── Helpers ────────────────────────── */
 
-function formatVnd(amount) {
+function formatVnd(amount, language) {
   if (amount == null) return '0 ₫';
-  return amount.toLocaleString('vi-VN', {
+  return amount.toLocaleString(String(language).startsWith('vi') ? 'vi-VN' : 'en-US', {
     style: 'currency',
     currency: 'VND',
     maximumFractionDigits: 0,
   });
 }
 
-function formatDate(iso) {
+function formatDate(iso, language) {
   if (!iso) return '—';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('vi-VN', {
+  return d.toLocaleString(String(language).startsWith('vi') ? 'vi-VN' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
     day: '2-digit',
@@ -59,11 +59,39 @@ function formatDate(iso) {
   });
 }
 
+function getStatusBadge(status, t) {
+  const statusStr = typeof status === 'string' ? status : String(status);
+  switch (statusStr.toLowerCase()) {
+    case 'paid':
+    case 'paidbyreward':
+    case '1':
+    case '4':
+      return { label: t('filterStatusPaid', 'Đã thanh toán'), cls: 'payment-tag--paid' };
+    case 'pending':
+    case '0':
+      return { label: t('filterStatusPending', 'Chờ xử lý'), cls: 'payment-tag--pending' };
+    case 'failed':
+    case '3':
+      return { label: t('filterStatusFailed', 'Thất bại'), cls: 'payment-tag--failed' };
+    case 'expired':
+    case '2':
+      return { label: t('filterStatusExpired', 'Hết hạn'), cls: 'payment-tag--expired' };
+    case 'cancelled':
+    case '5':
+      return { label: t('filterStatusCancelled', 'Đã hủy'), cls: 'payment-tag--cancelled' };
+    case 'refunded':
+    case '6':
+      return { label: t('filterStatusRefunded', 'Hoàn tiền'), cls: 'payment-tag--refunded' };
+    default:
+      return { label: statusStr, cls: 'payment-tag--expired' };
+  }
+}
+
 const PIE_COLORS = ['#4CAF50', '#FF9800', '#F44336', '#9C27B0', '#2196F3', '#00BCD4'];
 const SUB_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
 export default function AdminDashboardPage() {
-  const { t } = useTranslation('admin-dashboard');
+  const { t, i18n } = useTranslation('admin-dashboard');
 
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +100,8 @@ export default function AdminDashboardPage() {
   // Time & Auto-refresh (60s)
   const [currentTime, setCurrentTime] = useState(new Date());
   const [countdown, setCountdown] = useState(60);
+
+  const langCode = String(i18n.language).startsWith('vi') ? 'vi-VN' : 'en-US';
 
   // Live Clock
   useEffect(() => {
@@ -115,6 +145,45 @@ export default function AdminDashboardPage() {
     return () => clearInterval(timer);
   }, [loadData]);
 
+  const {
+    overview,
+    subscriptions,
+    payments,
+    interviews,
+    questionBank,
+    cv,
+    aiUsageAndCost,
+    recentActivities,
+  } = dashboardData || {};
+
+  const formattedSubDistribution = useMemo(() => {
+    if (!subscriptions?.distribution) return [];
+    return subscriptions.distribution.map((item) => {
+      let translatedLabel = item.label || item.Label || '';
+      const lower = translatedLabel.toLowerCase();
+      if (lower.includes('free') || lower.includes('miễn phí')) {
+        translatedLabel = t('free', 'Miễn phí');
+      } else if (lower.includes('monthly') || lower.includes('tháng')) {
+        translatedLabel = t('month', 'Tháng');
+      } else if (lower.includes('yearly') || lower.includes('năm')) {
+        translatedLabel = t('year', 'Năm');
+      }
+      return { ...item, translatedLabel };
+    });
+  }, [subscriptions?.distribution, t]);
+
+  const formattedPaymentStatusDistribution = useMemo(() => {
+    if (!payments?.statusDistribution) return [];
+    return payments.statusDistribution.map((item) => {
+      const rawStatus = item.label || item.status || '';
+      const badge = getStatusBadge(rawStatus, t);
+      return {
+        ...item,
+        translatedStatus: badge ? badge.label : rawStatus,
+      };
+    });
+  }, [payments?.statusDistribution, t]);
+
   if (loading && !dashboardData) {
     return (
       <div className="admin-dashboard-page dashboard-loading-wrap">
@@ -130,26 +199,15 @@ export default function AdminDashboardPage() {
       <div className="admin-dashboard-page">
         <div className="dashboard-error-card">
           <Activity size={36} className="text-danger" />
-          <h3>Lỗi tải dữ liệu Dashboard</h3>
+          <h3>{t('errorTitle', 'Lỗi tải dữ liệu Dashboard')}</h3>
           <p>{error}</p>
           <button className="payment-page__btn payment-page__btn--primary" onClick={loadData} type="button">
-            <RefreshCw size={16} /> Thử lại
+            <RefreshCw size={16} /> {t('retry', 'Thử lại')}
           </button>
         </div>
       </div>
     );
   }
-
-  const {
-    overview,
-    subscriptions,
-    payments,
-    interviews,
-    questionBank,
-    cv,
-    aiUsageAndCost,
-    recentActivities,
-  } = dashboardData || {};
 
   return (
     <div className="admin-dashboard-page">
@@ -159,11 +217,11 @@ export default function AdminDashboardPage() {
           <div className="breadcrumb">
             <span>{t('breadcrumbAdmin', 'Admin')}</span>
             <span className="separator">/</span>
-            <span aria-current="page">{t('overview', 'Dashboard')}</span>
+            <span aria-current="page">{t('overview', 'Tổng quan')}</span>
           </div>
           <div className="dashboard-header__time">
             <Clock size={14} />
-            <span>{currentTime.toLocaleTimeString('vi-VN')} — {currentTime.toLocaleDateString('vi-VN')}</span>
+            <span>{currentTime.toLocaleTimeString(langCode)} — {currentTime.toLocaleDateString(langCode)}</span>
           </div>
         </div>
 
@@ -180,7 +238,7 @@ export default function AdminDashboardPage() {
           <div className="dashboard-header__actions">
             <div className="dashboard-refresh-badge">
               <Activity size={14} className="text-primary" />
-              <span>Auto refresh: {countdown}s</span>
+              <span>{t('autoRefresh', { seconds: countdown })}</span>
             </div>
 
             <button
@@ -209,17 +267,17 @@ export default function AdminDashboardPage() {
             </span>
             <div className="overview-card__top-right">
               <span className="payment-tag payment-tag--paid">
-                +{overview?.newUsersToday ?? 0} hôm nay
+                +{overview?.newUsersToday ?? 0} {t('today', 'hôm nay')}
               </span>
               <ChevronRight size={16} className="dashboard-card__nav-icon" />
             </div>
           </div>
-          <div className="overview-card__val">{overview?.totalUsers?.toLocaleString('vi-VN') ?? 0}</div>
+          <div className="overview-card__val">{overview?.totalUsers?.toLocaleString(langCode) ?? 0}</div>
           <div className="overview-card__lbl">{t('cardTotalUsers', 'Tổng người dùng hệ thống')}</div>
           <div className="overview-card__sub">
-            <span>Hoạt động: <strong>{overview?.activeUsers ?? 0}</strong></span>
+            <span>{t('activeUsers', 'Hoạt động:')} <strong>{overview?.activeUsers ?? 0}</strong></span>
             <span>•</span>
-            <span>Mới tháng này: <strong>+{overview?.newUsersThisMonth ?? 0}</strong></span>
+            <span>{t('newThisMonth', 'Mới tháng này:')} <strong>+{overview?.newUsersThisMonth ?? 0}</strong></span>
           </div>
         </div>
 
@@ -239,12 +297,12 @@ export default function AdminDashboardPage() {
               <ChevronRight size={16} className="dashboard-card__nav-icon" />
             </div>
           </div>
-          <div className="overview-card__val">{overview?.premiumUsers?.toLocaleString('vi-VN') ?? 0}</div>
+          <div className="overview-card__val">{overview?.premiumUsers?.toLocaleString(langCode) ?? 0}</div>
           <div className="overview-card__lbl">{t('cardPremiumUsers', 'Thành viên gói Premium')}</div>
           <div className="overview-card__sub">
-            <span>Free: <strong>{overview?.freeUsers ?? 0}</strong></span>
+            <span>{t('freeUsers', 'Miễn phí:')} <strong>{overview?.freeUsers ?? 0}</strong></span>
             <span>•</span>
-            <span>Hết hạn: <strong>{subscriptions?.expiredCount ?? 0}</strong></span>
+            <span>{t('expiredUsers', 'Hết hạn:')} <strong>{subscriptions?.expiredCount ?? 0}</strong></span>
           </div>
         </div>
 
@@ -258,14 +316,14 @@ export default function AdminDashboardPage() {
               <DollarSign size={22} />
             </span>
             <div className="overview-card__top-right">
-              <span className="payment-tag payment-tag--paid">Revenue</span>
+              <span className="payment-tag payment-tag--paid">{t('revenue', 'Doanh thu')}</span>
               <ChevronRight size={16} className="dashboard-card__nav-icon" />
             </div>
           </div>
-          <div className="overview-card__val">{formatVnd(payments?.todayRevenue)}</div>
-          <div className="overview-card__lbl">{t('cardTodayRevenue', 'Doanh thu hôm nay (Revenue)')}</div>
+          <div className="overview-card__val">{formatVnd(payments?.todayRevenue, i18n.language)}</div>
+          <div className="overview-card__lbl">{t('cardTodayRevenue', 'Doanh thu hôm nay')}</div>
           <div className="overview-card__sub">
-            <span>Tháng này: <strong>{formatVnd(payments?.monthlyRevenue)}</strong></span>
+            <span>{t('monthlyRevenueSub', 'Tháng này:')} <strong>{formatVnd(payments?.monthlyRevenue, i18n.language)}</strong></span>
           </div>
         </div>
 
@@ -279,16 +337,16 @@ export default function AdminDashboardPage() {
               <Activity size={22} />
             </span>
             <div className="overview-card__top-right">
-              <span className="payment-tag payment-tag--pending">Score: {interviews?.averageAiScore ?? 7.8}</span>
+              <span className="payment-tag payment-tag--pending">{t('score', 'Điểm:')} {interviews?.averageAiScore ?? 7.8}</span>
               <ChevronRight size={16} className="dashboard-card__nav-icon" />
             </div>
           </div>
           <div className="overview-card__val">{interviews?.todaySessions ?? 0}</div>
           <div className="overview-card__lbl">{t('cardTodayInterviews', 'Phỏng vấn AI hôm nay')}</div>
           <div className="overview-card__sub">
-            <span>Hoàn thành: <strong>{interviews?.completedSessions ?? 0}</strong></span>
+            <span>{t('completedInterviews', 'Hoàn thành:')} <strong>{interviews?.completedSessions ?? 0}</strong></span>
             <span>•</span>
-            <span>Tổng: <strong>{interviews?.totalSessions ?? 0}</strong></span>
+            <span>{t('totalInterviews', 'Tổng cộng:')} <strong>{interviews?.totalSessions ?? 0}</strong></span>
           </div>
         </div>
       </div>
@@ -303,7 +361,7 @@ export default function AdminDashboardPage() {
           <div className="chart-card__header">
             <div>
               <h3 className="chart-card__title">{t('chartUserGrowth', 'Tăng trưởng Người dùng (14 ngày)')}</h3>
-              <p className="chart-card__subtitle">Số lượng tài khoản đăng ký mới theo thời gian</p>
+              <p className="chart-card__subtitle">{t('chartUserGrowthSub', 'Số lượng tài khoản đăng ký mới theo thời gian')}</p>
             </div>
             <div className="chart-card__header-right">
               <TrendingUp size={20} className="text-primary" />
@@ -321,7 +379,7 @@ export default function AdminDashboardPage() {
                 </defs>
                 <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <RechartsTooltip formatter={(val) => [`${val} người dùng`, 'Đăng ký mới']} />
+                <RechartsTooltip formatter={(val) => [t('userCount', { count: val }), t('newRegistrations', 'Đăng ký mới')]} />
                 <Area type="monotone" dataKey="count" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#userGrad)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -336,7 +394,7 @@ export default function AdminDashboardPage() {
           <div className="chart-card__header">
             <div>
               <h3 className="chart-card__title">{t('chartSubDistribution', 'Phân bổ Gói đăng ký')}</h3>
-              <p className="chart-card__subtitle">Tỷ lệ các gói người dùng đang sử dụng</p>
+              <p className="chart-card__subtitle">{t('chartSubDistributionSub', 'Tỷ lệ các gói người dùng đang sử dụng')}</p>
             </div>
             <div className="chart-card__header-right">
               <PieIcon size={20} className="text-secondary" />
@@ -347,20 +405,20 @@ export default function AdminDashboardPage() {
             <ResponsiveContainer>
               <PieChart>
                 <Pie
-                  data={subscriptions?.distribution || []}
+                  data={formattedSubDistribution}
                   dataKey="count"
-                  nameKey="label"
+                  nameKey="translatedLabel"
                   cx="50%"
                   cy="50%"
                   innerRadius={55}
                   outerRadius={85}
                   paddingAngle={4}
                 >
-                  {(subscriptions?.distribution || []).map((entry, idx) => (
+                  {formattedSubDistribution.map((entry, idx) => (
                     <Cell key={`sub-${idx}`} fill={SUB_COLORS[idx % SUB_COLORS.length]} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(val, name) => [`${val} tài khoản`, name]} />
+                <RechartsTooltip formatter={(val, name) => [t('accountCount', { count: val }), name]} />
                 <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
@@ -377,8 +435,8 @@ export default function AdminDashboardPage() {
         >
           <div className="chart-card__header">
             <div>
-              <h3 className="chart-card__title">{t('chartRevenueTrend', 'Doanh thu Thanh toán MoMo (14 ngày)')}</h3>
-              <p className="chart-card__subtitle">Tổng giá trị giao dịch thành công theo ngày</p>
+              <h3 className="chart-card__title">{t('chartRevenueTrendMoMo', 'Doanh thu Thanh toán MoMo (14 ngày)')}</h3>
+              <p className="chart-card__subtitle">{t('chartRevenueTrendSub', 'Tổng giá trị giao dịch thành công theo ngày')}</p>
             </div>
             <div className="chart-card__header-right">
               <DollarSign size={20} className="text-primary" />
@@ -396,7 +454,7 @@ export default function AdminDashboardPage() {
                 </defs>
                 <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <RechartsTooltip formatter={(val) => [formatVnd(val), 'Doanh thu']} />
+                <RechartsTooltip formatter={(val) => [formatVnd(val, i18n.language), t('revenue', 'Doanh thu')]} />
                 <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#revGrad)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -410,8 +468,8 @@ export default function AdminDashboardPage() {
         >
           <div className="chart-card__header">
             <div>
-              <h3 className="chart-card__title">{t('chartPaymentStatus', 'Trạng thái Đơn hàng')}</h3>
-              <p className="chart-card__subtitle">Phân bố giao dịch thành công, chờ & thất bại</p>
+              <h3 className="chart-card__title">{t('chartOrderStatus', 'Trạng thái Đơn hàng')}</h3>
+              <p className="chart-card__subtitle">{t('chartOrderStatusSub', 'Phân bố giao dịch thành công, chờ & thất bại')}</p>
             </div>
             <div className="chart-card__header-right">
               <CreditCard size={20} className="text-secondary" />
@@ -422,20 +480,20 @@ export default function AdminDashboardPage() {
             <ResponsiveContainer>
               <PieChart>
                 <Pie
-                  data={payments?.statusDistribution || []}
+                  data={formattedPaymentStatusDistribution}
                   dataKey="count"
-                  nameKey="label"
+                  nameKey="translatedStatus"
                   cx="50%"
                   cy="50%"
                   innerRadius={55}
                   outerRadius={85}
                   paddingAngle={4}
                 >
-                  {(payments?.statusDistribution || []).map((entry, idx) => (
+                  {formattedPaymentStatusDistribution.map((entry, idx) => (
                     <Cell key={`pay-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(val, name) => [`${val} giao dịch`, name]} />
+                <RechartsTooltip formatter={(val, name) => [t('txCount', { count: val }), name]} />
                 <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
@@ -453,7 +511,7 @@ export default function AdminDashboardPage() {
           <div className="chart-card__header">
             <div>
               <h3 className="chart-card__title">{t('chartInterviewStats', 'Thống kê Phỏng vấn AI theo ngày')}</h3>
-              <p className="chart-card__subtitle">Số lượng các lượt phỏng vấn kỹ thuật & hành vi</p>
+              <p className="chart-card__subtitle">{t('chartInterviewStatsSub', 'Số lượng các lượt phỏng vấn kỹ thuật & hành vi')}</p>
             </div>
             <div className="chart-card__header-right">
               <BarChart2 size={20} className="text-primary" />
@@ -465,7 +523,7 @@ export default function AdminDashboardPage() {
               <BarChart data={interviews?.dailyInterviewStats || []}>
                 <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <RechartsTooltip formatter={(val) => [`${val} lượt`, 'Phỏng vấn']} />
+                <RechartsTooltip formatter={(val) => [t('sessionCount', { count: val }), t('interviewsLabel', 'Phỏng vấn')]} />
                 <Bar dataKey="count" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -480,7 +538,7 @@ export default function AdminDashboardPage() {
           <div className="chart-card__header">
             <div>
               <h3 className="chart-card__title">{t('sectionAiUsageSummary', 'Google Cloud AI Usage')}</h3>
-              <p className="chart-card__subtitle">Dịch vụ & Giới hạn Quota</p>
+              <p className="chart-card__subtitle">{t('sectionAiUsageSummarySub', 'Dịch vụ & Giới hạn Quota')}</p>
             </div>
             <div className="chart-card__header-right">
               <Server size={20} className="text-primary" />
@@ -509,7 +567,7 @@ export default function AdminDashboardPage() {
 
           <div className="dashboard-system-health-banner">
             <ShieldCheck size={18} className="text-success" />
-            <span>Tất cả dịch vụ AI & Quota đang hoạt động an toàn</span>
+            <span>{t('aiUsageBanner', 'Tất cả dịch vụ AI & Quota đang hoạt động an toàn')}</span>
           </div>
         </div>
       </div>
@@ -524,7 +582,7 @@ export default function AdminDashboardPage() {
           <div className="chart-card__header">
             <div>
               <h3 className="chart-card__title">{t('sectionCloudCost', 'Google Cloud Cost Billing')}</h3>
-              <p className="chart-card__subtitle">Chi phí dịch vụ AI hàng tháng</p>
+              <p className="chart-card__subtitle">{t('sectionCloudCostSub', 'Chi phí dịch vụ AI hàng tháng')}</p>
             </div>
             <div className="chart-card__header-right">
               <DollarSign size={20} className="text-success" />
@@ -534,16 +592,16 @@ export default function AdminDashboardPage() {
 
           <div className="cost-metrics">
             <div>
-              <span className="cost-lbl">Hôm nay</span>
-              <span className="cost-val">{formatVnd(aiUsageAndCost?.cost?.todayCost || 0)}</span>
+              <span className="cost-lbl">{t('todayCost', 'Hôm nay')}</span>
+              <span className="cost-val">{formatVnd(aiUsageAndCost?.cost?.todayCost || 0, i18n.language)}</span>
             </div>
             <div>
-              <span className="cost-lbl">Tháng này</span>
-              <span className="cost-val">{formatVnd(aiUsageAndCost?.cost?.monthlyCost || 0)}</span>
+              <span className="cost-lbl">{t('monthlyCost', 'Tháng này')}</span>
+              <span className="cost-val">{formatVnd(aiUsageAndCost?.cost?.monthlyCost || 0, i18n.language)}</span>
             </div>
             <div>
-              <span className="cost-lbl">Dự báo tháng</span>
-              <span className="cost-val">{formatVnd(aiUsageAndCost?.cost?.forecastCost || 0)}</span>
+              <span className="cost-lbl">{t('forecastCost', 'Dự báo tháng')}</span>
+              <span className="cost-val">{formatVnd(aiUsageAndCost?.cost?.forecastCost || 0, i18n.language)}</span>
             </div>
           </div>
         </div>
@@ -555,8 +613,8 @@ export default function AdminDashboardPage() {
         >
           <div className="chart-card__header">
             <div>
-              <h3 className="chart-card__title">Ngân hàng Câu hỏi & CV</h3>
-              <p className="chart-card__subtitle">Tài nguyên học liệu & Hồ sơ hệ thống</p>
+              <h3 className="chart-card__title">{t('sectionResourceBank', 'Ngân hàng Câu hỏi & CV')}</h3>
+              <p className="chart-card__subtitle">{t('sectionResourceBankSub', 'Tài nguyên học liệu & Hồ sơ hệ thống')}</p>
             </div>
             <div className="chart-card__header-right">
               <FileQuestion size={20} className="text-primary" />
@@ -567,15 +625,15 @@ export default function AdminDashboardPage() {
           <div className="resource-metrics">
             <div className="resource-box">
               <span className="resource-num">{questionBank?.totalQuestions ?? 0}</span>
-              <span className="resource-txt">Tổng câu hỏi</span>
+              <span className="resource-txt">{t('totalQuestions', 'Tổng câu hỏi')}</span>
             </div>
             <div className="resource-box">
               <span className="resource-num">{questionBank?.codingCount ?? 0}</span>
-              <span className="resource-txt">Bài Coding</span>
+              <span className="resource-txt">{t('codingProblems', 'Bài Coding')}</span>
             </div>
             <div className="resource-box">
               <span className="resource-num">{cv?.totalUploadedCv ?? 0}</span>
-              <span className="resource-txt">CV đã tải lên</span>
+              <span className="resource-txt">{t('uploadedCvs', 'CV đã tải lên')}</span>
             </div>
           </div>
         </div>
@@ -587,7 +645,7 @@ export default function AdminDashboardPage() {
           <div className="chart-card__header">
             <div>
               <h3 className="chart-card__title">{t('sectionRecentActivities', 'Nhật ký Hoạt động Mới nhất')}</h3>
-              <p className="chart-card__subtitle">Tiến trình đăng ký, thanh toán & phỏng vấn vừa diễn ra</p>
+              <p className="chart-card__subtitle">{t('sectionRecentActivitiesSub', 'Tiến trình đăng ký, thanh toán & phỏng vấn vừa diễn ra')}</p>
             </div>
             <Clock size={20} className="text-secondary" />
           </div>
@@ -600,12 +658,12 @@ export default function AdminDashboardPage() {
                   <div className="dashboard-timeline-content">
                     <div className="dashboard-timeline-title">{act.title}</div>
                     <div className="dashboard-timeline-desc">{act.description}</div>
-                    <div className="dashboard-timeline-time">{formatDate(act.timestamp)}</div>
+                    <div className="dashboard-timeline-time">{formatDate(act.timestamp, i18n.language)}</div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="empty-text">Chưa có hoạt động mới nào.</div>
+              <div className="empty-text">{t('noRecentActivities', 'Chưa có hoạt động mới nào.')}</div>
             )}
           </div>
         </div>
@@ -617,14 +675,14 @@ export default function AdminDashboardPage() {
           <div className="chart-card__header">
             <div>
               <h3 className="chart-card__title">{t('sectionLatestPayments', 'Giao dịch Thanh toán Mới nhất')}</h3>
-              <p className="chart-card__subtitle">5 đơn hàng vừa được xử lý qua cổng MoMo</p>
+              <p className="chart-card__subtitle">{t('sectionLatestPaymentsSub', '5 đơn hàng vừa được xử lý qua cổng MoMo')}</p>
             </div>
             <button
               className="payment-page__btn"
               onClick={() => navigate('/admin/payments')}
               type="button"
             >
-              Xem tất cả <ArrowRight size={14} />
+              {t('viewAll', 'Xem tất cả')} <ArrowRight size={14} />
             </button>
           </div>
 
@@ -632,45 +690,48 @@ export default function AdminDashboardPage() {
             <table className="payment-table">
               <thead>
                 <tr>
-                  <th>MÃ ĐƠN HÀNG</th>
-                  <th>NGƯỜI DÙNG</th>
-                  <th>GÓI NÂNG CẤP</th>
-                  <th>SỐ TIỀN</th>
-                  <th>TRẠNG THÁI</th>
-                  <th>THỜI GIAN</th>
+                  <th>{t('thOrderCode', 'MÃ ĐƠN HÀNG')}</th>
+                  <th>{t('thUser', 'NGƯỜI DÙNG')}</th>
+                  <th>{t('thPlanUpgrade', 'GÓI NÂNG CẤP')}</th>
+                  <th>{t('thAmount', 'SỐ TIỀN')}</th>
+                  <th>{t('thStatus', 'TRẠNG THÁI')}</th>
+                  <th>{t('thTime', 'THỜI GIAN')}</th>
                 </tr>
               </thead>
               <tbody>
                 {payments?.latestTransactions && payments.latestTransactions.length > 0 ? (
-                  payments.latestTransactions.map((tx) => (
-                    <tr
-                      key={tx.paymentId}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => navigate('/admin/payments')}
-                    >
-                      <td><strong style={{ fontSize: 12 }}>{tx.orderCode}</strong></td>
-                      <td>
-                        <div style={{ fontWeight: 500 }}>{tx.studentName}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{tx.email}</div>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: 12 }}>
-                          {tx.planBefore} ➔ <strong>{tx.planAfter}</strong>
-                        </span>
-                      </td>
-                      <td><strong style={{ color: 'var(--primary-dark)' }}>{formatVnd(tx.amount)}</strong></td>
-                      <td>
-                        <span className={`payment-tag ${tx.status === 'Paid' || tx.status === 'PaidByReward' ? 'payment-tag--paid' : 'payment-tag--pending'}`}>
-                          {tx.status === 'Paid' ? 'Thành công' : tx.status}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12 }}>{formatDate(tx.createdAt)}</td>
-                    </tr>
-                  ))
+                  payments.latestTransactions.map((tx) => {
+                    const badge = getStatusBadge(tx.status, t);
+                    return (
+                      <tr
+                        key={tx.paymentId}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate('/admin/payments')}
+                      >
+                        <td><strong style={{ fontSize: 12 }}>{tx.orderCode}</strong></td>
+                        <td>
+                          <div style={{ fontWeight: 500 }}>{tx.studentName}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{tx.email}</div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: 12 }}>
+                            {tx.planBefore} ➔ <strong>{tx.planAfter}</strong>
+                          </span>
+                        </td>
+                        <td><strong style={{ color: 'var(--primary-dark)' }}>{formatVnd(tx.amount, i18n.language)}</strong></td>
+                        <td>
+                          <span className={`payment-tag ${badge.cls}`}>
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: 12 }}>{formatDate(tx.createdAt, i18n.language)}</td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={6} style={{ padding: 20, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      Chưa có giao dịch thanh toán nào.
+                      {t('noTransactions', 'Chưa có giao dịch thanh toán nào.')}
                     </td>
                   </tr>
                 )}

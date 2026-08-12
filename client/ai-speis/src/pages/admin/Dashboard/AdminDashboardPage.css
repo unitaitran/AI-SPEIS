@@ -385,6 +385,40 @@
   margin-bottom: 24px;
 }
 
+.dashboard-row-7 .payment-table-wrap {
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: 0 2px 6px rgba(31, 45, 61, 0.04);
+}
+
+.dashboard-row-7 .payment-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dashboard-row-7 .payment-table th {
+  padding: 14px 18px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-row-7 .payment-table td {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 /* ── Loading Skeleton ──────────────────────────────────────── */
 .dashboard-loading-wrap {
   display: flex;

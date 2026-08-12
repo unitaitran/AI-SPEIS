@@ -29,3 +29,7 @@
 !client/ai-speis/src/locales/en/admin-ai-usage.json
 !client/ai-speis/src/locales/vi/dashboard.json
 !client/ai-speis/src/locales/en/dashboard.json
+!Interview_app-main
+docs/
+postman/
+.tmp/
