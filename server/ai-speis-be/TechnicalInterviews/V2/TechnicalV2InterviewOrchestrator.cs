@@ -774,7 +774,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
                         WeightedScore = Math.Round(score * d.Weight, 4),
                         Evidence = item?.Evidence ?? new(),
                         Strengths = new(),
-                        Gaps = item?.MissingEvidence ?? new(),
                         MissingEvidence = item?.MissingEvidence ?? new()
                     };
                 }).ToList(),

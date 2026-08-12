@@ -53,6 +53,7 @@ namespace ai_speis_be.Models
         public DbSet<AIInteractionLog> AIInteractionLogs { get; set; } = null!;
         public DbSet<UserSkillScore> UserSkillScores { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
+        public DbSet<SingleQuestionRetry> SingleQuestionRetries { get; set; } = null!;
 
 
 
@@ -313,6 +314,21 @@ namespace ai_speis_be.Models
                 .WithOne(session => session.TechnicalQuestionSet)
                 .HasForeignKey<TechnicalQuestionSet>(set => set.InterviewSessionId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SingleQuestionRetry>()
+                .HasOne(retry => retry.User)
+                .WithMany()
+                .HasForeignKey(retry => retry.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SingleQuestionRetry>()
+                .HasOne(retry => retry.Question)
+                .WithMany()
+                .HasForeignKey(retry => retry.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SingleQuestionRetry>()
+                .HasIndex(retry => new { retry.UserId, retry.QuestionId, retry.CreatedAt });
             modelBuilder.Entity<TechnicalQuestionSet>()
                 .HasIndex(set => set.InterviewSessionId)
                 .IsUnique();

@@ -122,7 +122,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
         public decimal WeightedScore { get; set; }
         public List<string> Evidence { get; set; } = new();
         public List<string> Strengths { get; set; } = new();
-        public List<string> Gaps { get; set; } = new();
         public List<string> MissingEvidence { get; set; } = new();
     }
 

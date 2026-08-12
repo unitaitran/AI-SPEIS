@@ -256,6 +256,7 @@ builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalIntervie
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
 builder.Services.AddScoped<ai_speis_be.TechnicalInterviews.V2.ITechnicalV2InterviewOrchestrator, ai_speis_be.TechnicalInterviews.V2.TechnicalV2InterviewOrchestrator>();
+builder.Services.AddScoped<ai_speis_be.Services.ISingleQuestionRetryService, ai_speis_be.Services.SingleQuestionRetryService>();
 builder.Services.AddSingleton<ITechnicalPreGenerationService, TechnicalPreGenerationService>();
 
 // Google Cloud Quota & Billing Cost Monitoring
