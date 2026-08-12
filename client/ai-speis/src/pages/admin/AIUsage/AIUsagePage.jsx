@@ -35,7 +35,7 @@ import './AIUsagePage.css';
 
 function formatNumber(num, t) {
   if (num == null) return '—';
-  if (num >= 9_000_000_000_000_000) return t ? t('unlimited', 'Không giới hạn') : 'Không giới hạn';
+  if (num >= 9_000_000_000_000_000) return t ? t('unlimited') : 'Unlimited';
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toLocaleString();
@@ -52,16 +52,16 @@ function formatCurrency(amount) {
 }
 
 function getStatusInfo(pct, t) {
-  if (pct == null) return { label: t ? t('statusNoData', 'Chưa có data') : 'Chưa có data', cls: 'healthy', color: 'green' };
-  if (pct >= 85)   return { label: t ? t('statusCritical', 'Cảnh báo') : 'Cảnh báo', cls: 'critical', color: 'red' };
-  if (pct >= 60)   return { label: t ? t('statusWarning', 'Gần giới hạn') : 'Gần giới hạn', cls: 'warning', color: 'amber' };
-  return { label: t ? t('statusHealthy', 'Hoạt động tốt') : 'Hoạt động tốt', cls: 'healthy', color: 'green' };
+  if (pct == null) return { label: t ? t('noData') : 'No data', cls: 'healthy', color: 'green' };
+  if (pct >= 85) return { label: t ? t('critical') : 'Critical', cls: 'critical', color: 'red' };
+  if (pct >= 60) return { label: t ? t('nearLimit') : 'Near limit', cls: 'warning', color: 'amber' };
+  return { label: t ? t('healthy') : 'Healthy', cls: 'healthy', color: 'green' };
 }
 
-function formatTimestamp(iso) {
+function formatTimestamp(iso, language) {
   if (!iso) return '';
   const d = new Date(iso);
-  return d.toLocaleString('vi-VN', {
+  return d.toLocaleString(String(language).startsWith('vi') ? 'vi-VN' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -141,7 +141,7 @@ function ProgressBar({ percent, t }) {
 /* ──────────────────────────── Main Page ───────────────────────── */
 
 export default function AIUsagePage() {
-  const { t } = useTranslation('admin-dashboard');
+  const { t, i18n } = useTranslation('admin-ai-usage');
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -200,16 +200,16 @@ export default function AIUsagePage() {
       {/* ── Header ───────────────────────────────────────── */}
       <div className="ai-usage-page__header">
         <div className="ai-usage-page__breadcrumb">
-          <span>{t('breadcrumbAdmin', 'Admin')}</span>
+          <span>Admin</span>
           <span className="separator">/</span>
-          <span aria-current="page">AI Usage</span>
+          <span aria-current="page">{t('breadcrumb')}</span>
         </div>
 
         <div className="ai-usage-page__header-row">
           <div>
-            <h1 className="ai-usage-page__title">{t('aiUsageTitle', 'AI Usage & Cloud Resource Monitor')}</h1>
+            <h1 className="ai-usage-page__title">{t('title')}</h1>
             <p className="ai-usage-page__subtitle">
-              {t('aiUsageSubtitle', 'Theo dõi toàn bộ Quota, Usage và Chi phí Billing Google Cloud trong hệ thống AI-SPEIS.')}
+              {t('subtitle')}
             </p>
           </div>
 
@@ -222,7 +222,7 @@ export default function AIUsagePage() {
             )}
             {dashboard?.queriedAt && (
               <span className="ai-usage-page__timestamp">
-                {t('lastUpdated', 'Cập nhật:')} {formatTimestamp(dashboard.queriedAt)}
+                {t('updated')} {formatTimestamp(dashboard.queriedAt, i18n.language)}
               </span>
             )}
             <button
@@ -232,7 +232,7 @@ export default function AIUsagePage() {
               type="button"
             >
               <RefreshCw size={16} className={loading ? 'spinning' : ''} />
-              {loading ? t('refreshing', 'Đang tải...') : t('refreshBtn', 'Làm mới')}
+              {loading ? t('refreshing') : t('refresh')}
             </button>
           </div>
         </div>
@@ -243,7 +243,7 @@ export default function AIUsagePage() {
         <div className="ai-usage-error">
           <AlertCircle size={20} className="ai-usage-error__icon" />
           <div className="ai-usage-error__text">
-            <p className="ai-usage-error__title">{t('fetchErrorTitle', 'Không thể tải dữ liệu')}</p>
+            <p className="ai-usage-error__title">{t('loadErrorTitle')}</p>
             <p className="ai-usage-error__desc">{error}</p>
           </div>
           <button
@@ -252,7 +252,7 @@ export default function AIUsagePage() {
             onClick={loadData}
             type="button"
           >
-            <RefreshCw size={14} /> {t('retryBtn', 'Thử lại')}
+            <RefreshCw size={14} /> {t('retry')}
           </button>
         </div>
       )}
@@ -275,16 +275,16 @@ export default function AIUsagePage() {
               icon={Cloud}
               iconCls="ai-usage-summary-card__icon--blue"
               value={totalServices}
-              label={t('totalServices', 'Tổng dịch vụ')}
-              badge={`${totalServices} API`}
+              label={t('totalServices')}
+              badge={t('apiCount', { count: totalServices })}
               badgeCls="ai-usage-summary-card__badge--info"
             />
             <SummaryCard
               icon={AlertTriangle}
               iconCls="ai-usage-summary-card__icon--amber"
               value={nearLimitCount}
-              label={t('nearLimit', 'Gần giới hạn')}
-              badge={criticalCount > 0 ? `${criticalCount} critical` : 'OK'}
+              label={t('nearLimit')}
+              badge={criticalCount > 0 ? t('criticalCount', { count: criticalCount }) : t('ok')}
               badgeCls={
                 criticalCount > 0
                   ? 'ai-usage-summary-card__badge--warning'
@@ -295,16 +295,16 @@ export default function AIUsagePage() {
               icon={CheckCircle2}
               iconCls="ai-usage-summary-card__icon--green"
               value={healthyCount}
-              label={t('healthy', 'Hoạt động tốt')}
-              badge="Healthy"
+              label={t('healthy')}
+              badge={t('healthy')}
               badgeCls="ai-usage-summary-card__badge--success"
             />
             <SummaryCard
               icon={Gauge}
               iconCls="ai-usage-summary-card__icon--purple"
               value={`${avgUsage}%`}
-              label={t('avgUsage', 'TB sử dụng')}
-              badge="avg"
+              label={t('averageUsage')}
+              badge={t('average')}
               badgeCls="ai-usage-summary-card__badge--info"
             />
           </div>
@@ -314,10 +314,10 @@ export default function AIUsagePage() {
             <div className="ai-usage-cost-section__header">
               <h2 className="ai-usage-cost-section__title">
                 <DollarSign size={20} className="text-success" />
-                {t('cloudBillingCost', 'Cloud Billing Cost')}
+                {t('cloudBilling')}
               </h2>
               <span className="ai-usage-cost-section__badge">
-                BigQuery Export
+                {t('billingExport')}
               </span>
             </div>
 
@@ -327,23 +327,23 @@ export default function AIUsagePage() {
                 icon={DollarSign}
                 iconCls="ai-usage-summary-card__icon--green"
                 value={formatCurrency(cost?.todayCost)}
-                label={t('todayCost', "Hôm nay (Today's Cost)")}
-                badge="Today"
+                label={t('today')}
+                badge={t('today')}
                 badgeCls="ai-usage-summary-card__badge--success"
               />
               <SummaryCard
                 icon={Calendar}
                 iconCls="ai-usage-summary-card__icon--blue"
                 value={formatCurrency(cost?.yesterdayCost)}
-                label={t('yesterdayCost', 'Hôm qua (Yesterday Cost)')}
-                badge="Yesterday"
+                label={t('yesterday')}
+                badge={t('yesterday')}
                 badgeCls="ai-usage-summary-card__badge--info"
               />
               <SummaryCard
                 icon={TrendingUp}
                 iconCls="ai-usage-summary-card__icon--purple"
                 value={formatCurrency(cost?.monthlyCost)}
-                label={t('monthlyCost', 'Tháng này (Monthly Cost)')}
+                label={t('monthToDate')}
                 badge="MTD"
                 badgeCls="ai-usage-summary-card__badge--info"
               />
@@ -351,7 +351,7 @@ export default function AIUsagePage() {
                 icon={Activity}
                 iconCls="ai-usage-summary-card__icon--amber"
                 value={formatCurrency(cost?.forecast)}
-                label={t('forecast', 'Dự báo cả tháng (Forecast)')}
+                label={t('forecast')}
                 badge="Est."
                 badgeCls="ai-usage-summary-card__badge--warning"
               />
@@ -363,7 +363,7 @@ export default function AIUsagePage() {
                 {/* Pie Chart: Cost By Service */}
                 <div className="ai-usage-chart-card">
                   <h3 className="ai-usage-chart-card__title">
-                    <span>{t('costByService', 'Cost By Service')}</span>
+                    <span>{t('costByService')}</span>
                     <PieIcon size={18} className="text-text-secondary" />
                   </h3>
                   <div className="ai-usage-chart-card__body">
@@ -388,7 +388,7 @@ export default function AIUsagePage() {
                             ))}
                           </Pie>
                           <RechartsTooltip
-                            formatter={(value) => [formatCurrency(value), 'Cost']}
+                            formatter={(value) => [formatCurrency(value), t('cost')]}
                           />
                           <Legend verticalAlign="bottom" height={36} />
                         </PieChart>
@@ -402,7 +402,7 @@ export default function AIUsagePage() {
                 {/* Line Chart: Daily Cost Trend */}
                 <div className="ai-usage-chart-card">
                   <h3 className="ai-usage-chart-card__title">
-                    <span>{t('dailyCostTrend', 'Daily Cost Trend (14 ngày)')}</span>
+                    <span>{t('dailyCostTrend')}</span>
                     <LineIcon size={18} className="text-text-secondary" />
                   </h3>
                   <div className="ai-usage-chart-card__body">
@@ -415,7 +415,7 @@ export default function AIUsagePage() {
                             tickFormatter={(v) => `$${v}`}
                           />
                           <RechartsTooltip
-                            formatter={(value) => [formatCurrency(value), 'Cost']}
+                            formatter={(value) => [formatCurrency(value), t('cost')]}
                           />
                           <Line
                             type="monotone"
@@ -442,7 +442,7 @@ export default function AIUsagePage() {
                   {t('billingEmptyTitle', 'Billing Export chưa có dữ liệu')}
                 </h4>
                 <p className="ai-usage-cost-empty__desc">
-                  {t('billingEmptyDesc', 'Tính năng Cloud Cost tự động lấy thông tin chi phí từ BigQuery Billing Export. Vui lòng bật tính năng Standard / Detailed Usage Cost Export trên Google Cloud Console tới dataset BigQuery tương ứng.')}
+                  {t('billingEmptyDescription')}
                 </p>
               </div>
             )}
@@ -452,9 +452,9 @@ export default function AIUsagePage() {
           {services.length > 0 ? (
             <div className="ai-usage-page__table-section">
               <div className="ai-usage-page__table-header">
-                <h2 className="ai-usage-page__table-title">{t('serviceDetailsTitle', 'Chi tiết từng dịch vụ')}</h2>
+                <h2 className="ai-usage-page__table-title">{t('serviceDetails')}</h2>
                 <span className="ai-usage-page__table-count">
-                  {services.length} metric{services.length !== 1 ? 's' : ''}
+                  {t('metrics', { count: services.length })}
                 </span>
               </div>
 
@@ -462,13 +462,7 @@ export default function AIUsagePage() {
                 <table className="ai-usage-table">
                   <thead>
                     <tr>
-                      <th>{t('colService', 'Dịch vụ')}</th>
-                      <th>{t('colStatus', 'Trạng thái')}</th>
-                      <th>{t('colLimit', 'Giới hạn')}</th>
-                      <th>{t('colUsage', 'Đã dùng')}</th>
-                      <th>{t('colRemaining', 'Còn lại')}</th>
-                      <th>{t('colPercentUsed', '% Sử dụng')}</th>
-                      <th>{t('colUnit', 'Đơn vị')}</th>
+                      <th>{t('service')}</th><th>{t('status')}</th><th>{t('limit')}</th><th>{t('used')}</th><th>{t('remaining')}</th><th>{t('percentUsed')}</th><th>{t('unit')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -532,9 +526,9 @@ export default function AIUsagePage() {
                 <div className="ai-usage-empty__icon">
                   <ServerCrash size={28} />
                 </div>
-                <h3 className="ai-usage-empty__title">{t('noQuotaDataTitle', 'Không có dữ liệu quota')}</h3>
+                <h3 className="ai-usage-empty__title">{t('noQuotaTitle')}</h3>
                 <p className="ai-usage-empty__desc">
-                  {t('noQuotaDataDesc', 'Không tìm thấy metric quota nào cho các dịch vụ đang bật. Điều này có thể do Service Account chưa được cấp quyền Monitoring Viewer hoặc các dịch vụ chưa tạo traffic.')}
+                  {t('noQuotaDescription')}
                 </p>
               </div>
             </div>

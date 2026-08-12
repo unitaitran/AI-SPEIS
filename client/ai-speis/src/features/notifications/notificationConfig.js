@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   UserRoundCog,
 } from 'lucide-react';
-import { AUTHENTICATED_ADMIN_ROUTES, USER_ROUTES } from '../../routes/routePaths';
+import { AUTHENTICATED_ADMIN_ROUTES, USER_ROUTES, getCampaignResultPath } from '../../routes/routePaths';
 
 const user = 'USER';
 const admin = 'ADMIN';
@@ -25,7 +25,7 @@ export const notificationTypeConfig = {
   INTERVIEW_SESSION_INTERRUPTED: { category: 'INTERVIEW', icon: RefreshCw, severity: 'WARNING', recipientRole: user, actionLabel: 'Resume interview', destination: () => USER_ROUTES.INTERVIEW_SETUP, onlyActive: true },
   INTERVIEW_SESSION_EXPIRED: { category: 'INTERVIEW', icon: AlertTriangle, severity: 'WARNING', recipientRole: user, actionLabel: 'View interview status', destination: () => USER_ROUTES.INTERVIEW_HISTORY, useActionUrl: false },
   INTERVIEW_ROUND_COMPLETED: { category: 'INTERVIEW', icon: CheckCircle2, severity: 'SUCCESS', recipientRole: user, actionLabel: 'View progress', destination: () => USER_ROUTES.INTERVIEW_HISTORY },
-  ALL_INTERVIEW_ROUNDS_COMPLETED: { category: 'INTERVIEW', icon: CheckCircle2, severity: 'SUCCESS', recipientRole: user, actionLabel: 'View interview summary', destination: () => USER_ROUTES.INTERVIEW_HISTORY },
+  ALL_INTERVIEW_ROUNDS_COMPLETED: { category: 'INTERVIEW', icon: CheckCircle2, severity: 'SUCCESS', recipientRole: user, actionLabel: 'View interview summary', destination: (notification) => notification?.entityId ? getCampaignResultPath(notification.entityId) : USER_ROUTES.INTERVIEW_HISTORY },
   INTERVIEW_FEEDBACK_READY: { category: 'FEEDBACK', icon: MessageSquareText, severity: 'SUCCESS', recipientRole: user, actionLabel: 'View feedback', destination: () => USER_ROUTES.INTERVIEW_HISTORY },
   PROFILE_INFORMATION_REQUIRED: { category: 'PROFILE', icon: UserRoundCog, severity: 'WARNING', recipientRole: user, actionLabel: 'Update profile', destination: () => USER_ROUTES.PROFILE },
   CV_PROCESSING_FAILED: { category: 'PROFILE', icon: FileWarning, severity: 'ERROR', recipientRole: user, actionLabel: 'Upload CV again', destination: () => USER_ROUTES.CV },
@@ -107,6 +107,9 @@ export function getNotificationDestination(notification, role) {
   if (notification.actionStatus === 'EXPIRED' && notification.type !== 'INTERVIEW_SESSION_EXPIRED') return null;
   if (config.useActionUrl !== false && isSafeActionUrl(notification.actionUrl, role)) {
     const safeUrl = new URL(notification.actionUrl, window.location.origin);
+    if (safeUrl.pathname === USER_ROUTES.CAMPAIGN_RESULT && notification?.entityId) {
+      return getCampaignResultPath(notification.entityId);
+    }
     return `${safeUrl.pathname}${safeUrl.search}`;
   }
   return config.destination ? config.destination(notification) : null;

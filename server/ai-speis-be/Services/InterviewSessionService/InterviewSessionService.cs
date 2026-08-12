@@ -1178,12 +1178,17 @@ namespace ai_speis_be.Services.InterviewSessionService
                 NotificationActionStatus.COMPLETED));
             if (campaign.Status == InterviewCampaignStatus.Completed)
             {
+                var earnedPoints = await _rewardService.AwardInterviewPointsAsync(userId, campaign.InterviewCampaignId, campaign.OverallScore ?? 6.0m);
                 await PublishSafelyAsync(new NotificationEvent(
                     userId, NotificationRecipientRole.USER, NotificationType.ALL_INTERVIEW_ROUNDS_COMPLETED,
-                    NotificationCategory.INTERVIEW, NotificationSeverity.SUCCESS, "Interview completed",
-                    "You have completed all required interview rounds.", NotificationEntityType.INTERVIEW_RESULT,
-                    campaign.InterviewCampaignId.ToString(), "/user/interview/campaign-result",
-                    $"ALL_INTERVIEW_ROUNDS_COMPLETED:{campaign.InterviewCampaignId}:{userId}"));
+                    NotificationCategory.INTERVIEW, NotificationSeverity.SUCCESS,
+                    "Interview completed",
+                    $"You have completed all required interview rounds and earned +{earnedPoints} reward points!",
+                    NotificationEntityType.INTERVIEW_RESULT,
+                    campaign.InterviewCampaignId.ToString(),
+                    $"/user/interview/campaign-result/{campaign.InterviewCampaignId}",
+                    $"ALL_INTERVIEW_ROUNDS_COMPLETED:{campaign.InterviewCampaignId}:{userId}",
+                    new { campaignId = campaign.InterviewCampaignId, earnedPoints, points = earnedPoints, overallScore = campaign.OverallScore }));
             }
         }
 

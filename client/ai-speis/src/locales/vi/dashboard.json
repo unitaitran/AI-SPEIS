@@ -56,7 +56,11 @@
   "banner": {
     "title": "Sẵn sàng\nluyện phỏng\nvấn?",
     "desc": "Bắt đầu mock interview dựa trên CV và vị trí bạn đang ứng tuyển. Hệ thống AI sẽ phân tích và đưa ra phản hồi chi tiết.",
-    "button": "BẮT ĐẦU PHỎNG VẤN"
+    "button": "BẮT ĐẦU PHỎNG VẤN",
+    "mascot_title": "Sẵn sàng phỏng vấn?",
+    "mascot_desc": "Bắt đầu phỏng vấn AI dựa trên CV và vị trí ứng tuyển của bạn.",
+    "practice_now": "LUYỆN TẬP NGAY",
+    "mascot_speech": "Luyện tập ngay! 🚀"
   },
   "chart": {
     "title": "Tiến độ kỹ năng",

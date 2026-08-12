@@ -46,20 +46,20 @@ import './PaymentManagementPage.css';
 
 /* ────────────────────────── Helpers ────────────────────────── */
 
-function formatVnd(amount) {
+function formatVnd(amount, language) {
   if (amount == null) return '0 ₫';
-  return amount.toLocaleString('vi-VN', {
+  return amount.toLocaleString(String(language).startsWith('vi') ? 'vi-VN' : 'en-US', {
     style: 'currency',
     currency: 'VND',
     maximumFractionDigits: 0,
   });
 }
 
-function formatDate(iso) {
+function formatDate(iso, language) {
   if (!iso) return '—';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('vi-VN', {
+  return d.toLocaleString(String(language).startsWith('vi') ? 'vi-VN' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
     day: '2-digit',
@@ -75,22 +75,22 @@ function getStatusBadge(status, t) {
     case 'paidbyreward':
     case '1':
     case '4':
-      return { label: t ? t('filterStatusPaid', 'Thành công (Paid)') : 'Thành công', cls: 'payment-tag--paid', icon: CheckCircle2 };
+      return { label: t ? t('statusPaid') : 'Paid', cls: 'payment-tag--paid', icon: CheckCircle2 };
     case 'pending':
     case '0':
-      return { label: t ? t('filterStatusPending', 'Chờ xử lý (Pending)') : 'Chờ xử lý', cls: 'payment-tag--pending', icon: Clock };
+      return { label: t ? t('statusPending') : 'Pending', cls: 'payment-tag--pending', icon: Clock };
     case 'failed':
     case '3':
-      return { label: t ? t('filterStatusFailed', 'Thất bại (Failed)') : 'Thất bại', cls: 'payment-tag--failed', icon: XCircle };
+      return { label: t ? t('statusFailed') : 'Failed', cls: 'payment-tag--failed', icon: XCircle };
     case 'expired':
     case '2':
-      return { label: t ? t('filterStatusExpired', 'Hết hạn (Expired)') : 'Hết hạn', cls: 'payment-tag--expired', icon: AlertTriangle };
+      return { label: t ? t('statusExpired') : 'Expired', cls: 'payment-tag--expired', icon: AlertTriangle };
     case 'cancelled':
     case '5':
-      return { label: t ? t('filterStatusCancelled', 'Đã hủy (Cancelled)') : 'Đã hủy', cls: 'payment-tag--cancelled', icon: XCircle };
+      return { label: t ? t('statusCancelled') : 'Cancelled', cls: 'payment-tag--cancelled', icon: XCircle };
     case 'refunded':
     case '6':
-      return { label: t ? t('filterStatusRefunded', 'Hoàn tiền (Refunded)') : 'Hoàn tiền', cls: 'payment-tag--refunded', icon: RotateCw };
+      return { label: t ? t('statusRefunded') : 'Refunded', cls: 'payment-tag--refunded', icon: RotateCw };
     default:
       return { label: statusStr, cls: 'payment-tag--expired', icon: Clock };
   }
@@ -101,7 +101,7 @@ const PIE_COLORS = ['#4CAF50', '#FF9800', '#F44336', '#9E9E9E', '#9C27B0', '#219
 /* ────────────────────────── Main Component ────────────────────────── */
 
 export default function PaymentManagementPage() {
-  const { t } = useTranslation('admin-dashboard');
+  const { t, i18n } = useTranslation('admin-payments');
 
   // Data states
   const [payments, setPayments] = useState([]);
@@ -200,7 +200,7 @@ export default function PaymentManagementPage() {
       const detail = await fetchAdminPaymentDetail(token, id);
       setPaymentDetail(detail);
     } catch (err) {
-      alert(`Lỗi: ${err.message}`);
+      alert(t('loadDetailsError', { message: err.message }));
     } finally {
       setLoadingDetail(false);
     }
@@ -224,7 +224,7 @@ export default function PaymentManagementPage() {
         dateTo,
       });
     } catch (err) {
-      alert(`Lỗi xuất file: ${err.message}`);
+      alert(t('exportError', { message: err.message }));
     }
   };
 
@@ -256,23 +256,23 @@ export default function PaymentManagementPage() {
       {/* Header */}
       <div className="payment-page__header">
         <div className="breadcrumb">
-          <span>{t('breadcrumbAdmin', 'Admin')}</span>
+          <span>Admin</span>
           <span className="separator">/</span>
-          <span aria-current="page">Payments</span>
+          <span aria-current="page">{t('breadcrumb')}</span>
         </div>
 
         <div className="payment-page__title-row">
           <div>
-            <h1 className="payment-page__title">{t('paymentTitle', 'MoMo Payment Management')}</h1>
+            <h1 className="payment-page__title">{t('title')}</h1>
             <p className="payment-page__subtitle">
-              {t('paymentSubtitle', 'Theo dõi toàn bộ giao dịch MoMo, kiểm tra trạng thái thanh toán và lịch sử nâng cấp gói Premium.')}
+              {t('subtitle')}
             </p>
           </div>
 
           <div className="payment-page__actions">
             <div className="payment-page__auto-refresh-badge">
               <Activity size={14} className="text-primary" />
-              <span>Auto refresh: {countdown}s</span>
+              <span>{t('autoRefresh', { seconds: countdown })}</span>
             </div>
 
             <button
@@ -282,7 +282,7 @@ export default function PaymentManagementPage() {
               type="button"
             >
               <RefreshCw size={15} className={loading ? 'spinning' : ''} />
-              {loading ? '...' : t('btnRefresh', 'Làm mới')}
+              {loading ? t('loading') : t('refresh')}
             </button>
 
             <button
@@ -291,7 +291,7 @@ export default function PaymentManagementPage() {
               type="button"
             >
               <FileSpreadsheet size={15} />
-              {t('btnExportExcel', 'Xuất Excel')}
+              {t('exportExcel')}
             </button>
           </div>
         </div>
@@ -304,12 +304,12 @@ export default function PaymentManagementPage() {
             <span className="payment-summary-card__icon payment-summary-card__icon--green">
               <DollarSign size={20} />
             </span>
-            <span className="payment-tag payment-tag--paid">Today</span>
+            <span className="payment-tag payment-tag--paid">{t('today')}</span>
           </div>
           <div className="payment-summary-card__val">
-            {formatVnd(statistics?.todayRevenue)}
+            {formatVnd(statistics?.todayRevenue, i18n.language)}
           </div>
-          <div className="payment-summary-card__lbl">{t('cardTodayRevenue', "Hôm nay (Today's Revenue)")}</div>
+          <div className="payment-summary-card__lbl">{t('todayRevenue')}</div>
         </div>
 
         <div className="payment-summary-card">
@@ -317,12 +317,12 @@ export default function PaymentManagementPage() {
             <span className="payment-summary-card__icon payment-summary-card__icon--blue">
               <TrendingUp size={20} />
             </span>
-            <span className="payment-tag payment-tag--paid">Monthly</span>
+            <span className="payment-tag payment-tag--paid">{t('monthly')}</span>
           </div>
           <div className="payment-summary-card__val">
-            {formatVnd(statistics?.monthlyRevenue)}
+            {formatVnd(statistics?.monthlyRevenue, i18n.language)}
           </div>
-          <div className="payment-summary-card__lbl">{t('cardMonthlyRevenue', 'Tháng này (Monthly Revenue)')}</div>
+          <div className="payment-summary-card__lbl">{t('monthlyRevenue')}</div>
         </div>
 
         <div className="payment-summary-card">
@@ -335,7 +335,7 @@ export default function PaymentManagementPage() {
           <div className="payment-summary-card__val">
             {statistics?.successfulPayments ?? 0}
           </div>
-          <div className="payment-summary-card__lbl">{t('cardSuccessPayments', 'Thành công (Success)')}</div>
+          <div className="payment-summary-card__lbl">{t('successPayments')}</div>
         </div>
 
         <div className="payment-summary-card">
@@ -343,12 +343,12 @@ export default function PaymentManagementPage() {
             <span className="payment-summary-card__icon payment-summary-card__icon--amber">
               <Clock size={20} />
             </span>
-            <span className="payment-tag payment-tag--pending">Pending</span>
+            <span className="payment-tag payment-tag--pending">{t('pending')}</span>
           </div>
           <div className="payment-summary-card__val">
             {statistics?.pendingPayments ?? 0}
           </div>
-          <div className="payment-summary-card__lbl">{t('cardPendingPayments', 'Chờ xử lý (Pending)')}</div>
+          <div className="payment-summary-card__lbl">{t('pendingPayments')}</div>
         </div>
 
         <div className="payment-summary-card">
@@ -356,12 +356,12 @@ export default function PaymentManagementPage() {
             <span className="payment-summary-card__icon payment-summary-card__icon--red">
               <XCircle size={20} />
             </span>
-            <span className="payment-tag payment-tag--failed">Failed</span>
+            <span className="payment-tag payment-tag--failed">{t('failed')}</span>
           </div>
           <div className="payment-summary-card__val">
             {statistics?.failedPayments ?? 0}
           </div>
-          <div className="payment-summary-card__lbl">{t('cardFailedPayments', 'Thất bại / Hủy (Failed)')}</div>
+          <div className="payment-summary-card__lbl">{t('failedPayments')}</div>
         </div>
       </div>
 
@@ -371,7 +371,7 @@ export default function PaymentManagementPage() {
           {/* Revenue Trend Line Chart */}
           <div className="payment-chart-card">
             <div className="payment-chart-card__header">
-              <h3 className="payment-chart-card__title">{t('chartRevenueTrend', 'Revenue Trend (14 ngày gần nhất)')}</h3>
+              <h3 className="payment-chart-card__title">{t('revenueTrend')}</h3>
               <TrendingUp size={18} className="text-primary" />
             </div>
             <ResponsiveContainer width="100%" height={240}>
@@ -384,7 +384,7 @@ export default function PaymentManagementPage() {
                 </defs>
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <RechartsTooltip formatter={(val) => [formatVnd(val), 'Revenue']} />
+                <RechartsTooltip formatter={(val) => [formatVnd(val, i18n.language), t('revenue')]} />
                 <Area type="monotone" dataKey="revenue" stroke="#4CAF50" strokeWidth={3} fillOpacity={1} fill="url(#revenueGrad)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -393,7 +393,7 @@ export default function PaymentManagementPage() {
           {/* Status Distribution Pie Chart */}
           <div className="payment-chart-card">
             <div className="payment-chart-card__header">
-              <h3 className="payment-chart-card__title">{t('chartPaymentStatus', 'Payment Status')}</h3>
+              <h3 className="payment-chart-card__title">{t('paymentStatus')}</h3>
               <PieIcon size={18} className="text-secondary" />
             </div>
             <ResponsiveContainer width="100%" height={240}>
@@ -412,7 +412,7 @@ export default function PaymentManagementPage() {
                     <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(val, name) => [`${val} orders`, name]} />
+                <RechartsTooltip formatter={(val, name) => [t('orders', { count: val }), name]} />
                 <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
@@ -429,7 +429,7 @@ export default function PaymentManagementPage() {
               type="text"
               className="payment-input"
               style={{ paddingLeft: 36, width: '100%' }}
-              placeholder={t('searchPaymentPlaceholder', 'Order ID, Email, Người dùng...')}
+              placeholder={t('searchPlaceholder')}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -446,13 +446,7 @@ export default function PaymentManagementPage() {
               setPage(1);
             }}
           >
-            <option value="">{t('filterAllStatus', 'Tất cả trạng thái')}</option>
-            <option value="Paid">{t('filterStatusPaid', 'Thành công (Paid)')}</option>
-            <option value="Pending">{t('filterStatusPending', 'Chờ xử lý (Pending)')}</option>
-            <option value="Failed">{t('filterStatusFailed', 'Thất bại (Failed)')}</option>
-            <option value="Expired">{t('filterStatusExpired', 'Hết hạn (Expired)')}</option>
-            <option value="Cancelled">{t('filterStatusCancelled', 'Đã hủy (Cancelled)')}</option>
-            <option value="Refunded">{t('filterStatusRefunded', 'Hoàn tiền (Refunded)')}</option>
+            <option value="">{t('allStatuses')}</option><option value="Paid">{t('statusPaid')}</option><option value="Pending">{t('statusPending')}</option><option value="Failed">{t('statusFailed')}</option><option value="Expired">{t('statusExpired')}</option><option value="Cancelled">{t('statusCancelled')}</option><option value="Refunded">{t('statusRefunded')}</option>
           </select>
 
           <input
@@ -480,10 +474,7 @@ export default function PaymentManagementPage() {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
           >
-            <option value="newest">{t('sortNewest', 'Mới nhất')}</option>
-            <option value="oldest">{t('sortOldest', 'Cũ nhất')}</option>
-            <option value="highestamount">{t('sortHighestAmount', 'Giá cao nhất')}</option>
-            <option value="lowestamount">{t('sortLowestAmount', 'Giá thấp nhất')}</option>
+            <option value="newest">{t('newest')}</option><option value="oldest">{t('oldest')}</option><option value="highestamount">{t('highestAmount')}</option><option value="lowestamount">{t('lowestAmount')}</option>
           </select>
         </div>
 
@@ -497,14 +488,7 @@ export default function PaymentManagementPage() {
         <table className="payment-table">
           <thead>
             <tr>
-              <th>{t('thOrderTransId', 'ORDER ID / TRANS ID')}</th>
-              <th>{t('thUser', 'NGƯỜI DÙNG')}</th>
-              <th>{t('thPlanUpgrade', 'NÂNG CẤP GÓI')}</th>
-              <th>{t('thAmount', 'SỐ TIỀN')}</th>
-              <th>{t('thStatus', 'TRẠNG THÁI')}</th>
-              <th>{t('thCreatedAt', 'THỜI GIAN TẠO')}</th>
-              <th>{t('thPaidAt', 'THANH TOÁN')}</th>
-              <th style={{ textAlign: 'right' }}>{t('thActions', 'THAO TÁC')}</th>
+              <th>{t('orderTransactionId')}</th><th>{t('user')}</th><th>{t('planUpgrade')}</th><th>{t('amount')}</th><th>{t('status')}</th><th>{t('createdAt')}</th><th>{t('paidAt')}</th><th style={{ textAlign: 'right' }}>{t('actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -543,7 +527,7 @@ export default function PaymentManagementPage() {
                     </td>
                     <td>
                       <strong style={{ color: 'var(--primary-dark)' }}>
-                        {formatVnd(item.amount)}
+                        {formatVnd(item.amount, i18n.language)}
                       </strong>
                     </td>
                     <td>
@@ -552,13 +536,13 @@ export default function PaymentManagementPage() {
                         {badge.label}
                       </span>
                     </td>
-                    <td style={{ fontSize: 12 }}>{formatDate(item.createdAt)}</td>
-                    <td style={{ fontSize: 12 }}>{formatDate(item.paidAt)}</td>
+                    <td style={{ fontSize: 12 }}>{formatDate(item.createdAt, i18n.language)}</td>
+                    <td style={{ fontSize: 12 }}>{formatDate(item.paidAt, i18n.language)}</td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button
                           className="payment-btn-icon"
-                          title="Xem chi tiết"
+                          title={t('viewDetails')}
                           onClick={() => handleOpenDetail(item.paymentId)}
                           type="button"
                         >
@@ -572,7 +556,7 @@ export default function PaymentManagementPage() {
             ) : (
               <tr>
                 <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  {t('emptyPayments', 'Không tìm thấy giao dịch thanh toán nào phù hợp.')}
+                  {t('noPayments')}
                 </td>
               </tr>
             )}
@@ -583,10 +567,10 @@ export default function PaymentManagementPage() {
         <div className="pagination">
           <div className="pagination-info">
             <span>
-              Hiển thị {totalCount === 0 ? 0 : (page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalCount)} trên tổng số {totalCount} giao dịch
+              {t('showing', { from: totalCount === 0 ? 0 : (page - 1) * pageSize + 1, to: Math.min(page * pageSize, totalCount), total: totalCount })}
             </span>
             <div className="page-size-selector">
-              <label>Số lượng mỗi trang:</label>
+              <label>{t('pageSize')}</label>
               <select
                 value={pageSize}
                 onChange={(e) => {
@@ -609,7 +593,7 @@ export default function PaymentManagementPage() {
                 type="button"
                 disabled={page === 1}
                 onClick={() => setPage(1)}
-                title="Trang đầu"
+                title={t('firstPage')}
               >
                 <ChevronsLeft size={18} />
               </button>
@@ -618,7 +602,7 @@ export default function PaymentManagementPage() {
                 type="button"
                 disabled={page === 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                title="Trang trước"
+                title={t('previousPage')}
               >
                 <ChevronLeft size={18} />
               </button>
@@ -645,7 +629,7 @@ export default function PaymentManagementPage() {
                 type="button"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                title="Trang sau"
+                title={t('nextPage')}
               >
                 <ChevronRight size={18} />
               </button>
@@ -654,7 +638,7 @@ export default function PaymentManagementPage() {
                 type="button"
                 disabled={page >= totalPages}
                 onClick={() => setPage(totalPages)}
-                title="Trang cuối"
+                title={t('lastPage')}
               >
                 <ChevronsRight size={18} />
               </button>
@@ -669,7 +653,7 @@ export default function PaymentManagementPage() {
           <div className="payment-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="payment-modal-header">
               <h3 className="payment-modal-title">
-                {t('drawerTitle', { code: paymentDetail?.orderCode || selectedPaymentId })}
+                {t('detailTitle', { code: paymentDetail?.orderCode || selectedPaymentId })}
               </h3>
               <button
                 className="payment-btn-close"
@@ -688,35 +672,35 @@ export default function PaymentManagementPage() {
                   {/* User Section */}
                   <div className="payment-drawer__section">
                     <h3 className="payment-drawer__section-title">
-                      <User size={16} /> {t('drawerUserInfo', 'Thông tin Người dùng')}
+                      <User size={16} /> {t('userInformation')}
                     </h3>
                     <div className="payment-info-grid">
-                      <div><span className="payment-info-lbl">{t('drawerFullName', 'Họ tên')}:</span> <span className="payment-info-val">{paymentDetail.user.fullName}</span></div>
-                      <div><span className="payment-info-lbl">{t('drawerEmail', 'Email')}:</span> <span className="payment-info-val">{paymentDetail.user.email}</span></div>
-                      <div><span className="payment-info-lbl">{t('drawerUserId', 'User ID')}:</span> <span className="payment-info-val">#{paymentDetail.user.userId}</span></div>
-                      <div><span className="payment-info-lbl">{t('drawerRole', 'Vai trò')}:</span> <span className="payment-info-val">{paymentDetail.user.role}</span></div>
+                      <div><span className="payment-info-lbl">{t('fullName')}:</span> <span className="payment-info-val">{paymentDetail.user.fullName}</span></div>
+                      <div><span className="payment-info-lbl">{t('email')}:</span> <span className="payment-info-val">{paymentDetail.user.email}</span></div>
+                      <div><span className="payment-info-lbl">{t('userId')}:</span> <span className="payment-info-val">#{paymentDetail.user.userId}</span></div>
+                      <div><span className="payment-info-lbl">{t('role')}:</span> <span className="payment-info-val">{paymentDetail.user.role}</span></div>
                     </div>
                   </div>
 
                   {/* Subscription Upgrade Section */}
                   <div className="payment-drawer__section">
                     <h3 className="payment-drawer__section-title">
-                      <CreditCard size={16} /> {t('drawerSubInfo', 'Gói dịch vụ & Nâng cấp')}
+                      <CreditCard size={16} /> {t('subscriptionUpgrade')}
                     </h3>
                     <div className="payment-info-grid">
-                      <div><span className="payment-info-lbl">{t('drawerPlanBefore', 'Gói trước đó')}:</span> <span className="payment-info-val">{paymentDetail.subscription.planBefore}</span></div>
-                      <div><span className="payment-info-lbl">{t('drawerPlanAfter', 'Gói nâng cấp')}:</span> <span className="payment-info-val"><strong>{paymentDetail.subscription.planAfter}</strong></span></div>
-                      <div><span className="payment-info-lbl">{t('drawerBillingCycle', 'Chu kỳ')}:</span> <span className="payment-info-val">{paymentDetail.subscription.billingCycleName}</span></div>
-                      <div><span className="payment-info-lbl">{t('drawerAmount', 'Số tiền')}:</span> <span className="payment-info-val">{formatVnd(paymentDetail.amount)}</span></div>
-                      <div><span className="payment-info-lbl">{t('drawerStartsAt', 'Bắt đầu')}:</span> <span className="payment-info-val">{formatDate(paymentDetail.subscription.termStartsAt)}</span></div>
-                      <div><span className="payment-info-lbl">{t('drawerEndsAt', 'Hết hạn')}:</span> <span className="payment-info-val">{formatDate(paymentDetail.subscription.termEndsAt)}</span></div>
+                      <div><span className="payment-info-lbl">{t('previousPlan')}:</span> <span className="payment-info-val">{paymentDetail.subscription.planBefore}</span></div>
+                      <div><span className="payment-info-lbl">{t('upgradedPlan')}:</span> <span className="payment-info-val"><strong>{paymentDetail.subscription.planAfter}</strong></span></div>
+                      <div><span className="payment-info-lbl">{t('billingCycle')}:</span> <span className="payment-info-val">{paymentDetail.subscription.billingCycleName}</span></div>
+                      <div><span className="payment-info-lbl">{t('amount')}:</span> <span className="payment-info-val">{formatVnd(paymentDetail.amount, i18n.language)}</span></div>
+                      <div><span className="payment-info-lbl">{t('startsAt')}:</span> <span className="payment-info-val">{formatDate(paymentDetail.subscription.termStartsAt, i18n.language)}</span></div>
+                      <div><span className="payment-info-lbl">{t('expiresAt')}:</span> <span className="payment-info-val">{formatDate(paymentDetail.subscription.termEndsAt, i18n.language)}</span></div>
                     </div>
                   </div>
 
                   {/* Timeline */}
                   <div className="payment-drawer__section">
                     <h3 className="payment-drawer__section-title">
-                      <Clock size={16} /> {t('drawerTimeline', 'Tiến trình Giao dịch (Timeline)')}
+                      <Clock size={16} /> {t('timeline')}
                     </h3>
                     <div className="payment-timeline">
                       {paymentDetail.timeline.map((step, idx) => (
@@ -724,7 +708,7 @@ export default function PaymentManagementPage() {
                           <div className="payment-timeline-dot" />
                           <div className="payment-timeline-title">{step.title}</div>
                           <div className="payment-timeline-desc">
-                            {formatDate(step.timestamp)} — {step.description}
+                            {formatDate(step.timestamp, i18n.language)} — {step.description}
                           </div>
                         </div>
                       ))}
@@ -734,13 +718,13 @@ export default function PaymentManagementPage() {
                   {/* MoMo Data */}
                   <div className="payment-drawer__section">
                     <h3 className="payment-drawer__section-title">
-                      <ShieldCheck size={16} /> {t('drawerMoMoData', 'Dữ liệu MoMo Verification')}
+                      <ShieldCheck size={16} /> {t('momoData')}
                     </h3>
                     <div className="payment-info-grid" style={{ marginBottom: 12 }}>
-                      <div><span className="payment-info-lbl">Partner Code:</span> <span className="payment-info-val">MOMO</span></div>
-                      <div><span className="payment-info-lbl">Trans ID:</span> <span className="payment-info-val">{paymentDetail.moMoDetails.transId || '—'}</span></div>
+                      <div><span className="payment-info-lbl">{t('partnerCode')}:</span> <span className="payment-info-val">MOMO</span></div>
+                      <div><span className="payment-info-lbl">{t('transactionId')}:</span> <span className="payment-info-val">{paymentDetail.moMoDetails.transId || '—'}</span></div>
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Raw Callback JSON:</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{t('rawCallbackJson')}:</div>
                     <div className="payment-json-view">{paymentDetail.moMoDetails.rawCallbackJson}</div>
                   </div>
                 </>

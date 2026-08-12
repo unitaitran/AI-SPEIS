@@ -19,6 +19,10 @@ import enAdminDashboard from './locales/en/admin-dashboard.json';
 import viAdminDashboard from './locales/vi/admin-dashboard.json';
 import enAdminSubscription from './locales/en/admin-subscription.json';
 import viAdminSubscription from './locales/vi/admin-subscription.json';
+import enAdminPayments from './locales/en/admin-payments.json';
+import viAdminPayments from './locales/vi/admin-payments.json';
+import enAdminAiUsage from './locales/en/admin-ai-usage.json';
+import viAdminAiUsage from './locales/vi/admin-ai-usage.json';
 import enQuestionBank from './locales/en/questionBank.json';
 import viQuestionBank from './locales/vi/questionBank.json';
 import enInterview from './locales/en/interview.json';
@@ -39,6 +43,8 @@ const resources = {
     'admin-users': enAdminUsers,
     'admin-dashboard': enAdminDashboard,
     'admin-subscription': enAdminSubscription,
+    'admin-payments': enAdminPayments,
+    'admin-ai-usage': enAdminAiUsage,
     questionBank: enQuestionBank,
     interview: enInterview,
     packages: enPackages,
@@ -52,6 +58,8 @@ const resources = {
     'admin-users': viAdminUsers,
     'admin-dashboard': viAdminDashboard,
     'admin-subscription': viAdminSubscription,
+    'admin-payments': viAdminPayments,
+    'admin-ai-usage': viAdminAiUsage,
     questionBank: viQuestionBank,
     interview: viInterview,
     packages: viPackages,
@@ -67,7 +75,7 @@ i18n
     fallbackLng: 'vi',
     supportedLngs: ['vi', 'en'],
     defaultNS: 'homepage',
-    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'admin-subscription', 'questionBank', 'interview', 'packages', 'cvjd'],
+    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'admin-subscription', 'admin-payments', 'admin-ai-usage', 'questionBank', 'interview', 'packages', 'cvjd'],
     interpolation: {
       escapeValue: false,
     },
