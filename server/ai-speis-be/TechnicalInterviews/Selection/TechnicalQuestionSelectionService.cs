@@ -50,7 +50,7 @@ namespace ai_speis_be.TechnicalInterviews.Selection
 
         Task<TechnicalBankSubQuestionResult> SelectBankSubQuestionAsync(
             TechnicalLockedMainQuestionSnapshot lockedMain,
-            TechnicalAttemptType attemptType,
+            TechnicalSessionQuestionType attemptType,
             int followUpNumber,
             CancellationToken cancellationToken);
 
@@ -255,12 +255,12 @@ namespace ai_speis_be.TechnicalInterviews.Selection
 
         public async Task<TechnicalBankSubQuestionResult> SelectBankSubQuestionAsync(
             TechnicalLockedMainQuestionSnapshot lockedMain,
-            TechnicalAttemptType attemptType,
+            TechnicalSessionQuestionType attemptType,
             int followUpNumber,
             CancellationToken cancellationToken)
         {
-            if (attemptType is not TechnicalAttemptType.Clarification
-                and not TechnicalAttemptType.FollowUp)
+            if (attemptType is not TechnicalSessionQuestionType.Clarification
+                and not TechnicalSessionQuestionType.FollowUp)
             {
                 return new TechnicalBankSubQuestionResult(
                     false,
@@ -311,10 +311,10 @@ namespace ai_speis_be.TechnicalInterviews.Selection
             string? clarification,
             string? followUp1,
             string? followUp2,
-            TechnicalAttemptType attemptType,
+            TechnicalSessionQuestionType attemptType,
             int followUpNumber)
         {
-            if (attemptType == TechnicalAttemptType.Clarification)
+            if (attemptType == TechnicalSessionQuestionType.Clarification)
             {
                 return clarification;
             }

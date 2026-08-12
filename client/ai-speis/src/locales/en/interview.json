@@ -313,8 +313,8 @@
     "questionApiUnavailable": "The interview session was found, but the backend does not currently expose the technical-question API for this session.",
     "questionTypes": {
       "MAIN": "Main question",
-      "CLARIFICATION": "Clarification",
-      "FOLLOW_UP": "Follow-up"
+      "CLARIFICATION": "Clarification question",
+      "FOLLOW_UP": "Follow-up question"
     },
     "statuses": {
       "CREATED": "Created",
@@ -440,9 +440,18 @@
     "jumpToLatest": "Jump to latest",
     "questionType": {
       "Main": "Main question",
+      "main": "Main question",
+      "MAIN": "Main question",
       "Clarification": "Clarification question",
+      "clarification": "Clarification question",
+      "CLARIFICATION": "Clarification question",
+      "FollowUp": "Follow-up question",
       "FollowUp1": "Follow-up question",
-      "FollowUp2": "Follow-up question"
+      "FollowUp2": "Follow-up question",
+      "followup": "Follow-up question",
+      "followup1": "Follow-up question",
+      "followup2": "Follow-up question",
+      "FOLLOW_UP": "Follow-up question"
     },
     "recordingControls": "Answer recording controls",
     "recording": "Recording",
@@ -562,10 +571,19 @@
     "draft": "Draft",
     "transcribing": "Transcribing answer...",
     "questionType": {
-      "main": "Interviewer asks",
-      "clarification": "Clarification",
-      "followup1": "Follow-up",
-      "followup2": "Follow-up"
+      "Main": "Main question",
+      "main": "Main question",
+      "MAIN": "Main question",
+      "Clarification": "Clarification question",
+      "clarification": "Clarification question",
+      "CLARIFICATION": "Clarification question",
+      "FollowUp": "Follow-up question",
+      "FollowUp1": "Follow-up question",
+      "FollowUp2": "Follow-up question",
+      "followup": "Follow-up question",
+      "followup1": "Follow-up question",
+      "followup2": "Follow-up question",
+      "FOLLOW_UP": "Follow-up question"
     },
     "recorder": {
       "recordingControls": "Recording controls",

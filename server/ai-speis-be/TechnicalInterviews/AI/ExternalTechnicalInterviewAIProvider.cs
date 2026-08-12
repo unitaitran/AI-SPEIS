@@ -73,28 +73,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 providerOverride);
         }
 
-        public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken)
-            => EvaluateAnswerAsync(context, cancellationToken, null);
-
-        public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken,
-            string? providerOverride)
-        {
-            var prompt = TechnicalPromptFactory.Evaluation(context);
-            return CallAsync<TechnicalAIEvaluationResponse>(
-                prompt.System,
-                prompt.User,
-                _options.EvaluationTimeoutMs,
-                _options.EvaluationMaxRetries,
-                _options.OllamaEvaluationModel,
-                cancellationToken,
-                null,
-                providerOverride);
-        }
-
         public Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAnswerV2Async(
             TechnicalV2AnswerProcessingContext context,
             CancellationToken cancellationToken)

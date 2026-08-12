@@ -352,7 +352,7 @@ export default function useTechnicalInterviewSession(sessionId) {
         || normalized.code === TechnicalV2ErrorCode.SESSION_NOT_FOUND
         || normalized.code === TechnicalV2ErrorCode.CAMPAIGN_NOT_ACTIVE
         || normalized.code === TechnicalV2ErrorCode.WRONG_ROUND_TYPE
-        || normalized.code === TechnicalV2ErrorCode.LEGACY_SESSION;
+        || normalized.code === TechnicalV2ErrorCode.RUNTIME_VERSION_REQUIRED;
       dispatch({ type: 'ERROR', error: normalized, fatal });
     }
   }, [completeIfReady, sessionId]);

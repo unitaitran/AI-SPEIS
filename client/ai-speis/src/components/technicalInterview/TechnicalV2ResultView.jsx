@@ -126,7 +126,6 @@ function QuestionCriteria({ dimensions, t }) {
             <p>{t('result.weight', { weight: formatWeight(criterion.weight) })}</p>
             <FeedbackList title={t('result.evidence')} items={criterion.evidence} />
             <FeedbackList title={t('result.strengths')} items={criterion.strengths} />
-            <FeedbackList title={t('result.gaps')} items={criterion.gaps?.length ? criterion.gaps : criterion.missingEvidence} />
           </article>
         ))}
       </div>

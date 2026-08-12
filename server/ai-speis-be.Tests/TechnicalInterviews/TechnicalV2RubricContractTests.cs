@@ -112,7 +112,7 @@ public sealed class TechnicalV2RubricContractTests
     }
 
     [Fact]
-    public void InvalidCriterionEvidence_ClearsEvidenceWithoutDiscardingScores()
+    public void InvalidCriterionEvidence_ClearsEvidenceAndZerosCriterion()
     {
         var evaluation = ValidEvaluation();
         evaluation.Evaluation!.DimensionEvaluations!
@@ -124,7 +124,7 @@ public sealed class TechnicalV2RubricContractTests
         var reasoning = result.NormalizedEvaluation!.Evaluation!.DimensionEvaluations!
             .Single(item => item.RubricCode == "REASONING");
         Assert.Empty(reasoning.Evidence!);
-        Assert.NotEqual(0m, reasoning.SuggestedScore);
+        Assert.Equal(0m, reasoning.SuggestedScore);
     }
 
     [Fact]

@@ -1400,7 +1400,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 SchemaVersion = RubricVersion,
                 FallbackUsed = fallbackUsed,
                 InterviewSessionId = session.InterviewSessionId,
-                AttemptId = null,
                 StartedAt = result.StartedAt,
                 CompletedAt = result.CompletedAt,
                 CreatedAt = DateTime.UtcNow

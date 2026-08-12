@@ -250,5 +250,6 @@ namespace ai_speis_be.Models.DTOs
         public int RemainingInterviewQuota { get; set; }
         public int MaxInterviewQuota { get; set; }
         public string PlanName { get; set; } = string.Empty;
+        public DateTime? SubscriptionExpiresAt { get; set; }
     }
 }

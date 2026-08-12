@@ -71,9 +71,6 @@ namespace ai_speis_be.Models
         [ForeignKey(nameof(InterviewSession))]
         public int InterviewSessionId { get; set; }
 
-        [ForeignKey(nameof(Attempt))]
-        public Guid? AttemptId { get; set; }
-
         public DateTime StartedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
@@ -82,6 +79,5 @@ namespace ai_speis_be.Models
 
         public virtual InterviewSession InterviewSession { get; set; } = null!;
 
-        public virtual TechnicalQuestionAttempt? Attempt { get; set; }
     }
 }

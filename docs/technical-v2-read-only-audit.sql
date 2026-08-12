@@ -129,7 +129,7 @@ BEGIN
     EXEC sys.sp_executesql @sql;
 END;
 
-PRINT N'===== 5. LEGACY TECHNICAL TABLES =====';
+PRINT N'===== 5. TABLES SCHEDULED FOR REMOVAL =====';
 IF OBJECT_ID(N'dbo.TechnicalQuestionAttempt', N'U') IS NULL
     SELECT N'dbo.TechnicalQuestionAttempt' AS TableName, CAST(0 AS bit) AS ExistsInDatabase,
            CAST(NULL AS bigint) AS TotalRows, CAST(NULL AS bigint) AS DistinctInterviewSessionId,

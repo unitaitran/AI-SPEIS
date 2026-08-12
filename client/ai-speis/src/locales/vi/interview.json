@@ -313,8 +313,8 @@
     "questionApiUnavailable": "Phiên phỏng vấn đã được tìm thấy, nhưng backend hiện chưa cung cấp API câu hỏi kỹ thuật cho phiên này.",
     "questionTypes": {
       "MAIN": "Câu hỏi chính",
-      "CLARIFICATION": "Làm rõ",
-      "FOLLOW_UP": "Hỏi tiếp"
+      "CLARIFICATION": "Câu hỏi làm rõ",
+      "FOLLOW_UP": "Câu hỏi phụ"
     },
     "statuses": {
       "CREATED": "Đã tạo",
@@ -440,9 +440,18 @@
     "jumpToLatest": "Đến nội dung mới nhất",
     "questionType": {
       "Main": "Câu hỏi chính",
+      "main": "Câu hỏi chính",
+      "MAIN": "Câu hỏi chính",
       "Clarification": "Câu hỏi làm rõ",
-      "FollowUp1": "Câu hỏi nối tiếp",
-      "FollowUp2": "Câu hỏi nối tiếp"
+      "clarification": "Câu hỏi làm rõ",
+      "CLARIFICATION": "Câu hỏi làm rõ",
+      "FollowUp": "Câu hỏi phụ",
+      "FollowUp1": "Câu hỏi phụ",
+      "FollowUp2": "Câu hỏi phụ",
+      "followup": "Câu hỏi phụ",
+      "followup1": "Câu hỏi phụ",
+      "followup2": "Câu hỏi phụ",
+      "FOLLOW_UP": "Câu hỏi phụ"
     },
     "recordingControls": "Điều khiển ghi âm câu trả lời",
     "recording": "Đang ghi âm",
@@ -562,10 +571,19 @@
     "draft": "Bản nháp",
     "transcribing": "Đang chuyển câu trả lời thành văn bản...",
     "questionType": {
-      "main": "Người phỏng vấn hỏi",
+      "Main": "Câu hỏi chính",
+      "main": "Câu hỏi chính",
+      "MAIN": "Câu hỏi chính",
+      "Clarification": "Câu hỏi làm rõ",
       "clarification": "Câu hỏi làm rõ",
-      "followup1": "Câu hỏi tiếp nối",
-      "followup2": "Câu hỏi tiếp nối"
+      "CLARIFICATION": "Câu hỏi làm rõ",
+      "FollowUp": "Câu hỏi phụ",
+      "FollowUp1": "Câu hỏi phụ",
+      "FollowUp2": "Câu hỏi phụ",
+      "followup": "Câu hỏi phụ",
+      "followup1": "Câu hỏi phụ",
+      "followup2": "Câu hỏi phụ",
+      "FOLLOW_UP": "Câu hỏi phụ"
     },
     "recorder": {
       "recordingControls": "Điều khiển ghi âm",

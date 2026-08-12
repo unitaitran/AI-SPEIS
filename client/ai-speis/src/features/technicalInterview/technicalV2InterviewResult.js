@@ -55,6 +55,7 @@ export const normalizeTechnicalV2Review = (result) => {
 
       return {
         id: question.sessionQuestionId || question.questionId || index,
+        questionId: question.questionId || null,
         order: question.questionOrder || index + 1,
         question: question.question || '',
         questionType: 'MAIN',

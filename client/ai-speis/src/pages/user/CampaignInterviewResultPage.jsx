@@ -19,15 +19,14 @@ import {
   Sparkles,
   Target,
   UserCheck,
+  RefreshCw,
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
-import technicalInterviewApi from '../../services/technicalInterviewApi';
 import technicalV2InterviewApi from '../../services/technicalV2InterviewApi';
 import behavioralInterviewApi from '../../services/behavioralInterviewApi';
-import { normalizeTechnicalInterviewResult } from '../../features/technicalInterview/technicalInterviewResult';
 import { normalizeTechnicalV2Review } from '../../features/technicalInterview/technicalV2InterviewResult';
 import { getInterviewHistoryCopy, formatInterviewTitle } from '../../features/interviewHistory/interviewHistoryCopy';
 
@@ -39,11 +38,11 @@ import Spinner from '../../components/UI/Spinner';
 import Alert from '../../components/UI/Alert';
 import EmptyState from '../../components/UI/EmptyState';
 
-const formatDate = (value) => {
+const formatDate = (value, locale = 'vi-VN') => {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
@@ -60,6 +59,16 @@ const formatScore = (score, maxScore = 10) => {
 
 const formatWeight = (weight) => new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 }).format(Number(weight) || 0);
 const technicalCriterionLabel = (code, t) => t(`technicalRoom.rubric.${String(code || '').toUpperCase()}`, { defaultValue: code || '' });
+const openSingleQuestionInterview = (question, roundType, originalSessionId) => {
+  sessionStorage.setItem('ai-speis:single-question-interview', JSON.stringify({
+    questionId: question.questionId,
+    question: question.question,
+    roundType,
+    originalSessionId,
+    language: 'vi',
+  }));
+  navigate(USER_ROUTES.SINGLE_QUESTION_INTERVIEW);
+};
 
 const getStatusConfig = (status, copy) => {
   switch (status) {
@@ -122,6 +131,7 @@ const normalizeBehaviorReview = (result, state) => {
 
       return {
         id: question.sessionQuestionId,
+        questionId: question.questionId || null,
         order: question.mainQuestionIndex,
         question: question.question,
         questionType: 'MAIN',
@@ -138,30 +148,6 @@ const normalizeBehaviorReview = (result, state) => {
         adaptiveHistory: subQuestions,
       };
     }),
-  };
-};
-
-const normalizeTechnicalReview = (result) => {
-  const normalized = normalizeTechnicalInterviewResult(result);
-  return {
-    overallScore: normalized?.technicalScore,
-    maxScore: normalized?.maxScore,
-    questions: (normalized?.questionResults || []).map((question) => ({
-      id: question.attemptId || question.mainQuestionIndex,
-      order: question.mainQuestionIndex,
-      question: question.content || question.question,
-      questionType: question.questionType,
-      skill: question.skill || question.targetSkill,
-      score: question.score,
-      maxScore: question.maxScore || 10,
-      dimensions: question.rubricBreakdown || question.dimensions || [],
-      strengths: question.strengths || [],
-      missingPoints: question.missingPoints || [],
-      transcript: question.answerTranscript || '',
-      feedbackSummary: question.feedbackSummary,
-      suggestions: question.suggestions || [],
-      adaptiveHistory: question.subQuestionResults || [],
-    })),
   };
 };
 
@@ -187,10 +173,10 @@ function FeedbackList({ icon: Icon, title, items, tone = 'neutral' }) {
   );
 }
 
-function CollapsibleCriterionCard({ dim, isTechnicalV2Review, technicalCriterionLabel, t }) {
+function CollapsibleCriterionCard({ dim, isTechnicalV2Review, technicalCriterionLabel, copy, t }) {
   const [isOpen, setIsOpen] = useState(false);
   const title = isTechnicalV2Review ? technicalCriterionLabel(dim.rubricCode, t) : (dim.name || dim.rubricCode);
-  const hasDetails = dim.evidence?.length > 0 || dim.strengths?.length > 0 || dim.gaps?.length > 0 || dim.missingEvidence?.length > 0;
+  const hasDetails = dim.evidence?.length > 0 || dim.strengths?.length > 0;
 
   return (
     <div
@@ -222,18 +208,13 @@ function CollapsibleCriterionCard({ dim, isTechnicalV2Review, technicalCriterion
         <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-border/60">
           {dim.evidence?.length > 0 && (
             <p className="text-[11px] text-text-secondary leading-relaxed">
-              <strong>{isTechnicalV2Review ? t('technicalRoom.result.evidence') : 'Evidence:'}</strong>{' '}
+              <strong>{isTechnicalV2Review ? t('technicalRoom.result.evidence') : copy?.review?.evidence || 'Evidence:'}</strong>{' '}
               {dim.evidence.join(' ')}
             </p>
           )}
           {isTechnicalV2Review && dim.strengths?.length > 0 && (
             <p className="text-[11px] text-text-secondary leading-relaxed">
               <strong>{t('technicalRoom.result.strengths')}</strong> {dim.strengths.join(' ')}
-            </p>
-          )}
-          {isTechnicalV2Review && (dim.gaps?.length > 0 || dim.missingEvidence?.length > 0) && (
-            <p className="text-[11px] text-text-secondary leading-relaxed">
-              <strong>{t('technicalRoom.result.gaps')}</strong> {(dim.gaps?.length ? dim.gaps : dim.missingEvidence).join(' ')}
             </p>
           )}
         </div>
@@ -314,17 +295,8 @@ function CampaignInterviewResultPage({ campaignId }) {
     try {
       let reviewData;
       if (roundType === 'Technical') {
-        try {
-          const res = await technicalV2InterviewApi.getResult(activeRoundSessionId);
-          reviewData = normalizeTechnicalV2Review(res);
-        } catch (v2Error) {
-          if (v2Error?.code !== 'LEGACY_SESSION') throw v2Error;
-          const [res, state] = await Promise.all([
-            technicalInterviewApi.getResult(activeRoundSessionId),
-            technicalInterviewApi.getSession(activeRoundSessionId),
-          ]);
-          reviewData = normalizeTechnicalReview(res, state);
-        }
+        const res = await technicalV2InterviewApi.getResult(activeRoundSessionId);
+        reviewData = normalizeTechnicalV2Review(res);
       } else if (['Behavior', 'Behavioral'].includes(roundType)) {
         const [res, state] = await Promise.all([
           behavioralInterviewApi.getResult(activeRoundSessionId),
@@ -365,7 +337,7 @@ function CampaignInterviewResultPage({ campaignId }) {
           isSubQuestion: true,
           mainIndex: mainIdx,
           parentQuestion: q,
-          questionLabel: subQ.questionType === 'Clarification' ? 'CÂU HỎI LÀM RÕ (CLARIFICATION)' : 'CÂU HỎI PHỤ (FOLLOW-UP)',
+          questionLabel: subQ.questionType === 'Clarification' ? copy.review.clarificationQuestion : copy.review.followUpQuestion,
         });
       });
     });
@@ -460,32 +432,32 @@ function CampaignInterviewResultPage({ campaignId }) {
 
     return [
       {
-        title: 'Professional Knowledge',
-        labelVi: 'Kiến thức chuyên môn',
+        title: copy.history.profKnowledge,
+        labelVi: copy.history.profKnowledgeSub,
         score: profKnowledge.toFixed(1),
         formula: '35% Accuracy + 25% Depth + 15% App + 25% Coding',
         color: 'from-blue-50/80 to-indigo-50/80 border-blue-200 dark:from-blue-950/40 dark:to-indigo-950/40 dark:border-blue-800 text-blue-900 dark:text-blue-100',
         badgeColor: 'bg-blue-600 text-white',
       },
       {
-        title: 'Communication Skills',
-        labelVi: 'Kỹ năng giao tiếp',
+        title: copy.history.commSkills,
+        labelVi: copy.history.commSkillsSub,
         score: commSkills.toFixed(1),
         formula: '40% Tech Comm + 60% Beha Comm',
         color: 'from-purple-50/80 to-pink-50/80 border-purple-200 dark:from-purple-950/40 dark:to-pink-950/40 dark:border-purple-800 text-purple-900 dark:text-purple-100',
         badgeColor: 'bg-purple-600 text-white',
       },
       {
-        title: 'CV Understanding',
-        labelVi: 'Độ thấu hiểu CV',
+        title: copy.history.cvUnderstanding,
+        labelVi: copy.history.cvUnderstandingSub,
         score: cvUnderstanding.toFixed(1),
         formula: '30% App + 30% Reasoning + 40% Action',
         color: 'from-amber-50/80 to-orange-50/80 border-amber-200 dark:from-amber-950/40 dark:to-orange-950/40 dark:border-amber-800 text-amber-900 dark:text-amber-100',
         badgeColor: 'bg-amber-600 text-white',
       },
       {
-        title: 'Problem Solving',
-        labelVi: 'Tư duy giải quyết vấn đề',
+        title: copy.history.problemSolving,
+        labelVi: copy.history.problemSolvingSub,
         score: problemSolving.toFixed(1),
         formula: '35% Coding + 35% Depth + 30% Reasoning',
         color: 'from-emerald-50/80 to-teal-50/80 border-emerald-200 dark:from-emerald-950/40 dark:to-teal-950/40 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100',
@@ -566,10 +538,10 @@ function CampaignInterviewResultPage({ campaignId }) {
                 </Badge>
               </div>
 
-              {formatDate(campaignData?.startedAt || campaignData?.createdAt) && (
+              {formatDate(campaignData?.startedAt || campaignData?.createdAt, (i18n.resolvedLanguage || i18n.language)?.startsWith('en') ? 'en-US' : 'vi-VN') && (
                 <div className="flex items-center gap-2 text-xs text-text-secondary flex-wrap">
                   <Clock size={13} className="text-text-muted" />
-                  <span>{formatDate(campaignData?.startedAt || campaignData?.createdAt)}</span>
+                  <span>{formatDate(campaignData?.startedAt || campaignData?.createdAt, (i18n.resolvedLanguage || i18n.language)?.startsWith('en') ? 'en-US' : 'vi-VN')}</span>
                   {campaignData?.language && (
                     <span className="px-1.5 py-0.5 bg-surface-muted border border-border rounded text-[10px] uppercase font-bold text-text-secondary">
                       {campaignData.language}
@@ -591,11 +563,11 @@ function CampaignInterviewResultPage({ campaignId }) {
           </div>
         </div>
 
-        {/* Dashboard 4 Chỉ số Đánh giá Cuối cùng (Competency Benchmark Metrics) */}
-        {competencyMetrics && (
+        {/* Dashboard 4 Chỉ số Đánh giá Cuối cùng (Competency Benchmark Metrics) - Only shown in Real / Mock Interview mode */}
+        {mode === 'Mock' && competencyMetrics && (
           <section className="flex flex-col gap-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
-              <Target size={15} /> Chỉ số đánh giá năng lực tổng hợp (Competency Benchmarks)
+              <Target size={15} /> {copy.history.benchmarksTitle}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {competencyMetrics.map((metric) => (
@@ -701,7 +673,7 @@ function CampaignInterviewResultPage({ campaignId }) {
                     ))
                   ) : (
                     <div className="col-span-full p-6 bg-surface-muted rounded-xl text-center text-xs text-text-secondary">
-                      Chưa có câu hỏi lập trình nào được ghi nhận cho vòng này.
+                      {copy.review.noCodingQuestions}
                     </div>
                   )}
                 </div>
@@ -814,7 +786,7 @@ function CampaignInterviewResultPage({ campaignId }) {
                                             ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
                                             : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
                                         }`}>
-                                          {subQ.questionType === 'Clarification' ? 'Làm rõ' : 'Hỏi phụ'}
+                                          {subQ.questionType === 'Clarification' ? copy.review.clarificationBadge : copy.review.followUpBadge}
                                         </span>
                                         <span className="font-extrabold text-primary">{formatScore(subQ.score, subQ.maxScore)}</span>
                                       </div>
@@ -854,10 +826,11 @@ function CampaignInterviewResultPage({ campaignId }) {
 
                     {formatScore(selectedQuestion.score, selectedQuestion.maxScore) && (
                       <div className="flex flex-col items-center px-4 py-2 bg-[#F0F7FF] border border-primary/20 rounded-xl shrink-0">
-                        <span className="text-[9px] uppercase font-extrabold text-primary-dark tracking-wider">Điểm</span>
+                        <span className="text-[9px] uppercase font-extrabold text-primary-dark tracking-wider">{copy.review.scoreLabel}</span>
                         <span className="text-lg font-extrabold text-primary">
                           {formatScore(selectedQuestion.score, selectedQuestion.maxScore)}
                         </span>
+                        {selectedQuestion.questionId && ['Technical', 'Behavior', 'Behavioral'].includes(activeSessionObj?.interviewRoundType || activeSessionObj?.roundType) && <Button variant="outline" size="sm" icon={RefreshCw} onClick={() => openSingleQuestionInterview(selectedQuestion, activeSessionObj.interviewRoundType || activeSessionObj.roundType, activeRoundSessionId)}>{copy.review.retryQuestion}</Button>}
                       </div>
                     )}
                   </div>
@@ -897,6 +870,7 @@ function CampaignInterviewResultPage({ campaignId }) {
                             dim={dim}
                             isTechnicalV2Review={isTechnicalV2Review}
                             technicalCriterionLabel={technicalCriterionLabel}
+                            copy={copy}
                             t={t}
                           />
                         ))}

@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import interviewSessionService from '../../services/InterviewSessionService';
-import { getInterviewReviewPath, USER_ROUTES } from '../../routes/routePaths';
+import { getInterviewReviewPath, getCampaignResultPath, USER_ROUTES } from '../../routes/routePaths';
 import { navigate } from '../../routes/navigation';
 import { beginNewInterviewCampaign } from '../../utils/interviewContext';
 import { getInterviewHistoryCopy, formatInterviewTitle } from '../../features/interviewHistory/interviewHistoryCopy';
@@ -100,9 +100,7 @@ const getRoundConfig = (type, copy) => {
   }
 };
 
-const canReviewSession = (session) => (
-  session.status === 'Completed' && ['Technical', 'Behavior', 'Behavioral'].includes(session.interviewRoundType)
-);
+const canReviewSession = (session) => session.status === 'Completed';
 
 // Detail Modal for Campaign
 function SessionDetailModal({ campaign, copy, onClose }) {
@@ -127,26 +125,33 @@ function SessionDetailModal({ campaign, copy, onClose }) {
     loadResult();
   }, [loadResult]);
 
-  const scoreBySession = new Map((result?.rounds || []).map((round) => [round.interviewSessionId, round]));
-  const modalTitle = formatInterviewTitle(campaign, copy);
+  const scoreBySession = useMemo(() => {
+    const map = new Map();
+    if (result?.rounds) {
+      result.rounds.forEach((r) => {
+        if (r.interviewSessionId) map.set(r.interviewSessionId, r);
+      });
+    }
+    return map;
+  }, [result]);
 
   return (
     <Modal
-      isOpen={true}
+      isOpen={!!campaign}
       onClose={onClose}
-      title={modalTitle}
+      title={copy.history.detailTitle.replace('{{id}}', campaign.interviewCampaignId)}
       size="lg"
     >
-      <div className="flex flex-col gap-5 py-2">
-        {/* Meta summary grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-surface-muted rounded-lg border border-border text-xs">
+      <div className="flex flex-col gap-4">
+        {/* Campaign Info Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-surface-muted rounded-xl text-xs">
           <div>
             <span className="text-text-muted block mb-0.5">{copy.history.status}</span>
             <Badge variant={getStatusConfig(campaign.status, copy).variant} size="sm">
               {getStatusConfig(campaign.status, copy).label}
             </Badge>
           </div>
-          {formatDate(campaign.startedAt || campaign.createdAt) && (
+          {(campaign.startedAt || campaign.createdAt) && (
             <div>
               <span className="text-text-muted block mb-0.5">{copy.history.started}</span>
               <span className="font-semibold text-text-primary">{formatDate(campaign.startedAt || campaign.createdAt)}</span>
@@ -232,7 +237,11 @@ function SessionDetailModal({ campaign, copy, onClose }) {
                         size="sm"
                         onClick={() => {
                           onClose();
-                          navigate(getInterviewReviewPath(session.interviewSessionId));
+                          if (isCoding) {
+                            navigate(getCampaignResultPath(campaign.interviewCampaignId));
+                          } else {
+                            navigate(getInterviewReviewPath(session.interviewSessionId));
+                          }
                         }}
                         className="w-full justify-center"
                       >
@@ -642,7 +651,14 @@ function InterviewHistoryPage() {
                             variant="primary"
                             size="sm"
                             icon={ChevronRight}
-                            onClick={() => navigate(getInterviewReviewPath(reviewableRound.interviewSessionId))}
+                            onClick={() => {
+                              const isCoding = ['Code', 'Coding'].includes(reviewableRound.interviewRoundType);
+                              if (isCoding) {
+                                navigate(getCampaignResultPath(campaign.interviewCampaignId));
+                              } else {
+                                navigate(getInterviewReviewPath(reviewableRound.interviewSessionId));
+                              }
+                            }}
                             className="shadow-sm"
                           >
                             {copy.history.viewResultBtn}

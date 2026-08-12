@@ -7,13 +7,13 @@ namespace ai_speis_be.Tests.TechnicalInterviews;
 public sealed class TechnicalRubricScoringServiceTests
 {
     [Fact]
-    public void ScoreQuestion_AppliesDocumentWeightsAndBackendRounding()
+    public void ScoreQuestionV2_AppliesDocumentWeightsAndBackendRounding()
     {
         var rubric = TechnicalTestRubric.Create();
         var evaluation = TechnicalTestRubric.CreateEvaluation(10m, 8m, 6m, 4m, 2m);
         var service = new TechnicalRubricScoringService();
 
-        var result = service.ScoreQuestion(evaluation, rubric);
+        var result = service.ScoreQuestionV2(evaluation, rubric);
 
         Assert.Equal(7.00m, result.FinalOverallScore);
         Assert.Equal(5, result.Dimensions.Count);
@@ -102,17 +102,19 @@ internal static class TechnicalTestRubric
         };
     }
 
-    public static TechnicalAIEvaluationResponse CreateEvaluation(params decimal[] scores)
+    public static TechnicalV2EvaluationResponse CreateEvaluation(params decimal[] scores)
     {
-        return new TechnicalAIEvaluationResponse
+        return new TechnicalV2EvaluationResponse
         {
-            Evaluation = new TechnicalAIEvaluationPayload(),
-            DimensionEvaluations = Codes.Select((code, index) => new TechnicalAIDimensionEvaluation
+            Evaluation = new TechnicalV2EvaluationPayload
             {
-                RubricCode = code,
-                SuggestedScore = scores[index],
-                Evidence = new List<string> { "dependency injection" }
-            }).ToList()
+                DimensionEvaluations = Codes.Select((code, index) => new TechnicalV2DimensionEvaluation
+                {
+                    RubricCode = code,
+                    SuggestedScore = scores[index],
+                    Evidence = new List<string> { "dependency injection" }
+                }).ToList()
+            }
         };
     }
 }

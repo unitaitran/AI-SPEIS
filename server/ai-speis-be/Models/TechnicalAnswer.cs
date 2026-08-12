@@ -26,40 +26,7 @@ namespace ai_speis_be.Models
         public int AnswerVersion { get; set; } = 1;
         public decimal? SttConfidence { get; set; }
 
-        public decimal? AiProfessionalKnowledgeScore { get; set; }
-        public decimal? AiTechnicalAccuracyScore { get; set; }
-        public decimal? AiProblemSolvingReasoningScore { get; set; }
-        public decimal? AiCommunicationExplanationScore { get; set; }
-
-        [NotMapped]
-        public decimal? AiAccuracyScore
-        {
-            get => AiTechnicalAccuracyScore;
-            set => AiTechnicalAccuracyScore = value;
-        }
-
-        [NotMapped]
-        public decimal? AiTechnicalDepthScore
-        {
-            get => AiProfessionalKnowledgeScore;
-            set => AiProfessionalKnowledgeScore = value;
-        }
-
-        [NotMapped]
-        public decimal? AiReasoningScore
-        {
-            get => AiProblemSolvingReasoningScore;
-            set => AiProblemSolvingReasoningScore = value;
-        }
-
         public decimal? AiApplicationScore { get; set; }
-
-        [NotMapped]
-        public decimal? AiCommunicationScore
-        {
-            get => AiCommunicationExplanationScore;
-            set => AiCommunicationExplanationScore = value;
-        }
 
         public string? AiCriteriaDetailJson { get; set; }
         public string? AiStrengths { get; set; }

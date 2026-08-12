@@ -13,11 +13,11 @@ namespace ai_speis_be.Tests.TechnicalInterviews;
 public sealed class TechnicalQuestionSelectionServiceTests
 {
     [Theory]
-    [InlineData(TechnicalAttemptType.Clarification, 1, "Bank clarification")]
-    [InlineData(TechnicalAttemptType.FollowUp, 1, "Bank follow-up 1")]
-    [InlineData(TechnicalAttemptType.FollowUp, 2, "Bank follow-up 2")]
+    [InlineData(TechnicalSessionQuestionType.Clarification, 1, "Bank clarification")]
+    [InlineData(TechnicalSessionQuestionType.FollowUp, 1, "Bank follow-up 1")]
+    [InlineData(TechnicalSessionQuestionType.FollowUp, 2, "Bank follow-up 2")]
     public async Task SelectBankSubQuestionAsync_ReturnsVerbatimLockedQuestionBankProbe(
-        TechnicalAttemptType attemptType,
+        TechnicalSessionQuestionType attemptType,
         int followUpNumber,
         string expected)
     {
@@ -54,7 +54,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
 
         var result = await service.SelectBankSubQuestionAsync(
             legacySnapshot,
-            TechnicalAttemptType.FollowUp,
+            TechnicalSessionQuestionType.FollowUp,
             1,
             CancellationToken.None);
 

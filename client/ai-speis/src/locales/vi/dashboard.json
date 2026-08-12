@@ -1,13 +1,40 @@
 {
   "greeting_prefix": "Chào buổi sáng,",
+  "quick_actions": {
+    "section_title": "Hoạt động của bạn",
+    "card_1": {
+      "badge": "Gần đây nhất",
+      "subtitle": "Tổng quan lần phỏng vấn gần nhất",
+      "score_label": "Điểm tổng",
+      "date_label": "Ngày phỏng vấn",
+      "action": "Xem chi tiết"
+    },
+    "card_2": {
+      "badge": "Khuyên dùng",
+      "title": "Câu hỏi từ CV",
+      "subtitle": "Luyện tập theo kỹ năng",
+      "desc": "Luyện tập các câu hỏi phỏng vấn được AI tạo ra dựa trên các kỹ năng (skills) trong CV của bạn.",
+      "action": "Luyện tập ngay"
+    },
+    "card_3": {
+      "badge": "Quản lý",
+      "title": "Quản lý JD",
+      "subtitle": "Danh sách vị trí ứng tuyển",
+      "desc": "Xem lại và quản lý danh sách các Job Description mà bạn đã tải lên hệ thống.",
+      "action": "Xem danh sách"
+    }
+  },
   "stats": {
-    "interviews": "BUỔI PHỎNG VẤN ĐÃ LUYỆN",
+    "interviews": "SỐ BUỔI PHỎNG VẤN",
     "avg_score": "ĐIỂM TRUNG BÌNH",
     "streak": "STREAK LUYỆN TẬP",
     "quota": "QUOTA CÒN LẠI",
     "unit_session": "buổi",
     "unit_day": "ngày",
-    "unit_times": "lượt"
+    "unit_times": "lượt",
+    "quota_expires": "Hạn gói Premium",
+    "premium_active": "Gói Premium đang kích hoạt",
+    "free_plan": "Gói Miễn phí"
   },
   "suggestions": {
     "title": "Gợi ý luyện tập hôm nay",

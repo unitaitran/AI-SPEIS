@@ -21,3 +21,7 @@
 !client/ai-speis/src/locales/vi/packages.json
 !client/ai-speis/src/locales/en/cvjd.json
 !client/ai-speis/src/locales/vi/cvjd.json
+!client/ai-speis/src/locales/vi/admin-subscription.json
+!client/ai-speis/src/locales/en/admin-subscription.json
+!client/ai-speis/src/locales/vi/dashboard.json
+!client/ai-speis/src/locales/en/dashboard.json

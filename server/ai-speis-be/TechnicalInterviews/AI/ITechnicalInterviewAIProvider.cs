@@ -8,10 +8,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
             TechnicalAISelectionRequest request,
             CancellationToken cancellationToken);
 
-        Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken);
-
         Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAnswerV2Async(
             TechnicalV2AnswerProcessingContext context,
             CancellationToken cancellationToken);
@@ -25,8 +21,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
     {
         ITechnicalInterviewAIProvider Resolve();
 
-        // Session-scoped Technical V2 calls use this overload. The default keeps
-        // existing legacy test doubles and callers source-compatible.
+        // Session-scoped calls can select the provider persisted for the V2 session.
         ITechnicalInterviewAIProvider ResolveFor(string? providerName) => Resolve();
     }
 }

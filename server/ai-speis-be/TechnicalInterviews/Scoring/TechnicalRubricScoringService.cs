@@ -19,10 +19,6 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
 
     public interface ITechnicalRubricScoringService
     {
-        TechnicalQuestionScore ScoreQuestion(
-            TechnicalAIEvaluationResponse evaluation,
-            TechnicalRubricDefinition rubric);
-
         TechnicalQuestionScore ScoreQuestionV2(
             TechnicalV2EvaluationResponse evaluation,
             TechnicalRubricDefinition rubric);
@@ -42,40 +38,6 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
 
     public sealed class TechnicalRubricScoringService : ITechnicalRubricScoringService
     {
-        public TechnicalQuestionScore ScoreQuestion(
-            TechnicalAIEvaluationResponse evaluation,
-            TechnicalRubricDefinition rubric)
-        {
-            var dimensionsByCode = evaluation.DimensionEvaluations.ToDictionary(
-                item => item.RubricCode,
-                StringComparer.OrdinalIgnoreCase);
-
-            var dimensionScores = rubric.Dimensions.Select(dimension =>
-            {
-                var suggested = dimensionsByCode[dimension.Code].SuggestedScore;
-                var final = Normalize(suggested, rubric);
-                var weighted = Round(final * dimension.Weight, rubric.RoundingPrecision + 2);
-                return new TechnicalDimensionScore(
-                    dimension.Code,
-                    dimension.Name,
-                    suggested,
-                    final,
-                    dimension.Weight,
-                    weighted,
-                    rubric.GetLevelCode(final));
-            }).ToList();
-
-            var aiSuggested = Normalize(
-                rubric.Dimensions.Sum(dimension =>
-                    dimensionsByCode[dimension.Code].SuggestedScore * dimension.Weight),
-                rubric);
-            var finalOverall = Normalize(
-                dimensionScores.Sum(dimension => dimension.WeightedScore),
-                rubric);
-
-            return new TechnicalQuestionScore(aiSuggested, finalOverall, dimensionScores);
-        }
-
         public TechnicalQuestionScore ScoreQuestionV2(
             TechnicalV2EvaluationResponse evaluation,
             TechnicalRubricDefinition rubric)

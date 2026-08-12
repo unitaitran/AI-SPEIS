@@ -10,6 +10,7 @@ import {
   Play,
   RefreshCw,
   RotateCcw,
+  UserRound,
   Volume2,
 } from 'lucide-react';
 import BehavioralRecorderControls from '../../components/behavioralInterview/BehavioralRecorderControls';
@@ -381,8 +382,14 @@ function TechnicalInterviewPage({ sessionId }) {
       role: message.speaker === 'candidate' ? 'CANDIDATE' : 'INTERVIEWER',
       statusLabel: message.questionType ? t(`questionType.${message.questionType}`, { defaultValue: '' }) : '',
     }));
-    const draft = !isEvaluating && recorder.transcript.trim()
-      ? [{ id: `draft-${currentQuestion?.sessionQuestionId || 'current'}`, role: 'CANDIDATE', content: recorder.transcript, statusLabel: t('draft') }]
+    const draftText = recorder.transcript.trim();
+    const draft = draftText
+      ? [{
+        id: `draft-${currentQuestion?.sessionQuestionId || 'current'}`,
+        role: 'CANDIDATE',
+        content: draftText,
+        statusLabel: isEvaluating ? (t('submitting', { defaultValue: 'Đang gửi...' })) : t('draft'),
+      }]
       : [];
     return [...restored, ...draft];
   }, [currentQuestion?.sessionQuestionId, isEvaluating, recorder.transcript, room.transcriptMessages, t]);
@@ -435,9 +442,20 @@ function TechnicalInterviewPage({ sessionId }) {
           <span style={{ width: `${questionTotal ? Math.min(100, (questionIndex / questionTotal) * 100) : 0}%` }} />
         </div>
         <section className="behavior-question" aria-labelledby="technical-v2-question-text">
-          <div className="behavior-question__eyebrow">{t(`questionType.${questionTypeKey}`, { defaultValue: t('interviewerAsks') })}</div>
+          <div className="behavior-question__eyebrow">
+            {questionType ? t(`questionType.${questionType}`, { defaultValue: t(`questionType.${questionTypeKey}`, { defaultValue: t('interviewerAsks') }) }) : t('interviewerAsks')}
+          </div>
           <h1 id="technical-v2-question-text">{currentQuestion.content}</h1>
           {(currentQuestion.skill || currentQuestion.difficulty) ? <p className="behavior-question__hint">{[currentQuestion.skill, currentQuestion.difficulty].filter(Boolean).join(' / ')}</p> : null}
+          {recorder.transcript.trim() ? (
+            <div className="behavior-question__candidate-script">
+              <div className="behavior-question__candidate-script-head">
+                <UserRound size={15} />
+                <span>{t('candidateAnswer', { defaultValue: 'Câu trả lời của bạn' })}</span>
+              </div>
+              <p>{recorder.transcript.trim()}</p>
+            </div>
+          ) : null}
           <div className={`behavior-interviewer ${recorder.recordingStatus === RecordingStatus.RECORDING ? 'behavior-interviewer--listening' : ''}`} aria-hidden="true">
             <span className="behavior-interviewer__ring" /><span className="behavior-interviewer__ring" /><span className="behavior-interviewer__core"><Bot size={28} /></span>
           </div>

@@ -49,14 +49,8 @@ public sealed class TechnicalV2InterviewOrchestratorTests
         Assert.Equal(TechnicalAnswerEvaluationStatus.Completed.ToString(), submitted.Value!.EvaluationStatus);
         Assert.Equal(1002, submitted.Value.NextQuestion!.QuestionId);
         Assert.Single(context.TechnicalAnswers);
-        Assert.Empty(context.TechnicalQuestionAttempts);
-        Assert.Empty(context.TechnicalAnswerEvaluations);
         var persistedAnswer = context.TechnicalAnswers.Single();
         Assert.NotNull(persistedAnswer.AiCriteriaDetailJson);
-        Assert.Null(persistedAnswer.AiProfessionalKnowledgeScore);
-        Assert.Null(persistedAnswer.AiTechnicalAccuracyScore);
-        Assert.Null(persistedAnswer.AiProblemSolvingReasoningScore);
-        Assert.Null(persistedAnswer.AiCommunicationExplanationScore);
 
         var recoveredCurrent = await orchestrator.GetCurrentQuestionAsync(UserId, V2SessionId, CancellationToken.None);
         Assert.Equal(TechnicalV2OperationStatus.Ok, recoveredCurrent.Status);
@@ -299,7 +293,7 @@ public sealed class TechnicalV2InterviewOrchestratorTests
         var behavioral = await orchestrator.GetStateAsync(UserId, 503, CancellationToken.None);
 
         Assert.Equal(TechnicalV2OperationStatus.Conflict, legacy.Status);
-        Assert.Equal("LEGACY_SESSION", legacy.ErrorCode);
+        Assert.Equal("RUNTIME_VERSION_REQUIRED", legacy.ErrorCode);
         Assert.Equal(TechnicalV2OperationStatus.BadRequest, behavioral.Status);
         Assert.Equal("WRONG_ROUND_TYPE", behavioral.ErrorCode);
     }
@@ -399,10 +393,6 @@ public sealed class TechnicalV2InterviewOrchestratorTests
         var answer = context.TechnicalAnswers.Single();
         Assert.Equal(6.4m, answer.FinalQuestionScore);
         Assert.Equal("INVALID_V2_EVIDENCE", answer.AiErrorCode);
-        Assert.Null(answer.AiProfessionalKnowledgeScore);
-        Assert.Null(answer.AiTechnicalAccuracyScore);
-        Assert.Null(answer.AiProblemSolvingReasoningScore);
-        Assert.Null(answer.AiCommunicationExplanationScore);
         var dimensions = System.Text.Json.JsonSerializer.Deserialize<List<TechnicalV2DimensionEvaluation>>(
             answer.AiCriteriaDetailJson!,
             new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
@@ -576,12 +566,12 @@ public sealed class TechnicalV2InterviewOrchestratorTests
             .ReturnsAsync((IReadOnlyList<Question>?)null);
         selection.Setup(item => item.SelectBankSubQuestionAsync(
                 It.IsAny<TechnicalLockedMainQuestionSnapshot>(),
-                It.IsAny<TechnicalAttemptType>(),
+                It.IsAny<TechnicalSessionQuestionType>(),
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((TechnicalLockedMainQuestionSnapshot main, TechnicalAttemptType type, int followUpNumber, CancellationToken _) =>
+            .ReturnsAsync((TechnicalLockedMainQuestionSnapshot main, TechnicalSessionQuestionType type, int followUpNumber, CancellationToken _) =>
             {
-                var content = type == TechnicalAttemptType.Clarification
+                var content = type == TechnicalSessionQuestionType.Clarification
                     ? main.ClarificationQuestion
                     : followUpNumber == 1
                         ? main.FollowUp1

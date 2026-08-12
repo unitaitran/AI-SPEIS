@@ -21,11 +21,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
             CancellationToken cancellationToken) =>
             _transport.SelectQuestionsAsync(request, cancellationToken, ProviderName);
 
-        public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken) =>
-            _transport.EvaluateAnswerAsync(context, cancellationToken, ProviderName);
-
         public Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAnswerV2Async(
             TechnicalV2AnswerProcessingContext context,
             CancellationToken cancellationToken) =>

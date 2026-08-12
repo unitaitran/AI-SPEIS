@@ -56,8 +56,7 @@ describe('technicalV2InterviewApi', () => {
   });
 
   test('preserves backend ProblemDetails error codes', async () => {
-    global.fetch.mockResolvedValueOnce(jsonResponse({ title: 'LEGACY_SESSION', detail: 'Legacy session' }, 409));
-    await expect(technicalV2InterviewApi.getResult(17)).rejects.toMatchObject({ code: 'LEGACY_SESSION', status: 409 });
+    global.fetch.mockResolvedValueOnce(jsonResponse({ title: 'RUNTIME_VERSION_REQUIRED', detail: 'Current runtime required' }, 409));
+    await expect(technicalV2InterviewApi.getResult(17)).rejects.toMatchObject({ code: 'RUNTIME_VERSION_REQUIRED', status: 409 });
   });
 });
-

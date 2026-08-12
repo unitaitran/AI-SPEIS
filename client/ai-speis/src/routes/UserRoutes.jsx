@@ -18,6 +18,7 @@ import PaymentResultPage from '../pages/user/PaymentResultPage';
 import InterviewHistoryPage from '../pages/user/InterviewHistoryPage';
 import InterviewReviewPage from '../pages/user/InterviewReviewPage';
 import NotificationCenterPage from '../pages/user/NotificationCenterPage';
+import SingleQuestionInterviewPage from '../pages/user/SingleQuestionInterviewPage';
 
 function UserRoutes({ pathname }) {
   const isInterviewRoomRoute = pathname === USER_ROUTES.INTERVIEW_ROOM
@@ -50,6 +51,7 @@ function UserRoutes({ pathname }) {
     isInterviewRoomRoute ||
     isCodingInterviewRoomRoute ||
     isInterviewResultRoute ||
+    pathname === USER_ROUTES.SINGLE_QUESTION_INTERVIEW ||
     isCampaignResultRoute ||
     isInterviewReviewRoute ||
     pathname === USER_ROUTES.PAYMENT_RESULT ||
@@ -87,6 +89,10 @@ function UserRoutes({ pathname }) {
 
   if (pathname === USER_ROUTES.INTERVIEW_HISTORY) {
     return <InterviewHistoryPage />;
+  }
+
+  if (pathname === USER_ROUTES.SINGLE_QUESTION_INTERVIEW) {
+    return <SingleQuestionInterviewPage />;
   }
 
   if (pathname === USER_ROUTES.NOTIFICATIONS) {

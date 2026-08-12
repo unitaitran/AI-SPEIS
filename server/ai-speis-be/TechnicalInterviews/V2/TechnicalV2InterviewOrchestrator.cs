@@ -161,7 +161,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
             _context.AIInteractionLogs.Add(new AIInteractionLog
             {
                 InterviewSessionId = sessionId,
-                AttemptId = null,
                 Provider = ResolveProvider(session).ProviderName,
                 Model = string.Empty,
                 OperationType = AIInteractionOperationType.QuestionSelection,
@@ -568,23 +567,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 answer.FinalQuestionScore = score.FinalOverallScore;
                 answer.ComputedScore = score.FinalOverallScore;
 
-                var accuracyDim = dimensions.FirstOrDefault(d => string.Equals(d.RubricCode, "ACCURACY", StringComparison.OrdinalIgnoreCase));
-                var depthDim = dimensions.FirstOrDefault(d => string.Equals(d.RubricCode, "TECHNICAL_DEPTH", StringComparison.OrdinalIgnoreCase));
-                var reasoningDim = dimensions.FirstOrDefault(d => string.Equals(d.RubricCode, "REASONING", StringComparison.OrdinalIgnoreCase));
-                var applicationDim = dimensions.FirstOrDefault(d => string.Equals(d.RubricCode, "APPLICATION", StringComparison.OrdinalIgnoreCase));
-                var communicationDim = dimensions.FirstOrDefault(d => string.Equals(d.RubricCode, "COMMUNICATION", StringComparison.OrdinalIgnoreCase));
-
-                answer.AiAccuracyScore = accuracyDim?.SuggestedScore;
-                answer.AiTechnicalDepthScore = depthDim?.SuggestedScore;
-                answer.AiReasoningScore = reasoningDim?.SuggestedScore;
-                answer.AiApplicationScore = applicationDim?.SuggestedScore;
-                answer.AiCommunicationScore = communicationDim?.SuggestedScore;
-
-                answer.AiTechnicalAccuracyScore = accuracyDim?.SuggestedScore;
-                answer.AiProfessionalKnowledgeScore = depthDim?.SuggestedScore;
-                answer.AiProblemSolvingReasoningScore = reasoningDim?.SuggestedScore;
-                answer.AiCommunicationExplanationScore = communicationDim?.SuggestedScore;
-
                 answer.AiStrengths = "[]";
                 answer.AiMissingPoints = JsonSerializer.Serialize(
                     dimensions.SelectMany(item => item.MissingEvidence ?? new List<string>()).Take(5),
@@ -643,7 +625,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
             _context.AIInteractionLogs.Add(new AIInteractionLog
             {
                 InterviewSessionId = session.InterviewSessionId,
-                AttemptId = null,
                 Provider = ResolveProvider(session).ProviderName,
                 Model = ai.Model ?? string.Empty,
                 OperationType = operation,
@@ -922,8 +903,8 @@ namespace ai_speis_be.TechnicalInterviews.V2
             var bankQuestion = await _selectionService.SelectBankSubQuestionAsync(
                 locked,
                 questionType == TechnicalSessionQuestionType.Clarification
-                    ? TechnicalAttemptType.Clarification
-                    : TechnicalAttemptType.FollowUp,
+                    ? TechnicalSessionQuestionType.Clarification
+                    : TechnicalSessionQuestionType.FollowUp,
                 followUpNumber,
                 cancellationToken);
             if (bankQuestion is null || !bankQuestion.IsSuccess || string.IsNullOrWhiteSpace(bankQuestion.Content))
@@ -1227,7 +1208,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
         {
             if (session is null) return Failure<T>(TechnicalV2OperationStatus.NotFound, "SESSION_NOT_FOUND", "Interview session not found.");
             if (session.InterviewRoundType != InterviewRoundType.Technical) return Failure<T>(TechnicalV2OperationStatus.BadRequest, "WRONG_ROUND_TYPE", "Session is not a technical interview round.");
-            if (!string.Equals(session.TechnicalRuntimeVersion, RuntimeVersion, StringComparison.OrdinalIgnoreCase)) return Failure<T>(TechnicalV2OperationStatus.Conflict, "LEGACY_SESSION", "This session belongs to the legacy Technical runtime and is read-only.");
+            if (!string.Equals(session.TechnicalRuntimeVersion, RuntimeVersion, StringComparison.OrdinalIgnoreCase)) return Failure<T>(TechnicalV2OperationStatus.Conflict, "RUNTIME_VERSION_REQUIRED", "Technical V2 runtime is required for this session.");
             return null;
         }
 

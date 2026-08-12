@@ -5,8 +5,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
 {
     public static class TechnicalPromptVersions
     {
-        public const string Selection = "technical-selection-v1";
-        public const string Evaluation = "technical-evaluation-rubric-v8";
+        public const string Selection = "technical-selection-v2";
         public const string EvaluationV2 = "technical-v2-evaluation-v5";
         public const string Summary = "technical-round-feedback-v2";
     }
@@ -58,36 +57,6 @@ namespace ai_speis_be.TechnicalInterviews.AI
         string Question,
         string Answer);
 
-    public sealed class TechnicalAIDimensionEvaluation
-    {
-        public string RubricCode { get; set; } = string.Empty;
-        public List<string> Evidence { get; set; } = new();
-        public List<string> MissingEvidence { get; set; } = new();
-        public decimal SuggestedScore { get; set; }
-    }
-
-    public sealed class TechnicalAIEvaluationPayload
-    {
-        public List<TechnicalAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
-    }
-
-    public sealed class TechnicalAIEvaluationResponse
-    {
-        public TechnicalAIEvaluationPayload Evaluation { get; set; } = new();
-
-        // Source-compatible aliases for existing scoring code and legacy tests. They
-        // are ignored by JSON so the provider contract remains the evaluation-only v8 schema.
-        [System.Text.Json.Serialization.JsonIgnore]
-        public List<TechnicalAIDimensionEvaluation> DimensionEvaluations
-        {
-            get => Evaluation.DimensionEvaluations;
-            set => Evaluation.DimensionEvaluations = value ?? new();
-        }
-
-    }
-
-    // Technical V2 has an explicit response contract for the official five
-    // Technical criteria; its transport and persistence flow is separate from legacy.
     public sealed class TechnicalV2EvaluationResponse
     {
         public TechnicalV2EvaluationPayload? Evaluation { get; set; }

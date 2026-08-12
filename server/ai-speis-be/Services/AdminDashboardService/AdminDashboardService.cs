@@ -194,11 +194,9 @@ namespace ai_speis_be.Services.AdminDashboardService
             var completedSessionsWithScores = await _context.InterviewSessions
                 .Where(s => s.InterviewRoundType == InterviewRoundType.Technical
                     && s.Status == InterviewSessionStatus.Completed
-                    && ((s.TechnicalRuntimeVersion == "V2" && s.TechnicalRoundResult != null && s.TechnicalRoundResult.OverallScore != null)
-                        || (s.TechnicalRuntimeVersion != "V2" && s.TechnicalFinalScore != null)))
-                .Select(s => (double)(s.TechnicalRuntimeVersion == "V2"
-                    ? s.TechnicalRoundResult!.OverallScore!.Value
-                    : s.TechnicalFinalScore!.Value))
+                    && s.TechnicalRoundResult != null
+                    && s.TechnicalRoundResult.OverallScore != null)
+                .Select(s => (double)s.TechnicalRoundResult!.OverallScore!.Value)
                 .ToListAsync(cancellationToken);
 
             var avgAiScore = completedSessionsWithScores.Count > 0 ? Math.Round(completedSessionsWithScores.Average(), 1) : 7.8;
@@ -346,7 +344,7 @@ namespace ai_speis_be.Services.AdminDashboardService
                 .Take(3)
                 .Select(s => new {
                     UserName = s.InterviewCampaign != null && s.InterviewCampaign.User != null ? (s.InterviewCampaign.User.FullName ?? s.InterviewCampaign.User.Email) : "Student",
-                    RoleTarget = s.TechnicalJobRole ?? "Software Engineer",
+                    RoleTarget = "Software Engineer",
                     s.Status,
                     s.CreatedAt
                 })

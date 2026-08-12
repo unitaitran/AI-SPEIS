@@ -73,10 +73,6 @@ public sealed class TechnicalInterviewAIProviderResolverTests
             TechnicalAISelectionRequest request,
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
-
         public Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAnswerV2Async(
             TechnicalV2AnswerProcessingContext context,
             CancellationToken cancellationToken) => throw new NotSupportedException();

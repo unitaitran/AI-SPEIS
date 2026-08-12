@@ -28,11 +28,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             TechnicalAISelectionConstraints constraints,
             IReadOnlySet<int> poolQuestionIds);
 
-        TechnicalEvaluationValidationResult ValidateEvaluation(
-            TechnicalAIEvaluationResponse evaluation,
-            TechnicalRubricDefinition rubric,
-            IReadOnlyList<TechnicalAnswerContext> answerContext);
-
         TechnicalEvaluationValidationResult ValidateEvaluationV2(
             TechnicalV2EvaluationResponse evaluation,
             TechnicalRubricDefinition rubric,
@@ -41,10 +36,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
 
     public sealed class TechnicalAIResponseValidator : ITechnicalAIResponseValidator
     {
-        private static readonly HashSet<string> AnswerQualities = new(
-            new[] { "COMPLETE", "PARTIAL", "AMBIGUOUS", "NON_RESPONSIVE", "INCORRECT", "UNVERIFIED" },
-            StringComparer.OrdinalIgnoreCase);
-
         public bool IsValidSelection(int selectedQuestionId, IReadOnlySet<int> candidateIds)
         {
             return selectedQuestionId > 0 && candidateIds.Contains(selectedQuestionId);
@@ -72,111 +63,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             }
 
             return new TechnicalSelectionValidationResult(true, null);
-        }
-
-        public TechnicalEvaluationValidationResult ValidateEvaluation(
-            TechnicalAIEvaluationResponse evaluation,
-            TechnicalRubricDefinition rubric,
-            IReadOnlyList<TechnicalAnswerContext> answerContext)
-        {
-            if (evaluation?.DimensionEvaluations == null || evaluation.DimensionEvaluations.Count == 0)
-            {
-                return Invalid("INVALID_RUBRIC_CODES");
-            }
-
-            var expectedDimensions = rubric.Dimensions.ToList();
-            var expectedCodes = expectedDimensions
-                .Select(item => item.Code)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            // 1. Chuẩn hóa & ánh xạ RubricCode từ AI
-            foreach (var dim in evaluation.DimensionEvaluations)
-            {
-                if (string.IsNullOrWhiteSpace(dim.RubricCode)) continue;
-                var rawCode = dim.RubricCode.Trim();
-
-                // Direct match theo Code
-                var matched = expectedDimensions.FirstOrDefault(d =>
-                    string.Equals(d.Code, rawCode, StringComparison.OrdinalIgnoreCase));
-
-                // Direct match theo Name
-                matched ??= expectedDimensions.FirstOrDefault(d =>
-                    string.Equals(d.Name, rawCode, StringComparison.OrdinalIgnoreCase));
-
-                if (matched != null)
-                {
-                    dim.RubricCode = matched.Code;
-                }
-            }
-
-            // 2. Khử trùng lặp & Tự động bổ sung các dimension bị thiếu
-            var existingByCode = evaluation.DimensionEvaluations
-                .Where(d => expectedCodes.Contains(d.RubricCode))
-                .GroupBy(d => d.RubricCode, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-            var normalizedEvaluations = new List<TechnicalAIDimensionEvaluation>();
-            foreach (var dim in expectedDimensions)
-            {
-                if (existingByCode.TryGetValue(dim.Code, out var existing))
-                {
-                    normalizedEvaluations.Add(existing);
-                }
-                else
-                {
-                    normalizedEvaluations.Add(new TechnicalAIDimensionEvaluation
-                    {
-                        RubricCode = dim.Code,
-                        SuggestedScore = 0m,
-                        Evidence = new List<string>(),
-                        MissingEvidence = new List<string> { dim.Name }
-                    });
-                }
-            }
-
-            evaluation.DimensionEvaluations = normalizedEvaluations;
-
-            var actualCodes = evaluation.DimensionEvaluations
-                .Select(item => item.RubricCode)
-                .ToList();
-
-            if (actualCodes.Count != expectedCodes.Count
-                || actualCodes.Distinct(StringComparer.OrdinalIgnoreCase).Count() != actualCodes.Count
-                || actualCodes.Any(code => !expectedCodes.Contains(code)))
-            {
-                return Invalid("INVALID_RUBRIC_CODES");
-            }
-
-            var transcript = NormalizeEvidence(string.Join(" ", answerContext.Select(item => item.Answer)));
-            foreach (var dimension in evaluation.DimensionEvaluations)
-            {
-                if (dimension.SuggestedScore < rubric.MinimumScore
-                    || dimension.SuggestedScore > rubric.MaximumScore)
-                {
-                    dimension.SuggestedScore = 0m;
-                    dimension.Evidence.Clear();
-                    dimension.MissingEvidence ??= new List<string>();
-                    dimension.MissingEvidence.Add("Invalid score returned by AI.");
-                }
-
-                if (dimension.SuggestedScore > rubric.EvidenceRequiredWhenScoreAbove
-                    && dimension.Evidence.Count == 0)
-                {
-                    dimension.SuggestedScore = 0m;
-                    dimension.MissingEvidence.Add("No grounded evidence returned by AI.");
-                }
-
-                if (dimension.Evidence.Any(evidence =>
-                    !string.IsNullOrWhiteSpace(evidence)
-                    && !IsGroundedEvidence(evidence, transcript)))
-                {
-                    // Filter out non-verbatim dimension evidence snippets instead of failing whole evaluation,
-                    // matching Behavioural's resilient validation behavior.
-                    dimension.Evidence.RemoveAll(evidence => string.IsNullOrWhiteSpace(evidence) || !IsGroundedEvidence(evidence, transcript));
-                }
-            }
-
-            return new TechnicalEvaluationValidationResult(true, null);
         }
 
         public TechnicalEvaluationValidationResult ValidateEvaluationV2(
@@ -277,6 +163,15 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             dimension.Evidence.RemoveAll(string.IsNullOrWhiteSpace);
             dimension.MissingEvidence.RemoveAll(string.IsNullOrWhiteSpace);
 
+            if (dimension.SuggestedScore > rubric.EvidenceRequiredWhenScoreAbove && dimension.Evidence.Count == 0)
+                return "INVALID_V2_EVIDENCE";
+
+            if (dimension.Evidence.Any(evidence => !IsGroundedEvidence(evidence, transcript)))
+            {
+                dimension.Evidence.Clear();
+                return "INVALID_V2_EVIDENCE";
+            }
+
             return null;
         }
 
@@ -293,6 +188,7 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             };
         }
 
+
         private static TechnicalEvaluationValidationResult Invalid(string errorCode)
         {
             return new TechnicalEvaluationValidationResult(
@@ -300,58 +196,41 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 errorCode);
         }
 
+        private static bool HasPrecision(decimal value, int precision) =>
+            decimal.Round(value, precision, MidpointRounding.AwayFromZero) == value;
+
         private static bool IsGroundedEvidence(string evidence, string normalizedTranscript)
         {
             if (string.IsNullOrWhiteSpace(evidence) || evidence.Length > 1_000)
-            {
                 return false;
-            }
 
             var normalizedEvidence = NormalizeEvidence(evidence);
-            if (normalizedEvidence.Length == 0) return false;
-
-            // 1. Direct contiguous substring match
+            if (normalizedEvidence.Length == 0)
+                return false;
             if (normalizedTranscript.Contains(normalizedEvidence, StringComparison.Ordinal))
-            {
                 return true;
-            }
 
-            // 2. Token overlap fallback for local AI models (e.g., Ollama / aispeis) that summarize/paraphrase evidence
             var evidenceTokens = normalizedEvidence.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (evidenceTokens.Length == 0) return false;
-
             var transcriptTokens = normalizedTranscript.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .ToHashSet(StringComparer.Ordinal);
-
-            var significantEvidenceTokens = evidenceTokens
-                .Where(t => t.Length > 2 && t is not "the" and not "and" and not "for" and not "with" and not "that" and not "this" and not "from")
+            var significantTokens = evidenceTokens
+                .Where(token => token.Length > 2 && token is not "the" and not "and" and not "for" and not "with" and not "that" and not "this" and not "from")
                 .ToList();
-
-            if (significantEvidenceTokens.Count == 0)
-            {
-                significantEvidenceTokens = evidenceTokens.ToList();
-            }
-
-            int matchedCount = significantEvidenceTokens.Count(token => transcriptTokens.Contains(token));
-            return (double)matchedCount / significantEvidenceTokens.Count >= 0.40;
+            if (significantTokens.Count == 0)
+                significantTokens = evidenceTokens.ToList();
+            return significantTokens.Count > 0
+                && (double)significantTokens.Count(transcriptTokens.Contains) / significantTokens.Count >= 0.40;
         }
-
-        private static bool HasPrecision(decimal value, int precision) =>
-            decimal.Round(value, precision, MidpointRounding.AwayFromZero) == value;
 
         private static string NormalizeEvidence(string value)
         {
             var decomposed = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
             var builder = new StringBuilder(decomposed.Length);
             var previousWasSeparator = true;
-
             foreach (var character in decomposed)
             {
                 if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
-                {
                     continue;
-                }
-
                 var normalizedCharacter = character is 'đ' or 'Đ' ? 'd' : character;
                 if (char.IsLetterOrDigit(normalizedCharacter))
                 {
@@ -364,7 +243,6 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                     previousWasSeparator = true;
                 }
             }
-
             return Regex.Replace(builder.ToString().Trim(), @"\s+", " ");
         }
     }

@@ -50,13 +50,11 @@ using ai_speis_be.BehaviouralInterviews.Validation;
 using ai_speis_be.AI.Json;
 using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Configuration;
-using ai_speis_be.TechnicalInterviews.Orchestration;
 using ai_speis_be.TechnicalInterviews.Planning;
 using ai_speis_be.TechnicalInterviews.Rubrics;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using ai_speis_be.TechnicalInterviews.Selection;
 using ai_speis_be.TechnicalInterviews.Validation;
-using ai_speis_be.TechnicalInterviews.PreGeneration;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
@@ -247,17 +245,11 @@ builder.Services.AddScoped<ITechnicalInterviewAIProvider, OllamaTechnicalIntervi
 builder.Services.AddScoped<ITechnicalInterviewAIProviderResolver, TechnicalInterviewAIProviderResolver>();
 builder.Services.AddScoped<ITechnicalAIResponseValidator, TechnicalAIResponseValidator>();
 builder.Services.AddScoped<ITechnicalRubricScoringService, TechnicalRubricScoringService>();
-builder.Services.AddScoped<ITechnicalFollowUpBonusCalculator, TechnicalFollowUpBonusCalculator>();
-builder.Services.AddScoped<ITechnicalFollowUpDecisionEngine, TechnicalFollowUpDecisionEngine>();
 builder.Services.AddScoped<ITechnicalQuestionPlanBuilder, TechnicalQuestionPlanBuilder>();
 builder.Services.AddScoped<ITechnicalQuestionOrderRandomizer, TechnicalQuestionOrderRandomizer>();
-builder.Services.AddScoped<ITechnicalAnswerEvaluationProcessor, TechnicalAnswerEvaluationProcessor>();
-builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
-builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
 builder.Services.AddScoped<ai_speis_be.TechnicalInterviews.V2.ITechnicalV2InterviewOrchestrator, ai_speis_be.TechnicalInterviews.V2.TechnicalV2InterviewOrchestrator>();
 builder.Services.AddScoped<ai_speis_be.Services.ISingleQuestionRetryService, ai_speis_be.Services.SingleQuestionRetryService>();
-builder.Services.AddSingleton<ITechnicalPreGenerationService, TechnicalPreGenerationService>();
 
 // Google Cloud Quota & Billing Cost Monitoring
 builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.GoogleQuotaConfig>();
