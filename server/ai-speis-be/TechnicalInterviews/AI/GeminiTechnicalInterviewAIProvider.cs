@@ -19,16 +19,16 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public Task<AIProviderResult<TechnicalAISelectionResponse>> SelectQuestionsAsync(
             TechnicalAISelectionRequest request,
             CancellationToken cancellationToken) =>
-            _transport.SelectQuestionsAsync(request, cancellationToken);
+            _transport.SelectQuestionsAsync(request, cancellationToken, ProviderName);
 
-        public Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
+        public Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAnswerV2Async(
+            TechnicalV2AnswerProcessingContext context,
             CancellationToken cancellationToken) =>
-            _transport.EvaluateAnswerAsync(context, cancellationToken);
+            _transport.EvaluateAnswerV2Async(context, cancellationToken, ProviderName);
 
         public Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
             TechnicalAIFinalSummaryRequest request,
             CancellationToken cancellationToken) =>
-            _transport.GenerateFinalSummaryAsync(request, cancellationToken);
+            _transport.GenerateFinalSummaryAsync(request, cancellationToken, ProviderName);
     }
 }

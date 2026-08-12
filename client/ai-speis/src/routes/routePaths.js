@@ -18,6 +18,7 @@ export const USER_ROUTES = {
   DEVICE_CHECK: '/user/interview/device-check',
   INTERVIEW_ROOM: '/user/interview/room',
   INTERVIEW_RESULT: '/user/interview/result',
+  SINGLE_QUESTION_INTERVIEW: '/user/interview/single-question',
   CAMPAIGN_RESULT: '/user/interview/campaign-result',
   CODING_INTERVIEW_ROOM: '/user/coding-interview',
   PAYMENT_RESULT: '/user/packages/payment-result',

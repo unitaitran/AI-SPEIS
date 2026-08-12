@@ -1400,7 +1400,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 SchemaVersion = RubricVersion,
                 FallbackUsed = fallbackUsed,
                 InterviewSessionId = session.InterviewSessionId,
-                AttemptId = null,
                 StartedAt = result.StartedAt,
                 CompletedAt = result.CompletedAt,
                 CreatedAt = DateTime.UtcNow
@@ -1983,6 +1982,32 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                 {
                     var snapshot = ParseSnapshot(mainQuestion.QuestionSnapshotJson);
                     var answer = mainQuestion.BehaviourAnswerAnswer;
+                    var subQuestions = questionSet.BehaviourSessionQuestion
+                        .Where(sq => sq.QuestionType != BehaviourQuestionType.Main &&
+                                     (sq.ParentQuestionId == mainQuestion.BehaviourSessionQuestionId || sq.ParentQuestionId == mainQuestion.QuestionId))
+                        .OrderBy(sq => sq.BehaviourSessionQuestionId)
+                        .Select(subQ =>
+                        {
+                            var subSnapshot = ParseSnapshot(subQ.QuestionSnapshotJson);
+                            var subAnswer = subQ.BehaviourAnswerAnswer;
+                            var subScore = subAnswer?.FinalQuestionScore ?? subAnswer?.ComputedScore ?? 0m;
+                            return new BehaviouralSubQuestionResultDto
+                            {
+                                SessionQuestionId = subQ.BehaviourSessionQuestionId,
+                                QuestionId = subQ.QuestionId,
+                                ParentSessionQuestionId = subQ.ParentQuestionId,
+                                QuestionType = subQ.QuestionType.ToString(),
+                                Question = subSnapshot.QuestionText,
+                                Skill = subSnapshot.Skill ?? snapshot.Skill ?? string.Empty,
+                                Score = subScore,
+                                AnswerTranscript = subAnswer?.Transcript ?? string.Empty,
+                                Dimensions = BuildDimensionResults(subAnswer, rubric),
+                                Strengths = ParseJsonStringList(subAnswer?.AiStrengths),
+                                MissingPoints = ParseJsonStringList(subAnswer?.AiMissingPoints)
+                            };
+                        })
+                        .ToList();
+
                     return new BehaviouralMainQuestionResultDto
                     {
                         SessionQuestionId = mainQuestion.BehaviourSessionQuestionId,
@@ -1993,7 +2018,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                         Score = ComputeMainQuestionScore(mainQuestion, questionSet.BehaviourSessionQuestion),
                         Dimensions = BuildDimensionResults(answer, rubric),
                         Strengths = ParseJsonStringList(answer?.AiStrengths),
-                        MissingPoints = ParseJsonStringList(answer?.AiMissingPoints)
+                        MissingPoints = ParseJsonStringList(answer?.AiMissingPoints),
+                        SubQuestions = subQuestions
                     };
                 })
                 .ToList();

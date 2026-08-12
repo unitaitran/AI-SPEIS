@@ -1,0 +1,88 @@
+{
+  "title": "Quản lý Gói Đăng ký",
+  "pageTitle": "Quản lý Gói Đăng ký",
+  "subtitle": "Cấu hình bảng giá, định mức AI và tính năng cho các gói dịch vụ Premium",
+  "pageSubtitle": "Cấu hình bảng giá, định mức AI và tính năng cho các gói dịch vụ Premium",
+  "createNewPlan": "Tạo gói mới",
+  "createPlan": "Tạo gói mới",
+  "editPlan": "Chỉnh sửa gói",
+  "deletePlan": "Xóa gói",
+  "planName": "Tên gói",
+  "price": "Giá dịch vụ",
+  "billingCycle": "Chu kỳ thanh toán",
+  "status": "Trạng thái",
+  "actions": "Thao tác",
+  "kpi": {
+    "activePlans": "Gói đang hoạt động",
+    "plansSuffix": "gói",
+    "newThisMonth": "+{{count}} gói tháng này",
+    "premiumUsers": "Người dùng Premium",
+    "monthlyRevenue": "Doanh thu tháng (MRR)",
+    "annualRevenue": "Doanh thu năm (ARR)",
+    "mostPopular": "Gói phổ biến nhất",
+    "subscribersSuffix": "thành viên",
+    "conversionRate": "Tỷ lệ chuyển đổi"
+  },
+  "table": {
+    "planId": "MÃ GÓI",
+    "planInfo": "THÔNG TIN GÓI",
+    "priceCycle": "GIÁ & CHU KỲ",
+    "aiTier": "CẤP ĐỘ AI",
+    "quota": "ĐỊNH MỨC QUOTA",
+    "status": "TRẠNG THÁI",
+    "subscribers": "NGƯỜI DÙNG",
+    "actions": "THAO TÁC",
+    "perMonthly": "/ tháng",
+    "perYearly": "/ năm",
+    "perQuarterly": "/ 3 tháng",
+    "freePrice": "Miễn phí",
+    "showing": "Hiển thị {{from}} - {{to}} trên tổng số {{total}} gói"
+  },
+  "tiers": {
+    "standard": "Standard AI",
+    "advanced": "Advanced AI (GPT-4)",
+    "enterprise": "Enterprise AI",
+    "unknown": "Cơ bản"
+  },
+  "statusLabels": {
+    "active": "Đang hoạt động",
+    "inactive": "Tạm ẩn"
+  },
+  "fields": {
+    "notAvailable": "Chưa có",
+    "unlimited": "Không giới hạn",
+    "billingMonthly": "Hàng tháng",
+    "billingYearly": "Hàng năm",
+    "billingQuarterly": "Hàng quý",
+    "billingCycle": "Chu kỳ"
+  },
+  "drawer": {
+    "subscribers": "Tổng số người dùng",
+    "revenueMtd": "Doanh thu tháng này",
+    "planDetails": "Chi tiết cấu hình gói",
+    "billingCycle": "Chu kỳ thanh toán",
+    "aiCapability": "Khả năng xử lý AI",
+    "interviewQuota": "Định mức phỏng vấn",
+    "effectiveFrom": "Hiệu lực từ",
+    "effectiveTo": "Hiệu lực đến",
+    "createdDate": "Ngày khởi tạo",
+    "recentSubscriptions": "Đăng ký gần đây",
+    "noRecentSubscriptions": "Chưa có lượt đăng ký mới nào",
+    "purchasedAgo": "Đã đăng ký {{time}} trước",
+    "viewAllPurchaseHistory": "Xem lịch sử giao dịch",
+    "editPlan": "Chỉnh sửa gói này"
+  },
+  "deleteDialog": {
+    "title": "Xác nhận xóa gói dịch vụ",
+    "message": "Bạn có chắc chắn muốn xóa gói \"{{name}}\"? Hành động này không thể hoàn tác.",
+    "warning": "Cảnh báo ảnh hưởng",
+    "warningMessage": "Đang có {{count}} người dùng đang đăng ký gói này.",
+    "cancel": "Hủy bỏ",
+    "confirm": "Xác nhận xóa"
+  },
+  "filter": {
+    "allStatus": "Tất cả trạng thái",
+    "allTiers": "Tất cả cấp độ AI",
+    "searchPlaceholder": "Tìm kiếm theo tên gói, mã gói..."
+  }
+}

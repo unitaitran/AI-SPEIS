@@ -12,6 +12,7 @@ namespace ai_speis_be.Models.DTOs
         public int UserId { get; set; }
         public int CVExtractedProfileId { get; set; }
         public int JDExtractedProfileId { get; set; }
+        public string? JobTitle { get; set; }
         public string Language { get; set; } = string.Empty;
         public string Mode { get; set; } = string.Empty;
         public int DurationMinutes { get; set; }
@@ -23,6 +24,7 @@ namespace ai_speis_be.Models.DTOs
         public int RemainingInterviewQuota { get; set; }
         public int MaxInterviewQuota { get; set; }
         public string PlanName { get; set; } = string.Empty;
+        public decimal? OverallScore { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<InterviewSessionDto> Sessions { get; set; } = new List<InterviewSessionDto>();
@@ -105,6 +107,8 @@ namespace ai_speis_be.Models.DTOs
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public int CompletedQuestionCount { get; set; }
+        public int? PassedTestCases { get; set; }
+        public int? TotalTestCases { get; set; }
     }
 
     public sealed class ActiveInterviewConflictDto
@@ -246,5 +250,6 @@ namespace ai_speis_be.Models.DTOs
         public int RemainingInterviewQuota { get; set; }
         public int MaxInterviewQuota { get; set; }
         public string PlanName { get; set; } = string.Empty;
+        public DateTime? SubscriptionExpiresAt { get; set; }
     }
 }

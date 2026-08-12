@@ -5,8 +5,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
 {
     public static class TechnicalPromptVersions
     {
-        public const string Selection = "technical-selection-v1";
-        public const string Evaluation = "technical-evaluation-rubric-v8";
+        public const string Selection = "technical-selection-v2";
+        public const string EvaluationV2 = "technical-v2-evaluation-v5";
         public const string Summary = "technical-round-feedback-v2";
     }
 
@@ -57,32 +57,22 @@ namespace ai_speis_be.TechnicalInterviews.AI
         string Question,
         string Answer);
 
-    public sealed class TechnicalAIDimensionEvaluation
+    public sealed class TechnicalV2EvaluationResponse
     {
-        public string RubricCode { get; set; } = string.Empty;
-        public List<string> Evidence { get; set; } = new();
-        public List<string> MissingEvidence { get; set; } = new();
-        public decimal SuggestedScore { get; set; }
+        public TechnicalV2EvaluationPayload? Evaluation { get; set; }
     }
 
-    public sealed class TechnicalAIEvaluationPayload
+    public sealed class TechnicalV2EvaluationPayload
     {
-        public List<TechnicalAIDimensionEvaluation> DimensionEvaluations { get; set; } = new();
+        public List<TechnicalV2DimensionEvaluation>? DimensionEvaluations { get; set; }
     }
 
-    public sealed class TechnicalAIEvaluationResponse
+    public sealed class TechnicalV2DimensionEvaluation
     {
-        public TechnicalAIEvaluationPayload Evaluation { get; set; } = new();
-
-        // Source-compatible aliases for existing scoring code and legacy tests. They
-        // are ignored by JSON so the provider contract remains the evaluation-only v8 schema.
-        [System.Text.Json.Serialization.JsonIgnore]
-        public List<TechnicalAIDimensionEvaluation> DimensionEvaluations
-        {
-            get => Evaluation.DimensionEvaluations;
-            set => Evaluation.DimensionEvaluations = value ?? new();
-        }
-
+        public string? RubricCode { get; set; }
+        public decimal? SuggestedScore { get; set; }
+        public List<string>? Evidence { get; set; }
+        public List<string>? MissingEvidence { get; set; }
     }
 
     public sealed class TechnicalAIFinalSummaryRequest
@@ -118,6 +108,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public int? InputTokens { get; init; }
         public int? OutputTokens { get; init; }
         public string? ErrorCode { get; init; }
+        public bool PartialEvaluation { get; init; }
+        public IReadOnlyList<string> InvalidCriterionCodes { get; init; } = Array.Empty<string>();
         public string? RawResponse { get; init; }
         public AiJsonRecoveryMetadata? JsonRecovery { get; init; }
         public int RetryCount { get; init; }

@@ -1,0 +1,88 @@
+{
+  "title": "Subscription Management",
+  "pageTitle": "Subscription Management",
+  "subtitle": "Configure pricing plans, AI quotas and features for Premium services",
+  "pageSubtitle": "Configure pricing plans, AI quotas and features for Premium services",
+  "createNewPlan": "Create New Plan",
+  "createPlan": "Create New Plan",
+  "editPlan": "Edit Plan",
+  "deletePlan": "Delete Plan",
+  "planName": "Plan Name",
+  "price": "Price",
+  "billingCycle": "Billing Cycle",
+  "status": "Status",
+  "actions": "Actions",
+  "kpi": {
+    "activePlans": "Active Plans",
+    "plansSuffix": "plans",
+    "newThisMonth": "+{{count}} new this month",
+    "premiumUsers": "Premium Users",
+    "monthlyRevenue": "Monthly Revenue (MRR)",
+    "annualRevenue": "Annual Revenue (ARR)",
+    "mostPopular": "Most Popular Plan",
+    "subscribersSuffix": "subscribers",
+    "conversionRate": "Conversion Rate"
+  },
+  "table": {
+    "planId": "PLAN CODE",
+    "planInfo": "PLAN DETAILS",
+    "priceCycle": "PRICE & CYCLE",
+    "aiTier": "AI TIER",
+    "quota": "QUOTA",
+    "status": "STATUS",
+    "subscribers": "SUBSCRIBERS",
+    "actions": "ACTIONS",
+    "perMonthly": "/ month",
+    "perYearly": "/ year",
+    "perQuarterly": "/ 3 months",
+    "freePrice": "Free",
+    "showing": "Showing {{from}} - {{to}} of {{total}} plans"
+  },
+  "tiers": {
+    "standard": "Standard AI",
+    "advanced": "Advanced AI (GPT-4)",
+    "enterprise": "Enterprise AI",
+    "unknown": "Standard"
+  },
+  "statusLabels": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "fields": {
+    "notAvailable": "N/A",
+    "unlimited": "Unlimited",
+    "billingMonthly": "Monthly",
+    "billingYearly": "Yearly",
+    "billingQuarterly": "Quarterly",
+    "billingCycle": "Cycle"
+  },
+  "drawer": {
+    "subscribers": "Total Subscribers",
+    "revenueMtd": "Revenue MTD",
+    "planDetails": "Plan Configuration Details",
+    "billingCycle": "Billing Cycle",
+    "aiCapability": "AI Processing Power",
+    "interviewQuota": "Interview Quota",
+    "effectiveFrom": "Effective From",
+    "effectiveTo": "Effective To",
+    "createdDate": "Created Date",
+    "recentSubscriptions": "Recent Subscriptions",
+    "noRecentSubscriptions": "No recent subscriptions",
+    "purchasedAgo": "Subscribed {{time}} ago",
+    "viewAllPurchaseHistory": "View All Purchase History",
+    "editPlan": "Edit Plan"
+  },
+  "deleteDialog": {
+    "title": "Confirm Delete Subscription Plan",
+    "message": "Are you sure you want to delete the plan \"{{name}}\"? This action cannot be undone.",
+    "warning": "Impact Warning",
+    "warningMessage": "There are currently {{count}} active subscribers on this plan.",
+    "cancel": "Cancel",
+    "confirm": "Confirm Delete"
+  },
+  "filter": {
+    "allStatus": "All Statuses",
+    "allTiers": "All AI Tiers",
+    "searchPlaceholder": "Search plan name, code..."
+  }
+}

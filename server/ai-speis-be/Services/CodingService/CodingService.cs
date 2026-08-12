@@ -262,8 +262,8 @@ namespace ai_speis_be.Services.CodingService
                 }
             }
 
-            // 5. Lưu vào database (bỏ qua nếu là test mode hoặc isTestRun)
-            if (request.InterviewSessionId > 0 && !isTestRun)
+            // 5. Lưu vào database khi có InterviewSessionId
+            if (request.InterviewSessionId > 0)
             {
                 await _repository.CreateSubmissionAsync(submission, cancellationToken);
                 _logger.LogInformation(
@@ -273,10 +273,10 @@ namespace ai_speis_be.Services.CodingService
             }
             else
             {
-                // Dummy ID cho test mode / Run Code
+                // Dummy ID cho Run Code tự do không thuộc session
                 submission.CodingSubmissionId = 9999;
                 _logger.LogInformation(
-                    "Test Mode / Run Code cho câu hỏi {QuestionId}: {Passed}/{Total} passed — {Status}",
+                    "Run Code tự do cho câu hỏi {QuestionId}: {Passed}/{Total} passed — {Status}",
                     request.CodingQuestionId, passedCount, testCases.Count, overallStatus);
             }
 

@@ -2,7 +2,7 @@ using ai_speis_be.BehaviouralInterviews.AI;
 using ai_speis_be.BehaviouralInterviews.DTOs;
 using ai_speis_be.Models;
 using ai_speis_be.TechnicalInterviews.AI;
-using ai_speis_be.TechnicalInterviews.DTOs;
+using ai_speis_be.TechnicalInterviews.V2;
 using ai_speis_be.Tests.Helpers;
 
 namespace ai_speis_be.Tests;
@@ -16,7 +16,7 @@ public sealed class InterviewEvaluationFeedbackContractTests
             .GetMethods()
             .Select(method => method.Name)
             .ToHashSet(StringComparer.Ordinal);
-        var technicalPayload = typeof(TechnicalAIEvaluationPayload)
+        var technicalPayload = typeof(TechnicalV2EvaluationPayload)
             .GetProperties()
             .Select(property => property.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -27,7 +27,7 @@ public sealed class InterviewEvaluationFeedbackContractTests
 
         Assert.DoesNotContain("GenerateFeedbackDraftAsync", technicalProviderMethods);
         Assert.Contains("DimensionEvaluations", technicalPayload);
-        Assert.Contains(nameof(TechnicalAIDimensionEvaluation.Evidence), typeof(TechnicalAIDimensionEvaluation)
+        Assert.Contains(nameof(TechnicalV2DimensionEvaluation.Evidence), typeof(TechnicalV2DimensionEvaluation)
             .GetProperties()
             .Select(property => property.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase));
@@ -50,7 +50,7 @@ public sealed class InterviewEvaluationFeedbackContractTests
     [Fact]
     public void SubmitContractsDoNotExposePerQuestionFeedback()
     {
-        var technicalSubmit = typeof(TechnicalSubmitAnswerResponseDto)
+        var technicalSubmit = typeof(TechnicalV2SubmitAnswerResponseDto)
             .GetProperties()
             .Select(property => property.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -69,7 +69,7 @@ public sealed class InterviewEvaluationFeedbackContractTests
     [Fact]
     public void FinalFeedbackContractsContainRoundLevelAssessments()
     {
-        var technical = typeof(TechnicalFinalSummaryDto)
+        var technical = typeof(TechnicalV2SummaryDto)
             .GetProperties()
             .Select(property => property.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -107,8 +107,5 @@ public sealed class InterviewEvaluationFeedbackContractTests
             index.IsUnique
             && index.Properties.Select(property => property.Name)
                 .SequenceEqual(new[] { nameof(BehaviourRoundResult.InterviewSessionId) }));
-        Assert.True(session
-            .FindProperty(nameof(InterviewSession.TechnicalConcurrencyVersion))!
-            .IsConcurrencyToken);
     }
 }

@@ -2,8 +2,6 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import TechnicalQuestionPanel from './TechnicalQuestionPanel';
 import TechnicalInterviewProgress from './TechnicalInterviewProgress';
-import TechnicalQuestionBreakdown from './TechnicalQuestionBreakdown';
-import TechnicalRubricBreakdown from './TechnicalRubricBreakdown';
 import TechnicalTranscriptEditor from './TechnicalTranscriptEditor';
 import TechnicalTranscriptPanel from './TechnicalTranscriptPanel';
 
@@ -212,80 +210,5 @@ describe('technical interview components', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  test('renders every dimension returned by the backend and respects each maxScore', () => {
-    const dimensions = [
-      { rubricCode: 'A', name: 'Accuracy', score: 9, maxScore: 10, weight: 0.3 },
-      { rubricCode: 'D', name: 'Technical Depth', score: 7, maxScore: 10, weight: 0.25 },
-      { rubricCode: 'R', name: 'Reasoning', score: 8, maxScore: 10, weight: 0.2 },
-      { rubricCode: 'P', name: 'Application', score: 6, maxScore: 10, weight: 0.15 },
-      { rubricCode: 'C', name: 'Communication', score: 7, maxScore: 10, weight: 0.1 },
-    ];
-    render(<TechnicalRubricBreakdown dimensions={dimensions} t={t} />);
-
-    expect(screen.getByText('Accuracy')).toBeInTheDocument();
-    expect(screen.getByText('Technical Depth')).toBeInTheDocument();
-    expect(screen.getByText('Reasoning')).toBeInTheDocument();
-    expect(screen.getByText('Application')).toBeInTheDocument();
-    expect(screen.getByText('Communication')).toBeInTheDocument();
-    expect(screen.getAllByRole('progressbar')).toHaveLength(5);
-    expect(screen.getByRole('progressbar', { name: 'Technical Depth: 7/10' })).toHaveAttribute('aria-valuemax', '10');
-  });
-
-  test('renders exactly three main results with nested clarification and follow-ups', () => {
-    const questions = [1, 2, 3].map((mainQuestionIndex) => ({
-      attemptId: `main-${mainQuestionIndex}`,
-      questionType: 'MAIN',
-      mainQuestionIndex,
-      content: `Main content ${mainQuestionIndex}`,
-      answerTranscript: `Main answer ${mainQuestionIndex}`,
-      initialMainScore: 5 + mainQuestionIndex,
-      finalMainScore: 6 + mainQuestionIndex,
-      cumulativeFollowUpBonus: mainQuestionIndex === 1 ? 1.5 : 0,
-      maxScore: 10,
-      sourceType: 'CV_INTERNAL_DO_NOT_RENDER',
-      subQuestionResults: mainQuestionIndex === 1 ? [
-        {
-          attemptId: 'clarification-1',
-          questionType: 'CLARIFICATION',
-          content: 'Clarify the example',
-          answerTranscript: 'Clarified answer',
-          rawScore: 6,
-          maxScore: 10,
-          generationReason: 'ADAPTIVE_SCORE_RULE',
-        },
-        {
-          attemptId: 'follow-up-1',
-          questionType: 'FOLLOW_UP',
-          content: 'First follow-up',
-          answerTranscript: 'First follow-up answer',
-          rawScore: 7,
-          followUpBonus: 0.75,
-          maxScore: 10,
-        },
-        {
-          attemptId: 'follow-up-2',
-          questionType: 'FOLLOW_UP',
-          content: 'Second follow-up',
-          answerTranscript: 'Second follow-up answer',
-          rawScore: 8,
-          followUpBonus: 0.75,
-          maxScore: 10,
-          generationReason: 'RELIABILITY_MINIMUM',
-        },
-      ] : [],
-    }));
-
-    render(<TechnicalQuestionBreakdown questions={questions} t={t} />);
-
-    expect(screen.getAllByText(/Main question [123]/)).toHaveLength(3);
-    expect(screen.getAllByText('Initial main score')).toHaveLength(3);
-    expect(screen.getAllByText('Final main score')).toHaveLength(3);
-    expect(screen.getByText('Follow-up 1')).toBeInTheDocument();
-    expect(screen.getByText('Follow-up 2')).toBeInTheDocument();
-    expect(screen.getByText('Clarification result')).toBeInTheDocument();
-    expect(screen.queryByText('CV_INTERNAL_DO_NOT_RENDER')).not.toBeInTheDocument();
-    expect(screen.queryByText('ADAPTIVE_SCORE_RULE')).not.toBeInTheDocument();
-    expect(screen.queryByText('RELIABILITY_MINIMUM')).not.toBeInTheDocument();
-  });
 });
 

@@ -1,98 +1,231 @@
-/* Color Scheme based on AI-SPEIS SDS */
+/* ==========================================================================
+   AI-SPEIS DESIGN SYSTEM TOKENS (variables.css)
+   Official Tokens Definition v2.0
+   ========================================================================== */
+
 :root {
-  /* Brand / Primary Colors */
-  --primary: #6FB6E8;
-  --primary-dark: #3F7FAE;
-  --primary-light: #B9DCF5;
-  --primary-xlight: #EAF6FF;
+  /* ------------------------------------------------------------------------
+     1. Brand & Primary Color Tokens (Trust & Professional Blue)
+     ------------------------------------------------------------------------ */
+  --color-primary: #2563EB;             /* Blue 600 - Primary actions, active tabs */
+  --color-primary-hover: #1D4ED8;       /* Blue 700 - Hover state */
+  --color-primary-light: #DBEAFE;       /* Blue 100 - Active row fill, soft highlight */
+  --color-primary-xlight: #EFF6FF;      /* Blue 50  - Hover card background */
 
-  /* Semantic / Feedback Colors */
-  --success: #4CAF8F;
-  --success-light: #E6F7F1;
-  --warning: #F4B64A;
-  --warning-light: #FFF4DC;
-  --error: #E76F6F;
-  --error-light: #FDECEC;
-  --info: #5C9EDB;
-  --info-light: #EAF4FF;
+  /* Legacy primary variables alias for backwards compatibility */
+  --primary: var(--color-primary);
+  --primary-dark: var(--color-primary-hover);
+  --primary-light: var(--color-primary-light);
+  --primary-xlight: var(--color-primary-xlight);
 
-  /* Neutral / Text / Surface Colors */
-  --text-primary: #1F2D3D;
-  --text-secondary: #5F7285;
-  --text-disabled: #AAB7C4;
-  
-  --border: #D7E3EC;
-  --border-strong: #AFC6D8;
-  
-  --surface-1: #F7FBFF;
-  --surface-2: #FFFFFF;
-  --surface-3: #EAF3FA;
+  /* ------------------------------------------------------------------------
+     2. Secondary & AI Feature Color Tokens (AI Intelligence Purple)
+     ------------------------------------------------------------------------ */
+  --color-secondary: #7C3AED;           /* Violet 600 - AI Features, AI Feedback, Provider Badge */
+  --color-secondary-hover: #6D28D9;     /* Violet 700 - Hover state for AI buttons */
+  --color-secondary-light: #F3E8FF;     /* Violet 100 - AI evaluation background */
+  --color-secondary-xlight: #FAF5FF;    /* Violet 50  - Soft AI card surface */
+
+  /* ------------------------------------------------------------------------
+     3. Accent Color Tokens
+     ------------------------------------------------------------------------ */
+  --color-accent: #0284C7;              /* Sky 600 - Secondary interaction accent */
+  --color-accent-light: #E0F2FE;        /* Sky 100 - Light accent background */
+
+  /* ------------------------------------------------------------------------
+     4. Surfaces & Backgrounds
+     ------------------------------------------------------------------------ */
+  --color-background: #F8FAFC;          /* Slate 50  - App background */
+  --color-surface: #FFFFFF;             /* White     - Card, Container, Form background */
+  --color-surface-elevated: #FFFFFF;    /* White     - Modal, Popover, Dropdown background */
+  --color-surface-muted: #F1F5F9;       /* Slate 100 - Table alternate rows, code blocks */
+
+  /* Legacy surface aliases */
+  --surface-1: var(--color-background);
+  --surface-2: var(--color-surface);
+  --surface-3: var(--color-surface-muted);
   --white: #FFFFFF;
 
-  /* Spacing Base Unit: 8px */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 48px;
+  /* ------------------------------------------------------------------------
+     5. Text & Typography Color Tokens
+     ------------------------------------------------------------------------ */
+  --color-text-primary: #0F172A;        /* Slate 900 - Headings & primary body */
+  --color-text-secondary: #475569;      /* Slate 600 - Subtitles & helper text */
+  --color-text-muted: #64748B;          /* Slate 500 - Timestamps & captions */
+  --color-text-disabled: #94A3B8;       /* Slate 400 - Disabled text & placeholders */
 
-  /* Typography */
-  --font-family-primary: 'Inter', Arial, Helvetica, sans-serif;
-  --font-family-mono: 'Roboto Mono', Consolas, monospace;
+  /* Legacy text aliases */
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-disabled: var(--color-text-disabled);
+
+  /* ------------------------------------------------------------------------
+     6. Border & Dividers
+     ------------------------------------------------------------------------ */
+  --color-border: #E2E8F0;              /* Slate 200 - Card & input borders */
+  --color-border-strong: #CBD5E1;       /* Slate 300 - Card outlines & dividers */
+  --color-ring: rgba(37, 99, 235, 0.2);  /* Focus ring blue */
+  --color-ring-ai: rgba(124, 58, 237, 0.25); /* Focus ring AI purple */
+
+  /* Legacy border aliases */
+  --border: var(--color-border);
+  --border-strong: var(--color-border-strong);
+
+  /* ------------------------------------------------------------------------
+     7. Semantic Feedback Colors
+     ------------------------------------------------------------------------ */
+  --color-success: #059669;             /* Emerald 600 - High score, completed */
+  --color-success-light: #ECFDF5;       /* Emerald 50  - Success banner fill */
+  --color-warning: #D97706;             /* Amber 600   - Quota warning, pending */
+  --color-warning-light: #FFFBEB;       /* Amber 50    - Warning banner fill */
+  --color-error: #DC2626;               /* Red 600     - Fail, destructive actions */
+  --color-error-light: #FEF2F2;         /* Red 50      - Error banner fill */
+  --color-info: #0284C7;                /* Sky 600      - Guidance, tips */
+  --color-info-light: #F0F9FF;          /* Sky 50      - Info banner fill */
+
+  /* Legacy semantic aliases */
+  --success: var(--color-success);
+  --success-light: var(--color-success-light);
+  --warning: var(--color-warning);
+  --warning-light: var(--color-warning-light);
+  --error: var(--color-error);
+  --error-light: var(--color-error-light);
+  --info: var(--color-info);
+  --info-light: var(--color-info-light);
+
+  /* ------------------------------------------------------------------------
+     8. Spacing Scale Tokens (8px Grid)
+     ------------------------------------------------------------------------ */
+  --space-0: 0px;
+  --space-1: 4px;   /* xs */
+  --space-2: 8px;   /* sm */
+  --space-3: 12px;  /* md- */
+  --space-4: 16px;  /* md */
+  --space-5: 20px;  /* lg- */
+  --space-6: 24px;  /* lg */
+  --space-8: 32px;  /* xl */
+  --space-10: 40px; /* 2xl- */
+  --space-12: 48px; /* 2xl */
+  --space-16: 64px; /* 3xl */
+
+  /* Legacy spacing aliases */
+  --spacing-xs: var(--space-1);
+  --spacing-sm: var(--space-2);
+  --spacing-md: var(--space-4);
+  --spacing-lg: var(--space-6);
+  --spacing-xl: var(--space-8);
+  --spacing-2xl: var(--space-12);
+
+  /* ------------------------------------------------------------------------
+     9. Typography Tokens
+     ------------------------------------------------------------------------ */
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Roboto Mono', monospace;
+
+  /* Legacy font family aliases */
+  --font-family-primary: var(--font-sans);
+  --font-family-mono: var(--font-mono);
 
   /* Font Sizes & Line Heights */
-  --heading-1: 32px;
-  --heading-1-lh: 1.2;
-  --heading-2: 24px;
-  --heading-2-lh: 1.3;
-  --heading-3: 20px;
-  --heading-3-lh: 1.4;
-  --heading-4: 16px;
-  --heading-4-lh: 1.4;
-  
+  --font-display-size: 36px;
+  --font-display-lh: 1.2;
+  --font-h1-size: 30px;
+  --font-h1-lh: 1.25;
+  --font-h2-size: 24px;
+  --font-h2-lh: 1.3;
+  --font-h3-size: 18px;
+  --font-h3-lh: 1.35;
+  --font-h4-size: 16px;
+  --font-h4-lh: 1.4;
+  --font-body-size: 14px;
+  --font-body-lh: 1.5;
+  --font-body-sm-size: 12px;
+  --font-body-sm-lh: 1.5;
+  --font-label-size: 13px;
+  --font-label-lh: 1.3;
+  --font-caption-size: 11px;
+  --font-caption-lh: 1.2;
+
+  /* Legacy typography aliases */
+  --heading-1: var(--font-h1-size);
+  --heading-1-lh: var(--font-h1-lh);
+  --heading-2: var(--font-h2-size);
+  --heading-2-lh: var(--font-h2-lh);
+  --heading-3: var(--font-h3-size);
+  --heading-3-lh: var(--font-h3-lh);
+  --heading-4: var(--font-h4-size);
+  --heading-4-lh: var(--font-h4-lh);
   --body-lg: 16px;
   --body-lg-lh: 1.6;
-  --body-md: 14px;
-  --body-md-lh: 1.6;
-  --body-sm: 12px;
-  --body-sm-lh: 1.5;
-  
-  --label-size: 12px;
-  --label-lh: 1.4;
+  --body-md: var(--font-body-size);
+  --body-md-lh: var(--font-body-lh);
+  --body-sm: var(--font-body-sm-size);
+  --body-sm-lh: var(--font-body-sm-lh);
+  --label-size: var(--font-label-size);
+  --label-lh: var(--font-label-lh);
   --button-size: 14px;
   --button-lh: 1.0;
-  --badge-size: 11px;
-  --badge-lh: 1.2;
-  --code-size: 13px;
-  --code-lh: 1.5;
+  --badge-size: var(--font-caption-size);
+  --badge-lh: var(--font-caption-lh);
 
   /* Font Weights */
   --fw-normal: 400;
   --fw-medium: 500;
   --fw-semibold: 600;
   --fw-bold: 700;
+  --fw-extrabold: 800;
 
-  /* Layout */
+  /* ------------------------------------------------------------------------
+     10. Radius Scale Tokens
+     ------------------------------------------------------------------------ */
+  --radius-none: 0px;
+  --radius-sm: 4px;     /* Badges, tags */
+  --radius-md: 8px;     /* Inputs, standard buttons */
+  --radius-lg: 12px;    /* Standard cards, alert banners */
+  --radius-xl: 16px;    /* Large cards, modals */
+  --radius-2xl: 24px;   /* Hero cards */
+  --radius-full: 9999px;/* Pills, floating buttons, avatars */
+
+  /* Legacy radius aliases */
+  --border-radius-sm: var(--radius-sm);
+  --border-radius: var(--radius-md);
+  --border-radius-md: var(--radius-lg);
+  --border-radius-lg: var(--radius-xl);
+  --border-radius-pill: var(--radius-full);
+
+  /* ------------------------------------------------------------------------
+     11. Shadow & Elevation System Tokens
+     ------------------------------------------------------------------------ */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.10), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  --shadow-glow-primary: 0 0 16px rgba(37, 99, 235, 0.25);
+  --shadow-glow-ai: 0 0 20px rgba(124, 58, 237, 0.25);
+
+  /* Legacy shadow aliases */
+  --box-shadow-sm: var(--shadow-sm);
+  --box-shadow: var(--shadow-md);
+  --box-shadow-md: var(--shadow-lg);
+  --box-shadow-lg: var(--shadow-xl);
+  --box-shadow-glow: var(--shadow-glow-primary);
+
+  /* ------------------------------------------------------------------------
+     12. Layout Constants
+     ------------------------------------------------------------------------ */
   --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
   --topbar-height: 64px;
   --max-content-width: 1200px;
-  
-  /* Border & Shadow */
-  --border-radius: 8px;
-  --border-radius-sm: 4px;
-  --border-radius-md: 12px;
-  --border-radius-lg: 16px;
-  --border-radius-pill: 999px;
-  --box-shadow: 0 4px 12px rgba(31, 45, 61, 0.08);
-  --box-shadow-sm: 0 2px 4px rgba(31, 45, 61, 0.05);
-  --box-shadow-md: 0 8px 24px rgba(31, 45, 61, 0.10);
-  --box-shadow-lg: 0 16px 48px rgba(31, 45, 61, 0.14);
-  --box-shadow-glow: 0 0 0 4px rgba(111, 182, 232, 0.15);
+  --interview-max-width: 960px;
 
-  /* Transition */
-  --transition-fast: 0.2s ease;
-  --transition-normal: 0.3s ease;
-  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-spring: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  /* ------------------------------------------------------------------------
+     13. Transitions & Motion
+     ------------------------------------------------------------------------ */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

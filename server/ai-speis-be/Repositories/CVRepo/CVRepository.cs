@@ -217,19 +217,6 @@ namespace ai_speis_be.Repositories.CVRepo
                     .ToListAsync();
                 if (aiLogs.Any()) _context.AIInteractionLogs.RemoveRange(aiLogs);
 
-                var attempts = await _context.TechnicalQuestionAttempts
-                    .Where(a => sessionIds.Contains(a.InterviewSessionId))
-                    .ToListAsync();
-                if (attempts.Any())
-                {
-                    var attemptIds = attempts.Select(a => a.AttemptId).ToList();
-                    var evals = await _context.TechnicalAnswerEvaluations
-                        .Where(e => attemptIds.Contains(e.AttemptId))
-                        .ToListAsync();
-                    if (evals.Any()) _context.TechnicalAnswerEvaluations.RemoveRange(evals);
-                    _context.TechnicalQuestionAttempts.RemoveRange(attempts);
-                }
-
                 var bSets = await _context.BehaviourQuestionSets
                     .Where(b => sessionIds.Contains(b.InterviewSessionId))
                     .ToListAsync();
