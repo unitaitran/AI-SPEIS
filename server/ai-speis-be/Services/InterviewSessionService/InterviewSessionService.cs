@@ -10,7 +10,7 @@ using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.InterviewCampaignRepo;
-using ai_speis_be.TechnicalInterviews.DTOs;
+using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using Microsoft.EntityFrameworkCore;
 using ai_speis_be.Services.RewardService;
@@ -149,6 +149,20 @@ namespace ai_speis_be.Services.InterviewSessionService
             if (roundTypesToCreate.Count == 0)
                 return (false, "Không xác định được vòng phỏng vấn nào khả dụng cho vị trí này.", null);
 
+            string? technicalProvider = null;
+            if (roundTypesToCreate.Contains(InterviewRoundType.Technical)
+                && !string.IsNullOrWhiteSpace(request.AiProvider))
+            {
+                try
+                {
+                    technicalProvider = TechnicalInterviewAIProviderResolver.Normalize(request.AiProvider);
+                }
+                catch (InvalidOperationException)
+                {
+                    return (false, $"Technical AI provider '{request.AiProvider}' is not supported. Use 'gemini' or 'ollama'.", null);
+                }
+            }
+
             var difficulty = MapExperienceLevelToDifficulty(jdProfile.ExperienceLevel);
             var now = DateTime.UtcNow;
             var readyNotifications = new List<NotificationEvent>();
@@ -197,6 +211,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                         request.DurationMinutes,
                         roundTypesToCreate,
                         request.QuestionCounts,
+                        technicalProvider,
                         _configuration))
                     {
                         await transaction.CommitAsync();
@@ -242,7 +257,15 @@ namespace ai_speis_be.Services.InterviewSessionService
                         Difficulty = difficulty,
                         QuestionCount = GetQuestionCount(mode, roundType, request.QuestionCounts, _configuration),
                         Status = (isOnlyCoding && roundType == InterviewRoundType.Code) ? InterviewSessionStatus.Active : InterviewSessionStatus.Pending,
-                        TechnicalAiProvider = !string.IsNullOrWhiteSpace(request.AiProvider) ? request.AiProvider : null,
+                        TechnicalRuntimeVersion = roundType == InterviewRoundType.Technical ? "V2" : null,
+                        // Behavioral still uses this historical field to pin its provider.
+                        // Technical V2 persists provider metadata on its canonical records instead.
+                        TechnicalAiProvider = roundType == InterviewRoundType.Technical
+                            ? technicalProvider
+                            : roundType == InterviewRoundType.Behavior
+                                && !string.IsNullOrWhiteSpace(request.AiProvider)
+                                    ? request.AiProvider
+                                    : null,
                         CreatedAt = now
                     });
                 }
@@ -508,54 +531,31 @@ namespace ai_speis_be.Services.InterviewSessionService
                 !session.IsDeleted && session.InterviewRoundType == InterviewRoundType.Technical);
             if (technicalSession != null)
             {
-                var summary = DeserializeOrDefault<TechnicalFinalSummaryDto>(technicalSession.TechnicalSummaryJson);
-                var evaluationJson = await _context.TechnicalAnswerEvaluations
-                    .Where(evaluation => evaluation.Attempt.InterviewSessionId == technicalSession.InterviewSessionId
-                        && evaluation.Attempt.QuestionType == TechnicalAttemptType.Main)
-                    .Select(evaluation => evaluation.ScoringBreakdownJson)
+                var v2Result = await _context.TechnicalRoundResults
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item => item.InterviewSessionId == technicalSession.InterviewSessionId);
+                var v2Questions = await _context.TechnicalSessionQuestions
+                    .AsNoTracking()
+                    .Include(item => item.Answer)
+                    .Where(item => item.TechnicalQuestionSet.InterviewSessionId == technicalSession.InterviewSessionId
+                        && item.QuestionType == TechnicalSessionQuestionType.Main)
                     .ToListAsync();
-
-                var dimensionScores = evaluationJson
-                    .SelectMany(json => DeserializeList<TechnicalDimensionScore>(json))
-                    .GroupBy(dimension => dimension.RubricCode, StringComparer.OrdinalIgnoreCase);
-                foreach (var group in dimensionScores)
+                var v2Score = CampaignResultCalculator.Round(v2Result?.OverallScore ?? 0m);
+                foreach (var dimension in DeserializeTechnicalV2Dimensions(v2Questions.Select(item => item.Answer?.AiCriteriaDetailJson)))
                 {
-                    technicalDimensions[group.Key] = CampaignResultCalculator.Round(
-                        group.Average(dimension => dimension.FinalScore));
-                }
-
-                var completedMainAttempts = await _context.TechnicalQuestionAttempts
-                    .Where(a => a.InterviewSessionId == technicalSession.InterviewSessionId
-                        && a.QuestionType == TechnicalAttemptType.Main
-                        && a.FinalMainScore.HasValue)
-                    .ToListAsync();
-
-                var calculatedScore = completedMainAttempts.Count > 0
-                    ? CampaignResultCalculator.Round(completedMainAttempts.Average(a => a.FinalMainScore!.Value))
-                    : 0m;
-                var score = calculatedScore > 0m
-                    ? calculatedScore
-                    : CampaignResultCalculator.Round(technicalSession.TechnicalFinalScore ?? 0m);
-
-                if (score > 0m && technicalSession.TechnicalFinalScore != score)
-                {
-                    technicalSession.TechnicalFinalScore = score;
-                    technicalSession.TechnicalPerformanceBand = CampaignResultCalculator.GetPerformanceBand(score);
-                    await _context.SaveChangesAsync();
+                    technicalDimensions[dimension.Key] = CampaignResultCalculator.Round(dimension.Value);
                 }
                 rounds.Add(new CampaignRoundResultDto
                 {
                     InterviewSessionId = technicalSession.InterviewSessionId,
                     RoundType = InterviewRoundType.Technical.ToString(),
-                    Score = score,
-                    PerformanceBand = string.IsNullOrWhiteSpace(technicalSession.TechnicalPerformanceBand)
-                        ? CampaignResultCalculator.GetPerformanceBand(score)
-                        : technicalSession.TechnicalPerformanceBand,
-                    EvaluatedItemCount = technicalSession.TechnicalCompletedMainQuestionCount,
-                    Summary = summary.Summary,
-                    Strengths = summary.Strengths,
-                    AreasForImprovement = summary.AreasForImprovement,
-                    Recommendations = summary.RecommendedNextSteps
+                    Score = v2Score,
+                    PerformanceBand = CampaignResultCalculator.GetPerformanceBand(v2Score),
+                    EvaluatedItemCount = v2Questions.Count(item => item.Answer?.FinalQuestionScore.HasValue == true),
+                    Summary = v2Result?.AiExecutiveSummary ?? string.Empty,
+                    Strengths = DeserializeStringList(v2Result?.AiStrengths),
+                    AreasForImprovement = DeserializeStringList(v2Result?.AiGaps),
+                    Recommendations = DeserializeStringList(v2Result?.AiRecommendations)
                 });
             }
 
@@ -789,7 +789,30 @@ namespace ai_speis_be.Services.InterviewSessionService
         {
             if (metrics == null || metrics.Count == 0) return;
             var timestamp = evaluatedAt ?? DateTime.UtcNow;
-            var title = campaignId.HasValue ? $"Phỏng vấn #{campaignId.Value}" : (sessionId.HasValue ? $"Phiên #{sessionId.Value}" : "Đánh giá phỏng vấn");
+
+            var title = "Đánh giá phỏng vấn";
+            if (campaignId.HasValue)
+            {
+                var camp = await _context.InterviewCampaigns
+                    .AsNoTracking()
+                    .Include(c => c.JDExtractedProfile)
+                    .FirstOrDefaultAsync(c => c.InterviewCampaignId == campaignId.Value);
+
+                if (camp != null)
+                {
+                    var jobTitle = camp.JDExtractedProfile?.JobTitle ?? camp.JDExtractedProfile?.RoleTarget;
+                    var modeStr = camp.Mode == InterviewMode.RealTest ? "RealTest" : "Practice";
+                    title = !string.IsNullOrWhiteSpace(jobTitle) ? $"{jobTitle} — {modeStr}" : $"Phỏng vấn #{campaignId.Value}";
+                }
+                else
+                {
+                    title = $"Phỏng vấn #{campaignId.Value}";
+                }
+            }
+            else if (sessionId.HasValue)
+            {
+                title = $"Phiên #{sessionId.Value}";
+            }
 
             foreach (var metric in metrics)
             {
@@ -832,12 +855,66 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private async Task EnsureUserSkillScoresBackfilledAsync(int userId)
         {
+            var practiceCampaignIds = await _context.InterviewCampaigns
+                .AsNoTracking()
+                .Where(c => c.UserId == userId && c.Mode == InterviewMode.Practice)
+                .Select(c => c.InterviewCampaignId)
+                .ToListAsync();
+
+            if (practiceCampaignIds.Count > 0)
+            {
+                var practiceScores = await _context.UserSkillScores
+                    .Where(s => s.UserId == userId && s.InterviewCampaignId.HasValue && practiceCampaignIds.Contains(s.InterviewCampaignId.Value))
+                    .ToListAsync();
+
+                if (practiceScores.Count > 0)
+                {
+                    _context.UserSkillScores.RemoveRange(practiceScores);
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            var existingScores = await _context.UserSkillScores
+                .Where(s => s.UserId == userId && s.InterviewCampaignId.HasValue)
+                .ToListAsync();
+
+            if (existingScores.Count > 0)
+            {
+                var campIds = existingScores.Select(s => s.InterviewCampaignId!.Value).Distinct().ToList();
+                var campaigns = await _context.InterviewCampaigns
+                    .AsNoTracking()
+                    .Include(c => c.JDExtractedProfile)
+                    .Where(c => campIds.Contains(c.InterviewCampaignId))
+                    .ToDictionaryAsync(c => c.InterviewCampaignId);
+
+                var titleUpdated = false;
+                foreach (var score in existingScores)
+                {
+                    if (score.InterviewCampaignId.HasValue && campaigns.TryGetValue(score.InterviewCampaignId.Value, out var c))
+                    {
+                        var jobTitle = c.JDExtractedProfile?.JobTitle ?? c.JDExtractedProfile?.RoleTarget;
+                        var modeStr = c.Mode == InterviewMode.RealTest ? "RealTest" : "Practice";
+                        var newTitle = !string.IsNullOrWhiteSpace(jobTitle) ? $"{jobTitle} — {modeStr}" : $"Phỏng vấn #{c.InterviewCampaignId}";
+                        if (score.SessionTitle != newTitle)
+                        {
+                            score.SessionTitle = newTitle;
+                            titleUpdated = true;
+                        }
+                    }
+                }
+                if (titleUpdated)
+                {
+                    try { await _context.SaveChangesAsync(); } catch { }
+                }
+            }
+
             var hasScores = await _context.UserSkillScores.AsNoTracking().AnyAsync(s => s.UserId == userId && s.Score > 0);
             if (hasScores) return;
 
             var userCampaigns = await _context.InterviewCampaigns
                 .AsNoTracking()
-                .Where(c => c.UserId == userId && !c.IsDeleted)
+                .Include(c => c.JDExtractedProfile)
+                .Where(c => c.UserId == userId && !c.IsDeleted && c.Mode == InterviewMode.RealTest)
                 .OrderBy(c => c.CreatedAt)
                 .ToListAsync();
 
@@ -877,30 +954,40 @@ namespace ai_speis_be.Services.InterviewSessionService
             var userSessions = await (
                 from s in _context.InterviewSessions.AsNoTracking()
                 join c in _context.InterviewCampaigns.AsNoTracking() on s.InterviewCampaignId equals c.InterviewCampaignId
-                where c.UserId == userId && !s.IsDeleted && !c.IsDeleted
+                where c.UserId == userId
+                    && s.InterviewRoundType == InterviewRoundType.Technical
+                    && !s.IsDeleted
+                    && !c.IsDeleted
                 orderby s.CreatedAt
                 select new
                 {
                     s.InterviewSessionId,
                     s.InterviewCampaignId,
                     s.CreatedAt,
-                    s.TechnicalFinalScore,
-                    Attempts = s.TechnicalQuestionAttempts
-                        .Where(a => a.FinalMainScore != null || a.RawScore != null || a.InitialMainScore != null)
-                        .Select(a => (decimal?)(a.FinalMainScore ?? a.RawScore ?? a.InitialMainScore))
-                        .ToList()
+                    s.InterviewRoundType,
+                    V2Score = s.TechnicalRoundResult != null ? s.TechnicalRoundResult.OverallScore : null,
+                    V2Answers = s.TechnicalQuestionSet != null
+                        ? s.TechnicalQuestionSet.Questions
+                            .Where(q => q.QuestionType == TechnicalSessionQuestionType.Main && q.Answer != null)
+                            .Select(q => q.Answer!.FinalQuestionScore)
+                            .ToList()
+                        : new List<decimal?>()
                 }
             ).ToListAsync();
 
             foreach (var session in userSessions)
             {
-                decimal? scoreVal = session.TechnicalFinalScore;
+                decimal? scoreVal = session.InterviewRoundType == InterviewRoundType.Technical
+                    ? session.V2Score
+                    : null;
                 if (!scoreVal.HasValue || scoreVal.Value <= 0)
                 {
-                    var validAttemptScores = session.Attempts.Where(a => a.HasValue && a.Value > 0).Select(a => a!.Value).ToList();
-                    if (validAttemptScores.Count > 0)
+                    var validScores = session.InterviewRoundType == InterviewRoundType.Technical
+                        ? session.V2Answers.Where(a => a.HasValue && a.Value > 0).Select(a => a!.Value).ToList()
+                        : new List<decimal>();
+                    if (validScores.Count > 0)
                     {
-                        scoreVal = Math.Round(validAttemptScores.Average(), 1);
+                        scoreVal = Math.Round(validScores.Average(), 1);
                     }
                 }
 
@@ -923,6 +1010,9 @@ namespace ai_speis_be.Services.InterviewSessionService
             var campaigns = await _context.InterviewCampaigns
                 .Include(campaign => campaign.User)
                 .Include(campaign => campaign.InterviewSessions.Where(session => !session.IsDeleted))
+                    .ThenInclude(session => session.TechnicalQuestionSet)
+                        .ThenInclude(set => set!.Questions)
+                            .ThenInclude(question => question.Answer)
                 .Where(campaign => campaign.UserId == userId
                     && !campaign.IsDeleted
                     && (campaign.Status == InterviewCampaignStatus.Pending
@@ -962,9 +1052,11 @@ namespace ai_speis_be.Services.InterviewSessionService
             var quota = await GetQuotaMetadataAsync(user, now);
             var behaviourCompletedCounts = await GetBehaviourCompletedMainQuestionCountsAsync(
                 campaigns.Select(campaign => campaign.InterviewCampaignId));
+            var codingTestcaseCounts = await GetCodingTestcaseCountsAsync(
+                campaigns.Select(campaign => campaign.InterviewCampaignId));
 
             return campaigns
-                .Select(campaign => MapCampaignToResponse(campaign, quota, behaviourCompletedCounts))
+                .Select(campaign => MapCampaignToResponse(campaign, quota, behaviourCompletedCounts, codingTestcaseCounts))
                 .ToList();
         }
 
@@ -1001,6 +1093,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                     .ThenInclude(campaign => campaign.User)
                 .Include(candidate => candidate.InterviewCampaign)
                     .ThenInclude(campaign => campaign.InterviewSessions.Where(item => !item.IsDeleted))
+                .Include(candidate => candidate.TechnicalQuestionSet)
+                    .ThenInclude(set => set!.Questions)
+                        .ThenInclude(question => question.Answer)
                 .FirstOrDefaultAsync(candidate => candidate.InterviewSessionId == sessionId
                     && !candidate.IsDeleted
                     && !candidate.InterviewCampaign.IsDeleted);
@@ -1140,6 +1235,7 @@ namespace ai_speis_be.Services.InterviewSessionService
             int durationMinutes,
             IReadOnlyCollection<InterviewRoundType> roundTypes,
             IReadOnlyDictionary<string, int>? questionCounts,
+            string? technicalProvider = null,
             IConfiguration? configuration = null)
         {
             var existingRounds = campaign.InterviewSessions
@@ -1156,6 +1252,11 @@ namespace ai_speis_be.Services.InterviewSessionService
                 && campaign.Mode == mode
                 && campaign.DurationMinutes == durationMinutes
                 && existingRounds.SequenceEqual(requestedRounds)
+                && (!requestedRounds.Contains(InterviewRoundType.Technical)
+                    || string.IsNullOrWhiteSpace(technicalProvider)
+                    || campaign.InterviewSessions
+                        .Where(session => !session.IsDeleted && session.InterviewRoundType == InterviewRoundType.Technical)
+                        .All(session => string.Equals(session.TechnicalAiProvider, technicalProvider, StringComparison.OrdinalIgnoreCase)))
                 && campaign.InterviewSessions
                     .Where(session => !session.IsDeleted)
                     .All(session => session.QuestionCount == GetQuestionCount(mode, session.InterviewRoundType, questionCounts, configuration));
@@ -1263,6 +1364,7 @@ namespace ai_speis_be.Services.InterviewSessionService
             IReadOnlyCollection<CampaignRoundResultDto> rounds)
         {
             decimal? Technical(string code) => technical.TryGetValue(code, out var value) ? value : null;
+            decimal? TechnicalAny(params string[] codes) => codes.Select(Technical).FirstOrDefault(value => value.HasValue);
             decimal? Behavioural(string code) => behavioural.TryGetValue(code, out var value) ? value : null;
             var coding = rounds.FirstOrDefault(round =>
                 string.Equals(round.RoundType, InterviewRoundType.Code.ToString(), StringComparison.OrdinalIgnoreCase))?.Score;
@@ -1285,21 +1387,21 @@ namespace ai_speis_be.Services.InterviewSessionService
             return new List<CampaignDashboardMetricDto>
             {
                 Metric("PROFESSIONAL_KNOWLEDGE", "Professional Knowledge",
-                    (Technical("ACCURACY"), 0.35m, "Technical Accuracy"),
-                    (Technical("TECHNICAL_DEPTH"), 0.25m, "Technical Depth"),
-                    (Technical("APPLICATION"), 0.15m, "Technical Application"),
+                    (TechnicalAny("ACCURACY"), 0.35m, "Technical Accuracy"),
+                    (TechnicalAny("TECHNICAL_DEPTH"), 0.25m, "Technical Depth"),
+                    (TechnicalAny("APPLICATION"), 0.15m, "Application"),
                     (coding, 0.25m, "Coding")),
                 Metric("COMMUNICATION_SKILLS", "Communication Skills",
-                    (Technical("COMMUNICATION"), 0.40m, "Technical Communication"),
+                    (TechnicalAny("COMMUNICATION"), 0.40m, "Technical Communication"),
                     (Behavioural("communication"), 0.60m, "Behavioral Communication")),
                 Metric("CV_UNDERSTANDING", "CV Understanding",
-                    (Technical("APPLICATION"), 0.30m, "Technical Application"),
-                    (Technical("REASONING"), 0.30m, "Technical Reasoning"),
+                    (TechnicalAny("APPLICATION"), 0.30m, "Application"),
+                    (TechnicalAny("REASONING"), 0.30m, "Reasoning"),
                     (Behavioural("action"), 0.40m, "Behavioral Action & Ownership")),
                 Metric("PROBLEM_SOLVING", "Problem Solving",
                     (coding, 0.35m, "Coding"),
-                    (Technical("TECHNICAL_DEPTH"), 0.35m, "Technical Depth"),
-                    (Technical("REASONING"), 0.30m, "Technical Reasoning"))
+                    (TechnicalAny("TECHNICAL_DEPTH"), 0.35m, "Technical Depth"),
+                    (TechnicalAny("REASONING"), 0.30m, "Reasoning"))
             };
         }
 
@@ -1380,6 +1482,40 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private static List<string> DeserializeStringList(string? json) => DeserializeList<string>(json);
 
+        private static Dictionary<string, decimal> DeserializeTechnicalV2Dimensions(IEnumerable<string?> jsonValues)
+        {
+            var values = new Dictionary<string, List<decimal>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var json in jsonValues)
+            {
+                if (string.IsNullOrWhiteSpace(json)) continue;
+                try
+                {
+                    using var document = JsonDocument.Parse(json);
+                    if (document.RootElement.ValueKind != JsonValueKind.Array) continue;
+                    foreach (var item in document.RootElement.EnumerateArray())
+                    {
+                        if (!item.TryGetProperty("rubricCode", out var code)
+                            || !item.TryGetProperty("suggestedScore", out var score)
+                            || string.IsNullOrWhiteSpace(code.GetString())
+                            || !score.TryGetDecimal(out var parsed)) continue;
+                        var key = code.GetString()!;
+                        if (!values.TryGetValue(key, out var list))
+                        {
+                            list = new List<decimal>();
+                            values[key] = list;
+                        }
+                        list.Add(parsed);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // A malformed answer detail must not break campaign history.
+                }
+            }
+
+            return values.ToDictionary(item => item.Key, item => item.Value.Average(), StringComparer.OrdinalIgnoreCase);
+        }
+
         private static Dictionary<string, decimal> DeserializeDictionary(string? json)
         {
             if (string.IsNullOrWhiteSpace(json))
@@ -1411,18 +1547,51 @@ namespace ai_speis_be.Services.InterviewSessionService
                 .ToDictionaryAsync(group => group.Key, group => group.Count());
         }
 
+        private async Task<IReadOnlyDictionary<int, (int passed, int total)>> GetCodingTestcaseCountsAsync(
+            IEnumerable<int> campaignIds)
+        {
+            var ids = campaignIds.Distinct().ToList();
+            if (ids.Count == 0) return new Dictionary<int, (int passed, int total)>();
+
+            var submissions = await _context.CodingSubmissions
+                .AsNoTracking()
+                .Where(sub => ids.Contains(sub.InterviewSession.InterviewCampaignId))
+                .ToListAsync();
+
+            return submissions
+                .GroupBy(sub => sub.InterviewSessionId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => {
+                        var bestSubmissions = group.GroupBy(s => s.CodingQuestionId)
+                            .Select(g => g.OrderByDescending(s => s.PassedTestCases)
+                                          .ThenByDescending(s => s.TotalTestCases)
+                                          .First());
+                        return (passed: bestSubmissions.Sum(s => s.PassedTestCases), total: bestSubmissions.Sum(s => s.TotalTestCases));
+                    });
+        }
+
         private InterviewCampaignDto MapCampaignToResponse(
             InterviewCampaign campaign,
             QuotaMetadata? quota = null,
-            IReadOnlyDictionary<int, int>? behaviourCompletedCounts = null)
+            IReadOnlyDictionary<int, int>? behaviourCompletedCounts = null,
+            IReadOnlyDictionary<int, (int passed, int total)>? codingTestcaseCounts = null)
         {
-            var metadata = quota ?? new QuotaMetadata(campaign.User?.RemainingInterviewQuota ?? 0, BasicInterviewQuota, "Free");
+            var metadata = quota ?? new QuotaMetadata(
+                campaign.User?.RemainingInterviewQuota ?? 0,
+                BasicInterviewQuota,
+                "Free");
+
+            var jobTitle = campaign.JDExtractedProfile?.JobTitle 
+                ?? campaign.JDExtractedProfile?.RoleTarget;
+
             return new InterviewCampaignDto
             {
                 InterviewCampaignId = campaign.InterviewCampaignId,
                 UserId = campaign.UserId,
                 CVExtractedProfileId = campaign.CVExtractedProfileId,
                 JDExtractedProfileId = campaign.JDExtractedProfileId,
+                JobTitle = string.IsNullOrWhiteSpace(jobTitle) ? null : jobTitle,
                 Language = campaign.Language,
                 Mode = campaign.Mode.ToString(),
                 DurationMinutes = campaign.DurationMinutes,
@@ -1436,6 +1605,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 PlanName = metadata.PlanName,
                 CreatedAt = AsUtc(campaign.CreatedAt),
                 UpdatedAt = AsUtc(campaign.UpdatedAt),
+                OverallScore = campaign.OverallScore,
                 Sessions = campaign.InterviewSessions
                     .Where(session => !session.IsDeleted)
                     .OrderBy(session => GetRoundOrder(session.InterviewRoundType))
@@ -1445,6 +1615,10 @@ namespace ai_speis_be.Services.InterviewSessionService
                         behaviourCompletedCounts is not null
                         && behaviourCompletedCounts.TryGetValue(session.InterviewSessionId, out var completedCount)
                             ? completedCount
+                            : null,
+                        codingTestcaseCounts is not null
+                        && codingTestcaseCounts.TryGetValue(session.InterviewSessionId, out var testcaseCount)
+                            ? testcaseCount
                             : null))
                     .ToList()
             };
@@ -1452,7 +1626,8 @@ namespace ai_speis_be.Services.InterviewSessionService
 
         private static InterviewSessionDto MapToResponse(
             InterviewSession session,
-            int? behaviourCompletedMainQuestionCount = null)
+            int? behaviourCompletedMainQuestionCount = null,
+            (int passed, int total)? codingTestcaseCount = null)
         {
             return new InterviewSessionDto
             {
@@ -1464,9 +1639,16 @@ namespace ai_speis_be.Services.InterviewSessionService
                 Status = session.Status.ToString(),
                 CreatedAt = AsUtc(session.CreatedAt),
                 UpdatedAt = AsUtc(session.UpdatedAt),
-                CompletedQuestionCount = session.InterviewRoundType == InterviewRoundType.Behavior
-                    ? behaviourCompletedMainQuestionCount ?? 0
-                    : session.TechnicalCompletedMainQuestionCount
+                CompletedQuestionCount = session.InterviewRoundType switch
+                {
+                    InterviewRoundType.Behavior => behaviourCompletedMainQuestionCount ?? 0,
+                    InterviewRoundType.Technical => session.TechnicalQuestionSet?.Questions.Count(question =>
+                        question.QuestionType == TechnicalSessionQuestionType.Main
+                        && question.Answer?.FinalQuestionScore.HasValue == true) ?? 0,
+                    _ => 0
+                },
+                PassedTestCases = session.InterviewRoundType == InterviewRoundType.Code ? codingTestcaseCount?.passed : null,
+                TotalTestCases = session.InterviewRoundType == InterviewRoundType.Code ? codingTestcaseCount?.total : null
             };
         }
 

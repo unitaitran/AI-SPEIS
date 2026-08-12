@@ -35,10 +35,10 @@ namespace ai_speis_be.Services.GoogleQuotaService
                 DailyTrend = new List<DailyCostDto>()
             };
 
-            // If dataset or table is not configured, return empty HasData = false
-            if (string.IsNullOrWhiteSpace(_config.BillingDataset) || string.IsNullOrWhiteSpace(_config.BillingTable))
+            // If dataset, table, or credentials are not configured, return empty HasData = false
+            if (!_config.IsConfigured || string.IsNullOrWhiteSpace(_config.BillingDataset) || string.IsNullOrWhiteSpace(_config.BillingTable))
             {
-                _logger.LogInformation("BigQuery Billing Export is not configured (GOOGLE_BIGQUERY_BILLING_DATASET / GOOGLE_BIGQUERY_BILLING_TABLE empty). Returning HasData = false.");
+                _logger.LogInformation("BigQuery Billing Export is not configured. Returning HasData = false.");
                 return fallback;
             }
 

@@ -44,11 +44,14 @@ namespace ai_speis_be.Models
         public DbSet<BehaviourAnswer> BehaviourAnswers { get; set; } = null!;
         public DbSet<BehaviourRoundResult> BehaviourRoundResults { get; set; } = null!;
 
-        public DbSet<TechnicalQuestionAttempt> TechnicalQuestionAttempts { get; set; } = null!;
-        public DbSet<TechnicalAnswerEvaluation> TechnicalAnswerEvaluations { get; set; } = null!;
+        public DbSet<TechnicalQuestionSet> TechnicalQuestionSets { get; set; } = null!;
+        public DbSet<TechnicalSessionQuestion> TechnicalSessionQuestions { get; set; } = null!;
+        public DbSet<TechnicalAnswer> TechnicalAnswers { get; set; } = null!;
+        public DbSet<TechnicalRoundResult> TechnicalRoundResults { get; set; } = null!;
         public DbSet<AIInteractionLog> AIInteractionLogs { get; set; } = null!;
         public DbSet<UserSkillScore> UserSkillScores { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
+        public DbSet<SingleQuestionRetry> SingleQuestionRetries { get; set; } = null!;
 
 
 
@@ -64,9 +67,11 @@ namespace ai_speis_be.Models
             modelBuilder.Entity<CodingQuestionTemplate>().HasQueryFilter(t => !t.CodingQuestion.IsDeleted);
             modelBuilder.Entity<TestCase>().HasQueryFilter(tc => !tc.CodingQuestion.IsDeleted);
             modelBuilder.Entity<SubmissionTestCaseResult>().HasQueryFilter(r => !r.CodingSubmission.InterviewSession.IsDeleted);
-            modelBuilder.Entity<TechnicalQuestionAttempt>().HasQueryFilter(a => !a.InterviewSession.IsDeleted);
-            modelBuilder.Entity<TechnicalAnswerEvaluation>().HasQueryFilter(e => !e.Attempt.InterviewSession.IsDeleted);
             modelBuilder.Entity<AIInteractionLog>().HasQueryFilter(a => !a.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TechnicalQuestionSet>().HasQueryFilter(s => !s.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TechnicalSessionQuestion>().HasQueryFilter(q => !q.TechnicalQuestionSet.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TechnicalAnswer>().HasQueryFilter(a => !a.TechnicalSessionQuestion.TechnicalQuestionSet.InterviewSession.IsDeleted);
+            modelBuilder.Entity<TechnicalRoundResult>().HasQueryFilter(r => !r.InterviewSession.IsDeleted);
 
             // Seed default roles
             modelBuilder.Entity<Role>().HasData(
@@ -231,74 +236,91 @@ namespace ai_speis_be.Models
                 .HasForeignKey(s => s.InterviewCampaignId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<InterviewSession>()
-                .Property(s => s.TechnicalConcurrencyVersion)
-                .IsConcurrencyToken();
-
-            modelBuilder.Entity<TechnicalQuestionAttempt>()
-                .HasOne(a => a.InterviewSession)
-                .WithMany(s => s.TechnicalQuestionAttempts)
-                .HasForeignKey(a => a.InterviewSessionId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<TechnicalQuestionAttempt>()
-                .HasOne(a => a.Question)
-                .WithMany()
-                .HasForeignKey(a => a.QuestionId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<TechnicalQuestionAttempt>()
-                .HasOne(a => a.ParentAttempt)
-                .WithMany(a => a.ChildAttempts)
-                .HasForeignKey(a => a.ParentAttemptId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<TechnicalQuestionAttempt>()
-                .HasIndex(a => new { a.InterviewSessionId, a.SubmissionIdempotencyKey })
-                .IsUnique()
-                .HasFilter("[SubmissionIdempotencyKey] IS NOT NULL");
-
-            modelBuilder.Entity<TechnicalQuestionAttempt>()
-                .HasIndex(a => new { a.InterviewSessionId, a.Status })
-                .IsUnique()
-                .HasFilter("[Status] = 0");
-
-            modelBuilder.Entity<TechnicalQuestionAttempt>()
-                .HasIndex(a => new { a.RootMainAttemptId, a.QuestionType, a.SequenceWithinMain })
-                .IsUnique();
-
-            modelBuilder.Entity<TechnicalQuestionAttempt>()
-                .HasIndex(a => new { a.InterviewSessionId, a.MainQuestionIndex })
-                .IsUnique()
-                .HasFilter("[QuestionType] = 0");
-
-            modelBuilder.Entity<TechnicalQuestionAttempt>()
-                .HasIndex(a => new { a.InterviewSessionId, a.QuestionId })
-                .IsUnique()
-                .HasFilter("[QuestionType] = 0 AND [QuestionId] IS NOT NULL");
-
-            modelBuilder.Entity<TechnicalAnswerEvaluation>()
-                .HasOne(e => e.Attempt)
-                .WithMany(a => a.Evaluations)
-                .HasForeignKey(e => e.AttemptId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<TechnicalAnswerEvaluation>()
-                .HasIndex(e => e.RootMainAttemptId)
-                .IsUnique()
-                .HasFilter("[IsFinalForMainQuestion] = 1");
-
             modelBuilder.Entity<AIInteractionLog>()
                 .HasOne(log => log.InterviewSession)
                 .WithMany(session => session.AIInteractionLogs)
                 .HasForeignKey(log => log.InterviewSessionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<AIInteractionLog>()
-                .HasOne(log => log.Attempt)
+            modelBuilder.Entity<TechnicalQuestionSet>()
+                .HasOne(set => set.InterviewSession)
+                .WithOne(session => session.TechnicalQuestionSet)
+                .HasForeignKey<TechnicalQuestionSet>(set => set.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SingleQuestionRetry>()
+                .HasOne(retry => retry.User)
                 .WithMany()
-                .HasForeignKey(log => log.AttemptId)
+                .HasForeignKey(retry => retry.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SingleQuestionRetry>()
+                .HasOne(retry => retry.Question)
+                .WithMany()
+                .HasForeignKey(retry => retry.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SingleQuestionRetry>()
+                .HasIndex(retry => new { retry.UserId, retry.QuestionId, retry.CreatedAt });
+            modelBuilder.Entity<TechnicalQuestionSet>()
+                .HasIndex(set => set.InterviewSessionId)
+                .IsUnique();
+            modelBuilder.Entity<TechnicalQuestionSet>()
+                .Property(set => set.SelectionSource)
+                .HasConversion<string>();
+            modelBuilder.Entity<TechnicalQuestionSet>()
+                .Property(set => set.Status)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<TechnicalSessionQuestion>()
+                .HasOne(question => question.TechnicalQuestionSet)
+                .WithMany(set => set.Questions)
+                .HasForeignKey(question => question.TechnicalQuestionSetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TechnicalSessionQuestion>()
+                .HasOne(question => question.Question)
+                .WithMany()
+                .HasForeignKey(question => question.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<TechnicalSessionQuestion>()
+                .HasOne(question => question.ParentQuestion)
+                .WithMany(question => question.ChildQuestions)
+                .HasForeignKey(question => question.ParentQuestionId)
                 .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<TechnicalSessionQuestion>()
+                .Property(question => question.QuestionType)
+                .HasConversion<string>();
+            modelBuilder.Entity<TechnicalSessionQuestion>()
+                .Property(question => question.Status)
+                .HasConversion<string>();
+            modelBuilder.Entity<TechnicalSessionQuestion>()
+                .HasIndex(question => new { question.TechnicalQuestionSetId, question.QuestionOrder })
+                .IsUnique();
+
+            modelBuilder.Entity<TechnicalAnswer>()
+                .HasOne(answer => answer.TechnicalSessionQuestion)
+                .WithOne(question => question.Answer)
+                .HasForeignKey<TechnicalAnswer>(answer => answer.TechnicalSessionQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TechnicalAnswer>()
+                .HasIndex(answer => answer.TechnicalSessionQuestionId)
+                .IsUnique();
+            modelBuilder.Entity<TechnicalAnswer>()
+                .Property(answer => answer.EvaluationStatus)
+                .HasConversion<string>();
+            modelBuilder.Entity<TechnicalAnswer>()
+                .HasIndex(answer => new { answer.TechnicalSessionQuestionId, answer.SubmissionIdempotencyKey })
+                .IsUnique()
+                .HasFilter("[SubmissionIdempotencyKey] IS NOT NULL");
+
+            modelBuilder.Entity<TechnicalRoundResult>()
+                .HasOne(result => result.InterviewSession)
+                .WithOne(session => session.TechnicalRoundResult)
+                .HasForeignKey<TechnicalRoundResult>(result => result.InterviewSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TechnicalRoundResult>()
+                .HasIndex(result => result.InterviewSessionId)
+                .IsUnique();
 
             // CodingQuestion Relationships (No longer tied to InterviewSession)
 

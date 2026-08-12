@@ -103,8 +103,8 @@ public sealed class TechnicalQuestionPlanBuilderTests
         var evaluation = TechnicalTestRubric.CreateEvaluation(7m, 7m, 7m, 7m, 7m);
         var scoring = new TechnicalRubricScoringService();
 
-        var scoreBeforePlan = scoring.ScoreQuestion(evaluation, TechnicalTestRubric.Create()).FinalOverallScore;
-        var scoreAfterPlan = scoring.ScoreQuestion(evaluation, TechnicalTestRubric.Create()).FinalOverallScore;
+        var scoreBeforePlan = scoring.ScoreQuestionV2(evaluation, TechnicalTestRubric.Create()).FinalOverallScore;
+        var scoreAfterPlan = scoring.ScoreQuestionV2(evaluation, TechnicalTestRubric.Create()).FinalOverallScore;
 
         Assert.NotEqual(lowPlan.PlannedCvQuestionCount, highPlan.PlannedCvQuestionCount);
         Assert.Equal(scoreBeforePlan, scoreAfterPlan);

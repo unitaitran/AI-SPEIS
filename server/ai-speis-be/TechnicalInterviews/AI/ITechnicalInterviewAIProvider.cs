@@ -8,8 +8,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
             TechnicalAISelectionRequest request,
             CancellationToken cancellationToken);
 
-        Task<AIProviderResult<TechnicalAIEvaluationResponse>> EvaluateAnswerAsync(
-            TechnicalAnswerProcessingContext context,
+        Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAnswerV2Async(
+            TechnicalV2AnswerProcessingContext context,
             CancellationToken cancellationToken);
 
         Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
@@ -20,5 +20,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
     public interface ITechnicalInterviewAIProviderResolver
     {
         ITechnicalInterviewAIProvider Resolve();
+
+        // Session-scoped calls can select the provider persisted for the V2 session.
+        ITechnicalInterviewAIProvider ResolveFor(string? providerName) => Resolve();
     }
 }

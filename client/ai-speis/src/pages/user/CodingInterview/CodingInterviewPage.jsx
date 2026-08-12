@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, Component } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Component } from 'react';
+
 import Editor, { loader } from '@monaco-editor/react';
 import { codingService } from '../../../services/codingService';
 import interviewSessionService from '../../../services/InterviewSessionService';

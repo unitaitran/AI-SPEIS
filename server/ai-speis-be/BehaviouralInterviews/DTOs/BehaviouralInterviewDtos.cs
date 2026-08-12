@@ -113,6 +113,22 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
         public List<BehaviouralDimensionResultDto> Dimensions { get; set; } = new();
         public List<string> Strengths { get; set; } = new();
         public List<string> MissingPoints { get; set; } = new();
+        public List<BehaviouralSubQuestionResultDto> SubQuestions { get; set; } = new();
+    }
+
+    public sealed class BehaviouralSubQuestionResultDto
+    {
+        public int SessionQuestionId { get; set; }
+        public int? QuestionId { get; set; }
+        public int? ParentSessionQuestionId { get; set; }
+        public string QuestionType { get; set; } = string.Empty;
+        public string Question { get; set; } = string.Empty;
+        public string Skill { get; set; } = string.Empty;
+        public decimal Score { get; set; }
+        public string AnswerTranscript { get; set; } = string.Empty;
+        public List<BehaviouralDimensionResultDto> Dimensions { get; set; } = new();
+        public List<string> Strengths { get; set; } = new();
+        public List<string> MissingPoints { get; set; } = new();
     }
 
     public sealed class BehaviouralDimensionResultDto

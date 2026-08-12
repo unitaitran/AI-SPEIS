@@ -23,6 +23,8 @@ namespace ai_speis_be.TechnicalInterviews.Selection
         public IReadOnlyList<string> JdSkills { get; init; } = Array.Empty<string>();
         public IReadOnlyList<string> RequiredJdSkills { get; init; } = Array.Empty<string>();
         public IReadOnlyList<QuestionDifficultyEnum> AllowedDifficulties { get; init; } = Array.Empty<QuestionDifficultyEnum>();
+        public int? CvJdMatchScore { get; init; }
+        public string? AiProvider { get; init; }
     }
 
     public sealed class TechnicalQuestionPoolResult
@@ -48,7 +50,7 @@ namespace ai_speis_be.TechnicalInterviews.Selection
 
         Task<TechnicalBankSubQuestionResult> SelectBankSubQuestionAsync(
             TechnicalLockedMainQuestionSnapshot lockedMain,
-            TechnicalAttemptType attemptType,
+            TechnicalSessionQuestionType attemptType,
             int followUpNumber,
             CancellationToken cancellationToken);
 
@@ -106,11 +108,17 @@ namespace ai_speis_be.TechnicalInterviews.Selection
                     q.ExperienceLevel
                 )).ToList();
 
+                var targetCount = 3;
+                if (cvFocusCount == 0 && jdFocusCount == 0)
+                {
+                    (cvFocusCount, jdFocusCount) = ComputeSourceSplit(baseContext.CvJdMatchScore, targetCount);
+                }
+
                 var constraints = new TechnicalAISelectionConstraints
                 {
-                    RequiredQuestionCount = 3,
+                    RequiredQuestionCount = targetCount,
                     MaximumQuestionsPerSkill = 1,
-                    MinimumCoveredSkills = Math.Min(3, candidatePool.Select(q => q.Skill).Distinct().Count()),
+                    MinimumCoveredSkills = Math.Min(targetCount, candidatePool.Select(q => q.Skill).Distinct().Count()),
                     CvFocusQuestionCount = cvFocusCount,
                     JdFocusQuestionCount = jdFocusCount
                 };
@@ -120,6 +128,7 @@ namespace ai_speis_be.TechnicalInterviews.Selection
                     Language = baseContext.Language,
                     JobRole = baseContext.JobRole,
                     ExperienceLevel = baseContext.ExperienceLevel,
+                    CvJdMatchScore = baseContext.CvJdMatchScore,
                     RequiredSkills = baseContext.RequiredJdSkills,
                     NiceToHaveSkills = baseContext.JdSkills.Except(baseContext.RequiredJdSkills).ToList(),
                     CvSkills = baseContext.CvSkills,
@@ -246,12 +255,12 @@ namespace ai_speis_be.TechnicalInterviews.Selection
 
         public async Task<TechnicalBankSubQuestionResult> SelectBankSubQuestionAsync(
             TechnicalLockedMainQuestionSnapshot lockedMain,
-            TechnicalAttemptType attemptType,
+            TechnicalSessionQuestionType attemptType,
             int followUpNumber,
             CancellationToken cancellationToken)
         {
-            if (attemptType is not TechnicalAttemptType.Clarification
-                and not TechnicalAttemptType.FollowUp)
+            if (attemptType is not TechnicalSessionQuestionType.Clarification
+                and not TechnicalSessionQuestionType.FollowUp)
             {
                 return new TechnicalBankSubQuestionResult(
                     false,
@@ -302,10 +311,10 @@ namespace ai_speis_be.TechnicalInterviews.Selection
             string? clarification,
             string? followUp1,
             string? followUp2,
-            TechnicalAttemptType attemptType,
+            TechnicalSessionQuestionType attemptType,
             int followUpNumber)
         {
-            if (attemptType == TechnicalAttemptType.Clarification)
+            if (attemptType == TechnicalSessionQuestionType.Clarification)
             {
                 return clarification;
             }
@@ -524,6 +533,24 @@ namespace ai_speis_be.TechnicalInterviews.Selection
                 ? context.CvSkills
                 : context.JdSkills;
             return sourceSkills.Any(skill => SkillMatches(question, skill));
+        }
+
+        private static (int CvFocus, int JdFocus) ComputeSourceSplit(int? matchScore, int questionCount)
+        {
+            if (questionCount <= 1)
+            {
+                return (questionCount, 0);
+            }
+
+            var cvShare = (matchScore ?? 50) switch
+            {
+                < 40 => 0.70,
+                < 70 => 0.50,
+                _ => 0.30
+            };
+
+            var cvFocus = Math.Clamp((int)Math.Round(questionCount * cvShare, MidpointRounding.AwayFromZero), 1, questionCount - 1);
+            return (cvFocus, questionCount - cvFocus);
         }
     }
 }

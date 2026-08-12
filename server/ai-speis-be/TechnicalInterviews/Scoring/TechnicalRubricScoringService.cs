@@ -19,8 +19,8 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
 
     public interface ITechnicalRubricScoringService
     {
-        TechnicalQuestionScore ScoreQuestion(
-            TechnicalAIEvaluationResponse evaluation,
+        TechnicalQuestionScore ScoreQuestionV2(
+            TechnicalV2EvaluationResponse evaluation,
             TechnicalRubricDefinition rubric);
 
         decimal ScoreSession(
@@ -38,17 +38,16 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
 
     public sealed class TechnicalRubricScoringService : ITechnicalRubricScoringService
     {
-        public TechnicalQuestionScore ScoreQuestion(
-            TechnicalAIEvaluationResponse evaluation,
+        public TechnicalQuestionScore ScoreQuestionV2(
+            TechnicalV2EvaluationResponse evaluation,
             TechnicalRubricDefinition rubric)
         {
-            var dimensionsByCode = evaluation.DimensionEvaluations.ToDictionary(
-                item => item.RubricCode,
-                StringComparer.OrdinalIgnoreCase);
+            var dimensionsByCode = evaluation.Evaluation!.DimensionEvaluations!
+                .ToDictionary(item => item.RubricCode!, StringComparer.OrdinalIgnoreCase);
 
             var dimensionScores = rubric.Dimensions.Select(dimension =>
             {
-                var suggested = dimensionsByCode[dimension.Code].SuggestedScore;
+                var suggested = dimensionsByCode[dimension.Code].SuggestedScore!.Value;
                 var final = Normalize(suggested, rubric);
                 var weighted = Round(final * dimension.Weight, rubric.RoundingPrecision + 2);
                 return new TechnicalDimensionScore(
@@ -63,7 +62,7 @@ namespace ai_speis_be.TechnicalInterviews.Scoring
 
             var aiSuggested = Normalize(
                 rubric.Dimensions.Sum(dimension =>
-                    dimensionsByCode[dimension.Code].SuggestedScore * dimension.Weight),
+                    dimensionsByCode[dimension.Code].SuggestedScore!.Value * dimension.Weight),
                 rubric);
             var finalOverall = Normalize(
                 dimensionScores.Sum(dimension => dimension.WeightedScore),

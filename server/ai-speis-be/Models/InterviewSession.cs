@@ -28,6 +28,10 @@ namespace ai_speis_be.Models
         [Required]
         public InterviewSessionStatus Status { get; set; } = InterviewSessionStatus.Pending;
 
+        // Technical rounds are created on the current V2 runtime.
+        [MaxLength(20)]
+        public string? TechnicalRuntimeVersion { get; set; }
+
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -39,87 +43,16 @@ namespace ai_speis_be.Models
         public DateTime? DeletedAt { get; set; }
 
         // Technical Interview runtime metadata. Nullable fields preserve existing sessions.
-        public TechnicalInterviewState? TechnicalState { get; set; }
 
         [MaxLength(50)]
         public string? TechnicalAiProvider { get; set; }
 
-        [MaxLength(120)]
-        public string? TechnicalAiModel { get; set; }
-
-        [MaxLength(50)]
-        public string? TechnicalRubricVersion { get; set; }
-
-        [MaxLength(50)]
-        public string? TechnicalScoringPolicyVersion { get; set; }
-
-        public int? TechnicalMatchScoreSnapshot { get; set; }
-
-        public TechnicalMatchBand? TechnicalMatchBand { get; set; }
-
-        public int? TechnicalPlannedCvQuestionCount { get; set; }
-
-        public int? TechnicalPlannedJdQuestionCount { get; set; }
-
-        [Column(TypeName = "nvarchar(max)")]
-        public string? TechnicalQuestionPlanJson { get; set; }
-
-        [MaxLength(80)]
-        public string? TechnicalQuestionPlanVersion { get; set; }
-
-        [MaxLength(80)]
-        public string? TechnicalAdaptiveRuleVersion { get; set; }
-
-        [MaxLength(80)]
-        public string? TechnicalBonusCalculationVersion { get; set; }
-
-        [MaxLength(200)]
-        public string? TechnicalJobRole { get; set; }
-
-        [MaxLength(100)]
-        public string? TechnicalExperienceLevel { get; set; }
-
-        [MaxLength(10)]
-        public string? TechnicalLanguage { get; set; }
-
-        [Column(TypeName = "nvarchar(max)")]
-        public string? TechnicalSelectedSkillsJson { get; set; }
-
-        public int TechnicalCompletedMainQuestionCount { get; set; }
-
-        [Column(TypeName = "decimal(5,2)")]
-        public decimal? TechnicalFinalScore { get; set; }
-
-        [MaxLength(50)]
-        public string? TechnicalPerformanceBand { get; set; }
-
-        [Column(TypeName = "nvarchar(max)")]
-        public string? TechnicalSummaryJson { get; set; }
-
-        [MaxLength(30)]
-        public string TechnicalFinalFeedbackStatus { get; set; } = "NOT_STARTED";
-
-        public DateTime? TechnicalFinalFeedbackStartedAt { get; set; }
-
-        [MaxLength(100)]
-        public string? TechnicalFinalFeedbackError { get; set; }
-
-        [MaxLength(500)]
-        public string? TechnicalReliabilityFailureReason { get; set; }
-
-        [MaxLength(500)]
-        public string? TechnicalLegacyUpgradeFailureReason { get; set; }
-
-        public DateTime? TechnicalStartedAt { get; set; }
-
-        public DateTime? TechnicalCompletedAt { get; set; }
-
-        public int TechnicalConcurrencyVersion { get; set; }
-
         // Navigation properties
         public virtual InterviewCampaign InterviewCampaign { get; set; } = null!;
 
-        public virtual ICollection<TechnicalQuestionAttempt> TechnicalQuestionAttempts { get; set; } = new List<TechnicalQuestionAttempt>();
+        public virtual TechnicalQuestionSet? TechnicalQuestionSet { get; set; }
+
+        public virtual TechnicalRoundResult? TechnicalRoundResult { get; set; }
 
         public virtual ICollection<AIInteractionLog> AIInteractionLogs { get; set; } = new List<AIInteractionLog>();
     }

@@ -46,4 +46,23 @@ public sealed class TechnicalRubricProviderTests
         Assert.Equal("WEAK", rubric.GetPerformanceBandCode(3m));
         Assert.Equal("VERY_WEAK", rubric.GetPerformanceBandCode(0m));
     }
+
+    [Fact]
+    public void GetRequired_LoadsTechnicalV2RuntimeWithCanonicalFiveCriteria()
+    {
+        var environment = new Mock<IWebHostEnvironment>();
+        environment.SetupGet(item => item.ContentRootPath).Returns(Path.GetFullPath("..\\ai-speis-be"));
+        var provider = new TechnicalRubricProvider(environment.Object);
+
+        var rubric = provider.GetRequired("technical-v2-runtime");
+
+        Assert.Equal(
+            new[] { "ACCURACY", "TECHNICAL_DEPTH", "REASONING", "APPLICATION", "COMMUNICATION" },
+            rubric.Dimensions.Select(item => item.Code));
+        Assert.Equal(new[] { .30m, .25m, .20m, .15m, .10m }, rubric.Dimensions.Select(item => item.Weight));
+        Assert.Equal(0m, rubric.MinimumScore);
+        Assert.Equal(10m, rubric.MaximumScore);
+        Assert.Equal(2, rubric.RoundingPrecision);
+        Assert.Equal(0m, rubric.EvidenceRequiredWhenScoreAbove);
+    }
 }

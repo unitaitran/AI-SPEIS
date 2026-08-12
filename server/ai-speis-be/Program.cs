@@ -50,13 +50,11 @@ using ai_speis_be.BehaviouralInterviews.Validation;
 using ai_speis_be.AI.Json;
 using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Configuration;
-using ai_speis_be.TechnicalInterviews.Orchestration;
 using ai_speis_be.TechnicalInterviews.Planning;
 using ai_speis_be.TechnicalInterviews.Rubrics;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using ai_speis_be.TechnicalInterviews.Selection;
 using ai_speis_be.TechnicalInterviews.Validation;
-using ai_speis_be.TechnicalInterviews.PreGeneration;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
@@ -242,19 +240,16 @@ builder.Services.AddScoped<IBehaviouralInterviewOrchestrator, BehaviouralIntervi
 builder.Services.AddSingleton<ITechnicalRubricProvider, TechnicalRubricProvider>();
 builder.Services.AddSingleton<ITechnicalAIConcurrencyGate, TechnicalAIConcurrencyGate>();
 builder.Services.AddScoped<ExternalTechnicalInterviewAIProvider>();
-builder.Services.AddScoped<GeminiTechnicalInterviewAIProvider>();
+builder.Services.AddScoped<ITechnicalInterviewAIProvider, GeminiTechnicalInterviewAIProvider>();
+builder.Services.AddScoped<ITechnicalInterviewAIProvider, OllamaTechnicalInterviewAIProvider>();
 builder.Services.AddScoped<ITechnicalInterviewAIProviderResolver, TechnicalInterviewAIProviderResolver>();
 builder.Services.AddScoped<ITechnicalAIResponseValidator, TechnicalAIResponseValidator>();
 builder.Services.AddScoped<ITechnicalRubricScoringService, TechnicalRubricScoringService>();
-builder.Services.AddScoped<ITechnicalFollowUpBonusCalculator, TechnicalFollowUpBonusCalculator>();
-builder.Services.AddScoped<ITechnicalFollowUpDecisionEngine, TechnicalFollowUpDecisionEngine>();
 builder.Services.AddScoped<ITechnicalQuestionPlanBuilder, TechnicalQuestionPlanBuilder>();
 builder.Services.AddScoped<ITechnicalQuestionOrderRandomizer, TechnicalQuestionOrderRandomizer>();
-builder.Services.AddScoped<ITechnicalAnswerEvaluationProcessor, TechnicalAnswerEvaluationProcessor>();
-builder.Services.AddScoped<ITechnicalInterviewDecisionArbiter, TechnicalInterviewDecisionArbiter>();
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
-builder.Services.AddScoped<ITechnicalInterviewOrchestrator, TechnicalInterviewOrchestrator>();
-builder.Services.AddSingleton<ITechnicalPreGenerationService, TechnicalPreGenerationService>();
+builder.Services.AddScoped<ai_speis_be.TechnicalInterviews.V2.ITechnicalV2InterviewOrchestrator, ai_speis_be.TechnicalInterviews.V2.TechnicalV2InterviewOrchestrator>();
+builder.Services.AddScoped<ai_speis_be.Services.ISingleQuestionRetryService, ai_speis_be.Services.SingleQuestionRetryService>();
 
 // Google Cloud Quota & Billing Cost Monitoring
 builder.Services.AddSingleton<ai_speis_be.Services.GoogleQuotaService.GoogleQuotaConfig>();
@@ -392,6 +387,11 @@ using (var scope = app.Services.CreateScope())
                     CONSTRAINT [FK_UserSkillScore_InterviewSession] FOREIGN KEY ([InterviewSessionId]) REFERENCES [InterviewSession]([InterviewSessionId])
                 );
             END;
+
+            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[TechnicalAnswer]') AND name = N'AiApplicationScore')
+            BEGIN
+                ALTER TABLE [dbo].[TechnicalAnswer] ADD [AiApplicationScore] decimal(18,2) NULL;
+            END;
         ");
     }
     catch (Exception ex)
@@ -401,28 +401,27 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Recurring registration occurs after migrations so the application's SQL Server is
-// ready. Resolve Hangfire from DI rather than using its static API, which depends on
-// JobStorage.Current and is not initialized in an ASP.NET Core service-based setup.
+// ready. Hangfire creates and maintains its own schema in the same SQL Server storage.
 using (var scope = app.Services.CreateScope())
 {
-    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<Hangfire.IRecurringJobManager>();
 
-    var subscriptionExpiryCron = app.Configuration["BackgroundJobs:SubscriptionExpiryCron"] ?? "10 0 * * *";
-    recurringJobs.AddOrUpdate<SubscriptionExpiryJob>(
+    var subscriptionExpiryCron = builder.Configuration["BackgroundJobs:SubscriptionExpiryCron"] ?? "10 0 * * *";
+    recurringJobManager.AddOrUpdate<SubscriptionExpiryJob>(
         "job-02-subscription-expiry",
         job => job.ExecuteAsync(),
         subscriptionExpiryCron,
         new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
 
-    var quotaResetCron = app.Configuration["BackgroundJobs:QuotaResetCron"] ?? "5 0 1 * *";
-    recurringJobs.AddOrUpdate<QuotaResetJob>(
+    var quotaResetCron = builder.Configuration["BackgroundJobs:QuotaResetCron"] ?? "5 0 1 * *";
+    recurringJobManager.AddOrUpdate<QuotaResetJob>(
         "job-03-quota-reset",
         job => job.ExecuteAsync(),
         quotaResetCron,
         new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
 
-    var notificationRetryCron = app.Configuration["BackgroundJobs:NotificationRetryCron"] ?? "20 0 * * *";
-    recurringJobs.AddOrUpdate<NotificationRetryJob>(
+    var notificationRetryCron = builder.Configuration["BackgroundJobs:NotificationRetryCron"] ?? "20 0 * * *";
+    recurringJobManager.AddOrUpdate<NotificationRetryJob>(
         "job-04-notification-retry",
         job => job.ExecuteAsync(),
         notificationRetryCron,

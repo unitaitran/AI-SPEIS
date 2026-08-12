@@ -163,15 +163,6 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
 
   return (
     <header className="h-[85px] bg-surface-2 border-b border-border flex items-center justify-between px-6 shrink-0 z-10 sticky top-0">
-      <div className="flex items-center lg:hidden">
-        <button
-          className="p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-md hover:bg-surface-3 transition-colors"
-          onClick={onMenuClick}
-          aria-label="Open menu"
-        >
-          <Menu size={24} />
-        </button>
-      </div>
 
       {/* Spacer for desktop since logo is in sidebar */}
       <div className="hidden lg:block flex-1"></div>

@@ -31,28 +31,23 @@ namespace ai_speis_be.Services.GoogleQuotaService
         /// </summary>
         public string BillingTable { get; }
 
+        public bool IsConfigured { get; }
+
         public GoogleQuotaConfig()
         {
-            ProjectId = Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT")
-                ?? throw new InvalidOperationException(
-                    "GOOGLE_CLOUD_PROJECT environment variable is not set.");
+            ProjectId = Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT") ?? string.Empty;
+            var raw = Environment.GetEnvironmentVariable("GOOGLE_QUOTA_CREDENTIALS") ?? string.Empty;
 
-            var raw = Environment.GetEnvironmentVariable("GOOGLE_QUOTA_CREDENTIALS")
-                ?? throw new InvalidOperationException(
-                    "GOOGLE_QUOTA_CREDENTIALS environment variable is not set.");
-
-            CredentialsPath = Path.IsPathRooted(raw)
-                ? raw
-                : Path.GetFullPath(raw);
-
-            if (!File.Exists(CredentialsPath))
-            {
-                throw new FileNotFoundException(
-                    $"Google quota credentials file not found at: {CredentialsPath}");
-            }
+            CredentialsPath = !string.IsNullOrWhiteSpace(raw)
+                ? (Path.IsPathRooted(raw) ? raw : Path.GetFullPath(raw))
+                : string.Empty;
 
             BillingDataset = Environment.GetEnvironmentVariable("GOOGLE_BIGQUERY_BILLING_DATASET") ?? string.Empty;
             BillingTable = Environment.GetEnvironmentVariable("GOOGLE_BIGQUERY_BILLING_TABLE") ?? string.Empty;
+
+            IsConfigured = !string.IsNullOrWhiteSpace(ProjectId)
+                && !string.IsNullOrWhiteSpace(CredentialsPath)
+                && File.Exists(CredentialsPath);
         }
     }
 }

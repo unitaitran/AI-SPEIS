@@ -11,6 +11,7 @@ import {
   Play,
   RefreshCw,
   RotateCcw,
+  UserRound,
   Volume2,
 } from 'lucide-react';
 import BehavioralCompletion from '../../components/behavioralInterview/BehavioralCompletion';
@@ -161,16 +162,17 @@ function BehavioralInterviewPage({ sessionId }) {
     const restored = room.transcriptMessages.map((message) => ({
       ...message,
       role: message.speaker === 'candidate' ? 'CANDIDATE' : 'INTERVIEWER',
-      statusLabel: message.questionType && message.questionType !== 'Main'
-        ? t(`questionType.${message.questionType}`)
+      statusLabel: message.questionType
+        ? t(`questionType.${message.questionType}`, { defaultValue: '' })
         : '',
     }));
-    const draft = !isSubmitting && recorder.transcript.trim()
+    const draftText = recorder.transcript.trim();
+    const draft = draftText
       ? [{
         id: `draft-${room.currentQuestion?.sessionQuestionId || 'current'}`,
         role: 'CANDIDATE',
-        content: recorder.transcript,
-        statusLabel: t('draft'),
+        content: draftText,
+        statusLabel: isSubmitting ? (t('submitting', { defaultValue: 'Đang gửi...' })) : t('draft'),
       }]
       : [];
     return [...restored, ...draft];
@@ -637,11 +639,20 @@ function BehavioralInterviewPage({ sessionId }) {
 
               <section className="behavior-question" aria-labelledby="behavior-question-text">
                 <div className="behavior-question__eyebrow">
-                  {isContinuation ? t(`questionType.${questionType}`) : t('interviewerAsks')}
+                  {questionType ? t(`questionType.${questionType}`, { defaultValue: t('interviewerAsks') }) : t('interviewerAsks')}
                 </div>
                 <h1 id="behavior-question-text">{room.currentQuestion.content}</h1>
                 {room.currentQuestion.hint && initialContext?.campaign?.mode === 'Practice' ? (
                   <p className="behavior-question__hint">{room.currentQuestion.hint}</p>
+                ) : null}
+                {recorder.transcript.trim() ? (
+                  <div className="behavior-question__candidate-script">
+                    <div className="behavior-question__candidate-script-head">
+                      <UserRound size={15} />
+                      <span>{t('candidateAnswer', { defaultValue: 'Câu trả lời của bạn' })}</span>
+                    </div>
+                    <p>{recorder.transcript.trim()}</p>
+                  </div>
                 ) : null}
                 <div className={`behavior-interviewer ${recorder.recordingStatus === 'RECORDING' ? 'behavior-interviewer--listening' : ''}`} aria-hidden="true">
                   <span className="behavior-interviewer__ring" />

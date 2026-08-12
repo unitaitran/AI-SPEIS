@@ -7,6 +7,7 @@ import { USER_ROUTES } from '../../routes/routePaths';
 import interviewSessionService from '../../services/InterviewSessionService';
 import { beginNewInterviewCampaign } from '../../utils/interviewContext';
 import SkillHistoryModal from '../../components/dashboard/SkillHistoryModal';
+import QuickActionsSection from '../../components/dashboard/QuickActionsSection';
 
 function DashboardPage() {
   const { t, i18n } = useTranslation('dashboard');
@@ -65,6 +66,8 @@ function DashboardPage() {
     return () => { isMounted = false; };
   }, []);
 
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState(null);
+
   useEffect(() => {
     let isMounted = true;
     const loadQuota = async () => {
@@ -74,6 +77,7 @@ function DashboardPage() {
           setRemainingInterviewQuota(quota.remainingInterviewQuota);
           setMaxInterviewQuota(quota.maxInterviewQuota ?? null);
           setPlanName(quota.planName || 'Basic');
+          setSubscriptionExpiresAt(quota.subscriptionExpiresAt || null);
         }
       } catch {
         if (isMounted) {
@@ -84,6 +88,7 @@ function DashboardPage() {
               setPlanName('Premium');
               setRemainingInterviewQuota((prev) => prev ?? user.remainingInterviewQuota ?? 15);
               setMaxInterviewQuota(15);
+              setSubscriptionExpiresAt(user.premiumExpiresAt || null);
             }
           } catch {
             // Best effort fallback
@@ -97,6 +102,7 @@ function DashboardPage() {
         setRemainingInterviewQuota(nextQuota);
         if (Number.isInteger(event.detail?.maxInterviewQuota)) setMaxInterviewQuota(event.detail.maxInterviewQuota);
         if (typeof event.detail?.planName === 'string' && event.detail.planName.trim()) setPlanName(event.detail.planName);
+        if (event.detail?.subscriptionExpiresAt) setSubscriptionExpiresAt(event.detail.subscriptionExpiresAt);
       }
       else loadQuota();
     };
@@ -108,16 +114,73 @@ function DashboardPage() {
     };
   }, []);
 
+  const [totalSessionCount, setTotalSessionCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadTotalSessions = async () => {
+      try {
+        const campaigns = await interviewSessionService.getMyCampaigns();
+        if (isMounted && Array.isArray(campaigns)) {
+          setTotalSessionCount(campaigns.length);
+        }
+      } catch { }
+    };
+    loadTotalSessions();
+    return () => { isMounted = false; };
+  }, []);
+
   const validScores = capabilities.filter((c) => c.score > 0);
   const avgScore = validScores.length > 0
     ? (validScores.reduce((sum, c) => sum + c.score, 0) / validScores.length).toFixed(1)
     : '0.0';
 
+  const formatExpirationDate = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      if (Number.isNaN(d.getTime())) return null;
+      const locale = (i18n?.language || '').toLowerCase().startsWith('en') ? 'en-US' : 'vi-VN';
+      return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return null;
+    }
+  };
+
+  const expDateFormatted = formatExpirationDate(subscriptionExpiresAt);
+  const quotaSubtext = planName === 'Premium'
+    ? (expDateFormatted ? `${t('stats.quota_expires', 'Hạn gói Premium')}: ${expDateFormatted}` : t('stats.premium_active', 'Gói Premium đang kích hoạt'))
+    : t('stats.free_plan', 'Gói Miễn phí');
+
   const stats = [
-    { label: t('stats.interviews', 'BUỔI PHỎNG VẤN ĐÃ LUYỆN'), value: '12', unit: t('stats.unit_session', 'buổi'), icon: CalendarDays, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { label: t('stats.avg_score', 'ĐIỂM TRUNG BÌNH'), value: avgScore, unit: '/ 10', icon: Target, color: 'text-primary-dark', bg: 'bg-primary-xlight' },
-    { label: t('stats.streak', 'STREAK LUYỆN TẬP'), value: '4', unit: t('stats.unit_day', 'ngày'), icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-    { label: t('stats.quota', 'QUOTA CÒN LẠI'), value: remainingInterviewQuota ?? '—', unit: `/ ${maxInterviewQuota ?? '—'} ${t('stats.unit_times', 'lượt')}`, icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-50' },
+    {
+      label: t('stats.interviews', 'SỐ BUỔI PHỎNG VẤN'),
+      value: String(totalSessionCount),
+      unit: t('stats.unit_session', 'buổi'),
+      icon: CalendarDays,
+      color: 'text-blue-500',
+      bg: 'bg-blue-50',
+      onClick: () => navigate(USER_ROUTES.INTERVIEW_HISTORY)
+    },
+    {
+      label: t('stats.avg_score', 'ĐIỂM TRUNG BÌNH'),
+      value: avgScore,
+      unit: '/ 10',
+      icon: Target,
+      color: 'text-primary-dark',
+      bg: 'bg-primary-xlight',
+      onClick: () => navigate(USER_ROUTES.INTERVIEW_HISTORY)
+    },
+    {
+      label: t('stats.quota', 'QUOTA CÒN LẠI'),
+      value: remainingInterviewQuota ?? '—',
+      unit: `/ ${maxInterviewQuota ?? '—'} ${t('stats.unit_times', 'lượt')}`,
+      subtext: quotaSubtext,
+      icon: TrendingUp,
+      color: 'text-green-500',
+      bg: 'bg-green-50',
+      onClick: () => navigate(USER_ROUTES.PACKAGES)
+    },
   ];
 
   const quotaExhausted = remainingInterviewQuota === 0;
@@ -153,9 +216,13 @@ function DashboardPage() {
         </section>
 
         {/* Stats Row */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {stats.map((stat, idx) => (
-            <div key={idx} className="bg-surface-2 p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center relative overflow-hidden group hover:border-primary-light hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+            <div
+              key={idx}
+              onClick={stat.onClick}
+              className="bg-surface-2 p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center relative overflow-hidden group hover:border-primary hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+            >
               <div className={`absolute top-0 right-0 w-16 h-16 -mr-4 -mt-4 rounded-full opacity-20 transition-transform duration-500 group-hover:scale-[1.8] ${stat.bg}`}></div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest line-clamp-1">
@@ -169,9 +236,17 @@ function DashboardPage() {
                 <span className="text-3xl font-bold text-text-primary mr-1.5">{stat.value}</span>
                 <span className="text-sm font-medium text-text-secondary">{stat.unit}</span>
               </div>
+              {stat.subtext && (
+                <div className="mt-2.5 text-xs font-semibold text-text-secondary relative z-10 flex items-center gap-1.5">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>{stat.subtext}</span>
+                </div>
+              )}
             </div>
           ))}
         </section>
+
+
 
         {/* Content Row 1: CTA and Chart */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -196,11 +271,11 @@ function DashboardPage() {
             </div>
             <button
               className={`relative z-10 py-3 px-6 rounded-lg font-bold text-sm flex items-center justify-between shadow-md transition-all duration-300 w-full sm:w-auto self-start group ${quotaExhausted ? 'bg-white/60 text-white/80 cursor-not-allowed' : 'bg-white text-primary-dark hover:bg-primary-xlight hover:shadow-lg hover:-translate-y-1 cursor-pointer'}`}
-                onClick={() => {
-                  if (quotaExhausted) return;
-                  beginNewInterviewCampaign();
-                  navigate(USER_ROUTES.INTERVIEW_MODE);
-                }}
+              onClick={() => {
+                if (quotaExhausted) return;
+                beginNewInterviewCampaign();
+                navigate(USER_ROUTES.INTERVIEW_MODE);
+              }}
               disabled={quotaExhausted}
             >
               {t('banner.button', 'BẮT ĐẦU PHỎNG VẤN')}
@@ -218,10 +293,6 @@ function DashboardPage() {
                 Warning: You only have 1 interview attempt left.
               </p>
             )}
-
-            <p className="relative z-10 mt-2 text-[11px] uppercase tracking-wide text-white/75">
-              Current Plan: {planName}
-            </p>
           </div>
 
           {/* Skill Progress Chart */}
@@ -308,34 +379,8 @@ function DashboardPage() {
           </div>
         </section>
 
-        {/* Suggestions Row */}
-        <section>
-          <h2 className="text-xl font-bold text-text-primary mb-4">{t('suggestions.title', 'Gợi ý luyện tập hôm nay')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {suggestions.map((item, idx) => (
-              <div key={idx} className="bg-surface-2 rounded-xl border border-border shadow-sm flex flex-col group hover:border-primary-light hover:shadow-md hover:-translate-y-1 transition-all duration-300">
-                <div className="p-5 flex-1">
-                  <div className="inline-flex items-center space-x-1.5 px-2 py-1 bg-surface-1 border border-border rounded text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-4">
-                    <FileText size={12} />
-                    <span>{t('suggestions.based_on_cv', 'DỰA TRÊN CV CỦA BẠN')}</span>
-                  </div>
-                  <h3 className="text-base font-semibold text-text-primary mb-2 line-clamp-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-text-secondary line-clamp-3">
-                    {item.desc}
-                  </p>
-                </div>
-                <div className="border-t border-border px-5 py-4">
-                  <button className="text-sm font-semibold text-text-primary flex items-center group-hover:text-primary-dark transition-colors cursor-pointer">
-                    {t('suggestions.practice_now', 'LUYỆN TẬP NGAY')}
-                    <ArrowRight size={16} className="ml-2 transform group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* Quick Actions Section (3 Activity Cards) */}
+        <QuickActionsSection />
 
         {/* Skill Trend Modal */}
         <SkillHistoryModal
