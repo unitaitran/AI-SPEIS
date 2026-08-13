@@ -23,6 +23,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
         public required int QuestionOrder { get; init; }
         public required int TargetQuestionCount { get; init; }
         public required string ScoringPolicyVersion { get; init; }
+        public bool EvidenceRepairAttempt { get; init; }
+        public string EvaluationModelOverride { get; init; } = string.Empty;
 
         public ImmutableArray<TechnicalAnswerContext> BuildAnswerContext() => ImmutableArray.Create(
             new TechnicalAnswerContext(QuestionType, QuestionContent, CandidateAnswer));

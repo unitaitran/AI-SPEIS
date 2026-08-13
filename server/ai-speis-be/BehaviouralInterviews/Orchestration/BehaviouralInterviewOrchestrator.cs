@@ -1327,7 +1327,15 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             answer.AiCriteriaDetailJson = JsonSerializer.Serialize(
                 evaluation.DimensionEvaluations, SnapshotJsonOptions);
             answer.AiStrengths = null;
-            answer.AiMissingPoints = null;
+            answer.AiMissingPoints = JsonSerializer.Serialize(
+                evaluation.DimensionEvaluations
+                    .SelectMany(item => item.MissingEvidence ?? new List<string>())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Select(item => item.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(5)
+                    .ToList(),
+                SnapshotJsonOptions);
 
             // Điểm chính thức do backend tính theo công thức 5 tiêu chí cố định (brief §14)
             answer.ComputedScore = scoringService.ScoreQuestion(evaluation, rubric).FinalOverallScore;
