@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.BehaviouralInterviews.AI;
@@ -151,7 +152,7 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
                         RubricCode = dim.Code,
                         SuggestedScore = 0m,
                         Evidence = new List<string>(),
-                        MissingEvidence = new List<string> { dim.Name }
+                        MissingEvidence = new List<string>()
                     });
                 }
             }
@@ -173,6 +174,8 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
 
             foreach (var dimension in evaluation.DimensionEvaluations)
             {
+                dimension.MissingEvidence = NormalizeMissingEvidence(dimension.MissingEvidence);
+
                 if (dimension.SuggestedScore < rubric.MinimumScore
                     || dimension.SuggestedScore > rubric.MaximumScore)
                 {
@@ -192,6 +195,41 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             }
 
             return new BehaviouralEvaluationValidationResult(true, BehaviourResolvedAction.NextMainQuestion, null);
+        }
+
+        private static List<string> NormalizeMissingEvidence(IEnumerable<string>? items)
+        {
+            var normalized = new List<string>();
+            foreach (var item in items ?? Array.Empty<string>())
+            {
+                var value = item?.Trim();
+                if (string.IsNullOrWhiteSpace(value)) continue;
+
+                if (value.StartsWith("[", StringComparison.Ordinal) && value.EndsWith("]", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        normalized.AddRange(JsonSerializer.Deserialize<List<string>>(value) ?? new List<string>());
+                    }
+                    catch (JsonException)
+                    {
+                        normalized.AddRange(value[1..^1]
+                            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(line => line.Trim().Trim('"', ',', ' '))
+                            .Where(line => !string.IsNullOrWhiteSpace(line)));
+                    }
+                    continue;
+                }
+
+                normalized.Add(value);
+            }
+
+            return normalized
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(5)
+                .ToList();
         }
 
         private static bool TryParseDecision(string value, out BehaviourResolvedAction decision)

@@ -3,6 +3,8 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
     public sealed class TechnicalInterviewOptions
     {
         public string Provider { get; init; } = "external";
+        public string SingleQuestionEvaluationProvider { get; init; } = "gemini";
+        public string SingleQuestionEvaluationModel { get; init; } = string.Empty;
         public string Model { get; init; } = "gemini-3.5-flash";
         public string ApiKey { get; init; } = string.Empty;
         public string BaseUrl { get; init; } = "https://generativelanguage.googleapis.com/v1beta/openai/";
@@ -40,6 +42,8 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
             return new TechnicalInterviewOptions
             {
                 Provider = Get(configuration, "TECHNICAL_INTERVIEW_AI_PROVIDER", "external"),
+                SingleQuestionEvaluationProvider = Get(configuration, "SINGLE_QUESTION_EVALUATION_PROVIDER", "gemini"),
+                SingleQuestionEvaluationModel = Get(configuration, "SINGLE_QUESTION_EVALUATION_MODEL", string.Empty),
                 Model = Get(configuration, "TECHNICAL_INTERVIEW_AI_MODEL", "gemini-3.5-flash"),
                 ApiKey = Get(configuration, "TECHNICAL_INTERVIEW_AI_API_KEY", string.Empty),
                 BaseUrl = EnsureTrailingSlash(Get(

@@ -89,7 +89,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 prompt.User,
                 _options.EvaluationTimeoutMs,
                 _options.EvaluationMaxRetries,
-                _options.OllamaEvaluationModel,
+                context.EvaluationModelOverride,
                 cancellationToken,
                 V2JsonOptions,
                 providerOverride);
@@ -122,7 +122,7 @@ namespace ai_speis_be.TechnicalInterviews.AI
             string userPrompt,
             int timeoutMs,
             int maxRetries,
-            string? ollamaModelOverride,
+            string? modelOverride,
             CancellationToken cancellationToken,
             JsonSerializerOptions? responseOptions = null,
             string? providerOverride = null)
@@ -137,13 +137,15 @@ namespace ai_speis_be.TechnicalInterviews.AI
             var useNativeOllamaV2 = isOllama && typeof(T) == typeof(TechnicalV2EvaluationResponse);
             var useStructuredGeminiV2 = !isOllama && typeof(T) == typeof(TechnicalV2EvaluationResponse);
             var baseUrl = isOllama ? _options.OllamaBaseUrl : _options.BaseUrl;
-            var model = isOllama
-                ? !string.IsNullOrWhiteSpace(ollamaModelOverride)
-                    ? ollamaModelOverride
-                    : !string.IsNullOrWhiteSpace(_options.OllamaModel)
+            var model = !string.IsNullOrWhiteSpace(modelOverride)
+                ? modelOverride
+                : isOllama
+                    ? !string.IsNullOrWhiteSpace(_options.OllamaEvaluationModel)
+                        ? _options.OllamaEvaluationModel
+                        : !string.IsNullOrWhiteSpace(_options.OllamaModel)
                         ? _options.OllamaModel
                         : _options.Model
-                : _options.Model;
+                    : _options.Model;
 
             if (!isOllama && string.IsNullOrWhiteSpace(_options.ApiKey))
             {
