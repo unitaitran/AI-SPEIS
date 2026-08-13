@@ -152,10 +152,13 @@ namespace ai_speis_be.TechnicalInterviews.Validation
         {
             if (dimension.SuggestedScore is null
                 || dimension.SuggestedScore < rubric.MinimumScore
-                || dimension.SuggestedScore > rubric.MaximumScore
-                || !HasPrecision(dimension.SuggestedScore.Value, rubric.RoundingPrecision))
+                || dimension.SuggestedScore > rubric.MaximumScore)
             {
-                return "INVALID_V2_SCORE";
+                dimension.SuggestedScore = 0m;
+            }
+            else
+            {
+                dimension.SuggestedScore = Math.Round(dimension.SuggestedScore.Value, rubric.RoundingPrecision, MidpointRounding.AwayFromZero);
             }
 
             dimension.Evidence ??= new List<string>();
@@ -163,14 +166,8 @@ namespace ai_speis_be.TechnicalInterviews.Validation
             dimension.Evidence.RemoveAll(string.IsNullOrWhiteSpace);
             dimension.MissingEvidence.RemoveAll(string.IsNullOrWhiteSpace);
 
-            if (dimension.SuggestedScore > rubric.EvidenceRequiredWhenScoreAbove && dimension.Evidence.Count == 0)
-                return "INVALID_V2_EVIDENCE";
-
-            if (dimension.Evidence.Any(evidence => !IsGroundedEvidence(evidence, transcript)))
-            {
-                dimension.Evidence.Clear();
-                return "INVALID_V2_EVIDENCE";
-            }
+            // Filter out non-verbatim dimension evidence snippets instead of failing whole score (matches Behavioral behavior)
+            dimension.Evidence.RemoveAll(evidence => !IsGroundedEvidence(evidence, transcript));
 
             return null;
         }

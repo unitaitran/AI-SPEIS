@@ -111,7 +111,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
 
             var targetCount = Math.Clamp(session.QuestionCount > 0 ? session.QuestionCount : 3, 1, 20);
             IReadOnlyList<Question>? aiSelection = null;
-            if (targetCount == 3)
+            if (targetCount >= 1)
             {
                 aiSelection = await _selectionService.SelectMainQuestionsWithAIAsync(context, pool.Candidates, 0, 0, cancellationToken);
             }
@@ -677,7 +677,8 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 IsComplete = set.Status == TechnicalQuestionSetStatus.Completed,
                 CurrentQuestion = current is null ? null : BuildQuestionDto(current, set),
                 Transcript = set.Questions
-                    .OrderBy(item => item.AskedAt ?? DateTime.MaxValue)
+                    .Where(item => item.AskedAt.HasValue)
+                    .OrderBy(item => item.AskedAt)
                     .ThenBy(item => item.QuestionOrder)
                     .ThenBy(item => item.TechnicalSessionQuestionId)
                     .SelectMany(item => new[]
