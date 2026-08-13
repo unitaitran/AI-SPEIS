@@ -9,12 +9,17 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Mic
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { ENDPOINTS } from '../../config/api';
 import notify from '../../utils/notification';
 import { NOTIFICATION_STATE_RESET_EVENT } from '../../features/notifications/NotificationProvider';
+import { navigate } from '../../routes/navigation';
+import { USER_ROUTES } from '../../routes/routePaths';
+
+const SINGLE_QUESTION_INTERVIEW_STORAGE_KEY = 'ai-speis:single-question-interview';
 
 function QuestionsPage() {
   const { t, i18n } = useTranslation('dashboard');
@@ -208,6 +213,21 @@ function QuestionsPage() {
         ? prev.filter(id => id !== questionId)
         : [...prev, questionId]
     );
+  };
+
+  const startSingleQuestionInterview = (question) => {
+    const roundType = /behavio(?:u)?ral/i.test(question.questionType || '')
+      ? 'Behavioral'
+      : 'Technical';
+
+    sessionStorage.setItem(SINGLE_QUESTION_INTERVIEW_STORAGE_KEY, JSON.stringify({
+      questionId: question.questionId,
+      question: question.questionContent,
+      roundType,
+      language: question.language || (isVi ? 'vi' : 'en'),
+      originalSessionId: null,
+    }));
+    navigate(USER_ROUTES.SINGLE_QUESTION_INTERVIEW);
   };
 
   // Get dynamic unique filters from fetched questions
@@ -553,6 +573,15 @@ function QuestionsPage() {
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => startSingleQuestionInterview(q)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary-light bg-primary-xlight text-primary-dark text-xs font-bold transition-all cursor-pointer hover:bg-primary-light"
+                                title={isVi ? 'Phỏng vấn câu hỏi này' : 'Practice this question'}
+                              >
+                                <Mic size={15} />
+                                <span className="hidden sm:inline">{isVi ? 'Phỏng vấn' : 'Practice'}</span>
+                              </button>
                               {/* Expand Chevron Icon button instead of Details modal */}
                               <button
                                 onClick={() => toggleExpandQuestion(q.questionId)}

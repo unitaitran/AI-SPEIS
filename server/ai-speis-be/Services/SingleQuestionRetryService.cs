@@ -111,16 +111,14 @@ namespace ai_speis_be.Services
                 throw new ArgumentException("INVALID_REQUEST");
             request.RoundType = string.IsNullOrWhiteSpace(request.RoundType) ? "Technical" : request.RoundType.Trim();
             if (!string.Equals(request.RoundType, "Technical", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(request.RoundType, "Behavior", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(request.RoundType, "Behavioural", StringComparison.OrdinalIgnoreCase))
+                && !IsBehaviouralRound(request.RoundType))
                 throw new ArgumentException("UNSUPPORTED_ROUND_TYPE");
 
             var question = await _context.Questions.AsNoTracking()
                 .FirstOrDefaultAsync(q => q.QuestionId == request.QuestionId && !q.IsDeleted, cancellationToken)
                 ?? throw new InvalidOperationException("QUESTION_NOT_FOUND");
 
-            var isBehavioural = string.Equals(request.RoundType, "Behavior", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(request.RoundType, "Behavioural", StringComparison.OrdinalIgnoreCase);
+            var isBehavioural = IsBehaviouralRound(request.RoundType);
             var questionIsBehavioural = string.Equals(question.QuestionType, "Behavioral", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(question.QuestionType, "Behavioural", StringComparison.OrdinalIgnoreCase);
             if (isBehavioural != questionIsBehavioural)
@@ -138,12 +136,11 @@ namespace ai_speis_be.Services
                 EvaluationStatus = "PROCESSING",
                 CreatedAt = DateTime.UtcNow,
             };
-            // Evaluate transiently. Single-question interviews must never create
-            // interview history, quota transactions, or retry rows.
+            // Question-bank practice and interview-history retries share the
+            // same persisted single-question retry record.
             try
             {
-                if (string.Equals(request.RoundType, "Behavior", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(request.RoundType, "Behavioural", StringComparison.OrdinalIgnoreCase))
+                if (IsBehaviouralRound(request.RoundType))
                 {
                     await EvaluateBehaviouralAsync(retry, question, request.Transcript.Trim(), cancellationToken);
                 }
@@ -220,6 +217,8 @@ namespace ai_speis_be.Services
             }
 
             retry.EvaluatedAt = DateTime.UtcNow;
+            _context.SingleQuestionRetries.Add(retry);
+            await _context.SaveChangesAsync(cancellationToken);
             return MapToDto(retry);
         }
 
@@ -281,8 +280,7 @@ namespace ai_speis_be.Services
         private SingleQuestionRetryResultDto MapToDto(SingleQuestionRetry retry)
         {
             var dimensions = ParseDimensions(retry.AiCriteriaDetailJson);
-            var isBehavioural = string.Equals(retry.RoundType, "Behavior", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(retry.RoundType, "Behavioural", StringComparison.OrdinalIgnoreCase);
+            var isBehavioural = IsBehaviouralRound(retry.RoundType);
             var technicalRubric = isBehavioural ? null : _rubricProvider.GetRequired(RubricVersion);
             var behaviouralRubric = isBehavioural ? _behaviouralRubricProvider.GetRequired("behavioural-rubric-v2") : null;
 
@@ -332,6 +330,11 @@ namespace ai_speis_be.Services
             try { return JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? new(); }
             catch { return new(); }
         }
+
+        private static bool IsBehaviouralRound(string? roundType) =>
+            string.Equals(roundType, "Behavior", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roundType, "Behavioral", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roundType, "Behavioural", StringComparison.OrdinalIgnoreCase);
 
         private static TechnicalRubricPromptSnapshot ToPromptSnapshot(TechnicalRubricDefinition rubric) => new(
             rubric.MinimumScore,

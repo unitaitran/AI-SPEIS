@@ -18,7 +18,8 @@ namespace ai_speis_be.Controllers
         }
 
         /// <summary>
-        /// Evaluate a transient single-question interview answer. No session or retry row is created.
+        /// Evaluate and persist a single-question practice attempt. This endpoint is
+        /// shared by question-bank practice and interview-history retries.
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> RetryQuestion([FromBody] SingleQuestionRetryRequest request, CancellationToken cancellationToken)
