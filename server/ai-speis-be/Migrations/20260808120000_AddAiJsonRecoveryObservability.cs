@@ -8,24 +8,54 @@ namespace ai_speis_be.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(name: "RawResponse", table: "AIInteractionLog", type: "nvarchar(max)", nullable: true);
-            migrationBuilder.AddColumn<string>(name: "RecoveryStatus", table: "AIInteractionLog", type: "nvarchar(80)", maxLength: 80, nullable: true);
-            migrationBuilder.AddColumn<string>(name: "RecoveryFlags", table: "AIInteractionLog", type: "nvarchar(1000)", maxLength: 1000, nullable: true);
-            migrationBuilder.AddColumn<string>(name: "JsonExceptionType", table: "AIInteractionLog", type: "nvarchar(120)", maxLength: 120, nullable: true);
-            migrationBuilder.AddColumn<string>(name: "JsonErrorPath", table: "AIInteractionLog", type: "nvarchar(500)", maxLength: 500, nullable: true);
-            migrationBuilder.AddColumn<long>(name: "JsonErrorOffset", table: "AIInteractionLog", type: "bigint", nullable: true);
-            migrationBuilder.AddColumn<string>(name: "SchemaVersion", table: "AIInteractionLog", type: "nvarchar(80)", maxLength: 80, nullable: true);
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'RawResponse')
+                    ALTER TABLE [dbo].[AIInteractionLog] ADD [RawResponse] nvarchar(max) NULL;
+
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'RecoveryStatus')
+                    ALTER TABLE [dbo].[AIInteractionLog] ADD [RecoveryStatus] nvarchar(80) NULL;
+
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'RecoveryFlags')
+                    ALTER TABLE [dbo].[AIInteractionLog] ADD [RecoveryFlags] nvarchar(1000) NULL;
+
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'JsonExceptionType')
+                    ALTER TABLE [dbo].[AIInteractionLog] ADD [JsonExceptionType] nvarchar(120) NULL;
+
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'JsonErrorPath')
+                    ALTER TABLE [dbo].[AIInteractionLog] ADD [JsonErrorPath] nvarchar(500) NULL;
+
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'JsonErrorOffset')
+                    ALTER TABLE [dbo].[AIInteractionLog] ADD [JsonErrorOffset] bigint NULL;
+
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'SchemaVersion')
+                    ALTER TABLE [dbo].[AIInteractionLog] ADD [SchemaVersion] nvarchar(80) NULL;
+            ");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(name: "RawResponse", table: "AIInteractionLog");
-            migrationBuilder.DropColumn(name: "RecoveryStatus", table: "AIInteractionLog");
-            migrationBuilder.DropColumn(name: "RecoveryFlags", table: "AIInteractionLog");
-            migrationBuilder.DropColumn(name: "JsonExceptionType", table: "AIInteractionLog");
-            migrationBuilder.DropColumn(name: "JsonErrorPath", table: "AIInteractionLog");
-            migrationBuilder.DropColumn(name: "JsonErrorOffset", table: "AIInteractionLog");
-            migrationBuilder.DropColumn(name: "SchemaVersion", table: "AIInteractionLog");
+            migrationBuilder.Sql(@"
+                IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'RawResponse')
+                    ALTER TABLE [dbo].[AIInteractionLog] DROP COLUMN [RawResponse];
+
+                IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'RecoveryStatus')
+                    ALTER TABLE [dbo].[AIInteractionLog] DROP COLUMN [RecoveryStatus];
+
+                IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'RecoveryFlags')
+                    ALTER TABLE [dbo].[AIInteractionLog] DROP COLUMN [RecoveryFlags];
+
+                IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'JsonExceptionType')
+                    ALTER TABLE [dbo].[AIInteractionLog] DROP COLUMN [JsonExceptionType];
+
+                IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'JsonErrorPath')
+                    ALTER TABLE [dbo].[AIInteractionLog] DROP COLUMN [JsonErrorPath];
+
+                IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'JsonErrorOffset')
+                    ALTER TABLE [dbo].[AIInteractionLog] DROP COLUMN [JsonErrorOffset];
+
+                IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[AIInteractionLog]') AND name = N'SchemaVersion')
+                    ALTER TABLE [dbo].[AIInteractionLog] DROP COLUMN [SchemaVersion];
+            ");
         }
     }
 }
