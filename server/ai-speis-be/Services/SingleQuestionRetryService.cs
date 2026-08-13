@@ -6,6 +6,7 @@ using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Rubrics;
 using ai_speis_be.TechnicalInterviews.Scoring;
 using ai_speis_be.TechnicalInterviews.Validation;
+using ai_speis_be.TechnicalInterviews.Configuration;
 using ai_speis_be.BehaviouralInterviews.AI;
 using ai_speis_be.BehaviouralInterviews.Rubrics;
 using ai_speis_be.BehaviouralInterviews.Scoring;
@@ -72,6 +73,7 @@ namespace ai_speis_be.Services
         private readonly ITechnicalAIResponseValidator _validator;
         private readonly ITechnicalRubricProvider _rubricProvider;
         private readonly ITechnicalRubricScoringService _scoringService;
+        private readonly TechnicalInterviewOptions _technicalInterviewOptions;
         private readonly ILogger<SingleQuestionRetryService> _logger;
         private readonly IBehaviouralInterviewAIProviderResolver _behaviouralProviderResolver;
         private readonly IBehaviouralAIResponseValidator _behaviouralValidator;
@@ -85,6 +87,7 @@ namespace ai_speis_be.Services
             ITechnicalAIResponseValidator validator,
             ITechnicalRubricProvider rubricProvider,
             ITechnicalRubricScoringService scoringService,
+            TechnicalInterviewOptions technicalInterviewOptions,
             ILogger<SingleQuestionRetryService> logger,
             IBehaviouralInterviewAIProviderResolver behaviouralProviderResolver,
             IBehaviouralAIResponseValidator behaviouralValidator,
@@ -97,6 +100,7 @@ namespace ai_speis_be.Services
             _validator = validator;
             _rubricProvider = rubricProvider;
             _scoringService = scoringService;
+            _technicalInterviewOptions = technicalInterviewOptions;
             _logger = logger;
             _behaviouralProviderResolver = behaviouralProviderResolver;
             _behaviouralValidator = behaviouralValidator;
@@ -147,7 +151,7 @@ namespace ai_speis_be.Services
                 else
                 {
                     var rubric = _rubricProvider.GetRequired(RubricVersion);
-                    var provider = _providerResolver.Resolve();
+                    var provider = _providerResolver.ResolveFor(_technicalInterviewOptions.SingleQuestionEvaluationProvider);
 
                     var evalContext = new TechnicalV2AnswerProcessingContext
                 {
@@ -169,6 +173,7 @@ namespace ai_speis_be.Services
                     QuestionOrder = 1,
                     TargetQuestionCount = 1,
                     ScoringPolicyVersion = rubric.ScoringPolicyVersion,
+                    EvaluationModelOverride = _technicalInterviewOptions.SingleQuestionEvaluationModel,
                 };
 
                     var ai = await provider.EvaluateAnswerV2Async(evalContext, cancellationToken);
@@ -178,6 +183,30 @@ namespace ai_speis_be.Services
                     var check = _validator.ValidateEvaluationV2(ai.Data, rubric, evalContext.BuildAnswerContext());
                     if (!check.IsValid)
                         throw new InvalidOperationException(check.ErrorCode ?? "INVALID_V2_EVALUATION");
+
+                    // Small local models can return a structurally valid response
+                    // with positive scores but no grounded evidence. Ask once more
+                    // with a repair-only instruction before accepting a partial result.
+                    var semanticRetryCount = 0;
+                    if (check.IsPartial && string.Equals(check.ErrorCode, "INVALID_V2_EVIDENCE", StringComparison.Ordinal))
+                    {
+                        semanticRetryCount = 1;
+                        var repairedContext = evalContext with { EvidenceRepairAttempt = true };
+                        var repairedAi = await provider.EvaluateAnswerV2Async(repairedContext, cancellationToken);
+                        if (repairedAi.Success && repairedAi.Data?.Evaluation?.DimensionEvaluations is not null)
+                        {
+                            var repairedCheck = _validator.ValidateEvaluationV2(
+                                repairedAi.Data,
+                                rubric,
+                                repairedContext.BuildAnswerContext());
+                            if (repairedCheck.IsValid
+                                && repairedCheck.InvalidCriterionCodes.Count < check.InvalidCriterionCodes.Count)
+                            {
+                                ai = repairedAi;
+                                check = repairedCheck;
+                            }
+                        }
+                    }
 
                     var evalData = check.NormalizedEvaluation ?? ai.Data;
 
@@ -195,16 +224,23 @@ namespace ai_speis_be.Services
                         JsonOptions);
                     retry.AiMissingPoints = JsonSerializer.Serialize(
                         dimensions.SelectMany(d => d.MissingEvidence ?? new List<string>()).Take(5), JsonOptions);
-                    retry.EvaluationStatus = "COMPLETED";
+                    retry.EvaluationStatus = check.IsPartial ? "PARTIAL" : "COMPLETED";
                     retry.EvaluationModel = ai.Model;
                     retry.EvaluationInputTokens = ai.InputTokens;
                     retry.EvaluationOutputTokens = ai.OutputTokens;
                     retry.EvaluationLatencyMs = ai.LatencyMs;
+                    retry.EvaluationErrorCode = check.IsPartial ? check.ErrorCode : null;
+                    retry.EvaluationRawResponse = ai.RawResponse;
+                    retry.EvaluationRetryCount = ai.RetryCount + semanticRetryCount;
+                    retry.InvalidCriterionCodesJson = JsonSerializer.Serialize(check.InvalidCriterionCodes, JsonOptions);
                 }
                     else
                     {
                         retry.Score = 0m;
                         retry.EvaluationStatus = "FAILED";
+                        retry.EvaluationErrorCode = ai.ErrorCode ?? "AI_EVALUATION_FAILED";
+                        retry.EvaluationRawResponse = ai.RawResponse;
+                        retry.EvaluationRetryCount = ai.RetryCount;
                         _logger.LogWarning("Single question retry AI evaluation failed for retry {RetryId}: {ErrorCode}", retry.RetryId, ai.ErrorCode);
                     }
                 }

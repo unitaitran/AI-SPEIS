@@ -102,9 +102,42 @@ const getRoundConfig = (type, copy) => {
   }
 };
 
+const getBehaviouralMissingPoints = (question, roundImprovements = []) => {
+  const normaliseItems = (items) => {
+    const flatten = (item) => {
+      if (typeof item !== 'string' || !item.trim()) return [];
+      const value = item.trim();
+      if (!value.startsWith('[') || !value.endsWith(']')) return [value];
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.flatMap(flatten) : [];
+      } catch {
+        return value.slice(1, -1)
+          .split(/\r?\n/)
+          .map((line) => line.trim().replace(/^["',\s]+|["',\s]+$/g, ''))
+          .filter(Boolean);
+      }
+    };
+    return [...new Set((Array.isArray(items) ? items : []).flatMap(flatten))];
+  };
+  const rubricLabels = new Set((question?.dimensions || [])
+    .flatMap((dimension) => [dimension?.name, dimension?.rubricCode])
+    .filter(Boolean)
+    .map((label) => String(label).trim().toLowerCase()));
+  const removeRubricLabels = (items) => items.filter((item) => !rubricLabels.has(item.toLowerCase()));
+  const savedPoints = removeRubricLabels(normaliseItems(question?.missingPoints));
+  if (savedPoints.length) return savedPoints;
+
+  const rubricGaps = removeRubricLabels(normaliseItems((question?.dimensions || []).flatMap((dimension) => dimension?.missingEvidence || [])));
+  return rubricGaps.length ? rubricGaps : removeRubricLabels(normaliseItems(roundImprovements));
+};
+
 const normalizeBehaviorReview = (result, state) => {
   const answers = (state?.transcript || []).filter((entry) => String(entry.role).toLowerCase() === 'candidate');
   const roundFeedback = result?.summary?.overallBehavioralAssessment || result?.summary?.executiveSummary || '';
+  const roundImprovements = result?.summary?.weaknesses?.length
+    ? result.summary.weaknesses
+    : result?.summary?.competencyGaps || [];
   return {
     overallScore: result?.overallScore,
     maxScore: result?.maxScore,
@@ -120,7 +153,7 @@ const normalizeBehaviorReview = (result, state) => {
         maxScore: 10,
         dimensions: subQ.dimensions || [],
         strengths: subQ.strengths || [],
-        missingPoints: subQ.missingPoints || [],
+        missingPoints: getBehaviouralMissingPoints(subQ, roundImprovements),
         transcript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
         answerTranscript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
       }));
@@ -140,7 +173,7 @@ const normalizeBehaviorReview = (result, state) => {
         maxScore: result?.maxScore || 10,
         dimensions: question.dimensions || [],
         strengths: question.strengths || [],
-        missingPoints: question.missingPoints || [],
+        missingPoints: getBehaviouralMissingPoints(question, roundImprovements),
         transcript: mainTranscript,
         feedbackSummary: roundFeedback,
         suggestions: result?.summary?.recommendationsForImprovement || [],

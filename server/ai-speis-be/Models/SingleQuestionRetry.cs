@@ -54,6 +54,17 @@ namespace ai_speis_be.Models
 
         public long? EvaluationLatencyMs { get; set; }
 
+        [MaxLength(100)]
+        public string? EvaluationErrorCode { get; set; }
+
+        [Column(TypeName = "nvarchar(max)")]
+        public string? EvaluationRawResponse { get; set; }
+
+        public int EvaluationRetryCount { get; set; }
+
+        [Column(TypeName = "nvarchar(max)")]
+        public string? InvalidCriterionCodesJson { get; set; }
+
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
