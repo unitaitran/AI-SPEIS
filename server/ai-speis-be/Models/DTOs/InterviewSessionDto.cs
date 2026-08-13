@@ -55,6 +55,7 @@ namespace ai_speis_be.Models.DTOs
         public string PerformanceBand { get; set; } = string.Empty;
         public int EvaluatedItemCount { get; set; }
         public string Summary { get; set; } = string.Empty;
+        public string? LevelAssessment { get; set; }
         public List<string> Strengths { get; set; } = new();
         public List<string> AreasForImprovement { get; set; } = new();
         public List<string> Recommendations { get; set; } = new();

@@ -553,6 +553,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                     PerformanceBand = CampaignResultCalculator.GetPerformanceBand(v2Score),
                     EvaluatedItemCount = v2Questions.Count(item => item.Answer?.FinalQuestionScore.HasValue == true),
                     Summary = v2Result?.AiExecutiveSummary ?? string.Empty,
+                    LevelAssessment = v2Result?.AiLevelAssessment,
                     Strengths = DeserializeStringList(v2Result?.AiStrengths),
                     AreasForImprovement = DeserializeStringList(v2Result?.AiGaps),
                     Recommendations = DeserializeStringList(v2Result?.AiRecommendations)
@@ -578,6 +579,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                         question.BehaviourQuestionSet.InterviewSessionId == behaviourSession.InterviewSessionId
                         && question.QuestionType == BehaviourQuestionType.Main),
                     Summary = result?.AiExecutiveSummary ?? string.Empty,
+                    LevelAssessment = result?.AiLevelAssessment,
                     Strengths = DeserializeStringList(result?.AiStrengths),
                     AreasForImprovement = DeserializeStringList(result?.AiGaps),
                     Recommendations = DeserializeStringList(result?.AiRecommendations)

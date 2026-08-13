@@ -37,7 +37,7 @@ Score every rubric dimension from 0 to 10 (0-2.9 very weak, 3-4.9 weak, 5-6.4 mi
 Return only valid JSON matching this shape, no markdown:
 {"dimensionEvaluations":[{"rubricCode":"...","evidence":["..."],"missingEvidence":["..."],"suggestedScore":7.5}]}
 Do not generate candidate-facing feedback, strengths, weaknesses, recommendations, an overall assessment or a learning plan.
-Write missingEvidence in the requested language.
+Write missingEvidence in short, natural, standard Vietnamese bullet points (maximum 8-10 words per point). Use clear, concise Vietnamese vocabulary only. Never invent non-existent words or use broken grammar.
 Return ONLY valid JSON. Do not include Markdown, code fences, explanations before or after JSON, or fields outside the defined schema.
 Use the exact rubric codes provided and do not invent rubric criteria.
 """;

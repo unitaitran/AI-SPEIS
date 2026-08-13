@@ -567,9 +567,17 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 answer.FinalQuestionScore = score.FinalOverallScore;
                 answer.ComputedScore = score.FinalOverallScore;
 
-                answer.AiStrengths = "[]";
+                var positiveEvidence = dimensions
+                    .Where(item => item.Evidence?.Count > 0)
+                    .SelectMany(item => item.Evidence!)
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Select(item => item.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(5)
+                    .ToList();
+                answer.AiStrengths = JsonSerializer.Serialize(positiveEvidence, JsonOptions);
                 answer.AiMissingPoints = JsonSerializer.Serialize(
-                    dimensions.SelectMany(item => item.MissingEvidence ?? new List<string>()).Take(5),
+                    dimensions.SelectMany(item => item.MissingEvidence ?? new List<string>()).Where(item => !string.IsNullOrWhiteSpace(item)).Select(item => item.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(5),
                     JsonOptions);
                 answer.EvaluationStatus = ai.PartialEvaluation
                     ? TechnicalAnswerEvaluationStatus.Partial

@@ -1326,7 +1326,15 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             answer.AiCommunicationScore = GetScore(byCode, "COMMUNICATION");
             answer.AiCriteriaDetailJson = JsonSerializer.Serialize(
                 evaluation.DimensionEvaluations, SnapshotJsonOptions);
-            answer.AiStrengths = null;
+            var positiveEvidence = evaluation.DimensionEvaluations
+                .Where(item => item.Evidence?.Count > 0)
+                .SelectMany(item => item.Evidence!)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(5)
+                .ToList();
+            answer.AiStrengths = JsonSerializer.Serialize(positiveEvidence, SnapshotJsonOptions);
             answer.AiMissingPoints = JsonSerializer.Serialize(
                 evaluation.DimensionEvaluations
                     .SelectMany(item => item.MissingEvidence ?? new List<string>())
