@@ -92,7 +92,7 @@ export default function SingleQuestionInterviewPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const evalResult = await singleQuestionRetryApi.evaluateSingleQuestionInterview({
+      const evalResult = await singleQuestionRetryApi.retryQuestion({
         questionId: interview.questionId,
         originalSessionId: interview.originalSessionId || null,
         roundType: interview.roundType,
@@ -301,7 +301,7 @@ export default function SingleQuestionInterviewPage() {
               </div>
               <h1 id="behavior-question-text">{interview?.question}</h1>
               <p className="behavior-question__hint">
-                Hãy trả lời như một vòng phỏng vấn thực tế. Hệ thống chỉ đánh giá câu trả lời này và không lưu vào lịch sử.
+                Hãy trả lời như một vòng phỏng vấn thực tế. Kết quả đánh giá sẽ được lưu để bạn xem lại.
               </p>
 
               <div className={`behavior-interviewer ${recorder.recordingStatus === 'RECORDING' ? 'behavior-interviewer--listening' : ''}`} aria-hidden="true">
