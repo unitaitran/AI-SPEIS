@@ -30,24 +30,7 @@ namespace ai_speis_be.Controllers
             return !string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out userId);
         }
 
-        [HttpGet]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllCV([FromQuery] CVQueryParameters query, CancellationToken cancellationToken)
-        {
-            var CV = await _cvService.GetAllCVsAsync(query);
-            return Ok(CV);
-        }
-
-        [HttpGet("user/{userId:int}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetUserCV(int userId, [FromQuery] CVQueryParameters query, CancellationToken cancellationToken)
-        {
-            if (userId <= 0)
-                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
-            var cv = await _cvService.GetCVByUserIdAsync(userId, query);
-            if (cv == null) return NotFound(new { Message = "Người dùng chưa upload CV nào" });
-            return Ok(cv);
-        }
+    
 
         [HttpPost("upload")]
         [Authorize]
@@ -105,9 +88,8 @@ namespace ai_speis_be.Controllers
         {
             if (id <= 0)
                 return BadRequest(new { title = "ID không hợp lệ", detail = "CV ID phải là số nguyên dương." });
-                
-            var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(currentUserRole) || !TryGetUserId(out int currentUserId))
+            
+            if ( !TryGetUserId(out int currentUserId))
             {
                 return Unauthorized();
             }
@@ -118,14 +100,12 @@ namespace ai_speis_be.Controllers
                 return NotFound(new { Message = "Không tìm thấy file CV." });
             }
 
-            // Regular user can only view their own CV, and it must not be archived
-            if (currentUserRole != "Admin")
+            // Regular user can only view their own CV, and it must not be archived   
+            if (cv.UserId != currentUserId || cv.Status == ai_speis_be.Models.Enums.CVFileStatus.Archived)
             {
-                if (cv.UserId != currentUserId || cv.Status == ai_speis_be.Models.Enums.CVFileStatus.Archived)
-                {
-                    return NotFound(new { Message = "Không tìm thấy file CV." });
-                }
+                return NotFound(new { Message = "Không tìm thấy file CV." });
             }
+
 
             return Ok(cv);
         }
@@ -134,9 +114,8 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> DeleteCV(int id)
         {
-            var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             
-            if (string.IsNullOrEmpty(currentUserRole) || !TryGetUserId(out int currentUserId))
+            if (!TryGetUserId(out int currentUserId))
             {
                 return Unauthorized();
             }
@@ -148,7 +127,7 @@ namespace ai_speis_be.Controllers
             }
 
             // Regular user can only delete their own CV
-            if (currentUserRole != "Admin" && cv.UserId != currentUserId)
+            if (cv.UserId != currentUserId)
             {
                 return Forbid();
             }
