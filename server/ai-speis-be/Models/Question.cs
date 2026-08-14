@@ -34,6 +34,11 @@ namespace ai_speis_be.Models
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
         public int? DeletedBy { get; set; }
+        public QuestionPurgeStatus PurgeStatus { get; set; } = QuestionPurgeStatus.None;
+        public DateTime? PurgeRequestedAt { get; set; }
+        public int? PurgeRequestedBy { get; set; }
+        public int PurgeAttemptCount { get; set; }
+        public string? LastPurgeError { get; set; }
 
         // --- Behavioral Question Fields (from interview_question.xlsx) ---
 

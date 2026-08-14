@@ -6,6 +6,8 @@ import {
   Plus,
   Edit3,
   Trash2,
+  RotateCcw,
+  ArchiveRestore,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -57,6 +59,8 @@ function QuestionManagementPage() {
   const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isTrashView, setIsTrashView] = useState(false);
+  const [deleteMode, setDeleteMode] = useState('soft');
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [questionToEdit, setQuestionToEdit] = useState(null);
@@ -109,7 +113,9 @@ function QuestionManagementPage() {
         difficulty: filters.difficulty,
         includeDeleted: filters.includeDeleted,
       };
-      const result = await questionService.getAdminQuestions(params);
+      const result = isTrashView
+        ? await questionService.getAdminQuestionTrash(params)
+        : await questionService.getAdminQuestions(params);
       if (result && result.items) {
         setQuestions(result.items);
         setTotalItems(result.totalItems || 0);
@@ -124,7 +130,7 @@ function QuestionManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, filters.roleTarget, filters.major, filters.difficulty, filters.includeDeleted]);
+  }, [currentPage, pageSize, debouncedSearch, filters.roleTarget, filters.major, filters.difficulty, filters.includeDeleted, isTrashView]);
 
   useEffect(() => {
     fetchQuestions();
@@ -162,12 +168,13 @@ function QuestionManagementPage() {
     );
   };
 
-  const openDeleteModal = (question = null) => {
+  const openDeleteModal = (question = null, mode = 'soft') => {
     if (question) {
       if (!selectedQuestionIds.includes(question.questionId)) {
         setSelectedQuestionIds([question.questionId]);
       }
     }
+    setDeleteMode(mode);
     setIsDeleteModalOpen(true);
   };
 
@@ -179,16 +186,40 @@ function QuestionManagementPage() {
     if (selectedQuestionIds.length === 0) return;
     try {
       setDeleting(true);
-      await Promise.all(selectedQuestionIds.map((id) => questionService.deleteAdminQuestion(id)));
-      notify.success(`Đã xóa thành công ${selectedQuestionIds.length} câu hỏi.`);
+      if (deleteMode === 'purge') {
+        await Promise.all(selectedQuestionIds.map((id) => questionService.requestAdminQuestionPurge(id)));
+        notify.success(t('purgeRequestSuccess', { count: selectedQuestionIds.length }));
+      } else {
+        await Promise.all(selectedQuestionIds.map((id) => questionService.deleteAdminQuestion(id)));
+        notify.success(t('softDeleteSuccess', { count: selectedQuestionIds.length }));
+      }
       setSelectedQuestionIds([]);
       closeDeleteModal();
       fetchQuestions();
     } catch (err) {
-      notify.error(err.message || 'Có lỗi xảy ra khi xóa câu hỏi.');
+      notify.error(err.message || t('questionDeleteError'));
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleRestore = async (questionId) => {
+    try {
+      setDeleting(true);
+      await questionService.restoreAdminQuestion(questionId);
+      notify.success(t('restoreSuccess'));
+      fetchQuestions();
+    } catch (err) {
+      notify.error(err.message || t('restoreError'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const toggleTrashView = () => {
+    setSelectedQuestionIds([]);
+    setCurrentPage(1);
+    setIsTrashView((current) => !current);
   };
 
   const openEditModal = (question) => {
@@ -369,25 +400,33 @@ function QuestionManagementPage() {
         </div>
         <div className="header-top">
           <div className="title-section">
-            <h1 className="page-title">{t('pageTitle', 'Interview Question Management')}</h1>
+            <h1 className="page-title">{isTrashView ? t('trashTitle') : t('pageTitle', 'Interview Question Management')}</h1>
             <p className="page-description">
-              {t('pageDescription', 'Manage the question bank by IT role, major, and difficulty.')}
+              {isTrashView
+                ? t('trashDescription')
+                : t('pageDescription', 'Manage the question bank by IT role, major, and difficulty.')}
             </p>
           </div>
 
           <div className="page-actions">
-            <button type="button" className="btn-secondary" onClick={openImportCodingModal}>
-              <FileInput size={16} />
-              {t('importCodingExcel', 'Import Coding')}
+            <button type="button" className="btn-secondary" onClick={toggleTrashView}>
+              {isTrashView ? <ArchiveRestore size={16} /> : <Trash2 size={16} />}
+              {isTrashView ? t('backToQuestionBank') : t('openTrash')}
             </button>
-            <button type="button" className="btn-secondary" onClick={openImportModal}>
-              <FileInput size={16} />
-              {t('importExcel', 'Import Excel')}
-            </button>
-            <button type="button" className="btn-primary" onClick={openAddModal}>
-              <Plus size={16} />
-              {t('addQuestion', 'Add question')}
-            </button>
+            {!isTrashView && <>
+              <button type="button" className="btn-secondary" onClick={openImportCodingModal}>
+                <FileInput size={16} />
+                {t('importCodingExcel', 'Import Coding')}
+              </button>
+              <button type="button" className="btn-secondary" onClick={openImportModal}>
+                <FileInput size={16} />
+                {t('importExcel', 'Import Excel')}
+              </button>
+              <button type="button" className="btn-primary" onClick={openAddModal}>
+                <Plus size={16} />
+                {t('addQuestion', 'Add question')}
+              </button>
+            </>}
           </div>
         </div>
       </div>
@@ -456,7 +495,7 @@ function QuestionManagementPage() {
           <p className="table-summary">
             {t('tableSummary', 'Showing {{total}} questions', { total: totalItems })}
           </p>
-          {selectedQuestionIds.length > 0 && (
+          {!isTrashView && selectedQuestionIds.length > 0 && (
             <button
               type="button"
               className="btn-danger"
@@ -522,6 +561,13 @@ function QuestionManagementPage() {
                       <div className="question-content-preview">
                         {question.questionContent}
                       </div>
+                      {isTrashView && (
+                        <div className="trash-question-status">
+                          {question.purgeStatus === 'Requested'
+                            ? (question.lastPurgeError || t('purgeRequestedStatus'))
+                            : t('trashAvailableStatus')}
+                        </div>
+                      )}
                     </td>
                     <td>{question.roleTarget}</td>
                     <td>
@@ -531,22 +577,43 @@ function QuestionManagementPage() {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button
-                          type="button"
-                          className="icon-button"
-                          title={t('edit', 'Edit')}
-                          onClick={() => openEditModal(question)}
-                        >
-                          <Edit3 size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button danger"
-                          title={t('delete', 'Delete')}
-                          onClick={() => openDeleteModal(question)}
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        {isTrashView ? <>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title={t('restore')}
+                            disabled={deleting}
+                            onClick={() => handleRestore(question.questionId)}
+                          >
+                            <RotateCcw size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button danger"
+                            title={t('requestPurge')}
+                            disabled={deleting || question.purgeStatus === 'Requested'}
+                            onClick={() => openDeleteModal(question, 'purge')}
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </> : <>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title={t('edit', 'Edit')}
+                            onClick={() => openEditModal(question)}
+                          >
+                            <Edit3 size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button danger"
+                            title={t('delete', 'Delete')}
+                            onClick={() => openDeleteModal(question)}
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </>}
                       </div>
                     </td>
                   </tr>
@@ -645,14 +712,18 @@ function QuestionManagementPage() {
         <div className="modal-backdrop">
           <div className="modal-card">
             <div className="modal-header">
-              <h3 className="modal-title">{t('deleteConfirmTitle', 'Xóa câu hỏi')}</h3>
+              <h3 className="modal-title">
+                {deleteMode === 'purge' ? t('purgeConfirmTitle') : t('moveToTrashTitle')}
+              </h3>
               <button type="button" className="btn-close" onClick={closeDeleteModal} disabled={deleting}>
                 <X size={20} />
               </button>
             </div>
             <div className="modal-body">
               <p style={{ margin: '0 0 12px', fontWeight: 500 }}>
-                Bạn có chắc chắn muốn xóa <strong>{selectedQuestionIds.length}</strong> câu hỏi đã chọn dưới đây không? Thao tác này không thể hoàn tác.
+                {deleteMode === 'purge'
+                  ? t('purgeConfirmText')
+                  : t('moveToTrashConfirmText', { count: selectedQuestionIds.length })}
               </p>
 
               <div className="selected-questions-container">
@@ -684,7 +755,11 @@ function QuestionManagementPage() {
                 disabled={selectedQuestionIds.length === 0 || deleting}
               >
                 <Trash2 size={16} />
-                {deleting ? 'Đang xóa...' : `Xóa (${selectedQuestionIds.length} câu hỏi)`}
+                {deleting
+                  ? t('processing')
+                  : deleteMode === 'purge'
+                    ? t('purgeRequestAction')
+                    : t('moveToTrashAction', { count: selectedQuestionIds.length })}
               </button>
             </div>
           </div>

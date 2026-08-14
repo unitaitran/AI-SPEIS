@@ -47,7 +47,8 @@ namespace ai_speis_be.Models
         public string? DifficultySnapshot { get; set; }
 
         public TechnicalQuestionSet TechnicalQuestionSet { get; set; } = null!;
-        public Question Question { get; set; } = null!;
+        // QuestionId is a historical source identifier, intentionally not a FK.
+        // QuestionSnapshotJson is the canonical interview record after a purge.
         public TechnicalSessionQuestion? ParentQuestion { get; set; }
         public ICollection<TechnicalSessionQuestion> ChildQuestions { get; set; } = new List<TechnicalSessionQuestion>();
         public TechnicalAnswer? Answer { get; set; }

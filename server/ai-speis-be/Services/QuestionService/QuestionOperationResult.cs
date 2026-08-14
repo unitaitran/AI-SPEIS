@@ -7,6 +7,8 @@ namespace ai_speis_be.Services.QuestionService
         Created,
         Updated,
         Deleted,
+        Restored,
+        PurgeRequested,
         QuestionNotFound,
         QuestionDeleted,
         AlreadyDeleted

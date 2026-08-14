@@ -213,6 +213,9 @@ namespace ai_speis_be.Models.DTOs
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
         public int? DeletedBy { get; set; }
+        public string PurgeStatus { get; set; } = string.Empty;
+        public DateTime? PurgeRequestedAt { get; set; }
+        public string? LastPurgeError { get; set; }
     }
 
     public class QuestionResponseDto
@@ -233,6 +236,9 @@ namespace ai_speis_be.Models.DTOs
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
         public int? DeletedBy { get; set; }
+        public string PurgeStatus { get; set; } = string.Empty;
+        public DateTime? PurgeRequestedAt { get; set; }
+        public string? LastPurgeError { get; set; }
     }
 
     public sealed class QuestionImportSummaryDto

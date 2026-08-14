@@ -426,6 +426,13 @@ using (var scope = app.Services.CreateScope())
         job => job.ExecuteAsync(),
         notificationRetryCron,
         new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+
+    var questionPurgeCron = builder.Configuration["BackgroundJobs:QuestionPurgeCron"] ?? "30 0 * * *";
+    recurringJobManager.AddOrUpdate<QuestionPurgeJob>(
+        "job-05-question-purge",
+        job => job.ExecuteAsync(),
+        questionPurgeCron,
+        new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
 }
 
 // Configure the HTTP request pipeline.

@@ -23,6 +23,16 @@ namespace ai_speis_be.Services.QuestionService
             int questionId,
             int actingUserId,
             CancellationToken cancellationToken = default);
+        Task<QuestionOperationResult> RestoreAdminQuestionAsync(
+            int questionId,
+            CancellationToken cancellationToken = default);
+        Task<QuestionOperationResult> RequestAdminQuestionPurgeAsync(
+            int questionId,
+            int actingUserId,
+            CancellationToken cancellationToken = default);
+        Task<PagedResultDto<AdminQuestionListItemDto>> GetDeletedAdminQuestionsAsync(
+            AdminQuestionQueryDto query,
+            CancellationToken cancellationToken = default);
         Task<QuestionImportOperationResult> ImportAdminQuestionsAsync(
             IFormFile? file,
             int actingUserId,

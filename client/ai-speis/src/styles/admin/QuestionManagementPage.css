@@ -806,3 +806,9 @@
   line-height: 1.4;
   word-break: break-word;
 }
+
+.trash-question-status {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
