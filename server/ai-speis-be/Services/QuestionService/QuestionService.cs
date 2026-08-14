@@ -99,6 +99,20 @@ namespace ai_speis_be.Services.QuestionService
             };
         }
 
+        public async Task<PagedResultDto<AdminQuestionListItemDto>> GetDeletedAdminQuestionsAsync(
+            AdminQuestionQueryDto query,
+            CancellationToken cancellationToken = default)
+        {
+            var questions = await _repository.GetDeletedAdminQuestionsAsync(query, cancellationToken);
+            return new PagedResultDto<AdminQuestionListItemDto>
+            {
+                Items = questions.Items.Select(MapToAdminListItemDto).ToList(),
+                PageNumber = questions.PageNumber,
+                PageSize = questions.PageSize,
+                TotalItems = questions.TotalItems
+            };
+        }
+
         public async Task<QuestionOperationResult> CreateAdminQuestionAsync(
             AdminQuestionCreateRequestDto request,
             int actingUserId,
@@ -191,12 +205,59 @@ namespace ai_speis_be.Services.QuestionService
             question.DeletedAt = now;
             question.DeletedBy = actingUserId;
             question.UpdatedAt = now;
+            question.PurgeStatus = QuestionPurgeStatus.None;
+            question.PurgeRequestedAt = null;
+            question.PurgeRequestedBy = null;
+            question.PurgeAttemptCount = 0;
+            question.LastPurgeError = null;
 
             await _repository.UpdateQuestionAsync(question, cancellationToken);
 
             return new QuestionOperationResult(
                 QuestionOperationOutcome.Deleted,
                 MapToDto(question));
+        }
+
+        public async Task<QuestionOperationResult> RestoreAdminQuestionAsync(
+            int questionId,
+            CancellationToken cancellationToken = default)
+        {
+            var question = await _repository.GetQuestionByIdAdminAsync(questionId, cancellationToken);
+            if (question is null)
+                return new QuestionOperationResult(QuestionOperationOutcome.QuestionNotFound);
+            if (!question.IsDeleted)
+                return new QuestionOperationResult(QuestionOperationOutcome.Restored, MapToDto(question));
+
+            question.IsDeleted = false;
+            question.DeletedAt = null;
+            question.DeletedBy = null;
+            question.PurgeStatus = QuestionPurgeStatus.None;
+            question.PurgeRequestedAt = null;
+            question.PurgeRequestedBy = null;
+            question.PurgeAttemptCount = 0;
+            question.LastPurgeError = null;
+            question.UpdatedAt = DateTime.UtcNow;
+            await _repository.UpdateQuestionAsync(question, cancellationToken);
+            return new QuestionOperationResult(QuestionOperationOutcome.Restored, MapToDto(question));
+        }
+
+        public async Task<QuestionOperationResult> RequestAdminQuestionPurgeAsync(
+            int questionId,
+            int actingUserId,
+            CancellationToken cancellationToken = default)
+        {
+            var question = await _repository.GetQuestionByIdAdminAsync(questionId, cancellationToken);
+            if (question is null)
+                return new QuestionOperationResult(QuestionOperationOutcome.QuestionNotFound);
+            if (!question.IsDeleted)
+                return new QuestionOperationResult(QuestionOperationOutcome.QuestionDeleted);
+
+            question.PurgeStatus = QuestionPurgeStatus.Requested;
+            question.PurgeRequestedAt ??= DateTime.UtcNow;
+            question.PurgeRequestedBy ??= actingUserId;
+            question.LastPurgeError = null;
+            await _repository.UpdateQuestionAsync(question, cancellationToken);
+            return new QuestionOperationResult(QuestionOperationOutcome.PurgeRequested, MapToDto(question));
         }
 
         public async Task<QuestionImportOperationResult> ImportAdminQuestionsAsync(
@@ -935,7 +996,10 @@ namespace ai_speis_be.Services.QuestionService
                 CreatedAt = question.CreatedAt,
                 UpdatedAt = question.UpdatedAt,
                 DeletedAt = question.DeletedAt,
-                DeletedBy = question.DeletedBy
+                DeletedBy = question.DeletedBy,
+                PurgeStatus = question.PurgeStatus.ToString(),
+                PurgeRequestedAt = question.PurgeRequestedAt,
+                LastPurgeError = question.LastPurgeError
             };
         }
 
@@ -957,7 +1021,10 @@ namespace ai_speis_be.Services.QuestionService
                 CreatedAt = question.CreatedAt,
                 UpdatedAt = question.UpdatedAt,
                 DeletedAt = question.DeletedAt,
-                DeletedBy = question.DeletedBy
+                DeletedBy = question.DeletedBy,
+                PurgeStatus = question.PurgeStatus.ToString(),
+                PurgeRequestedAt = question.PurgeRequestedAt,
+                LastPurgeError = question.LastPurgeError
             };
         }
 

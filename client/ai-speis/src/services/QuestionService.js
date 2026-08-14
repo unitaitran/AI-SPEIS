@@ -84,6 +84,21 @@ export const questionService = {
     return parseJsonResponse(response);
   },
 
+  getAdminQuestionTrash: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.pageNumber) queryParams.append('PageNumber', params.pageNumber);
+    if (params.pageSize) queryParams.append('PageSize', params.pageSize);
+    if (params.keyword) queryParams.append('Keyword', params.keyword);
+    if (params.major && params.major !== 'all') queryParams.append('Major', params.major);
+    if (params.roleTarget && params.roleTarget !== 'all') queryParams.append('RoleTarget', params.roleTarget);
+    if (params.difficulty && params.difficulty !== 'all') queryParams.append('Difficulty', params.difficulty);
+    const queryString = queryParams.toString();
+    const response = await fetch(queryString ? `${ENDPOINTS.ADMIN_QUESTIONS_TRASH}?${queryString}` : ENDPOINTS.ADMIN_QUESTIONS_TRASH, {
+      method: 'GET', headers: getAuthHeaders(),
+    });
+    return parseJsonResponse(response);
+  },
+
   createAdminQuestion: async (questionData) => {
     const response = await fetch(ENDPOINTS.ADMIN_QUESTIONS, {
       method: 'POST',
@@ -119,6 +134,20 @@ export const questionService = {
     });
 
     if (response.status === 204) return true;
+    return parseJsonResponse(response);
+  },
+
+  restoreAdminQuestion: async (questionId) => {
+    const response = await fetch(ENDPOINTS.ADMIN_QUESTION_RESTORE(questionId), {
+      method: 'PATCH', headers: getAuthHeaders(),
+    });
+    return parseJsonResponse(response);
+  },
+
+  requestAdminQuestionPurge: async (questionId) => {
+    const response = await fetch(ENDPOINTS.ADMIN_QUESTION_PURGE(questionId), {
+      method: 'POST', headers: getAuthHeaders(),
+    });
     return parseJsonResponse(response);
   },
 

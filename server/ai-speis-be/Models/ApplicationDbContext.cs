@@ -16,6 +16,7 @@ namespace ai_speis_be.Models
         public DbSet<CVSkill> CVSkills { get; set; } = null!;
         public DbSet<CVProject> CVProjects { get; set; } = null!;
         public DbSet<Question> Questions { get; set; } = null!;
+        public DbSet<QuestionPurgeAudit> QuestionPurgeAudits { get; set; } = null!;
         public DbSet<SavedQuestion> SavedQuestion { get; set; } = null!;
         public DbSet<JDFile> JDFiles { get; set; } = null!;
         public DbSet<JDExtractedProfile> JDExtractedProfiles { get; set; } = null!;
@@ -255,13 +256,9 @@ namespace ai_speis_be.Models
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<SingleQuestionRetry>()
-                .HasOne(retry => retry.Question)
-                .WithMany()
-                .HasForeignKey(retry => retry.QuestionId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<SingleQuestionRetry>()
                 .HasIndex(retry => new { retry.UserId, retry.QuestionId, retry.CreatedAt });
+            modelBuilder.Entity<SingleQuestionRetry>()
+                .HasIndex(retry => retry.QuestionId);
             modelBuilder.Entity<TechnicalQuestionSet>()
                 .HasIndex(set => set.InterviewSessionId)
                 .IsUnique();
@@ -278,11 +275,6 @@ namespace ai_speis_be.Models
                 .HasForeignKey(question => question.TechnicalQuestionSetId)
                 .OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<TechnicalSessionQuestion>()
-                .HasOne(question => question.Question)
-                .WithMany()
-                .HasForeignKey(question => question.QuestionId)
-                .OnDelete(DeleteBehavior.Restrict);
-            modelBuilder.Entity<TechnicalSessionQuestion>()
                 .HasOne(question => question.ParentQuestion)
                 .WithMany(question => question.ChildQuestions)
                 .HasForeignKey(question => question.ParentQuestionId)
@@ -296,6 +288,8 @@ namespace ai_speis_be.Models
             modelBuilder.Entity<TechnicalSessionQuestion>()
                 .HasIndex(question => new { question.TechnicalQuestionSetId, question.QuestionOrder })
                 .IsUnique();
+            modelBuilder.Entity<TechnicalSessionQuestion>()
+                .HasIndex(question => question.QuestionId);
 
             modelBuilder.Entity<TechnicalAnswer>()
                 .HasOne(answer => answer.TechnicalSessionQuestion)
@@ -560,6 +554,8 @@ namespace ai_speis_be.Models
             modelBuilder.Entity<BehaviourSessionQuestion>()
                 .Property(q => q.Status)
                 .HasConversion<string>();
+            modelBuilder.Entity<BehaviourSessionQuestion>()
+                .HasIndex(question => question.QuestionId);
 
             // Enum Conversions for BehaviourAnswer
             modelBuilder.Entity<BehaviourAnswer>()

@@ -6,4 +6,10 @@
         Medium,
         Hard
     }
+
+    public enum QuestionPurgeStatus
+    {
+        None,
+        Requested
+    }
 }

@@ -52,6 +52,10 @@ const buildQueryString = (params) => {
     }
   }
 
+  if (params.package && params.package.toLowerCase() !== 'all') {
+    query.set('Package', params.package);
+  }
+
   if (params.sortBy) {
     const mappedSortBy = sortByMap[params.sortBy];
     if (mappedSortBy) {
@@ -204,17 +208,6 @@ export const userService = {
     return parseJsonResponse(response);
   },
 
-  assignPackage: async () => {
-    throw new Error('Assign package is not supported by the current backend API');
-  },
-
-  batchLockUsers: async () => {
-    throw new Error('Batch lock is not supported by the current backend API');
-  },
-
-  batchAssignPackage: async () => {
-    throw new Error('Batch assign package is not supported by the current backend API');
-  },
 };
 
 export default userService;

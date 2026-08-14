@@ -8,6 +8,9 @@ namespace ai_speis_be.Repositories.QuestionRepo
         Task<PagedResultDto<Question>> GetAdminQuestionsAsync(
             AdminQuestionQueryDto query,
             CancellationToken cancellationToken = default);
+        Task<PagedResultDto<Question>> GetDeletedAdminQuestionsAsync(
+            AdminQuestionQueryDto query,
+            CancellationToken cancellationToken = default);
         Task<PagedResultDto<Question>> GetQuestionsAsync(
             UserQuestionQueryDto query,
             CancellationToken cancellationToken = default);

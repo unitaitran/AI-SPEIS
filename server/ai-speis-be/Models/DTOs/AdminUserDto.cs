@@ -33,6 +33,9 @@ namespace ai_speis_be.Models.DTOs
         [StringLength(100, ErrorMessage = "Vai trò không được vượt quá 100 ký tự.")]
         public string? Role { get; set; }
 
+        [StringLength(50, ErrorMessage = "Mã gói đăng ký không được vượt quá 50 ký tự.")]
+        public string? Package { get; set; }
+
         public bool? Status { get; set; }
 
         public AdminUserSortBy SortBy { get; set; } = AdminUserSortBy.CreatedAt;
@@ -51,6 +54,8 @@ namespace ai_speis_be.Models.DTOs
         public bool Status { get; set; }
         public bool IsLocked { get; set; }
         public string AccountStatus { get; set; } = string.Empty;
+        public string Package { get; set; } = string.Empty;
+        public int Quota { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
@@ -74,6 +79,8 @@ namespace ai_speis_be.Models.DTOs
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public string? ImageUrl { get; init; }
+        public string Package { get; init; } = string.Empty;
+        public int Quota { get; init; }
         public AdminUserProfileDto? Profile { get; init; }
         public IReadOnlyList<AdminUserCVFileDto> CVFiles { get; init; } = Array.Empty<AdminUserCVFileDto>();
     }

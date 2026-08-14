@@ -1,4 +1,5 @@
 using ai_speis_be.Models;
+using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.UserRepo;
 using ai_speis_be.Tests.Helpers;
@@ -51,6 +52,33 @@ namespace ai_speis_be.Tests.Repositories
             Assert.NotNull(result.Profile);
             Assert.Equal("FPT University", result.Profile.School);
             Assert.Equal(Gender.Female, result.Profile.Gender);
+            Assert.Equal("Free", result.Package);
+            Assert.Equal(user.RemainingInterviewQuota, result.Quota);
+        }
+
+        [Fact]
+        public async Task GetUsersAsync_WithPackageFilter_ReturnsPackageAndRemainingQuota()
+        {
+            var user = await AddUserAsync();
+            user.RemainingInterviewQuota = 7;
+            _context.UserSubscriptions.Add(new UserSubscription
+            {
+                UserId = user.UserId,
+                PlanId = 2,
+                Status = UserSubscriptionStatus.Active,
+                StartedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
+            var result = await _repository.GetUsersAsync(new AdminUserQueryDto
+            {
+                Package = "premium"
+            });
+
+            var item = Assert.Single(result.Items);
+            Assert.Equal("Premium", item.Package);
+            Assert.Equal(7, item.Quota);
         }
 
         [Fact]

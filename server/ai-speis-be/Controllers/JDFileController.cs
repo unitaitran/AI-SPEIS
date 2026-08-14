@@ -23,34 +23,6 @@ namespace ai_speis_be.Controllers
             var userIdClaim = User.FindFirst("UserId")?.Value;
             return !string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out userId);
         }
-        [HttpGet]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllJD([FromQuery] JDQueryParameters query, CancellationToken cancellationToken)
-        {
-            var JD = await _jdService.GetAllJDsAsync(query);
-            return Ok(JD);
-        }
-        [HttpGet("user/{userId:int}")]
-        [Authorize]
-        public async Task<IActionResult> GetUserJD(int userId, [FromQuery] JDQueryParameters query, CancellationToken cancellationToken)
-        {
-            if (userId <= 0)
-                return BadRequest(new { title = "ID không hợp lệ", detail = "User ID phải là số nguyên dương." });
-            var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-             if (currentUserRole != "Admin")
-            {
-                if (!TryGetUserId(out int currentUserId) || currentUserId != userId)
-                {
-                    return NotFound(new { Message = "Không tìm thấy file JD." });
-                }
-            }
-            var JD = await _jdService.GetJDByUserIdAsync(userId, query);
-           
-            if (JD == null) return NotFound(new { Message = "Người dùng chưa upload JD nào" });
-          
-            return Ok(JD);
-        }
-
         [HttpGet("history")]
         [Authorize]
         public async Task<IActionResult> GetMyJDHistory([FromQuery] JDQueryParameters query)
@@ -113,8 +85,8 @@ namespace ai_speis_be.Controllers
             if (id <= 0)
                 return BadRequest(new { title = "ID không hợp lệ", detail = "JD ID phải là số nguyên dương." });
 
-            var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(currentUserRole) || !TryGetUserId(out int currentUserId))
+          
+            if (!TryGetUserId(out int currentUserId))
             {
                 return Unauthorized();
             }
@@ -126,13 +98,11 @@ namespace ai_speis_be.Controllers
             }
 
             // Regular user can only view their own JD, and it must not be archived
-            if (currentUserRole != "Admin")
+            if (jd.UserId != currentUserId)
             {
-                if (jd.UserId != currentUserId)
-                {
-                    return NotFound(new { Message = "Không tìm thấy file JD." });
-                }
+                return NotFound(new { Message = "Không tìm thấy file JD." });
             }
+           
 
             return Ok(jd);
         }
@@ -140,9 +110,9 @@ namespace ai_speis_be.Controllers
         [Authorize]
         public async Task<IActionResult> DeleteJD(int id)
         {
-            var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+          
 
-            if (string.IsNullOrEmpty(currentUserRole) || !TryGetUserId(out int currentUserId))
+            if (!TryGetUserId(out int currentUserId))
             {
                 return Unauthorized();
             }
@@ -154,7 +124,7 @@ namespace ai_speis_be.Controllers
             }
 
             // Regular user can only delete their own JD
-            if (currentUserRole != "Admin" && jd.UserId != currentUserId)
+            if (jd.UserId != currentUserId)
             {
                 return Forbid();
             }
