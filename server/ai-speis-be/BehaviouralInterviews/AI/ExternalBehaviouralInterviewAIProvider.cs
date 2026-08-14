@@ -118,6 +118,8 @@ namespace ai_speis_be.BehaviouralInterviews.AI
                 {
                     model = model,
                     temperature = 0.1,
+                    max_tokens = 2048,
+                    num_predict = 2048,
                     format = "json",
                     response_format = new { type = "json_object" },
                     messages = new object[]
