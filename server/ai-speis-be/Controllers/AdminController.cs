@@ -354,6 +354,7 @@ namespace ai_speis_be.Controllers
         [HttpPatch("users/{userId:int}/role")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateUserRole(
             int userId,
@@ -366,18 +367,37 @@ namespace ai_speis_be.Controllers
             if (string.IsNullOrWhiteSpace(request.RoleName))
                 return BadRequest(new { title = "Role không hợp lệ", detail = "RoleName không được để trống." });
 
-            var success = await _userService.UpdateUserRoleAsync(userId, request.RoleName, cancellationToken);
-            if (!success)
-            {
-                return NotFound(new ProblemDetails
-                {
-                    Title = "User not found or role invalid",
-                    Detail = $"User with ID {userId} does not exist or the role is invalid.",
-                    Status = StatusCodes.Status404NotFound
-                });
-            }
+            var result = await _userService.UpdateUserRoleAsync(userId, request.RoleName, cancellationToken);
 
-            return Ok(new { Message = "Cập nhật vai trò người dùng thành công." });
+            return result.Outcome switch
+            {
+                UpdateUserRoleOutcome.Updated => Ok(new
+                {
+                    Message = "Cập nhật vai trò người dùng thành công."
+                }),
+                UpdateUserRoleOutcome.UserNotFound => NotFound(new ProblemDetails
+                {
+                    Title = "Không tìm thấy người dùng",
+                    Detail = $"Không tìm thấy người dùng với ID {userId}.",
+                    Status = StatusCodes.Status404NotFound
+                }),
+                UpdateUserRoleOutcome.InvalidRole => BadRequest(new ProblemDetails
+                {
+                    Title = "Role không hợp lệ",
+                    Detail = "RoleName chỉ có thể là admin hoặc user.",
+                    Status = StatusCodes.Status400BadRequest
+                }),
+                UpdateUserRoleOutcome.AdminDemotionForbidden => StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new ProblemDetails
+                    {
+                        Title = "Tài khoản admin được bảo vệ",
+                        Detail = "Không thể hạ quyền tài khoản admin.",
+                        Status = StatusCodes.Status403Forbidden
+                    }),
+                _ => throw new InvalidOperationException(
+                    $"Kết quả cập nhật vai trò không được hỗ trợ: {result.Outcome}")
+            };
         }
 
         private bool TryGetActingUserId(out int actingUserId)

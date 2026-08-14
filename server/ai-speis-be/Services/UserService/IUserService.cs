@@ -44,7 +44,7 @@ namespace ai_speis_be.Services.UserService
             int userId,
             ChangePasswordRequestDto dto,
             CancellationToken cancellationToken = default);
-        Task<bool> UpdateUserRoleAsync(
+        Task<UpdateUserRoleResult> UpdateUserRoleAsync(
             int userId,
             string roleName,
             CancellationToken cancellationToken = default);

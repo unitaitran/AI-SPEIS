@@ -72,41 +72,6 @@
   margin: 0 !important;
 }
 
-/* ========== Batch Action Bar ========== */
-.batch-action-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-md) var(--spacing-lg);
-  background-color: var(--surface-2);
-  border: 1px solid rgba(111, 182, 232, 0.25);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--box-shadow-sm);
-  animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.batch-info {
-  color: var(--text-primary);
-  font-size: var(--body-md);
-  font-weight: var(--fw-semibold);
-}
-
-.batch-buttons {
-  display: flex;
-  gap: var(--spacing-md);
-}
-
 /* ========== Filter Card ========== */
 .filter-card {
   padding: var(--spacing-lg);
@@ -327,10 +292,6 @@
 }
 
 /* Table Columns */
-.col-checkbox {
-  width: 50px;
-}
-
 .col-actions {
   width: 140px;
   text-align: center;
@@ -345,20 +306,6 @@
 .col-role,
 .col-status {
   width: 120px;
-}
-
-/* ========== Checkbox ========== */
-.select-checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--primary);
-  border-radius: 4px;
-}
-
-.select-checkbox:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 /* ========== Role Badge ========== */
@@ -560,12 +507,6 @@
 @keyframes skeletonWave {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
-}
-
-.skeleton-checkbox {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
 }
 
 .skeleton-text {
@@ -791,21 +732,6 @@
     width: 100%;
   }
 
-  .batch-action-bar {
-    flex-direction: column;
-    gap: var(--spacing-md);
-    align-items: flex-start;
-  }
-
-  .batch-buttons {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .batch-buttons button {
-    width: 100%;
-  }
-
   .users-table {
     font-size: var(--body-sm);
   }
@@ -813,10 +739,6 @@
   .users-table th,
   .users-table td {
     padding: var(--spacing-sm) var(--spacing-md);
-  }
-
-  .col-checkbox {
-    width: 40px;
   }
 
   .col-date,
@@ -909,10 +831,6 @@
     font-size: var(--body-sm);
   }
 
-  .col-checkbox {
-    width: 36px;
-  }
-
   .col-name,
   .col-email {
     min-width: 120px;
@@ -956,17 +874,6 @@
     width: 100%;
   }
 
-  .batch-action-bar {
-    padding: var(--spacing-md);
-  }
-
-  .batch-info {
-    font-size: var(--body-sm);
-  }
-
-  .batch-buttons {
-    width: 100%;
-  }
 }
 
 /* ========== User Details Modal ========== */
