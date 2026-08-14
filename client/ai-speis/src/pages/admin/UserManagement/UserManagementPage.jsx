@@ -45,7 +45,6 @@ function UserManagementPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState(null);
 
-  const [selectedUsers, setSelectedUsers] = useState(new Set());
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,7 +54,6 @@ function UserManagementPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [confirmModal, setConfirmModal] = useState(null);
   const [roleModal, setRoleModal] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
 
@@ -159,7 +157,6 @@ function UserManagementPage() {
     setSortBy('');
     setSortOrder('asc');
     setCurrentPage(1);
-    setSelectedUsers(new Set());
   };
 
   const handleViewDetails = async (userId) => {
@@ -181,61 +178,6 @@ function UserManagementPage() {
     setDetailModalOpen(false);
     setDetailUser(null);
     setDetailError(null);
-  };
-
-  // Handle user selection
-  const handleSelectUser = (userId) => {
-    const newSelected = new Set(selectedUsers);
-    if (newSelected.has(userId)) {
-      newSelected.delete(userId);
-    } else {
-      newSelected.add(userId);
-    }
-    setSelectedUsers(newSelected);
-  };
-
-  // Handle select all
-  const handleSelectAll = () => {
-    if (selectedUsers.size === users.length) {
-      setSelectedUsers(new Set());
-    } else {
-      setSelectedUsers(new Set(users.map((u) => u.userId || u.id)));
-    }
-  };
-
-  // Handle batch actions (TODO: implement when backend ready)
-  const handleLockSelected = () => {
-    setConfirmModal({
-      type: 'lock',
-      count: selectedUsers.size,
-      userIds: Array.from(selectedUsers),
-    });
-  };
-
-  const handleAssignPackage = () => {
-    setConfirmModal({
-      type: 'assignPackage',
-      count: selectedUsers.size,
-      userIds: Array.from(selectedUsers),
-    });
-  };
-
-  const handleConfirmAction = () => {
-    if (!confirmModal) {
-      return;
-    }
-
-    if (confirmModal.type === 'lock') {
-      console.log('Confirmed lock selected users:', confirmModal.userIds);
-    } else {
-      console.log('Confirmed assign package to users:', confirmModal.userIds);
-    }
-
-    setConfirmModal(null);
-  };
-
-  const handleCancelAction = () => {
-    setConfirmModal(null);
   };
 
   const toggleSort = (field) => {
@@ -373,7 +315,6 @@ function UserManagementPage() {
   // Skeleton loading component
   const SkeletonRow = () => (
     <tr className="skeleton-row">
-      <td><div className="skeleton skeleton-checkbox" /></td>
       <td><div className="skeleton skeleton-text" /></td>
       <td><div className="skeleton skeleton-text" /></td>
       <td><div className="skeleton skeleton-text" /></td>
@@ -393,36 +334,6 @@ function UserManagementPage() {
       <p>{backendNotImplemented ? t('noUsersBackendDesc') : t('noUsersDesc')}</p>
     </div>
   );
-
-  const ConfirmationModal = () => {
-    if (!confirmModal) {
-      return null;
-    }
-
-    const isLock = confirmModal.type === 'lock';
-    const title = isLock ? t('confirmLockTitle') : t('confirmAssignPackageTitle');
-    const description = isLock
-      ? t('confirmLockDescription', { count: confirmModal.count })
-      : t('confirmAssignPackageDescription', { count: confirmModal.count });
-    const confirmLabel = isLock ? t('lockSelected') : t('assignPackage');
-
-    return (
-      <div className="modal-backdrop" role="dialog" aria-modal="true">
-        <div className="modal-card">
-          <h3>{title}</h3>
-          <p>{description}</p>
-          <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={handleCancelAction}>
-              {t('cancel')}
-            </button>
-            <button type="button" className="btn-primary" onClick={handleConfirmAction}>
-              {confirmLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const UserDetailsModal = () => {
     if (!detailModalOpen) return null;
@@ -856,31 +767,6 @@ function UserManagementPage() {
       </div>
 
       <div className="page-content">
-        {/* Batch Action Bar */}
-        {selectedUsers.size > 0 && (
-          <div className="batch-action-bar">
-            <span className="batch-info">
-              {t('selectedUsers', { count: selectedUsers.size })}
-            </span>
-            <div className="batch-buttons">
-              <button
-                className="btn-secondary"
-                type="button"
-                onClick={handleLockSelected}
-              >
-                {t('lockSelected')}
-              </button>
-              <button
-                className="btn-primary"
-                type="button"
-                onClick={handleAssignPackage}
-              >
-                {t('assignPackage')}
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Filter Card */}
         {!error && (
           <div className="filter-card">
@@ -952,13 +838,6 @@ function UserManagementPage() {
               <table className="users-table">
                 <thead>
                   <tr>
-                    <th className="col-checkbox">
-                      <input
-                        type="checkbox"
-                        disabled
-                        className="select-checkbox"
-                      />
-                    </th>
                     <th>{t('fullName')}</th>
                     <th>{t('email')}</th>
                     <th>{t('role')}</th>
@@ -982,17 +861,6 @@ function UserManagementPage() {
                 <table className="users-table">
                   <thead>
                     <tr>
-                      <th className="col-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={
-                            displayedUsers.length > 0
-                            && selectedUsers.size === displayedUsers.length
-                          }
-                          onChange={handleSelectAll}
-                          className="select-checkbox"
-                        />
-                      </th>
                       <th className="sortable-header" onClick={() => toggleSort('fullName')}>
                         <span>{t('fullName')}</span>
                         {sortBy === 'fullName' && (
@@ -1034,14 +902,6 @@ function UserManagementPage() {
                       const registerDateVal = user.createdAt || user.registerDate;
                       return (
                         <tr key={userIdVal}>
-                          <td className="col-checkbox">
-                            <input
-                              type="checkbox"
-                              checked={selectedUsers.has(userIdVal)}
-                              onChange={() => handleSelectUser(userIdVal)}
-                              className="select-checkbox"
-                            />
-                          </td>
                           <td className="col-name">{user.fullName || '-'}</td>
                           <td className="col-email">{user.email || '-'}</td>
                           <td className="col-role">
@@ -1071,8 +931,11 @@ function UserManagementPage() {
                               <button
                                 className="action-btn"
                                 type="button"
-                                title={t('assignRole')}
+                                title={user.role?.toLowerCase() === 'admin'
+                                  ? t('adminRoleProtected', 'Không thể hạ quyền tài khoản admin')
+                                  : t('assignRole')}
                                 aria-label={t('assignRole')}
+                                disabled={user.role?.toLowerCase() === 'admin'}
                                 onClick={() => {
                                   setRoleModal({
                                     user: user,
@@ -1220,7 +1083,6 @@ function UserManagementPage() {
           </div>
         )}
       </div>
-      <ConfirmationModal />
       <UserDetailsModal />
       <EditRoleModal />
       <ActionConfirmModal />

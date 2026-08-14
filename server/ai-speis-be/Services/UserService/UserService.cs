@@ -411,7 +411,7 @@ namespace ai_speis_be.Services.UserService
             return new ChangePasswordResult(ChangePasswordOutcome.Success);
         }
 
-        public async Task<bool> UpdateUserRoleAsync(
+        public async Task<UpdateUserRoleResult> UpdateUserRoleAsync(
             int userId,
             string roleName,
             CancellationToken cancellationToken = default)
@@ -422,13 +422,20 @@ namespace ai_speis_be.Services.UserService
 
             if (user is null)
             {
-                return false;
+                return new UpdateUserRoleResult(UpdateUserRoleOutcome.UserNotFound);
             }
 
             var normalizedRole = roleName.Trim().ToLower();
             if (normalizedRole != "admin" && normalizedRole != "user")
             {
-                return false;
+                return new UpdateUserRoleResult(UpdateUserRoleOutcome.InvalidRole, user);
+            }
+
+            // Administrative accounts are protected from demotion, regardless of
+            // whether the acting admin targets their own account or another admin.
+            if (normalizedRole == "user" && HasProtectedAdministrativeRole(user.Role.RoleName))
+            {
+                return new UpdateUserRoleResult(UpdateUserRoleOutcome.AdminDemotionForbidden, user);
             }
 
             var roleId = normalizedRole == "admin" ? 1 : 2;
@@ -437,7 +444,7 @@ namespace ai_speis_be.Services.UserService
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateUserAsync(user, cancellationToken);
-            return true;
+            return new UpdateUserRoleResult(UpdateUserRoleOutcome.Updated, user);
         }
 
         // ── Private helpers ────────────────────────────────────────────────────
