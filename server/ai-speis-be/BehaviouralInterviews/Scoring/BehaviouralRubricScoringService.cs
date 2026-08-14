@@ -50,7 +50,7 @@ namespace ai_speis_be.BehaviouralInterviews.Scoring
             var dimensionScores = rubric.Dimensions.Select(dimension =>
             {
                 var suggested = dimensionsByCode.TryGetValue(dimension.Code, out var dimensionEval) 
-                    ? dimensionEval.SuggestedScore 
+                    ? dimensionEval.SuggestedScore ?? 0m
                     : 0m;
                 
                 var final = Round(suggested, rubric.RoundingPrecision);
@@ -68,7 +68,7 @@ namespace ai_speis_be.BehaviouralInterviews.Scoring
             var aiSuggested = Round(
                 rubric.Dimensions.Sum(dimension =>
                 {
-                    var suggested = dimensionsByCode.TryGetValue(dimension.Code, out var eval) ? eval.SuggestedScore : 0m;
+                    var suggested = dimensionsByCode.TryGetValue(dimension.Code, out var eval) ? eval.SuggestedScore ?? 0m : 0m;
                     return suggested * dimension.Weight;
                 }),
                 rubric.RoundingPrecision);

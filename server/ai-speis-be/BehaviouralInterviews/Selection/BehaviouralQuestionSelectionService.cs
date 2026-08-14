@@ -15,6 +15,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
         public string? CompanyCategory { get; init; }
         public QuestionDifficultyEnum? Difficulty { get; init; }
         public int NumberOfQuestions { get; init; } = 3;
+        public string? AiProvider { get; init; }
         public IReadOnlyList<string> RequiredSkills { get; init; } = Array.Empty<string>();
         public IReadOnlyList<string> NiceToHaveSkills { get; init; } = Array.Empty<string>();
         public IReadOnlyList<string> CvHighlights { get; init; } = Array.Empty<string>();
@@ -114,7 +115,7 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
                 question => question.QuestionId,
                 question => question.Skill);
 
-            var aiProvider = _providerResolver.Resolve(_options.Provider);
+            var aiProvider = _providerResolver.Resolve(context.AiProvider ?? _options.Provider);
             BehaviouralAIProviderResult<BehaviouralAISelectionResponse>? aiResult = null;
 
             // Retry 1 lần khi AI trả kết quả không hợp lệ (brief §21)

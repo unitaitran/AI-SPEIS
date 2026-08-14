@@ -267,12 +267,14 @@ function BehavioralInterviewPage({ sessionId }) {
     }
   }, [initialContext, resolvedSessionId, room.generalSession?.interviewCampaignId]);
 
+  const isEndingAllRef = useRef(false);
+
   useEffect(() => {
     if (room.phase !== BehavioralFlowPhase.COMPLETED) return;
     resetRecorder();
     pauseQuestionAudio();
 
-    if (mode === InterviewMode.REAL) {
+    if (mode === InterviewMode.REAL && !isEndingAllRef.current) {
       const navigateToNextRound = async () => {
         const campaignId = room.session?.interviewCampaignId
           || initialContext?.campaign?.interviewCampaignId;
@@ -381,7 +383,7 @@ function BehavioralInterviewPage({ sessionId }) {
     return false;
   }, [phaseIsActive]);
 
-  const handleDialogConfirm = async () => {
+  const handleDialogConfirm = async (action = 'endRound') => {
     if (dialog?.type === 'leave') {
       cleanupRecorder();
       pauseQuestionAudio();
@@ -395,12 +397,29 @@ function BehavioralInterviewPage({ sessionId }) {
 
     if (dialog?.type === 'end') {
       setLocalError(null);
+      if (action === 'endAll') {
+        isEndingAllRef.current = true;
+      }
       try {
         await room.completeInterview();
         setDialog(null);
-      } catch {
+        if (action === 'endAll') {
+          const campaignId = room.session?.interviewCampaignId
+            || room.generalSession?.interviewCampaignId
+            || initialContext?.campaign?.interviewCampaignId;
+          if (campaignId) {
+            try {
+              await interviewSessionService.finishCampaign(campaignId);
+            } catch {
+              // best effort
+            }
+            navigate(getCampaignResultPath(campaignId), { replace: true });
+          }
+        }
+      } catch (completionError) {
+        isEndingAllRef.current = false;
         setDialog(null);
-        await handleForceEndSession();
+        setLocalError(completionError);
       }
     }
   };
@@ -427,26 +446,6 @@ function BehavioralInterviewPage({ sessionId }) {
       await room.retryFeedback();
     } catch (retryError) {
       setFeedbackRetryError(retryError);
-    }
-  };
-
-  const handleForceEndSession = async () => {
-    if (!resolvedSessionId) return;
-    setLocalError(null);
-    preGenerator.cancel(technicalSessionId);
-    try {
-      const campaign = await interviewSessionService.completeSession(resolvedSessionId);
-      const nextSession = getNextOpenSession(campaign, resolvedSessionId);
-      saveActiveInterviewContext({
-        campaign,
-        activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
-        configurationKey: initialContext?.configurationKey || null,
-      });
-      navigate(nextSession?.status === 'Active'
-        ? getInterviewRoomPath(nextSession.interviewSessionId)
-        : USER_ROUTES.INTERVIEW_SETUP, { replace: true });
-    } catch (endError) {
-      setLocalError(endError);
     }
   };
 
@@ -481,7 +480,7 @@ function BehavioralInterviewPage({ sessionId }) {
       retryLabel={t('retry')}
       onBack={() => navigate(USER_ROUTES.INTERVIEW_SETUP)}
       backLabel={t('backToSetup')}
-      onEnd={handleForceEndSession}
+      onEnd={() => room.completeInterview().catch((completionError) => setLocalError(completionError))}
       endLabel={t('endInterview')}
     />
   );
@@ -548,6 +547,7 @@ function BehavioralInterviewPage({ sessionId }) {
         <>
           <BehavioralRoomDialog
             dialog={dialog}
+            mode={mode}
             busy={room.phase === BehavioralFlowPhase.COMPLETING}
             onCancel={() => { setDialog(null); setPendingNavigation(null); }}
             onConfirm={handleDialogConfirm}
@@ -645,15 +645,7 @@ function BehavioralInterviewPage({ sessionId }) {
                 {room.currentQuestion.hint && initialContext?.campaign?.mode === 'Practice' ? (
                   <p className="behavior-question__hint">{room.currentQuestion.hint}</p>
                 ) : null}
-                {recorder.transcript.trim() ? (
-                  <div className="behavior-question__candidate-script">
-                    <div className="behavior-question__candidate-script-head">
-                      <UserRound size={15} />
-                      <span>{t('candidateAnswer', { defaultValue: 'Câu trả lời của bạn' })}</span>
-                    </div>
-                    <p>{recorder.transcript.trim()}</p>
-                  </div>
-                ) : null}
+
                 <div className={`behavior-interviewer ${recorder.recordingStatus === 'RECORDING' ? 'behavior-interviewer--listening' : ''}`} aria-hidden="true">
                   <span className="behavior-interviewer__ring" />
                   <span className="behavior-interviewer__ring" />

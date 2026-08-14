@@ -37,15 +37,7 @@ function TechnicalV2Completion({
           </ul>
         </div>
       ) : null}
-      {String(result?.finalFeedbackStatus || '').toUpperCase() === 'FAILED' || feedbackError ? (
-        <div className="technical-inline-error" role="alert">
-          <span>{t('result.feedbackUnavailable')}</span>
-          <button type="button" onClick={onRetryFeedback} disabled={feedbackRetrying}>
-            <RefreshCw size={16} />
-            {feedbackRetrying ? t('result.generatingFeedback') : t('result.retryFeedback')}
-          </button>
-        </div>
-      ) : null}
+
       <div className="behavior-completion__actions">
         <button type="button" onClick={onOverview}>
           <LayoutDashboard size={18} />

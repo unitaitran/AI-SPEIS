@@ -21,6 +21,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
     {
         private const string RuntimeVersion = "V2";
         private const string RubricVersion = "technical-v2-runtime";
+        private const int MinimumCountedQuestionsPerRound = 5;
         private static readonly ConcurrentDictionary<int, SemaphoreSlim> SessionGates = new();
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -38,6 +39,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
         private readonly IInterviewSessionService _sessionLifecycle;
         private readonly TechnicalInterviewOptions _options;
         private readonly ILogger<TechnicalV2InterviewOrchestrator> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
         public TechnicalV2InterviewOrchestrator(
             ApplicationDbContext context,
@@ -48,6 +50,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
             ITechnicalRubricScoringService scoringService,
             IInterviewSessionService sessionLifecycle,
             ILogger<TechnicalV2InterviewOrchestrator> logger,
+            IServiceProvider serviceProvider,
             TechnicalInterviewOptions? options = null)
         {
             _context = context;
@@ -59,6 +62,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
             _sessionLifecycle = sessionLifecycle;
             _options = options ?? new TechnicalInterviewOptions();
             _logger = logger;
+            _serviceProvider = serviceProvider;
         }
 
         public async Task<TechnicalV2OperationResult<TechnicalV2SessionDto>> InitializeAsync(
@@ -113,7 +117,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
             IReadOnlyList<Question>? aiSelection = null;
             if (targetCount >= 1)
             {
-                aiSelection = await _selectionService.SelectMainQuestionsWithAIAsync(context, pool.Candidates, 0, 0, cancellationToken);
+                aiSelection = await _selectionService.SelectMainQuestionsWithAIAsync(context, pool.Candidates, targetCount, 0, 0, cancellationToken);
             }
 
             var selected = (aiSelection is { Count: > 0 } ? aiSelection : pool.Candidates)
@@ -305,6 +309,10 @@ namespace ai_speis_be.TechnicalInterviews.V2
             var rubric = GetRubric();
             var root = ResolveMainQuestion(question, set);
             var decision = ResolveDecision(question, root, set, answer.FinalQuestionScore ?? rubric.MinimumScore, rubric);
+            if (decision.FinalizeMainQuestion)
+            {
+                decision = TryForceReliabilityFollowUp(set, root, rubric) ?? decision;
+            }
             TechnicalSessionQuestion? next = null;
             if (!decision.FinalizeMainQuestion && decision.NextQuestionType is not null)
             {
@@ -320,8 +328,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
                     cancellationToken);
                 if (next is null)
                 {
-                    // A missing bank probe must never strand the round. Finalize
-                    // the main chain and advance using the deterministic main order.
                     decision = V2Decision.NextMain;
                 }
             }
@@ -360,14 +366,15 @@ namespace ai_speis_be.TechnicalInterviews.V2
             }
             if (set is null) return Failure<TechnicalV2ResultDto>(TechnicalV2OperationStatus.NotFound, "NOT_INITIALIZED", "Technical interview is not initialized.");
             var required = set.Questions.Where(question => question.QuestionType == TechnicalSessionQuestionType.Main).ToList();
-            if (set.Questions.Any(question => question.Status != TechnicalSessionQuestionStatus.Skipped && question.Answer is null)
-                || required.Any(question => !IsMainQuestionFinalized(question, set)))
-                return Failure<TechnicalV2ResultDto>(TechnicalV2OperationStatus.Conflict, "QUESTIONS_NOT_FINALIZED", "All technical answers must be finalized before completion.");
             var result = await _context.TechnicalRoundResults.FirstOrDefaultAsync(item => item.InterviewSessionId == sessionId, cancellationToken);
             if (result is null)
             {
                 var rubric = GetRubric();
-                var score = _scoringService.ScoreSession(required.Select(question => question.Answer!.FinalQuestionScore ?? 0m), rubric, required.Count);
+                var answeredRequired = required.Where(q => q.Answer != null).ToList();
+                var scoresToUse = answeredRequired.Count > 0
+                    ? answeredRequired.Select(question => question.Answer!.FinalQuestionScore ?? question.Answer!.ComputedScore ?? 0m)
+                    : required.Select(question => question.Answer?.FinalQuestionScore ?? 0m);
+                var score = _scoringService.ScoreSession(scoresToUse, rubric, Math.Max(1, answeredRequired.Count));
                 result = new TechnicalRoundResult
                 {
                     InterviewSessionId = sessionId,
@@ -384,6 +391,24 @@ namespace ai_speis_be.TechnicalInterviews.V2
             }
             if (session!.Status != InterviewSessionStatus.Completed)
                 await _sessionLifecycle.CompleteSessionAsync(userId, sessionId);
+
+            // Fire and forget background AI feedback generation so completion returns immediately
+            var currentUserId = userId;
+            var currentSessionId = sessionId;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var orchestrator = scope.ServiceProvider.GetRequiredService<ITechnicalV2InterviewOrchestrator>();
+                    await orchestrator.GenerateFeedbackAsync(currentUserId, currentSessionId, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Background Technical final feedback generation failed for session {SessionId}.", currentSessionId);
+                }
+            });
+
             return TechnicalV2OperationResult<TechnicalV2ResultDto>.Ok(BuildResultDto(session!, set, result));
         }
 
@@ -401,18 +426,32 @@ namespace ai_speis_be.TechnicalInterviews.V2
 
         public async Task<TechnicalV2OperationResult<TechnicalV2ResultDto>> GenerateFeedbackAsync(int userId, int sessionId, CancellationToken cancellationToken)
         {
-            var resultOperation = await CompleteAsync(userId, sessionId, cancellationToken);
-            if (resultOperation.Value is null) return resultOperation;
             var session = await LoadSessionAsync(userId, sessionId, cancellationToken);
             var set = await LoadSetAsync(sessionId, cancellationToken);
-            var result = await _context.TechnicalRoundResults.FirstAsync(item => item.InterviewSessionId == sessionId, cancellationToken);
-            if (result.FinalFeedbackStatus == "COMPLETED")
-                return TechnicalV2OperationResult<TechnicalV2ResultDto>.Ok(BuildResultDto(session!, set!, result));
-
-            if (result.FinalFeedbackStatus == "PROCESSING"
-                && result.FinalFeedbackStartedAt > DateTime.UtcNow.AddMinutes(-5))
+            var result = await _context.TechnicalRoundResults.FirstOrDefaultAsync(item => item.InterviewSessionId == sessionId, cancellationToken);
+            if (session is null || set is null || result is null)
             {
-                return Failure<TechnicalV2ResultDto>(TechnicalV2OperationStatus.Conflict, "FINAL_FEEDBACK_PROCESSING", "Technical feedback is already being generated.");
+                var resultOperation = await CompleteAsync(userId, sessionId, cancellationToken);
+                if (resultOperation.Value is null) return resultOperation;
+                session = await LoadSessionAsync(userId, sessionId, cancellationToken);
+                set = await LoadSetAsync(sessionId, cancellationToken);
+                result = await _context.TechnicalRoundResults.FirstAsync(item => item.InterviewSessionId == sessionId, cancellationToken);
+            }
+            await GenerateFinalFeedbackCoreAsync(session!, set!, result, GetRubric(), cancellationToken);
+            return TechnicalV2OperationResult<TechnicalV2ResultDto>.Ok(BuildResultDto(session, set, result));
+        }
+
+        private async Task GenerateFinalFeedbackCoreAsync(
+            InterviewSession session,
+            TechnicalQuestionSet set,
+            TechnicalRoundResult result,
+            TechnicalRubricDefinition rubric,
+            CancellationToken cancellationToken)
+        {
+            if (string.Equals(result.FinalFeedbackStatus, "COMPLETED", StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(result.FinalFeedbackJson))
+            {
+                return;
             }
 
             result.FinalFeedbackStatus = "PROCESSING";
@@ -420,64 +459,153 @@ namespace ai_speis_be.TechnicalInterviews.V2
             result.FinalFeedbackError = null;
             result.FeedbackConcurrencyVersion++;
             await _context.SaveChangesAsync(cancellationToken);
-            var rubric = GetRubric();
-            var provider = ResolveProvider(session!);
-            var ai = await provider.GenerateFinalSummaryAsync(new TechnicalAIFinalSummaryRequest
-            {
-                RubricVersion = rubric.Version,
-                JobRole = session!.InterviewCampaign.JDExtractedProfile?.RoleTarget ?? string.Empty,
-                ExperienceLevel = session.InterviewCampaign.JDExtractedProfile?.ExperienceLevel ?? string.Empty,
-                Language = session.InterviewCampaign.Language,
-                OverallScore = result.OverallScore ?? 0m,
-                PerformanceBand = rubric.GetPerformanceBandCode(result.OverallScore ?? 0m),
-                MainQuestionResults = set!.Questions.Where(item => item.QuestionType == TechnicalSessionQuestionType.Main).Select(item => new { item.QuestionOrder, item.Skill, Score = item.Answer!.FinalQuestionScore, item.Answer.Transcript }).Cast<object>().ToList()
-            }, cancellationToken);
-            AddInteractionLog(session, AIInteractionOperationType.FeedbackGeneration, TechnicalPromptVersions.Summary, ai, !ai.Success, ai.ErrorCode);
-            if (ai.Success && ai.Data is not null)
-            {
-                result.AiExecutiveSummary = ai.Data.OverallTechnicalAssessment;
-                result.AiStrengths = JsonSerializer.Serialize(ai.Data.Strengths, JsonOptions);
-                result.AiGaps = JsonSerializer.Serialize(ai.Data.KnowledgeGaps, JsonOptions);
-                result.AiLevelAssessment = ai.Data.OverallTechnicalAssessment;
-                result.AiRecommendations = JsonSerializer.Serialize(ai.Data.RecommendationsForImprovement, JsonOptions);
-                result.FinalFeedbackJson = JsonSerializer.Serialize(new TechnicalV2SummaryDto
+
+            var provider = ResolveProvider(session);
+            var mainQuestionResults = set.Questions
+                .Where(item => item.QuestionType == TechnicalSessionQuestionType.Main)
+                .OrderBy(item => item.QuestionOrder)
+                .Select(mainQuestion =>
                 {
-                    OverallTechnicalAssessment = ai.Data.OverallTechnicalAssessment,
-                    ExecutiveSummary = ai.Data.OverallTechnicalAssessment,
-                    Strengths = ai.Data.Strengths ?? new(),
-                    KnowledgeGaps = ai.Data.KnowledgeGaps ?? new(),
-                    LevelAssessment = ai.Data.OverallTechnicalAssessment,
-                    RecommendationsForImprovement = ai.Data.RecommendationsForImprovement ?? new(),
-                    FinalTechnicalScore = result.OverallScore ?? 0m
-                }, JsonOptions);
-                result.FinalFeedbackStatus = "COMPLETED";
-                result.FinalFeedbackModel = ai.Model;
-                result.FinalFeedbackPromptVersion = TechnicalPromptVersions.Summary;
-                result.FeedbackInputTokens = ai.InputTokens;
-                result.FeedbackOutputTokens = ai.OutputTokens;
-                result.FeedbackLatencyMs = ai.LatencyMs;
-                result.FeedbackRetryCount = ai.RetryCount;
+                    var attempts = set.Questions
+                        .Where(item => item.TechnicalSessionQuestionId == mainQuestion.TechnicalSessionQuestionId
+                            || item.ParentQuestionId == mainQuestion.TechnicalSessionQuestionId)
+                        .OrderBy(item => item.QuestionOrder)
+                        .Select(item => new
+                        {
+                            type = item.QuestionType.ToString(),
+                            question = ParseSnapshot(item.QuestionSnapshotJson).QuestionText,
+                            answer = item.Answer?.Transcript,
+                            score = item.Answer?.ComputedScore,
+                            evidence = ParseDimensions(item.Answer?.AiCriteriaDetailJson)
+                                .SelectMany(dimension => dimension.Evidence ?? new List<string>())
+                                .Where(value => !string.IsNullOrWhiteSpace(value))
+                                .Distinct(StringComparer.OrdinalIgnoreCase)
+                                .Take(5)
+                                .ToList(),
+                            missingEvidence = ParseDimensions(item.Answer?.AiCriteriaDetailJson)
+                                .SelectMany(dimension => dimension.MissingEvidence ?? new List<string>())
+                                .Where(value => !string.IsNullOrWhiteSpace(value))
+                                .Distinct(StringComparer.OrdinalIgnoreCase)
+                                .Take(5)
+                                .ToList()
+                        })
+                        .ToList();
+                    return (object)new
+                    {
+                        question = ParseSnapshot(mainQuestion.QuestionSnapshotJson).QuestionText,
+                        skill = mainQuestion.Skill,
+                        finalQuestionScore = mainQuestion.Answer?.FinalQuestionScore,
+                        attempts
+                    };
+                })
+                .ToList();
+
+            AIProviderResult<TechnicalAIFinalSummaryResponse> ai;
+            try
+            {
+                ai = await provider.GenerateFinalSummaryAsync(new TechnicalAIFinalSummaryRequest
+                {
+                    RubricVersion = rubric.Version,
+                    JobRole = session.InterviewCampaign.JDExtractedProfile?.RoleTarget
+                        ?? session.InterviewCampaign.JDExtractedProfile?.JobTitle
+                        ?? string.Empty,
+                    ExperienceLevel = session.InterviewCampaign.JDExtractedProfile?.ExperienceLevel ?? string.Empty,
+                    Language = session.InterviewCampaign.Language,
+                    RequiredSkills = ParseList(set.ConstraintsJson, "requiredSkills"),
+                    CvJdMatchScore = session.InterviewCampaign.CvJdMatchScore,
+                    CvContext = JsonSerializer.Serialize(new
+                    {
+                        roleTarget = session.InterviewCampaign.CVExtractedProfile?.RoleTarget,
+                        skills = session.InterviewCampaign.CVExtractedProfile?.Skills
+                            .Select(skill => skill.SkillName)
+                            .Where(skill => !string.IsNullOrWhiteSpace(skill))
+                            .Take(20)
+                            .ToList()
+                    }, JsonOptions),
+                    JdContext = JsonSerializer.Serialize(new
+                    {
+                        jobTitle = session.InterviewCampaign.JDExtractedProfile?.JobTitle,
+                        roleTarget = session.InterviewCampaign.JDExtractedProfile?.RoleTarget,
+                        experienceLevel = session.InterviewCampaign.JDExtractedProfile?.ExperienceLevel,
+                        responsibilities = session.InterviewCampaign.JDExtractedProfile?.Responsibilities
+                    }, JsonOptions),
+                    OverallScore = result.OverallScore ?? 0m,
+                    PerformanceBand = rubric.GetPerformanceBandCode(result.OverallScore ?? 0m),
+                    MainQuestionResults = mainQuestionResults,
+                    SkillResults = BuildSkillScores(set.Questions.Where(item => item.QuestionType == TechnicalSessionQuestionType.Main))
+                        .Select(item => (object)new { skill = item.Key, score = item.Value })
+                        .ToList()
+                }, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogError(exception, "Technical final feedback provider failed for session {SessionId}.", session.InterviewSessionId);
+                ai = new AIProviderResult<TechnicalAIFinalSummaryResponse>
+                {
+                    Success = false,
+                    Model = provider.ProviderName,
+                    ErrorCode = "PROVIDER_EXCEPTION"
+                };
+            }
+
+            AddInteractionLog(session, AIInteractionOperationType.FeedbackGeneration, TechnicalPromptVersions.Summary, ai, !ai.Success, ai.ErrorCode);
+            var strengths = ai.Data is null ? new List<string>() : CleanFeedbackList(ai.Data.Strengths);
+            var gaps = ai.Data is null ? new List<string>() : CleanFeedbackList(ai.Data.KnowledgeGaps);
+            var recommendations = ai.Data is null ? new List<string>() : CleanFeedbackList(ai.Data.RecommendationsForImprovement);
+            var valid = ai.Success
+                && ai.Data is not null
+                && !string.IsNullOrWhiteSpace(ai.Data.OverallTechnicalAssessment)
+                && strengths.Count is >= 2 and <= 4
+                && gaps.Count is >= 2 and <= 4
+                && recommendations.Count is >= 3 and <= 5;
+            if (valid)
+            {
+                var assessment = ai.Data!.OverallTechnicalAssessment.Trim();
+                ApplyFinalFeedback(result, assessment, strengths, gaps, recommendations, assessment, "COMPLETED");
+                result.FinalFeedbackError = null;
             }
             else
             {
-                result.FinalFeedbackStatus = "FALLBACK";
-                result.FinalFeedbackError = ai.ErrorCode ?? "AI_FEEDBACK_FAILED";
-                result.AiExecutiveSummary = "Technical result calculated from validated answer scores.";
-                result.AiStrengths = "[]";
-                result.AiGaps = "[]";
-                result.AiLevelAssessment = rubric.GetPerformanceBandCode(result.OverallScore ?? 0m);
-                result.AiRecommendations = JsonSerializer.Serialize(new[] { "Review the missing evidence for each rubric dimension." }, JsonOptions);
-                result.FinalFeedbackJson = JsonSerializer.Serialize(new TechnicalV2SummaryDto
-                {
-                    OverallTechnicalAssessment = result.AiExecutiveSummary,
-                    ExecutiveSummary = result.AiExecutiveSummary,
-                    LevelAssessment = result.AiLevelAssessment,
-                    RecommendationsForImprovement = ParseListValue(result.AiRecommendations),
-                    FinalTechnicalScore = result.OverallScore ?? 0m
-                }, JsonOptions);
+                var fallback = BuildFallbackFinalFeedback(session, set, result, rubric);
+                ApplyFinalFeedback(result, fallback.Assessment, fallback.Strengths, fallback.Gaps, fallback.Recommendations,
+                    rubric.GetPerformanceBandCode(result.OverallScore ?? 0m), "FALLBACK");
+                result.FinalFeedbackError = ai.ErrorCode ?? "INVALID_FINAL_FEEDBACK";
             }
+
+            result.FinalFeedbackModel = ai.Model;
+            result.FinalFeedbackPromptVersion = TechnicalPromptVersions.Summary;
+            result.FeedbackInputTokens = ai.InputTokens;
+            result.FeedbackOutputTokens = ai.OutputTokens;
+            result.FeedbackLatencyMs = ai.LatencyMs;
+            result.FeedbackRetryCount = ai.RetryCount;
             await _context.SaveChangesAsync(cancellationToken);
-            return TechnicalV2OperationResult<TechnicalV2ResultDto>.Ok(BuildResultDto(session, set, result));
+        }
+
+        private void ApplyFinalFeedback(
+            TechnicalRoundResult result,
+            string assessment,
+            List<string> strengths,
+            List<string> gaps,
+            List<string> recommendations,
+            string levelAssessment,
+            string status)
+        {
+            result.AiExecutiveSummary = assessment;
+            result.AiStrengths = JsonSerializer.Serialize(strengths, JsonOptions);
+            result.AiGaps = JsonSerializer.Serialize(gaps, JsonOptions);
+            result.AiLevelAssessment = levelAssessment;
+            result.AiRecommendations = JsonSerializer.Serialize(recommendations, JsonOptions);
+            result.FinalFeedbackJson = JsonSerializer.Serialize(new TechnicalV2SummaryDto
+            {
+                OverallTechnicalAssessment = assessment,
+                ExecutiveSummary = assessment,
+                Strengths = strengths,
+                KnowledgeGaps = gaps,
+                LevelAssessment = levelAssessment,
+                RecommendationsForImprovement = recommendations,
+                FinalTechnicalScore = result.OverallScore ?? 0m
+            }, JsonOptions);
+            result.FinalFeedbackStatus = status;
         }
 
         private async Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAsync(InterviewSession session, TechnicalSessionQuestion question, TechnicalAnswer answer, CancellationToken cancellationToken)
@@ -567,9 +695,9 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 answer.FinalQuestionScore = score.FinalOverallScore;
                 answer.ComputedScore = score.FinalOverallScore;
 
-                answer.AiStrengths = "[]";
+                answer.AiStrengths = null;
                 answer.AiMissingPoints = JsonSerializer.Serialize(
-                    dimensions.SelectMany(item => item.MissingEvidence ?? new List<string>()).Take(5),
+                    dimensions.SelectMany(item => item.MissingEvidence ?? new List<string>()).Where(item => !string.IsNullOrWhiteSpace(item)).Select(item => item.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(5),
                     JsonOptions);
                 answer.EvaluationStatus = ai.PartialEvaluation
                     ? TechnicalAnswerEvaluationStatus.Partial
@@ -584,7 +712,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 answer.AiCriteriaDetailJson = JsonSerializer.Serialize(dimensions, JsonOptions);
                 answer.FinalQuestionScore = 0m;
                 answer.ComputedScore = 0m;
-                answer.AiStrengths = "[]";
+                answer.AiStrengths = null;
                 answer.AiMissingPoints = JsonSerializer.Serialize(
                     dimensions.SelectMany(item => item.MissingEvidence ?? new List<string>()).ToList(),
                     JsonOptions);
@@ -755,7 +883,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
                         Weight = d.Weight,
                         WeightedScore = Math.Round(score * d.Weight, 4),
                         Evidence = item?.Evidence ?? new(),
-                        Strengths = new(),
                         MissingEvidence = item?.MissingEvidence ?? new()
                     };
                 }).ToList(),
@@ -766,9 +893,51 @@ namespace ai_speis_be.TechnicalInterviews.V2
                         .Select(item => BuildQuestionResult(item, rubric, set, false))
                         .ToList()
                     : new List<TechnicalV2QuestionResultDto>(),
-                Strengths = ParseListValue(answer?.AiStrengths),
                 MissingPoints = ParseListValue(answer?.AiMissingPoints)
             };
+        }
+
+        private static List<string> CleanFeedbackList(IEnumerable<string>? values) => values?
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToList() ?? new List<string>();
+
+        private static (string Assessment, List<string> Strengths, List<string> Gaps, List<string> Recommendations)
+            BuildFallbackFinalFeedback(
+                InterviewSession session,
+                TechnicalQuestionSet set,
+                TechnicalRoundResult result,
+                TechnicalRubricDefinition rubric)
+        {
+            var language = session.InterviewCampaign.Language?.Trim().ToLowerInvariant();
+            var missingPoints = set.Questions
+                .Where(item => item.QuestionType == TechnicalSessionQuestionType.Main)
+                .SelectMany(item => ParseDimensions(item.Answer?.AiCriteriaDetailJson))
+                .SelectMany(item => item.MissingEvidence ?? new List<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(4)
+                .ToList();
+            var score = result.OverallScore ?? 0m;
+            var isVietnamese = language is "vi" or "vi-vn" or "vietnamese";
+            var assessment = isVietnamese
+                ? $"Kết quả technical được tổng hợp từ điểm đánh giá đã xác thực ({score:0.##}/10)."
+                : $"Technical result calculated from validated answer scores ({score:0.##}/10).";
+            var strengths = isVietnamese
+                ? new List<string> { "Điểm số được tổng hợp từ các tiêu chí đã xác thực." }
+                : new List<string> { "Scores were aggregated from validated rubric evaluations." };
+            var gaps = missingPoints.Count > 0
+                ? missingPoints
+                : isVietnamese
+                    ? new List<string> { "Cần bổ sung bằng chứng cụ thể cho các tiêu chí kỹ thuật." }
+                    : new List<string> { "Provide more concrete evidence for the technical criteria." };
+            var recommendations = isVietnamese
+                ? new List<string> { "Ôn lại các điểm còn thiếu theo từng tiêu chí.", "Thực hành trả lời với ví dụ kỹ thuật cụ thể.", "Giải thích rõ lý do và đánh đổi của giải pháp." }
+                : new List<string> { "Review missing evidence for each rubric criterion.", "Practice answers with concrete technical examples.", "Explain solution reasoning and trade-offs clearly." };
+            return (assessment, strengths, gaps, recommendations);
         }
 
         private async Task<InterviewSession?> LoadSessionAsync(int userId, int sessionId, CancellationToken cancellationToken)
@@ -889,6 +1058,45 @@ namespace ai_speis_be.TechnicalInterviews.V2
             }
 
             return V2Decision.NextMain;
+        }
+
+        // Match the behavioral reliability rule: add a final bank follow-up while
+        // the round contains fewer than five main/follow-up questions.
+        private static V2Decision? TryForceReliabilityFollowUp(
+            TechnicalQuestionSet set,
+            TechnicalSessionQuestion mainQuestion,
+            TechnicalRubricDefinition rubric)
+        {
+            if (set.Questions.Any(item => item.QuestionType == TechnicalSessionQuestionType.Main
+                && item.Status == TechnicalSessionQuestionStatus.Pending))
+            {
+                return null;
+            }
+
+            if (set.Questions.Count(item => item.QuestionType != TechnicalSessionQuestionType.Clarification)
+                >= MinimumCountedQuestionsPerRound)
+            {
+                return null;
+            }
+
+            var children = set.Questions
+                .Where(item => item.ParentQuestionId == mainQuestion.TechnicalSessionQuestionId)
+                .ToList();
+            var clarificationCount = children.Count(item => item.QuestionType == TechnicalSessionQuestionType.Clarification);
+            var followUpCount = children.Count(item => item.QuestionType == TechnicalSessionQuestionType.FollowUp);
+            if (clarificationCount + followUpCount >= rubric.Limits.MaxTotalSubQuestionsPerMainQuestion
+                || followUpCount >= rubric.Limits.MaxFollowUpsPerMainQuestion)
+            {
+                return null;
+            }
+
+            var snapshot = ParseSnapshot(mainQuestion.QuestionSnapshotJson);
+            var hasAvailableFollowUp = followUpCount == 0
+                ? !string.IsNullOrWhiteSpace(snapshot.FollowUp1)
+                : followUpCount == 1 && !string.IsNullOrWhiteSpace(snapshot.FollowUp2);
+            return hasAvailableFollowUp
+                ? new V2Decision(false, TechnicalSessionQuestionType.FollowUp, "FOLLOW_UP")
+                : null;
         }
 
         private async Task<TechnicalSessionQuestion?> CreateSubQuestionAsync(

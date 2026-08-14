@@ -57,6 +57,7 @@ namespace ai_speis_be.TechnicalInterviews.Selection
         Task<IReadOnlyList<Question>?> SelectMainQuestionsWithAIAsync(
             TechnicalSelectionContext baseContext,
             IReadOnlyList<Question> candidatePool,
+            int targetCount,
             int cvFocusCount,
             int jdFocusCount,
             CancellationToken cancellationToken);
@@ -87,11 +88,13 @@ namespace ai_speis_be.TechnicalInterviews.Selection
         public async Task<IReadOnlyList<Question>?> SelectMainQuestionsWithAIAsync(
             TechnicalSelectionContext baseContext,
             IReadOnlyList<Question> candidatePool,
+            int targetCount,
             int cvFocusCount,
             int jdFocusCount,
             CancellationToken cancellationToken)
         {
-            if (candidatePool.Count < 3)
+            var effectiveTargetCount = targetCount > 0 ? targetCount : 3;
+            if (candidatePool.Count < effectiveTargetCount)
             {
                 return null;
             }
@@ -108,17 +111,16 @@ namespace ai_speis_be.TechnicalInterviews.Selection
                     q.ExperienceLevel
                 )).ToList();
 
-                var targetCount = 3;
                 if (cvFocusCount == 0 && jdFocusCount == 0)
                 {
-                    (cvFocusCount, jdFocusCount) = ComputeSourceSplit(baseContext.CvJdMatchScore, targetCount);
+                    (cvFocusCount, jdFocusCount) = ComputeSourceSplit(baseContext.CvJdMatchScore, effectiveTargetCount);
                 }
 
                 var constraints = new TechnicalAISelectionConstraints
                 {
-                    RequiredQuestionCount = targetCount,
+                    RequiredQuestionCount = effectiveTargetCount,
                     MaximumQuestionsPerSkill = 1,
-                    MinimumCoveredSkills = Math.Min(targetCount, candidatePool.Select(q => q.Skill).Distinct().Count()),
+                    MinimumCoveredSkills = Math.Min(effectiveTargetCount, candidatePool.Select(q => q.Skill).Distinct().Count()),
                     CvFocusQuestionCount = cvFocusCount,
                     JdFocusQuestionCount = jdFocusCount
                 };

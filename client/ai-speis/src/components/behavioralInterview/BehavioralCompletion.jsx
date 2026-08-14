@@ -36,16 +36,7 @@ function BehavioralCompletion({
           </ul>
         </div>
       ) : null}
-      {(feedbackFailed || feedbackError) ? (
-        <div className="behavior-inline-error" role="alert">
-          <AlertCircle size={18} />
-          <span>{t('feedbackUnavailable')}</span>
-          <button type="button" onClick={onRetryFeedback} disabled={feedbackRetrying}>
-            <RefreshCw size={16} />
-            {feedbackRetrying ? t('generatingFeedback') : t('retryFeedback')}
-          </button>
-        </div>
-      ) : null}
+
       <div className="behavior-completion__actions">
         <button type="button" onClick={onOverview}>
           <LayoutDashboard size={18} />

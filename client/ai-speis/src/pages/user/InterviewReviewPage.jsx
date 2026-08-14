@@ -37,6 +37,13 @@ const formatScore = (score, maxScore) => {
 };
 
 const formatWeight = (weight) => new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 }).format(Number(weight) || 0);
+const BEHAVIORAL_WEIGHTS = {
+  SITUATION_TASK: 0.15,
+  ACTION: 0.30,
+  RESULT: 0.20,
+  COMPETENCY: 0.20,
+  COMMUNICATION: 0.15,
+};
 const technicalCriterionLabel = (code, t) => t(`technicalRoom.rubric.${String(code || '').toUpperCase()}`, { defaultValue: code || '' });
 const openSingleQuestionInterview = (question, roundType, originalSessionId) => {
   sessionStorage.setItem('ai-speis:single-question-interview', JSON.stringify({
@@ -100,7 +107,6 @@ const normalizeBehaviorReview = (result, state) => {
         score: Number.isFinite(Number(subQ.score)) ? Number(subQ.score) : 0,
         maxScore: 10,
         dimensions: subQ.dimensions || [],
-        strengths: subQ.strengths || [],
         missingPoints: getBehaviouralMissingPoints(subQ, roundImprovements),
         transcript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
         answerTranscript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
@@ -120,7 +126,6 @@ const normalizeBehaviorReview = (result, state) => {
         score: question.score,
         maxScore: result?.maxScore || 10,
         dimensions: question.dimensions || [],
-        strengths: question.strengths || [],
         missingPoints: getBehaviouralMissingPoints(question, roundImprovements),
         transcript: mainTranscript,
         feedbackSummary: roundFeedback,
@@ -212,7 +217,7 @@ function InterviewReviewPage({ sessionId }) {
       <header className="interview-review-detail__header"><div><span>{selected.questionType === 'MAIN' ? copy.review.mainQuestion : selected.questionType || copy.review.question}</span><h2>{selected.question || copy.review.missingQuestion}</h2>{selected.skill ? <p>{copy.review.skill.replace('{{skill}}', selected.skill)}</p> : null}</div><div className="interview-review-score">{formatScore(selected.score, selected.maxScore) ? <b>{formatScore(selected.score, selected.maxScore)}</b> : null}{selected.questionId && (session?.interviewRoundType === 'Technical' || session?.interviewRoundType === 'Behavior' || session?.interviewRoundType === 'Behavioral') ? <button type="button" className="interview-history-button" onClick={() => openSingleQuestionInterview(selected, session.interviewRoundType, sessionId)}><RefreshCw size={16} /> Thử lại</button> : null}</div></header>
           <section className="interview-review-transcript"><h3><MessageSquareText size={18} /> {copy.review.transcript}</h3>{selected.transcript ? <p>{selected.transcript}</p> : <p className="interview-review-empty-copy">{copy.review.missingTranscript}</p>}</section>
           {selected.feedbackSummary ? <section className="interview-review-feedback"><h3><ClipboardCheck size={18} /> {copy.review.aiFeedback}</h3><p>{selected.feedbackSummary}</p></section> : null}
-          {selected.dimensions?.length ? <section className="interview-review-rubric"><h3><Target size={18} /> {copy.review.rubric}</h3><div>{selected.dimensions.map((dimension) => <article key={dimension.rubricCode || dimension.name}><div><strong>{isTechnicalV2Review ? technicalCriterionLabel(dimension.rubricCode, t) : (dimension.name || dimension.rubricCode)}</strong>{!isTechnicalV2Review && dimension.level ? <span>{dimension.level}</span> : null}</div>{formatScore(dimension.score, dimension.maxScore) ? <b>{formatScore(dimension.score, dimension.maxScore)}</b> : null}{isTechnicalV2Review ? <small>{t('technicalRoom.result.weight', { weight: formatWeight(dimension.weight) })}</small> : null}{dimension.evidence?.length ? <p><strong>{isTechnicalV2Review ? t('technicalRoom.result.evidence') : ''}</strong>{isTechnicalV2Review ? ' ' : ''}{dimension.evidence.join(' ')}</p> : null}{isTechnicalV2Review && dimension.strengths?.length ? <p><strong>{t('technicalRoom.result.strengths')}</strong> {dimension.strengths.join(' ')}</p> : null}</article>)}</div></section> : null}
+          {selected.dimensions?.length ? <section className="interview-review-rubric"><h3><Target size={18} /> {copy.review.rubric}</h3><div>{selected.dimensions.map((dimension) => { const weightVal = dimension.weight != null && Number(dimension.weight) > 0 ? dimension.weight : BEHAVIORAL_WEIGHTS[String(dimension.rubricCode || '').toUpperCase()]; return <article key={dimension.rubricCode || dimension.name}><div><strong>{isTechnicalV2Review ? technicalCriterionLabel(dimension.rubricCode, t) : (dimension.name || dimension.rubricCode)}</strong>{!isTechnicalV2Review && dimension.level ? <span>{dimension.level}</span> : null}</div>{formatScore(dimension.score, dimension.maxScore) ? <b>{formatScore(dimension.score, dimension.maxScore)}</b> : null}{weightVal != null ? <small>{t('technicalRoom.result.weight', { weight: formatWeight(weightVal) })}</small> : null}{dimension.evidence?.length ? <p><strong>{isTechnicalV2Review ? t('technicalRoom.result.evidence') : ''}</strong>{isTechnicalV2Review ? ' ' : ''}{dimension.evidence.join(' ')}</p> : null}{isTechnicalV2Review && dimension.strengths?.length ? <p><strong>{t('technicalRoom.result.strengths')}</strong> {dimension.strengths.join(' ')}</p> : null}</article>; })}</div></section> : null}
           <div className="interview-review-feedback-grid"><ListSection icon={ClipboardCheck} title={copy.review.strengths} items={selected.strengths} tone="positive" /><ListSection icon={Target} title={copy.review.improvements} items={selected.missingPoints} tone="focus" /><ListSection icon={Lightbulb} title={copy.review.practiceTips} items={selected.suggestions} tone="next" /></div>
           {selected.adaptiveHistory?.length ? <section className="interview-review-followups"><h3>{copy.review.followUps}</h3>{selected.adaptiveHistory.map((item, index) => <article key={item.attemptId || index}><strong>{item.questionType || 'FOLLOW_UP'}</strong><p>{item.question}</p>{item.answerTranscript ? <span>{item.answerTranscript}</span> : <span className="interview-review-empty-copy">{copy.review.missingFollowUpTranscript}</span>}</article>)}</section> : null}
           <footer className="interview-review-navigation"><button type="button" className="interview-history-button interview-history-button--secondary" disabled={selectedIndex === 0} onClick={() => setSelectedIndex((value) => value - 1)}><ChevronLeft size={17} /> {copy.review.previous}</button><span>{selectedIndex + 1}/{review.questions.length}</span><button type="button" className="interview-history-button" disabled={selectedIndex === review.questions.length - 1} onClick={() => setSelectedIndex((value) => value + 1)}>{copy.review.next} <ChevronRight size={17} /></button></footer>

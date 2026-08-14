@@ -209,6 +209,17 @@ namespace ai_speis_be.Controllers
             return Ok(capabilities);
         }
 
+        [HttpPost("campaign/{campaignId:int}/finish")]
+        public async Task<IActionResult> FinishCampaign(int campaignId)
+        {
+            if (campaignId <= 0) return BadRequest(new { Message = "ID đợt phỏng vấn không hợp lệ." });
+            if (!TryGetUserId(out int userId)) return Unauthorized(new { Message = "Không tìm thấy thông tin người dùng hoặc token không hợp lệ." });
+
+            var (success, errorMessage, campaign) = await _service.FinishCampaignAsync(userId, campaignId);
+            if (!success) return BadRequest(new { Message = errorMessage });
+            return Ok(campaign);
+        }
+
         [HttpPost("campaign/{campaignId:int}/cancel")]
         public async Task<IActionResult> CancelCampaign(int campaignId)
         {

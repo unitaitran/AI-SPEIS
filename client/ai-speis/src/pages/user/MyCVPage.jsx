@@ -27,6 +27,7 @@ import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 import cvService from '../../services/CVService';
+import notify from '../../utils/notification';
 import { API_BASE_URL } from '../../config/api';
 import { beginNewInterviewCampaign } from '../../utils/interviewContext';
 import '../../styles/user/MyCVPage.css';
@@ -134,6 +135,8 @@ function MyCVPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(null);
   const [showUploadCVModal, setShowUploadCVModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [isDeletingCV, setIsDeletingCV] = useState(false);
 
   /* Refs for polling */
   const pollTimerRef = useRef(null);
@@ -391,21 +394,29 @@ function MyCVPage() {
   /* -----------------------------------------------------------------------
    *  Delete handler
    * --------------------------------------------------------------------- */
-  const handleRemoveCV = async () => {
+  const handleRemoveCV = () => {
     if (!cvData?.cvFileId) {
       setError(t('mycv.error_find_cv', 'Không tìm thấy thông tin tệp CV cần xóa.'));
       return;
     }
-    if (!window.confirm(t('mycv.confirm_delete', 'Bạn có chắc chắn muốn xóa CV này?'))) return;
+    setShowDeleteConfirmModal(true);
+  };
 
+  const handleConfirmDeleteCV = async () => {
+    if (!cvData?.cvFileId) return;
+    setIsDeletingCV(true);
     try {
       await cvService.deleteCV(cvData.cvFileId);
       setCvData(null);
       setCvStatus(null);
       setParsedData(null);
       stopPolling();
+      setShowDeleteConfirmModal(false);
+      notify.success(t('mycv.delete_success', 'CV đã được xóa thành công.'));
     } catch (err) {
       setError(err.message || t('mycv.error_remove', 'Lỗi khi xóa CV trên máy chủ.'));
+    } finally {
+      setIsDeletingCV(false);
     }
   };
 
@@ -1168,6 +1179,56 @@ function MyCVPage() {
               <div className="p-4 border-t border-border flex justify-end gap-3 bg-surface-2/50">
                 <button className="mycv-btn mycv-btn--outline" onClick={() => setShowUploadCVModal(false)}>
                   {t('mycv.cancel', 'Hủy')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm Delete CV Modal */}
+        {showDeleteConfirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-surface-1 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-pageEntrance border border-border">
+              <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-error/10 to-transparent">
+                <h3 className="text-lg font-semibold text-error flex items-center gap-2">
+                  <div className="p-1.5 bg-error/10 text-error rounded-md">
+                    <AlertCircle size={20} />
+                  </div>
+                  {t('mycv.delete_title', 'Xác nhận xóa CV')}
+                </h3>
+                <button 
+                  onClick={() => setShowDeleteConfirmModal(false)} 
+                  className="p-1 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
+                  disabled={isDeletingCV}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-2 bg-surface-1">
+                <p className="text-base font-medium text-text-primary">
+                  {t('mycv.confirm_delete', 'Bạn có chắc chắn muốn xóa CV này?')}
+                </p>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Hành động này sẽ xóa vĩnh viễn tệp CV và dữ liệu đã phân tích khỏi tài khoản của bạn.
+                </p>
+              </div>
+
+              <div className="p-4 border-t border-border flex justify-end gap-3 bg-surface-2/50">
+                <button 
+                  className="mycv-btn mycv-btn--outline" 
+                  onClick={() => setShowDeleteConfirmModal(false)}
+                  disabled={isDeletingCV}
+                >
+                  {t('mycv.cancel', 'Hủy')}
+                </button>
+                <button 
+                  className="mycv-btn bg-error text-white hover:bg-error/90 border-transparent flex items-center gap-2 cursor-pointer" 
+                  onClick={handleConfirmDeleteCV}
+                  disabled={isDeletingCV}
+                >
+                  {isDeletingCV ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                  {isDeletingCV ? 'Đang xóa...' : t('mycv.delete_confirm_btn', 'Xóa CV')}
                 </button>
               </div>
             </div>

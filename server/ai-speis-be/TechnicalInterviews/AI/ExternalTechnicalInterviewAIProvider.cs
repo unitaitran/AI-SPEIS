@@ -553,9 +553,38 @@ namespace ai_speis_be.TechnicalInterviews.AI
         {
             evaluation = new TechnicalV2EvaluationResponse();
             var flags = new List<string>();
+            if (string.IsNullOrWhiteSpace(rawContent))
+            {
+                metadata = FailureRecoveryMetadata(flags, null);
+                return false;
+            }
+
             var candidate = rawContent.Trim().TrimStart('\uFEFF');
-            candidate = candidate.Replace("\"dimensionsEvaluations\"", "\"dimensionEvaluations\"", StringComparison.Ordinal);
-            if (!string.Equals(candidate, rawContent.Trim().TrimStart('\uFEFF'), StringComparison.Ordinal))
+
+            // Strip Markdown code fences if present (e.g. ```json ... ```)
+            if (candidate.Contains("```"))
+            {
+                var fenceStart = candidate.IndexOf("```", StringComparison.Ordinal);
+                var lineEnd = candidate.IndexOf('\n', fenceStart);
+                var fenceEnd = candidate.LastIndexOf("```", StringComparison.Ordinal);
+                if (fenceStart >= 0 && fenceEnd > fenceStart)
+                {
+                    if (lineEnd > fenceStart && lineEnd < fenceEnd)
+                        candidate = candidate[(lineEnd + 1)..fenceEnd].Trim();
+                    else
+                        candidate = candidate[(fenceStart + 3)..fenceEnd].Trim();
+                    flags.Add("OLLAMA_JSON_FENCE_STRIPPED");
+                }
+            }
+
+            var originalCandidate = candidate;
+            candidate = candidate
+                .Replace("\"dimensionsEvaluations\"", "\"dimensionEvaluations\"", StringComparison.Ordinal)
+                .Replace("\"dimension_evaluations\"", "\"dimensionEvaluations\"", StringComparison.Ordinal)
+                .Replace("\"dimensions\"", "\"dimensionEvaluations\"", StringComparison.Ordinal)
+                .Replace("\"evaluations\"", "\"dimensionEvaluations\"", StringComparison.Ordinal);
+
+            if (!string.Equals(candidate, originalCandidate, StringComparison.Ordinal))
             {
                 flags.Add("OLLAMA_DIMENSION_KEY_NORMALIZED");
             }
@@ -579,61 +608,98 @@ namespace ai_speis_be.TechnicalInterviews.AI
                 return false;
             }
 
-            if (root is not JsonObject rootObject
-                || rootObject["evaluation"] is not JsonObject evaluationObject
-                || evaluationObject["dimensionEvaluations"] is not JsonArray dimensions)
+            // If top-level JSON array [ { "rubricCode": ... }, ... ], wrap inside { "evaluation": { "dimensionEvaluations": [ ... ] } }
+            if (root is JsonArray rootArray)
             {
-                metadata = FailureRecoveryMetadata(flags, null);
-                return false;
-            }
-
-            for (var index = 0; index < dimensions.Count; index++)
-            {
-                if (dimensions[index] is JsonValue stringValue
-                    && stringValue.TryGetValue<string>(out var serializedDimension)
-                    && TryParseDimensionObject(serializedDimension, out var parsedDimension))
+                root = new JsonObject
                 {
-                    dimensions[index] = parsedDimension;
-                    flags.Add("OLLAMA_STRINGIFIED_DIMENSION_UNWRAPPED");
-                }
-            }
-
-            foreach (var dimension in dimensions.OfType<JsonObject>())
-            {
-                if (NormalizeStringArray(dimension, "evidence", flags, invalidShapeSetsScore: true))
-                {
-                    dimension["suggestedScore"] = null;
-                }
-
-                if (NormalizeStringArray(dimension, "missingEvidence", flags, invalidShapeSetsScore: true))
-                {
-                    dimension["suggestedScore"] = null;
-                }
-            }
-
-            try
-            {
-                var normalizedJson = root.ToJsonString();
-                evaluation = JsonSerializer.Deserialize<TechnicalV2EvaluationResponse>(normalizedJson, options)
-                    ?? new TechnicalV2EvaluationResponse();
-                if (evaluation.Evaluation?.DimensionEvaluations is null)
-                {
-                    metadata = FailureRecoveryMetadata(flags, null);
-                    return false;
-                }
-
-                metadata = new AiJsonRecoveryMetadata
-                {
-                    RecoveryStatus = "RECOVERED",
-                    RecoveryFlags = flags.Distinct(StringComparer.Ordinal).ToArray()
+                    ["evaluation"] = new JsonObject
+                    {
+                        ["dimensionEvaluations"] = rootArray.DeepClone()
+                    }
                 };
-                return true;
+                flags.Add("OLLAMA_TOP_LEVEL_ARRAY_WRAPPED");
             }
-            catch (JsonException exception)
+
+            if (root is JsonObject rootObject)
             {
-                metadata = FailureRecoveryMetadata(flags, exception);
-                return false;
+                JsonArray? dimensions = null;
+                if (rootObject["evaluation"] is JsonObject evaluationObject && evaluationObject["dimensionEvaluations"] is JsonArray evalDims)
+                {
+                    dimensions = evalDims;
+                }
+                else if (rootObject["dimensionEvaluations"] is JsonArray directDims)
+                {
+                    dimensions = directDims;
+                    flags.Add("OLLAMA_MISSING_OUTER_EVALUATION_WRAPPED");
+                }
+                else if (rootObject["evaluation"] is JsonArray evalArr)
+                {
+                    dimensions = evalArr;
+                    flags.Add("OLLAMA_EVALUATION_ARRAY_WRAPPED");
+                }
+
+                if (dimensions != null)
+                {
+                    for (var index = 0; index < dimensions.Count; index++)
+                    {
+                        if (dimensions[index] is JsonValue stringValue
+                            && stringValue.TryGetValue<string>(out var serializedDimension)
+                            && TryParseDimensionObject(serializedDimension, out var parsedDimension))
+                        {
+                            dimensions[index] = parsedDimension;
+                            flags.Add("OLLAMA_STRINGIFIED_DIMENSION_UNWRAPPED");
+                        }
+                    }
+
+                    foreach (var dimension in dimensions.OfType<JsonObject>())
+                    {
+                        // Priority: Preserve AI score! Do not set suggestedScore to null if evidence has irregular shape.
+                        NormalizeStringArray(dimension, "evidence", flags, invalidShapeSetsScore: false);
+                        NormalizeStringArray(dimension, "missingEvidence", flags, invalidShapeSetsScore: false);
+
+                        // Ensure suggestedScore is numeric decimal if model returned it as a string ("8.5")
+                        if (dimension["suggestedScore"] is JsonValue scoreVal
+                            && scoreVal.TryGetValue<string>(out var scoreStr)
+                            && decimal.TryParse(scoreStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedScore))
+                        {
+                            dimension["suggestedScore"] = parsedScore;
+                        }
+                    }
+
+                    var normalizedRoot = new JsonObject
+                    {
+                        ["evaluation"] = new JsonObject
+                        {
+                            ["dimensionEvaluations"] = dimensions.DeepClone()
+                        }
+                    };
+
+                    try
+                    {
+                        var normalizedJson = normalizedRoot.ToJsonString();
+                        evaluation = JsonSerializer.Deserialize<TechnicalV2EvaluationResponse>(normalizedJson, options)
+                            ?? new TechnicalV2EvaluationResponse();
+                        if (evaluation.Evaluation?.DimensionEvaluations is not null && evaluation.Evaluation.DimensionEvaluations.Count > 0)
+                        {
+                            metadata = new AiJsonRecoveryMetadata
+                            {
+                                RecoveryStatus = "RECOVERED",
+                                RecoveryFlags = flags.Distinct(StringComparer.Ordinal).ToArray()
+                            };
+                            return true;
+                        }
+                    }
+                    catch (JsonException exception)
+                    {
+                        metadata = FailureRecoveryMetadata(flags, exception);
+                        return false;
+                    }
+                }
             }
+
+            metadata = FailureRecoveryMetadata(flags, null);
+            return false;
         }
 
         private static bool TryParseDimensionObject(string content, out JsonObject? dimension)
@@ -746,8 +812,19 @@ namespace ai_speis_be.TechnicalInterviews.AI
         {
             candidate = string.Empty;
             repaired = false;
-            var start = content.IndexOf('{');
-            if (start < 0) return false;
+            if (string.IsNullOrWhiteSpace(content)) return false;
+
+            var braceStart = content.IndexOf('{');
+            var bracketStart = content.IndexOf('[');
+
+            int start;
+            if (braceStart < 0 && bracketStart < 0) return false;
+            if (braceStart >= 0 && bracketStart >= 0)
+                start = Math.Min(braceStart, bracketStart);
+            else if (braceStart >= 0)
+                start = braceStart;
+            else
+                start = bracketStart;
 
             var closers = new Stack<char>();
             var inString = false;

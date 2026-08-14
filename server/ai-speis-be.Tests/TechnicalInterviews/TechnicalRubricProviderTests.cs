@@ -36,13 +36,13 @@ public sealed class TechnicalRubricProviderTests
         Assert.Equal("EXCELLENT", rubric.GetPerformanceBand(9m).Code);
         Assert.Equal("VERY_GOOD", rubric.GetPerformanceBand(8m).Code);
         Assert.Equal("GOOD", rubric.GetPerformanceBand(6.5m).Code);
-        Assert.Equal("MINIMUM_REQUIREMENT_MET", rubric.GetPerformanceBand(5m).Code);
+        Assert.Equal("FAIR", rubric.GetPerformanceBand(5m).Code);
         Assert.Equal("WEAK", rubric.GetPerformanceBand(3m).Code);
         Assert.Equal("VERY_WEAK", rubric.GetPerformanceBand(2.99m).Code);
         Assert.Equal("EXCELLENT", rubric.GetPerformanceBandCode(10m));
         Assert.Equal("VERY_GOOD", rubric.GetPerformanceBandCode(8.99m));
         Assert.Equal("GOOD", rubric.GetPerformanceBandCode(7m));
-        Assert.Equal("MINIMUM_REQUIREMENT_MET", rubric.GetPerformanceBandCode(5m));
+        Assert.Equal("FAIR", rubric.GetPerformanceBandCode(5m));
         Assert.Equal("WEAK", rubric.GetPerformanceBandCode(3m));
         Assert.Equal("VERY_WEAK", rubric.GetPerformanceBandCode(0m));
     }

@@ -397,24 +397,37 @@ const CodingInterviewPage = ({ sessionId }) => {
     if (isCompleting) return;
     setIsCompleting(true);
     try {
-      // Auto-submit code for any unsubmitted question if candidate entered code
+      // Sync active editor code into userCodes map before finishing
+      const latestUserCodes = { ...userCodes };
+      if (currentQId && selectedLanguage) {
+        const currentCodeKey = `${currentQId}_${selectedLanguage.id}`;
+        latestUserCodes[currentCodeKey] = code;
+      }
+
+      // Auto-submit code for any unsubmitted question so candidate code is evaluated by Judge0
       if (questions && questions.length > 0 && selectedLanguage) {
         for (const q of questions) {
           const qId = getQuestionId(q);
           if (!submittedQuestionIds.has(qId)) {
             const codeKey = `${qId}_${selectedLanguage.id}`;
-            const writtenCode = userCodes[codeKey] || (qId === currentQId ? code : '');
-            if (writtenCode && writtenCode.trim().length > 10) {
+            const template = q?.templates?.find(t => t.languageId === selectedLanguage.id);
+            const fallbackCode = template ? template.templateCode : getFallbackStarterCode(q, selectedLanguage);
+            const writtenCode = latestUserCodes[codeKey] || (qId === currentQId ? code : fallbackCode);
+
+            if (writtenCode && writtenCode.trim().length > 0) {
               try {
-                await codingService.submitCode({
+                const res = await codingService.submitCode({
                   interviewSessionId: parseInt(sessionId, 10),
                   codingQuestionId: qId,
                   languageId: selectedLanguage.id,
                   sourceCode: writtenCode,
                   isTestRun: false,
                 });
-              } catch {
-                // Best-effort auto-submit before finishing round
+                if (res) {
+                  setSubmittedQuestionIds((prev) => new Set(prev).add(qId));
+                }
+              } catch (subErr) {
+                console.error(`Auto-submit code error for question ${qId}:`, subErr);
               }
             }
           }

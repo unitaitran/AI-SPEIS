@@ -12,6 +12,7 @@ const labels = {
   'result.mainQuestion': ({ index }) => `Question ${index}`,
   'result.weight': ({ weight }) => `Weight: ${weight}`,
   'result.evidence': 'Evidence',
+  'result.missingEvidence': 'Missing evidence',
   'result.strengths': 'Strengths',
   'result.gaps': 'Gaps',
   'result.recommendations': 'Recommendations',
@@ -46,13 +47,12 @@ const result = {
     score: 8.1,
     evaluationStatus: 'COMPLETED',
     dimensions: [
-      { rubricCode: 'ACCURACY', score: 7.9, weight: 0.30, evidence: ['It separates construction from use.'], strengths: ['Correct concept.'], gaps: [] },
-      { rubricCode: 'TECHNICAL_DEPTH', score: 8.5, weight: 0.25, evidence: [], strengths: [], gaps: [] },
-      { rubricCode: 'REASONING', score: 8, weight: 0.20, evidence: [], strengths: [], gaps: [] },
-      { rubricCode: 'APPLICATION', score: 7.5, weight: 0.15, evidence: [], strengths: [], gaps: [] },
-      { rubricCode: 'COMMUNICATION', score: 8.5, weight: 0.10, evidence: [], strengths: [], gaps: [] },
+      { rubricCode: 'ACCURACY', score: 7.9, weight: 0.30, evidence: ['It separates construction from use.'], missingEvidence: [] },
+      { rubricCode: 'TECHNICAL_DEPTH', score: 8.5, weight: 0.25, evidence: [], missingEvidence: [] },
+      { rubricCode: 'REASONING', score: 8, weight: 0.20, evidence: [], missingEvidence: [] },
+      { rubricCode: 'APPLICATION', score: 7.5, weight: 0.15, evidence: [], missingEvidence: [] },
+      { rubricCode: 'COMMUNICATION', score: 8.5, weight: 0.10, evidence: [], missingEvidence: [] },
     ],
-    strengths: ['Clear answer.'],
     missingPoints: [],
   }],
   summary: {
@@ -87,7 +87,7 @@ test('renders zero score for a criterion with no evidence', () => {
       ...result.mainQuestions[0],
       dimensions: result.mainQuestions[0].dimensions.map((dimension) => (
         dimension.rubricCode === 'APPLICATION'
-          ? { ...dimension, score: 0, evidence: [], gaps: ['No concrete real-world application example was provided.'] }
+          ? { ...dimension, score: 0, evidence: [], missingEvidence: ['No concrete real-world application example was provided.'] }
           : dimension
       )),
     }],

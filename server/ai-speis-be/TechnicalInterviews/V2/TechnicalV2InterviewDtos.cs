@@ -109,7 +109,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
         public int? ParentSessionQuestionId { get; set; }
         public List<TechnicalV2DimensionResultDto> Dimensions { get; set; } = new();
         public List<TechnicalV2QuestionResultDto> SubQuestions { get; set; } = new();
-        public List<string> Strengths { get; set; } = new();
         public List<string> MissingPoints { get; set; } = new();
     }
 
@@ -121,7 +120,6 @@ namespace ai_speis_be.TechnicalInterviews.V2
         public decimal Weight { get; set; }
         public decimal WeightedScore { get; set; }
         public List<string> Evidence { get; set; } = new();
-        public List<string> Strengths { get; set; } = new();
         public List<string> MissingEvidence { get; set; } = new();
     }
 

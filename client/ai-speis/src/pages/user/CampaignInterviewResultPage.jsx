@@ -58,6 +58,13 @@ const formatScore = (score, maxScore = 10) => {
 };
 
 const formatWeight = (weight) => new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 }).format(Number(weight) || 0);
+const BEHAVIORAL_WEIGHTS = {
+  SITUATION_TASK: 0.15,
+  ACTION: 0.30,
+  RESULT: 0.20,
+  COMPETENCY: 0.20,
+  COMMUNICATION: 0.15,
+};
 const technicalCriterionLabel = (code, t) => t(`technicalRoom.rubric.${String(code || '').toUpperCase()}`, { defaultValue: code || '' });
 const openSingleQuestionInterview = (question, roundType, originalSessionId) => {
   sessionStorage.setItem('ai-speis:single-question-interview', JSON.stringify({
@@ -149,10 +156,9 @@ const normalizeBehaviorReview = (result, state) => {
         question: subQ.question || '',
         questionType: subQ.questionType || 'SUB',
         skill: subQ.skill || question.skill || '',
-        score: Number.isFinite(Number(subQ.score)) ? Number(subQ.score) : 0,
+        score: subQ.score != null && Number.isFinite(Number(subQ.score)) ? Number(subQ.score) : null,
         maxScore: 10,
         dimensions: subQ.dimensions || [],
-        strengths: subQ.strengths || [],
         missingPoints: getBehaviouralMissingPoints(subQ, roundImprovements),
         transcript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
         answerTranscript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
@@ -169,13 +175,10 @@ const normalizeBehaviorReview = (result, state) => {
         question: question.question,
         questionType: 'MAIN',
         skill: question.skill,
-        score: question.score,
+        score: question.score != null && Number.isFinite(Number(question.score)) ? Number(question.score) : null,
         maxScore: result?.maxScore || 10,
         dimensions: question.dimensions || [],
-        strengths: question.strengths || [],
         missingPoints: getBehaviouralMissingPoints(question, roundImprovements),
-        transcript: mainTranscript,
-        feedbackSummary: roundFeedback,
         suggestions: result?.summary?.recommendationsForImprovement || [],
         subQuestions,
         adaptiveHistory: subQuestions,
@@ -231,11 +234,17 @@ function CollapsibleCriterionCard({ dim, isTechnicalV2Review, technicalCriterion
         )}
       </div>
 
-      {isTechnicalV2Review && (
-        <span className="text-[11px] text-text-secondary">
-          {t('technicalRoom.result.weight', { weight: formatWeight(dim.weight) })}
-        </span>
-      )}
+      {(() => {
+        const weightVal = dim.weight != null && Number(dim.weight) > 0
+          ? dim.weight
+          : BEHAVIORAL_WEIGHTS[String(dim.rubricCode || '').toUpperCase()];
+        if (weightVal == null) return null;
+        return (
+          <span className="text-[11px] text-text-secondary">
+            {t ? t('technicalRoom.result.weight', { weight: formatWeight(weightVal) }) : `Weight: ${formatWeight(weightVal)}`}
+          </span>
+        );
+      })()}
 
       {isOpen && (
         <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-border/60">
@@ -727,6 +736,61 @@ function CampaignInterviewResultPage({ campaignId }) {
               />
             ) : (
               /* SPLIT-VIEW BÊN DƯỚI (CHIA 2 CỘT: CỘT TRÁI 30% / CỘT PHẢI 70%) */
+              <div className="flex flex-col gap-6">
+
+                {/* === ROUND SUMMARY PANEL (from RoundResult table) === */}
+                {(activeSessionObj?.summary || activeSessionObj?.strengths?.length > 0 || activeSessionObj?.areasForImprovement?.length > 0 || activeSessionObj?.levelAssessment) && (
+                  <div className="p-5 bg-surface border border-border rounded-xl shadow-xs flex flex-col gap-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                      <Sparkles size={15} className="text-primary" />
+                      {copy.review.aiFeedback || 'AI Feedback'}
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Col 1: Executive Summary */}
+                      <div className="p-3.5 rounded-xl border border-primary/20 bg-primary-xlight/10 flex flex-col gap-2">
+                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                          <ClipboardCheck size={13} /> Summary
+                        </h5>
+                        {activeSessionObj?.levelAssessment && activeSessionObj.levelAssessment !== activeSessionObj.summary && (
+                          <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark w-fit">
+                            {activeSessionObj.levelAssessment}
+                          </span>
+                        )}
+                        <p className="text-xs text-text-primary leading-relaxed">
+                          {activeSessionObj?.summary || '—'}
+                        </p>
+                      </div>
+
+                      {/* Col 2: Strengths */}
+                      <div className="p-3.5 rounded-xl border border-success/25 bg-success-light/10 flex flex-col gap-2">
+                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-success-dark flex items-center gap-1.5">
+                          <CheckCircle2 size={13} /> {copy.review.strengths || 'Strengths'}
+                        </h5>
+                        {activeSessionObj?.strengths?.length > 0
+                          ? <ul className="list-disc list-inside text-xs text-text-primary space-y-1">
+                              {activeSessionObj.strengths.map((item, i) => <li key={i}>{item}</li>)}
+                            </ul>
+                          : <p className="text-xs text-text-muted italic">—</p>
+                        }
+                      </div>
+
+                      {/* Col 3: Areas to Improve */}
+                      <div className="p-3.5 rounded-xl border border-warning/25 bg-warning-light/10 flex flex-col gap-2">
+                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-warning-dark flex items-center gap-1.5">
+                          <Target size={13} /> {copy.review.improvements || 'Areas to Improve'}
+                        </h5>
+                        {activeSessionObj?.areasForImprovement?.length > 0
+                          ? <ul className="list-disc list-inside text-xs text-text-primary space-y-1">
+                              {activeSessionObj.areasForImprovement.map((item, i) => <li key={i}>{item}</li>)}
+                            </ul>
+                          : <p className="text-xs text-text-muted italic">—</p>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 {/* Cột Trái: Danh sách câu hỏi (30% / lg:col-span-4) */}
@@ -879,16 +943,7 @@ function CampaignInterviewResultPage({ campaignId }) {
                   </div>
 
                   {/* AI Feedback Summary */}
-                  {selectedQuestion.feedbackSummary && (
-                    <div className="p-4 bg-primary-xlight/20 rounded-xl border border-primary/20 flex flex-col gap-1.5">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-primary-dark flex items-center gap-1.5">
-                        <ClipboardCheck size={15} /> {copy.review.aiFeedback}
-                      </h4>
-                      <p className="text-xs text-text-primary leading-relaxed">
-                        {selectedQuestion.feedbackSummary}
-                      </p>
-                    </div>
-                  )}
+                  
 
                   {/* Rubric Breakdown */}
                   {selectedQuestion.dimensions?.length > 0 && (
@@ -911,12 +966,10 @@ function CampaignInterviewResultPage({ campaignId }) {
                     </div>
                   )}
 
-                  {/* Strengths, Improvements & AI Practice Tips */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <FeedbackList icon={CheckCircle2} title={copy.review.strengths} items={selectedQuestion.strengths} tone="positive" />
+                  {/* Areas to Improve (per-question missingPoints) */}
+                  {selectedQuestion.missingPoints?.length > 0 && (
                     <FeedbackList icon={Target} title={copy.review.improvements} items={selectedQuestion.missingPoints} tone="focus" />
-                    <FeedbackList icon={Lightbulb} title={copy.review.practiceTips} items={selectedQuestion.suggestions} tone="next" />
-                  </div>
+                  )}
 
                   {/* Navigation Footer */}
                   <div className="flex items-center justify-between pt-4 border-t border-border mt-2">
@@ -943,6 +996,7 @@ function CampaignInterviewResultPage({ campaignId }) {
                     </Button>
                   </div>
                 </article>
+              </div>
               </div>
             )}
           </section>

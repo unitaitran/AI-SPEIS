@@ -180,7 +180,10 @@
 
 .technical-main-stage__body--flush > .behavior-stage {
   height: 100%;
+  width: 100%;
+  align-self: stretch;
 }
+
 
 .behavior-stage > .technical-initialization,
 .behavior-stage > .technical-error-state {
@@ -621,8 +624,10 @@
 .behavior-dialog header p { margin: var(--spacing-xs) 0 0; color: var(--text-secondary); }
 .behavior-dialog header > button { width: 40px; min-height: 40px; padding: 0; border-color: transparent; }
 .behavior-dialog__warning { margin: var(--spacing-lg) 0; padding: 12px var(--spacing-md); border-radius: var(--border-radius); background: var(--warning-light); color: var(--text-primary); font-size: var(--body-sm); }
-.behavior-dialog footer { display: flex; justify-content: flex-end; gap: var(--spacing-sm); }
+.behavior-dialog footer { display: flex; justify-content: flex-end; gap: var(--spacing-sm); flex-wrap: wrap; }
 .behavior-dialog footer .behavior-dialog__confirm { border-color: var(--error); background: var(--error); color: var(--white); }
+.behavior-dialog footer .behavior-dialog__confirm-sub { border-color: var(--primary); background: var(--primary-xlight); color: var(--primary-dark); }
+.behavior-dialog footer .behavior-dialog__confirm-sub:hover { background: var(--primary-light); }
 
 .behavior-spin { animation: behaviorSpin .8s linear infinite; }
 
