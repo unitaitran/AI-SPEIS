@@ -93,6 +93,16 @@ namespace ai_speis_be.Controllers
             return Ok(result);
         }
 
+        [HttpGet("questions/trash")]
+        [ProducesResponseType(typeof(PagedResultDto<AdminQuestionListItemDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<PagedResultDto<AdminQuestionListItemDto>>> GetDeletedQuestions(
+            [FromQuery] AdminQuestionQueryDto query,
+            CancellationToken cancellationToken)
+        {
+            var result = await _questionService.GetDeletedAdminQuestionsAsync(query, cancellationToken);
+            return Ok(result);
+        }
+
         [HttpPost("questions")]
         [ProducesResponseType(
             typeof(QuestionResponseDto),
@@ -243,6 +253,48 @@ namespace ai_speis_be.Controllers
                     CreateQuestionNotFoundProblem(questionId)),
                 _ => throw new InvalidOperationException(
                     $"Kết quả xóa câu hỏi không được hỗ trợ: {result.Outcome}")
+            };
+        }
+
+        [HttpPatch("questions/{questionId:int}/restore")]
+        [ProducesResponseType(typeof(QuestionResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<QuestionResponseDto>> RestoreQuestion(
+            int questionId,
+            CancellationToken cancellationToken)
+        {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
+
+            var result = await _questionService.RestoreAdminQuestionAsync(questionId, cancellationToken);
+            return result.Outcome switch
+            {
+                QuestionOperationOutcome.Restored => Ok(result.Question),
+                QuestionOperationOutcome.QuestionNotFound => NotFound(CreateQuestionNotFoundProblem(questionId)),
+                _ => throw new InvalidOperationException($"Kết quả khôi phục câu hỏi không được hỗ trợ: {result.Outcome}")
+            };
+        }
+
+        [HttpPost("questions/{questionId:int}/purge")]
+        [ProducesResponseType(typeof(QuestionResponseDto), StatusCodes.Status202Accepted)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<QuestionResponseDto>> RequestQuestionPurge(
+            int questionId,
+            CancellationToken cancellationToken)
+        {
+            if (questionId <= 0)
+                return BadRequest(new { title = "ID không hợp lệ", detail = "Question ID phải là số nguyên dương." });
+            if (!TryGetActingUserId(out var actingUserId))
+                return Unauthorized(CreateInvalidAuthenticationProblem());
+
+            var result = await _questionService.RequestAdminQuestionPurgeAsync(questionId, actingUserId, cancellationToken);
+            return result.Outcome switch
+            {
+                QuestionOperationOutcome.PurgeRequested => Accepted(result.Question),
+                QuestionOperationOutcome.QuestionDeleted => BadRequest(CreateQuestionDeletedProblem(questionId)),
+                QuestionOperationOutcome.QuestionNotFound => NotFound(CreateQuestionNotFoundProblem(questionId)),
+                _ => throw new InvalidOperationException($"Kết quả yêu cầu purge câu hỏi không được hỗ trợ: {result.Outcome}")
             };
         }
 

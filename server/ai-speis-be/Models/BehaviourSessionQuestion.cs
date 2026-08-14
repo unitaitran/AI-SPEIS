@@ -15,7 +15,6 @@ namespace ai_speis_be.Models
         [ForeignKey("BehaviourQuestionSet")]
         public int BehaviourQuestionSetId { get; set; }
         [Required]
-        [ForeignKey("Question")]
         public int QuestionId { get; set; }
         [Required]
         public int QuestionOrder { get; set; }
@@ -31,7 +30,8 @@ namespace ai_speis_be.Models
         public DateTime? AskedAt { get; set; }
         public DateTime? AnsweredAt { get; set; }
         public virtual BehaviourQuestionSet BehaviourQuestionSet { get; set; } = null!;
-        public virtual Question Question { get; set; } = null!;
+        // QuestionId is a historical source identifier, intentionally not a FK.
+        // QuestionSnapshotJson remains available after Question Bank purge.
         public virtual BehaviourSessionQuestion? ParentQuestion { get; set; }
         public virtual BehaviourAnswer? BehaviourAnswerAnswer { get; set; }
     }

@@ -48,6 +48,33 @@ namespace ai_speis_be.Repositories.QuestionRepo
                 cancellationToken);
         }
 
+        public async Task<PagedResultDto<Question>> GetDeletedAdminQuestionsAsync(
+            AdminQuestionQueryDto query,
+            CancellationToken cancellationToken = default)
+        {
+            // Trash is deliberately a deleted-only view, regardless of the legacy
+            // IncludeDeleted flag used by the all-records admin query.
+            query.IncludeDeleted = true;
+            var questions = ApplyAdminFilters(_context.Questions.AsNoTracking(), query)
+                .Where(question => question.IsDeleted);
+
+            var totalItems = await questions.CountAsync(cancellationToken);
+            var items = await questions
+                .OrderByDescending(question => question.DeletedAt)
+                .ThenByDescending(question => question.QuestionId)
+                .Skip((query.PageNumber - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToListAsync(cancellationToken);
+
+            return new PagedResultDto<Question>
+            {
+                Items = items,
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalItems = totalItems
+            };
+        }
+
         public async Task<Question?> GetQuestionByIdAsync(
             int questionId,
             CancellationToken cancellationToken = default)
@@ -353,10 +380,7 @@ namespace ai_speis_be.Repositories.QuestionRepo
             var major = Normalize(query.Major);
             var roleTarget = Normalize(query.RoleTarget);
 
-            questions = WhereIf(
-                questions,
-                !query.IncludeDeleted,
-                q => !q.IsDeleted);
+            questions = WhereIf(questions, !query.IncludeDeleted, q => !q.IsDeleted);
 
             questions = WhereIf(
                 questions,

@@ -72,6 +72,6 @@ namespace ai_speis_be.Models
 
         public virtual User User { get; set; } = null!;
 
-        public virtual Question Question { get; set; } = null!;
+        // QuestionId is retained for traceability; QuestionSnapshot is the durable record.
     }
 }
