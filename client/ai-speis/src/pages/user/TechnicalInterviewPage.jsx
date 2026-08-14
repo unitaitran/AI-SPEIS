@@ -494,7 +494,7 @@ function TechnicalInterviewPage({ sessionId }) {
               recorder={recorder}
               disabled={room.phase !== TechnicalV2FlowPhase.READY_TO_ANSWER && room.phase !== TechnicalV2FlowPhase.RECOVERABLE_ERROR}
               isSubmitting={isSubmitting}
-              timeLimitSeconds={currentQuestion.timeLimitSeconds}
+              timeLimitSeconds={strategy.hasCountdownTimer ? (strategy.defaultCountdownSeconds || 120) : currentQuestion.timeLimitSeconds}
               remainingSeconds={remainingSeconds}
               strategy={strategy}
               isAudioPlaying={questionAudio.isPlaying}

@@ -412,15 +412,33 @@ function CampaignInterviewResultPage({ campaignId }) {
     let behaComm = behaOverall;
     let behaAction = behaOverall;
 
-    if (roundReview?.questions?.length) {
+    // Aggregate dimensions across ALL rounds in campaign so benchmarks remain stable regardless of active tab
+    const allRounds = [techRound, behaRound, codingRound, roundReview].filter(Boolean);
+    const allQuestions = [];
+    const visitedQuestionIds = new Set();
+
+    allRounds.forEach((r) => {
+      const qList = r.questions || r.detail?.questions || r.roundReview?.questions || [];
+      qList.forEach((q) => {
+        const id = q.questionId || q.sessionQuestionId || JSON.stringify(q);
+        if (!visitedQuestionIds.has(id)) {
+          visitedQuestionIds.add(id);
+          allQuestions.push(q);
+        }
+      });
+    });
+
+    if (allQuestions.length > 0) {
       let accSum = 0, accCount = 0;
       let depthSum = 0, depthCount = 0;
       let appSum = 0, appCount = 0;
       let reasSum = 0, reasCount = 0;
-      let commSum = 0, commCount = 0;
+      let techCommSum = 0, techCommCount = 0;
+      let behaCommSum = 0, behaCommCount = 0;
       let actionSum = 0, actionCount = 0;
 
-      roundReview.questions.forEach((q) => {
+      allQuestions.forEach((q) => {
+        const isBeha = q.roundType === 'Behavior' || q.roundType === 'Behavioral' || q.rubricVersion?.includes('behavioural');
         (q.dimensions || []).forEach((d) => {
           const code = String(d.rubricCode || d.name || '').toUpperCase();
           const s = Number(d.score || 0);
@@ -428,7 +446,10 @@ function CampaignInterviewResultPage({ campaignId }) {
           else if (code.includes('DEPTH') || code.includes('COMPETENCY')) { depthSum += s; depthCount++; }
           else if (code.includes('APPLICATION') || code.includes('APP')) { appSum += s; appCount++; }
           else if (code.includes('REASONING') || code.includes('REASON') || code.includes('RESULT')) { reasSum += s; reasCount++; }
-          else if (code.includes('COMMUNICATION') || code.includes('COMM')) { commSum += s; commCount++; }
+          else if (code.includes('COMMUNICATION') || code.includes('COMM')) {
+            if (isBeha) { behaCommSum += s; behaCommCount++; }
+            else { techCommSum += s; techCommCount++; }
+          }
           else if (code.includes('ACTION')) { actionSum += s; actionCount++; }
         });
 
@@ -440,7 +461,10 @@ function CampaignInterviewResultPage({ campaignId }) {
             else if (code.includes('DEPTH') || code.includes('COMPETENCY')) { depthSum += s; depthCount++; }
             else if (code.includes('APPLICATION') || code.includes('APP')) { appSum += s; appCount++; }
             else if (code.includes('REASONING') || code.includes('REASON') || code.includes('RESULT')) { reasSum += s; reasCount++; }
-            else if (code.includes('COMMUNICATION') || code.includes('COMM')) { commSum += s; commCount++; }
+            else if (code.includes('COMMUNICATION') || code.includes('COMM')) {
+              if (isBeha) { behaCommSum += s; behaCommCount++; }
+              else { techCommSum += s; techCommCount++; }
+            }
             else if (code.includes('ACTION')) { actionSum += s; actionCount++; }
           });
         });
@@ -450,13 +474,9 @@ function CampaignInterviewResultPage({ campaignId }) {
       if (depthCount > 0) techDepth = depthSum / depthCount;
       if (appCount > 0) techApp = appSum / appCount;
       if (reasCount > 0) techReasoning = reasSum / reasCount;
-
-      if (roundReview.runtimeVersion === 'V2') {
-        if (commCount > 0) techComm = commSum / commCount;
-      } else {
-        if (commCount > 0) behaComm = commSum / commCount;
-        if (actionCount > 0) behaAction = actionSum / actionCount;
-      }
+      if (techCommCount > 0) techComm = techCommSum / techCommCount;
+      if (behaCommCount > 0) behaComm = behaCommSum / behaCommCount;
+      if (actionCount > 0) behaAction = actionSum / actionCount;
     }
 
     // Formulas:

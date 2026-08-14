@@ -702,7 +702,7 @@ function BehavioralInterviewPage({ sessionId }) {
                     recorder={recorder}
                     disabled={room.phase !== BehavioralFlowPhase.READY_TO_ANSWER && room.phase !== BehavioralFlowPhase.RECOVERABLE_ERROR}
                     isSubmitting={isSubmitting}
-                    timeLimitSeconds={strategy.defaultCountdownSeconds || room.currentQuestion.timeLimitSeconds}
+                    timeLimitSeconds={strategy.hasCountdownTimer ? (strategy.defaultCountdownSeconds || 120) : room.currentQuestion.timeLimitSeconds}
                     remainingSeconds={remainingSeconds}
                     strategy={strategy}
                     isAudioPlaying={questionAudio.isPlaying}
