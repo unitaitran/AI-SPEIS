@@ -52,6 +52,10 @@ const buildQueryString = (params) => {
     }
   }
 
+  if (params.package && params.package.toLowerCase() !== 'all') {
+    query.set('Package', params.package);
+  }
+
   if (params.sortBy) {
     const mappedSortBy = sortByMap[params.sortBy];
     if (mappedSortBy) {
