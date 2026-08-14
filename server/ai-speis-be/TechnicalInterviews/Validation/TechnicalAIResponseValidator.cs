@@ -154,19 +154,19 @@ namespace ai_speis_be.TechnicalInterviews.Validation
                 || dimension.SuggestedScore < rubric.MinimumScore
                 || dimension.SuggestedScore > rubric.MaximumScore)
             {
-                dimension.SuggestedScore = 0m;
+                return "INVALID_V2_SCORE";
             }
-            else
+            if (!HasPrecision(dimension.SuggestedScore.Value, rubric.RoundingPrecision))
             {
-                dimension.SuggestedScore = Math.Round(dimension.SuggestedScore.Value, rubric.RoundingPrecision, MidpointRounding.AwayFromZero);
+                return "INVALID_V2_SCORE";
             }
 
+            // Mirror behavioral evaluation: evidence supports the score, but an
+            // unusable quote must never erase an otherwise valid assessment.
             dimension.Evidence ??= new List<string>();
             dimension.MissingEvidence ??= new List<string>();
             dimension.Evidence.RemoveAll(string.IsNullOrWhiteSpace);
             dimension.MissingEvidence.RemoveAll(string.IsNullOrWhiteSpace);
-
-            // Filter out non-verbatim dimension evidence snippets instead of failing whole score (matches Behavioral behavior)
             dimension.Evidence.RemoveAll(evidence => !IsGroundedEvidence(evidence, transcript));
 
             return null;

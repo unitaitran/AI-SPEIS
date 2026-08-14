@@ -160,6 +160,47 @@ public sealed class TechnicalV2InterviewOrchestratorTests
     }
 
     [Fact]
+    public async Task SubmitAnswer_FinalMainAddsReliabilityFollowUpsUntilRoundHasFiveCountedQuestions()
+    {
+        using var context = TestDbContextFactory.Create();
+        Seed(context);
+        var finalMain = context.Questions.Single(question => question.QuestionId == 1003);
+        finalMain.FollowUp1 = "Give a production example.";
+        finalMain.FollowUp2 = "Explain the trade-off.";
+        context.SaveChanges();
+        var (orchestrator, _) = CreateOrchestrator(context);
+
+        await orchestrator.InitializeAsync(UserId, V2SessionId, new InitializeTechnicalV2Request(), CancellationToken.None);
+        var question = (await orchestrator.StartAsync(UserId, V2SessionId, CancellationToken.None)).Value!;
+        for (var index = 0; index < 2; index++)
+        {
+            var submitted = await orchestrator.SubmitAnswerAsync(
+                UserId, V2SessionId, question.SessionQuestionId,
+                new SubmitTechnicalV2AnswerRequest { Transcript = Answer }, $"reliability-main-{index}", CancellationToken.None);
+            question = submitted.Value!.NextQuestion!;
+        }
+
+        var finalMainAnswer = await orchestrator.SubmitAnswerAsync(
+            UserId, V2SessionId, question.SessionQuestionId,
+            new SubmitTechnicalV2AnswerRequest { Transcript = Answer }, "reliability-main-final", CancellationToken.None);
+        Assert.Equal("FOLLOW_UP", finalMainAnswer.Value!.Decision);
+        Assert.Equal("Give a production example.", finalMainAnswer.Value.NextQuestion!.Content);
+
+        var firstFollowUp = await orchestrator.SubmitAnswerAsync(
+            UserId, V2SessionId, finalMainAnswer.Value.NextQuestion.SessionQuestionId,
+            new SubmitTechnicalV2AnswerRequest { Transcript = Answer }, "reliability-follow-up-1", CancellationToken.None);
+        Assert.Equal("FOLLOW_UP", firstFollowUp.Value!.Decision);
+        Assert.Equal("Explain the trade-off.", firstFollowUp.Value.NextQuestion!.Content);
+
+        var secondFollowUp = await orchestrator.SubmitAnswerAsync(
+            UserId, V2SessionId, firstFollowUp.Value.NextQuestion.SessionQuestionId,
+            new SubmitTechnicalV2AnswerRequest { Transcript = Answer }, "reliability-follow-up-2", CancellationToken.None);
+        Assert.Equal("COMPLETE", secondFollowUp.Value!.Decision);
+        Assert.Null(secondFollowUp.Value.NextQuestion);
+        Assert.Equal(5, context.TechnicalSessionQuestions.Count(item => item.QuestionType != TechnicalSessionQuestionType.Clarification));
+    }
+
+    [Fact]
     public async Task SubmitAnswer_ClarificationCanBeFollowedByTwoFollowUpsWithinTotalLimit()
     {
         using var context = TestDbContextFactory.Create();
@@ -372,7 +413,7 @@ public sealed class TechnicalV2InterviewOrchestratorTests
     }
 
     [Fact]
-    public async Task SubmitAnswer_PartialEvaluationPersistsOnlyTheInvalidCriterionAsZero()
+    public async Task SubmitAnswer_MissingEvidenceArrayIsNormalizedWithoutDowngradingScore()
     {
         using var context = TestDbContextFactory.Create();
         Seed(context);
@@ -388,21 +429,22 @@ public sealed class TechnicalV2InterviewOrchestratorTests
             "partial-1",
             CancellationToken.None);
 
-        Assert.Equal(TechnicalAnswerEvaluationStatus.Partial.ToString(), submitted.Value!.EvaluationStatus);
+        Assert.Equal(TechnicalAnswerEvaluationStatus.Completed.ToString(), submitted.Value!.EvaluationStatus);
         Assert.False(submitted.Value.FallbackUsed);
         var answer = context.TechnicalAnswers.Single();
-        Assert.Equal(6.4m, answer.FinalQuestionScore);
-        Assert.Equal("INVALID_V2_EVIDENCE", answer.AiErrorCode);
+        Assert.Equal(8m, answer.FinalQuestionScore);
+        Assert.Null(answer.AiErrorCode);
         var dimensions = System.Text.Json.JsonSerializer.Deserialize<List<TechnicalV2DimensionEvaluation>>(
             answer.AiCriteriaDetailJson!,
             new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
         Assert.Equal(5, dimensions.Count);
-        Assert.Equal(0m, dimensions.Single(item => item.RubricCode == "REASONING").SuggestedScore);
-        Assert.All(dimensions.Where(item => item.RubricCode != "REASONING"), item => Assert.Equal(8m, item.SuggestedScore));
+        Assert.Equal(8m, dimensions.Single(item => item.RubricCode == "REASONING").SuggestedScore);
+        Assert.Empty(dimensions.Single(item => item.RubricCode == "REASONING").Evidence!);
+        Assert.All(dimensions, item => Assert.Equal(8m, item.SuggestedScore));
         var log = Assert.Single(context.AIInteractionLogs.Where(item => item.OperationType == AIInteractionOperationType.AnswerEvaluation));
         Assert.Equal(AIInteractionStatus.Succeeded, log.Status);
         Assert.False(log.FallbackUsed);
-        Assert.Equal("INVALID_V2_EVIDENCE", log.ErrorCode);
+        Assert.Null(log.ErrorCode);
     }
 
     [Fact]
@@ -497,7 +539,11 @@ public sealed class TechnicalV2InterviewOrchestratorTests
         Assert.NotNull(result.SkillScoresJson);
         Assert.NotNull(result.CriteriaAveragesJson);
         Assert.Equal("GOOD", result.AiLevelAssessment);
-        Assert.Equal("NOT_STARTED", result.FinalFeedbackStatus);
+        Assert.Equal("FALLBACK", result.FinalFeedbackStatus);
+        Assert.False(string.IsNullOrWhiteSpace(result.AiExecutiveSummary));
+        Assert.NotEqual("[]", result.AiStrengths);
+        Assert.NotEqual("[]", result.AiGaps);
+        Assert.NotEqual("[]", result.AiRecommendations);
     }
 
     [Fact]
@@ -627,7 +673,8 @@ public sealed class TechnicalV2InterviewOrchestratorTests
                 rubricProvider.Object,
                 new TechnicalRubricScoringService(),
                 lifecycle.Object,
-                NullLogger<TechnicalV2InterviewOrchestrator>.Instance),
+                NullLogger<TechnicalV2InterviewOrchestrator>.Instance,
+                Mock.Of<IServiceProvider>()),
             provider);
     }
 

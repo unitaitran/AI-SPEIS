@@ -203,11 +203,13 @@ function TechnicalInterviewPage({ sessionId }) {
     }
   }, [initialContext, resolvedSessionId, room.generalSession?.interviewCampaignId]);
 
+  const isEndingAllRef = useRef(false);
+
   useEffect(() => {
     if (room.phase !== TechnicalV2FlowPhase.COMPLETED) return;
     resetRecorder();
     pauseQuestionAudio();
-    if (mode !== InterviewMode.REAL) {
+    if (mode !== InterviewMode.REAL || isEndingAllRef.current) {
       refreshCompletedCampaign();
       return;
     }
@@ -292,18 +294,34 @@ function TechnicalInterviewPage({ sessionId }) {
     return false;
   }, [phaseIsActive]);
 
-  const handleEndSession = async () => {
+  const handleEndSession = async (action = 'endRound') => {
     setLocalError(null);
+    if (action === 'endAll') {
+      isEndingAllRef.current = true;
+    }
     try {
       await room.completeInterview();
       setDialog(null);
+      if (action === 'endAll') {
+        const campaignId = room.generalSession?.interviewCampaignId
+          || initialContext?.campaign?.interviewCampaignId;
+        if (campaignId) {
+          try {
+            await interviewSessionService.finishCampaign(campaignId);
+          } catch {
+            // best-effort finish
+          }
+          navigate(getCampaignResultPath(campaignId), { replace: true });
+        }
+      }
     } catch (endError) {
+      isEndingAllRef.current = false;
       setDialog(null);
       setLocalError(endError);
     }
   };
 
-  const handleDialogConfirm = async () => {
+  const handleDialogConfirm = async (action = 'endRound') => {
     if (dialog?.type === 'leave') {
       cleanupRecorder();
       pauseQuestionAudio();
@@ -313,7 +331,7 @@ function TechnicalInterviewPage({ sessionId }) {
       navigate(target);
       return;
     }
-    if (dialog?.type === 'end') await handleEndSession();
+    if (dialog?.type === 'end') await handleEndSession(action);
   };
 
   const handleContinue = () => {
@@ -447,15 +465,7 @@ function TechnicalInterviewPage({ sessionId }) {
           </div>
           <h1 id="technical-v2-question-text">{currentQuestion.content}</h1>
           {(currentQuestion.skill || currentQuestion.difficulty) ? <p className="behavior-question__hint">{[currentQuestion.skill, currentQuestion.difficulty].filter(Boolean).join(' / ')}</p> : null}
-          {recorder.transcript.trim() ? (
-            <div className="behavior-question__candidate-script">
-              <div className="behavior-question__candidate-script-head">
-                <UserRound size={15} />
-                <span>{t('candidateAnswer', { defaultValue: 'Câu trả lời của bạn' })}</span>
-              </div>
-              <p>{recorder.transcript.trim()}</p>
-            </div>
-          ) : null}
+
           <div className={`behavior-interviewer ${recorder.recordingStatus === RecordingStatus.RECORDING ? 'behavior-interviewer--listening' : ''}`} aria-hidden="true">
             <span className="behavior-interviewer__ring" /><span className="behavior-interviewer__ring" /><span className="behavior-interviewer__core"><Bot size={28} /></span>
           </div>
@@ -526,6 +536,7 @@ function TechnicalInterviewPage({ sessionId }) {
         <>
           <BehavioralRoomDialog
             dialog={dialog}
+            mode={mode}
             busy={room.phase === TechnicalV2FlowPhase.COMPLETING}
             onCancel={() => { setDialog(null); setPendingNavigation(null); }}
             onConfirm={handleDialogConfirm}

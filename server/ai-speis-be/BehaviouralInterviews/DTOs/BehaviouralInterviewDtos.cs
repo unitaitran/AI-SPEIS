@@ -109,9 +109,8 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
         public int MainQuestionIndex { get; set; }
         public string Question { get; set; } = string.Empty;
         public string Skill { get; set; } = string.Empty;
-        public decimal Score { get; set; }
+        public decimal? Score { get; set; }
         public List<BehaviouralDimensionResultDto> Dimensions { get; set; } = new();
-        public List<string> Strengths { get; set; } = new();
         public List<string> MissingPoints { get; set; } = new();
         public List<BehaviouralSubQuestionResultDto> SubQuestions { get; set; } = new();
     }
@@ -124,10 +123,9 @@ namespace ai_speis_be.BehaviouralInterviews.DTOs
         public string QuestionType { get; set; } = string.Empty;
         public string Question { get; set; } = string.Empty;
         public string Skill { get; set; } = string.Empty;
-        public decimal Score { get; set; }
+        public decimal? Score { get; set; }
         public string AnswerTranscript { get; set; } = string.Empty;
         public List<BehaviouralDimensionResultDto> Dimensions { get; set; } = new();
-        public List<string> Strengths { get; set; } = new();
         public List<string> MissingPoints { get; set; } = new();
     }
 

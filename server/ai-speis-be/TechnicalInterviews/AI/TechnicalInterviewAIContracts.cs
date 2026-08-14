@@ -6,8 +6,8 @@ namespace ai_speis_be.TechnicalInterviews.AI
     public static class TechnicalPromptVersions
     {
         public const string Selection = "technical-selection-v2";
-        public const string EvaluationV2 = "technical-v2-evaluation-v5";
-        public const string Summary = "technical-round-feedback-v2";
+        public const string EvaluationV2 = "technical-v2-evaluation-v6";
+        public const string Summary = "technical-round-feedback-v3";
     }
 
     public sealed record TechnicalAIQuestionCandidate(

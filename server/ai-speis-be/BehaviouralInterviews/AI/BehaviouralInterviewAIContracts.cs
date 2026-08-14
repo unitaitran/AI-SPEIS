@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using ai_speis_be.AI.Json;
 
 namespace ai_speis_be.BehaviouralInterviews.AI
@@ -87,7 +88,8 @@ namespace ai_speis_be.BehaviouralInterviews.AI
         public string RubricCode { get; set; } = string.Empty; // e.g. SITUATION_TASK, ACTION, RESULT, COMPETENCY, COMMUNICATION
         public List<string> Evidence { get; set; } = new();
         public List<string> MissingEvidence { get; set; } = new();
-        public decimal SuggestedScore { get; set; } // 0-10 (Evaluation Framework, thang thống nhất)
+        [JsonConverter(typeof(NullableScoreJsonConverter))]
+        public decimal? SuggestedScore { get; set; }
     }
 
     public sealed class BehaviouralAIEvaluationResponse
@@ -126,6 +128,7 @@ namespace ai_speis_be.BehaviouralInterviews.AI
     {
         public bool Success { get; init; }
         public T? Data { get; init; }
+        public string ProviderName { get; init; } = string.Empty;
         public string Model { get; init; } = string.Empty;
         public long LatencyMs { get; init; }
         public int? InputTokens { get; init; }

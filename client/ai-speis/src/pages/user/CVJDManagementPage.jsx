@@ -239,16 +239,27 @@ function CVJDManagementPage() {
     }
   };
 
-  const handleDeleteJD = async (id, e) => {
+  // Delete JD State
+  const [deleteJDConfirmId, setDeleteJDConfirmId] = useState(null);
+  const [isDeletingJD, setIsDeletingJD] = useState(false);
+
+  const handleDeleteJD = (id, e) => {
     e.stopPropagation();
-    if (window.confirm('Bạn có chắc chắn muốn xóa JD này?')) {
-      try {
-        await jdService.deleteJD(id);
-        fetchJDHistory();
-        notify.success('Job Description đã được xóa thành công.');
-      } catch (err) {
-        notify.error(`Lỗi khi xóa JD: ${err.message}`, { title: 'Không thể xóa JD' });
-      }
+    setDeleteJDConfirmId(id);
+  };
+
+  const handleConfirmDeleteJD = async () => {
+    if (!deleteJDConfirmId) return;
+    setIsDeletingJD(true);
+    try {
+      await jdService.deleteJD(deleteJDConfirmId);
+      fetchJDHistory();
+      notify.success('Job Description đã được xóa thành công.');
+      setDeleteJDConfirmId(null);
+    } catch (err) {
+      notify.error(`Lỗi khi xóa JD: ${err.message}`, { title: 'Không thể xóa JD' });
+    } finally {
+      setIsDeletingJD(false);
     }
   };
 
@@ -696,6 +707,59 @@ function CVJDManagementPage() {
             </div>
             <div className="p-4 overflow-y-auto flex-1 bg-surface-1 relative">
                <FastCheckResult result={fastCheckResults[currentFastCheckJD]} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete JD Modal */}
+      {deleteJDConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-1 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-pageEntrance border border-border">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-error/10 to-transparent">
+              <h3 className="text-lg font-semibold text-error flex items-center gap-2">
+                <div className="p-1.5 bg-error/10 text-error rounded-md">
+                  <AlertCircle size={20} />
+                </div>
+                Xác nhận xóa Job Description
+              </h3>
+              <button 
+                onClick={() => setDeleteJDConfirmId(null)} 
+                className="p-1 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
+                disabled={isDeletingJD}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-6 space-y-2 bg-surface-1">
+              <p className="text-base font-medium text-text-primary">
+                Bạn có chắc chắn muốn xóa JD này không?
+              </p>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Hành động này sẽ xóa vĩnh viễn Job Description khỏi tài khoản của bạn và không thể hoàn tác.
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border flex justify-end gap-3 bg-surface-2/50">
+              <button 
+                className="mycv-btn mycv-btn--outline" 
+                onClick={() => setDeleteJDConfirmId(null)}
+                disabled={isDeletingJD}
+              >
+                Hủy
+              </button>
+              <button 
+                className="mycv-btn bg-error text-white hover:bg-error/90 border-transparent flex items-center gap-2 cursor-pointer" 
+                onClick={handleConfirmDeleteJD}
+                disabled={isDeletingJD}
+              >
+                {isDeletingJD ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                {isDeletingJD ? 'Đang xóa...' : 'Xóa JD'}
+              </button>
             </div>
           </div>
         </div>

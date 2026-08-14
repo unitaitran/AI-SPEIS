@@ -227,7 +227,9 @@ builder.Services.AddHttpClient("BehaviouralInterviewAI", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(behaviouralOptions.TimeoutSeconds);
 });
-builder.Services.AddScoped<IBehaviouralInterviewAIProvider, ExternalBehaviouralInterviewAIProvider>();
+builder.Services.AddScoped<ExternalBehaviouralInterviewAIProvider>();
+builder.Services.AddScoped<IBehaviouralInterviewAIProvider, GeminiBehaviouralInterviewAIProvider>();
+builder.Services.AddScoped<IBehaviouralInterviewAIProvider, OllamaBehaviouralInterviewAIProvider>();
 builder.Services.AddSingleton<IBehaviouralRubricProvider, BehaviouralRubricProvider>();
 builder.Services.AddSingleton<IBehaviouralRubricScoringService, BehaviouralRubricScoringService>();
 builder.Services.AddSingleton<IBehaviouralAIResponseValidator, BehaviouralAIResponseValidator>();

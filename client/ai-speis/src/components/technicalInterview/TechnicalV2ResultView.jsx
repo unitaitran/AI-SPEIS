@@ -58,7 +58,7 @@ function TechnicalV2ResultView({ result, t }) {
                 <p className="technical-question-answer">{question.answerTranscript || t('result.answerUnavailable')}</p>
                 <p className="technical-result-badge">{statusLabel('evaluationStatus', question.evaluationStatus, 'result.evaluationPending', t)}</p>
                 <QuestionCriteria dimensions={question.dimensions} t={t} />
-                <div className="technical-feedback-columns"><FeedbackList title={t('result.strengths')} items={question.strengths} /><FeedbackList title={t('result.gaps')} items={question.missingPoints} /></div>
+                <FeedbackList title={t('result.gaps')} items={question.missingPoints} />
 
                 {Array.isArray(question.subQuestions) && question.subQuestions.length > 0 ? (
                   <div className="technical-subquestions-wrapper mt-4 border-t pt-3">
@@ -80,10 +80,7 @@ function TechnicalV2ResultView({ result, t }) {
                           <div className="technical-subquestion-body mt-3 pt-2 border-t text-sm">
                             <p className="technical-question-answer mb-3"><strong>{t('result.answerTranscriptLabel', { defaultValue: 'Câu trả lời:' })}</strong> {subQ.answerTranscript || t('result.answerUnavailable')}</p>
                             <QuestionCriteria dimensions={subQ.dimensions} t={t} />
-                            <div className="technical-feedback-columns">
-                              <FeedbackList title={t('result.strengths')} items={subQ.strengths} />
-                              <FeedbackList title={t('result.gaps')} items={subQ.missingPoints} />
-                            </div>
+                            <FeedbackList title={t('result.gaps')} items={subQ.missingPoints} />
                           </div>
                         </details>
                       ))}
@@ -125,7 +122,7 @@ function QuestionCriteria({ dimensions, t }) {
             </div>
             <p>{t('result.weight', { weight: formatWeight(criterion.weight) })}</p>
             <FeedbackList title={t('result.evidence')} items={criterion.evidence} />
-            <FeedbackList title={t('result.strengths')} items={criterion.strengths} />
+            <FeedbackList title={t('result.missingEvidence')} items={criterion.missingEvidence} />
           </article>
         ))}
       </div>

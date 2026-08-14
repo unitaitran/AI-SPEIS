@@ -260,12 +260,9 @@ namespace ai_speis_be.Services.InterviewSessionService
                         TechnicalRuntimeVersion = roundType == InterviewRoundType.Technical ? "V2" : null,
                         // Behavioral still uses this historical field to pin its provider.
                         // Technical V2 persists provider metadata on its canonical records instead.
-                        TechnicalAiProvider = roundType == InterviewRoundType.Technical
-                            ? technicalProvider
-                            : roundType == InterviewRoundType.Behavior
-                                && !string.IsNullOrWhiteSpace(request.AiProvider)
-                                    ? request.AiProvider
-                                    : null,
+                        TechnicalAiProvider = !string.IsNullOrWhiteSpace(request.AiProvider)
+                            ? request.AiProvider
+                            : technicalProvider,
                         CreatedAt = now
                     });
                 }
@@ -413,10 +410,41 @@ namespace ai_speis_be.Services.InterviewSessionService
                 campaign.ExpiresAt = now.AddMinutes(campaign.DurationMinutes);
             }
 
+            if (session.InterviewRoundType == InterviewRoundType.Code)
+            {
+                await EnsureCodingSubmissionsExistAsync(session);
+            }
+
             session.Status = InterviewSessionStatus.Completed;
             session.UpdatedAt = now;
             var quota = await AdvanceCampaignAsync(campaign, now);
             await PublishRoundCompletionAsync(userId, session, campaign);
+            return (true, null, MapCampaignToResponse(campaign, quota));
+        }
+
+        public async Task<(bool Success, string? ErrorMessage, InterviewCampaignDto? Campaign)> FinishCampaignAsync(
+            int userId,
+            int campaignId)
+        {
+            var campaign = await GetOwnedCampaignAsync(userId, campaignId);
+            if (campaign == null) return (false, "Không tìm thấy đợt phỏng vấn.", null);
+
+            var now = DateTime.UtcNow;
+            foreach (var session in campaign.InterviewSessions.Where(s => !s.IsDeleted && s.Status != InterviewSessionStatus.Completed))
+            {
+                session.Status = InterviewSessionStatus.Cancelled;
+                session.UpdatedAt = now;
+            }
+
+            if (campaign.Status != InterviewCampaignStatus.Completed)
+            {
+                campaign.Status = InterviewCampaignStatus.Completed;
+                campaign.CompletedAt = now;
+                campaign.UpdatedAt = now;
+            }
+
+            await _context.SaveChangesAsync();
+            var quota = await GetQuotaMetadataAsync(campaign.User, now);
             return (true, null, MapCampaignToResponse(campaign, quota));
         }
 
@@ -1191,6 +1219,66 @@ namespace ai_speis_be.Services.InterviewSessionService
                     $"/user/interview/campaign-result/{campaign.InterviewCampaignId}",
                     $"ALL_INTERVIEW_ROUNDS_COMPLETED:{campaign.InterviewCampaignId}:{userId}",
                     new { campaignId = campaign.InterviewCampaignId, earnedPoints, points = earnedPoints, overallScore = campaign.OverallScore }));
+            }
+        }
+
+        private async Task EnsureCodingSubmissionsExistAsync(InterviewSession session)
+        {
+            if (session.InterviewRoundType != InterviewRoundType.Code) return;
+
+            try
+            {
+                var assignedQuestions = await _codingSelectionService.SelectCodingQuestionsAsync(session);
+                if (assignedQuestions.Count == 0) return;
+
+                var existingSubQIds = await _context.CodingSubmissions
+                    .Where(s => s.InterviewSessionId == session.InterviewSessionId)
+                    .Select(s => s.CodingQuestionId)
+                    .Distinct()
+                    .ToListAsync();
+
+                var addedAny = false;
+                foreach (var q in assignedQuestions)
+                {
+                    if (!existingSubQIds.Contains(q.CodingQuestionId))
+                    {
+                        var template = q.CodingQuestionTemplates?.FirstOrDefault();
+                        var langId = template?.LanguageId ?? 51;
+                        var starterCode = template?.TemplateCode
+                            ?? q.StarterCode
+                            ?? $"// Auto-submitted code for {q.Title ?? "Coding Question"}\npublic class Solution {{ public void {q.FunctionName ?? "solution"}() {{ }} }}";
+
+                        var testCasesCount = await _context.TestCases
+                            .CountAsync(tc => tc.CodingQuestionId == q.CodingQuestionId);
+                        int totalTc = testCasesCount > 0 ? testCasesCount : 1;
+
+                        var fallbackSubmission = new CodingSubmission
+                        {
+                            InterviewSessionId = session.InterviewSessionId,
+                            CodingQuestionId = q.CodingQuestionId,
+                            SourceCode = starterCode,
+                            LanguageId = langId,
+                            Status = "Completed",
+                            TotalTestCases = totalTc,
+                            PassedTestCases = 0,
+                            MaxTimeMs = 0,
+                            MaxMemoryKb = 0,
+                            CreatedAt = DateTime.UtcNow
+                        };
+
+                        _context.CodingSubmissions.Add(fallbackSubmission);
+                        addedAny = true;
+                    }
+                }
+
+                if (addedAny)
+                {
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi tự động tạo bản ghi nộp bài cho phiên Coding {SessionId}", session.InterviewSessionId);
             }
         }
 

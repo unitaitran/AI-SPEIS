@@ -85,14 +85,7 @@ function TechnicalInterviewResultPage({ sessionId }) {
     const feedbackFailed = String(result.finalFeedbackStatus || '').toUpperCase() === 'FAILED';
     content = (
       <>
-        {(feedbackFailed || feedbackError) ? (
-          <div className="technical-inline-error" role="alert">
-            <span>{t('result.feedbackUnavailable')}</span>
-            <button type="button" className="technical-secondary-button" onClick={() => retryFeedback().catch(() => undefined)} disabled={isRetryingFeedback}>
-              <RefreshCw size={16} />{isRetryingFeedback ? t('result.generatingFeedback') : t('result.retryFeedback')}
-            </button>
-          </div>
-        ) : null}
+
         <TechnicalV2ResultView result={result} t={t} />
       </>
     );

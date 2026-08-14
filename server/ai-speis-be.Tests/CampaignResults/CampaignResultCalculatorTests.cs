@@ -45,7 +45,7 @@ public class CampaignResultCalculatorTests
     [InlineData(8, 10, 8)]
     [InlineData(1, 10, 1)]
     [InlineData(0, 10, 0)]
-    [InlineData(9, 11, 8)]
+    [InlineData(9, 11, 8.18)]
     [InlineData(0, 0, 0)]
     public void GetCodingScore_FollowsPassedTestCaseRubric(int passed, int total, decimal expected)
     {

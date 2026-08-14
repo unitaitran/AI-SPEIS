@@ -37,12 +37,12 @@ namespace ai_speis_be.TechnicalInterviews.AI
 
         public static string Normalize(string? providerName)
         {
-            return providerName?.Trim().ToLowerInvariant() switch
+            var normalized = providerName?.Trim().ToLowerInvariant();
+            return normalized switch
             {
                 "gemini" or "external" => "gemini",
-                "ollama" or "local" => "ollama",
-                _ => throw new InvalidOperationException(
-                    $"Unsupported Technical Interview AI provider '{providerName}'.")
+                "ollama" or "local" or "aispeis" => "ollama",
+                _ => throw new InvalidOperationException($"Unsupported Technical Interview AI provider '{providerName}'.")
             };
         }
     }

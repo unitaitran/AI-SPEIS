@@ -1434,6 +1434,9 @@
 }
 
 .technical-main-stage__body--flush {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   padding: 0;
 }

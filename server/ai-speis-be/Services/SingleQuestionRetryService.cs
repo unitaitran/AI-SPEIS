@@ -289,16 +289,17 @@ namespace ai_speis_be.Services
             }
             var validation = _behaviouralValidator.ValidateEvaluation(ai.Data, rubric, evaluationRequest.AnswerContext);
             if (!validation.IsValid) throw new InvalidOperationException(validation.ErrorCode ?? "INVALID_BEHAVIOURAL_EVALUATION");
-            var score = _behaviouralScoringService.ScoreQuestion(ai.Data, rubric);
+            var normalizedEvaluation = validation.NormalizedEvaluation ?? ai.Data;
+            var score = _behaviouralScoringService.ScoreQuestion(normalizedEvaluation, rubric);
             retry.Score = score.FinalOverallScore;
-            retry.AiCriteriaDetailJson = JsonSerializer.Serialize(ai.Data.DimensionEvaluations, JsonOptions);
-            retry.AiStrengths = JsonSerializer.Serialize(ai.Data.DimensionEvaluations.Where(d => d.Evidence.Count > 0).SelectMany(d => d.Evidence.Select(e => $"{d.RubricCode}: {e}" )).Take(5), JsonOptions);
-            retry.AiMissingPoints = JsonSerializer.Serialize(ai.Data.DimensionEvaluations.SelectMany(d => d.MissingEvidence).Take(5), JsonOptions);
+            retry.AiCriteriaDetailJson = JsonSerializer.Serialize(normalizedEvaluation.DimensionEvaluations, JsonOptions);
+            retry.AiStrengths = JsonSerializer.Serialize(normalizedEvaluation.DimensionEvaluations.Where(d => d.Evidence.Count > 0).SelectMany(d => d.Evidence.Select(e => $"{d.RubricCode}: {e}" )).Take(5), JsonOptions);
+            retry.AiMissingPoints = JsonSerializer.Serialize(normalizedEvaluation.DimensionEvaluations.SelectMany(d => d.MissingEvidence).Take(5), JsonOptions);
             retry.EvaluationModel = ai.Model;
             retry.EvaluationInputTokens = ai.InputTokens;
             retry.EvaluationOutputTokens = ai.OutputTokens;
             retry.EvaluationLatencyMs = ai.LatencyMs;
-            retry.EvaluationStatus = "COMPLETED";
+            retry.EvaluationStatus = validation.IsPartial ? "PARTIAL" : "COMPLETED";
         }
 
         public async Task<List<SingleQuestionRetryResultDto>> GetRetryHistoryAsync(int userId, int questionId, CancellationToken cancellationToken)

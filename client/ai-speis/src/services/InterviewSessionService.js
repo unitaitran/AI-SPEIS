@@ -143,6 +143,12 @@ const interviewSessionService = {
     headers: { ...getAuthHeaders(), Accept: 'application/json' },
   }),
 
+  /** POST /api/InterviewSession/campaign/{campaignId}/finish */
+  finishCampaign: (campaignId) => request(ENDPOINTS.INTERVIEW_CAMPAIGN_FINISH(campaignId), {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), Accept: 'application/json' },
+  }),
+
   /** POST /api/InterviewSession/campaign/{campaignId}/expire */
   expireCampaign: (campaignId) => request(ENDPOINTS.INTERVIEW_CAMPAIGN_EXPIRE(campaignId), {
     method: 'POST',
