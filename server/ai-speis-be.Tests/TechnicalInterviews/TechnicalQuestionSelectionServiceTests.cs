@@ -307,7 +307,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
             JdSkills = new[] { "Docker", "Database" }
         };
 
-        var result = await service.SelectMainQuestionsWithAIAsync(context, candidates, 1, 2, CancellationToken.None);
+        var result = await service.SelectMainQuestionsWithAIAsync(context, candidates, 3, 1, 2, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(3, result!.Count);
@@ -354,7 +354,7 @@ public sealed class TechnicalQuestionSelectionServiceTests
             ExperienceLevel = "Junior"
         };
 
-        var result = await service.SelectMainQuestionsWithAIAsync(context, candidates, 1, 2, CancellationToken.None);
+        var result = await service.SelectMainQuestionsWithAIAsync(context, candidates, 3, 1, 2, CancellationToken.None);
 
         Assert.Null(result);
     }

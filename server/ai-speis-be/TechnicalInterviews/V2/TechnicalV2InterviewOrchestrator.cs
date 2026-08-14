@@ -117,7 +117,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
             IReadOnlyList<Question>? aiSelection = null;
             if (targetCount >= 1)
             {
-                aiSelection = await _selectionService.SelectMainQuestionsWithAIAsync(context, pool.Candidates, 0, 0, cancellationToken);
+                aiSelection = await _selectionService.SelectMainQuestionsWithAIAsync(context, pool.Candidates, targetCount, 0, 0, cancellationToken);
             }
 
             var selected = (aiSelection is { Count: > 0 } ? aiSelection : pool.Candidates)
