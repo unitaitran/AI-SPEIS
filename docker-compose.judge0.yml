@@ -1,0 +1,90 @@
+x-logging: &default-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 100M
+
+services:
+  server:
+    image: judge0/judge0:1.13.0
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    ports:
+      - "2358:2358"
+    privileged: true
+    restart: always
+    environment:
+      ENABLE_CGROUPS: "false"
+      RAILS_SERVER_PROCESSES: "0"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: aispeis_password_2026
+      REDIS_URL: redis://:aispeis_password_2026@redis:6379/0
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:-aispeis_password_2026}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    <<: *default-logging
+
+  worker:
+    image: judge0/judge0:1.13.0
+    command: ["bash", "-c", "mkdir -p /box && ./scripts/workers"]
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    privileged: true
+    restart: always
+    environment:
+      COUNT: "2"
+      INTERVAL: "1.0"
+      ENABLE_CGROUPS: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: aispeis_password_2026
+      REDIS_URL: redis://:aispeis_password_2026@redis:6379/0
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:-aispeis_password_2026}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    <<: *default-logging
+
+  db:
+    image: postgres:16.2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_PASSWORD: ${JUDGE0_POSTGRES_PASSWORD:-aispeis_password_2026}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data/
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d judge0"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    <<: *default-logging
+
+  redis:
+    image: redis:7.2.4
+    command: ["redis-server", "--appendonly", "no", "--requirepass", "aispeis_password_2026"]
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "aispeis_password_2026", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    <<: *default-logging
+
+volumes:
+  postgres-data:

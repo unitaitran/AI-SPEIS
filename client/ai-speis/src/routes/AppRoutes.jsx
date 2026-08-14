@@ -27,6 +27,55 @@ function AppRoutes() {
     window.addEventListener('popstate', syncPathname);
     window.addEventListener(NAVIGATION_EVENT, syncPathname);
 
+    // Handle OAuth redirect from backend
+    const hash = window.location.hash;
+    if (hash.startsWith('#/packages/payment-result')) {
+      const queryIndex = hash.indexOf('?');
+      const queryString = queryIndex >= 0 ? hash.slice(queryIndex) : '';
+      const target = `${USER_ROUTES.PACKAGES}${queryString}`;
+
+      window.history.replaceState(null, '', target);
+      setPathname(target.split('?')[0]);
+      return;
+    }
+
+    if (hash.startsWith('#dashboard?')) {
+      const queryString = hash.split('?')[1];
+      const urlParams = new URLSearchParams(queryString);
+
+      const token = urlParams.get('token');
+      const userId = urlParams.get('userId');
+      const fullName = urlParams.get('fullName');
+      const email = urlParams.get('email');
+      const role = urlParams.get('role');
+      const imageUrl = urlParams.get('imageUrl');
+      const isPremiumParam = urlParams.get('isPremium');
+      const remainingInterviewQuotaParam = urlParams.get('remainingInterviewQuota');
+
+      if (token) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify({
+          userId: parseInt(userId, 10),
+          fullName: fullName,
+          email: email,
+          role: role,
+          avatar: imageUrl,
+          isPremium: isPremiumParam === 'true' || isPremiumParam === 'True',
+          remainingInterviewQuota: remainingInterviewQuotaParam ? parseInt(remainingInterviewQuotaParam, 10) : undefined
+        }));
+        
+        const dashboardPath = getDefaultRouteForRole(role);
+        
+        // Replace the current history entry (the OAuth callback URL) with dashboard
+        // This prevents Back button from going to Google auth page
+        window.history.replaceState(null, '', dashboardPath);
+        
+        // Sync pathname state directly to trigger re-render immediately
+        setPathname(dashboardPath);
+        return;
+      }
+    }
+
     return () => {
       window.removeEventListener('popstate', syncPathname);
       window.removeEventListener(NAVIGATION_EVENT, syncPathname);
@@ -73,6 +122,11 @@ function AppRoutes() {
         to={session ? legacyProfileTarget : PUBLIC_ROUTES.LOGIN}
       />
     );
+  }
+
+  // Prevent flashing the landing page while OAuth callback is being processed in useEffect
+  if (window.location.hash.startsWith('#dashboard?')) {
+    return null;
   }
 
   return <App />;

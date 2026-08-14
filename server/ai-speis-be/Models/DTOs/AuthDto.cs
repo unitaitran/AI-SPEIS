@@ -1,13 +1,13 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace ai_speis_be.Models.DTOs
 {
     public class LoginDto
     {
-        [Required]
+        [Required(ErrorMessage = "Email là bắt buộc.")]
         [EmailAddress(ErrorMessage = "Địa chỉ email không hợp lệ.")]
         public string Email { get; set; } = null!;
-        [Required]
+        [Required(ErrorMessage = "Mật khẩu là bắt buộc.")]
         [MinLength(6, ErrorMessage = "Mật khẩu phải ít nhất 6 ký tự.")]
         public string Password { get; set; } = null!;
     }
@@ -18,19 +18,22 @@ namespace ai_speis_be.Models.DTOs
         public int UserId { get; set; }
         public string FullName { get; set; } = null!;
         public string Email { get; set; } = null!;
+        public string? ImageUrl { get; set; }
+        public bool IsPremium { get; set; }
+        public int RemainingInterviewQuota { get; set; }
     }
 
     public class RegisterDto
     {
         [Required(ErrorMessage = "Họ và tên là bắt buộc.")]
         public string FullName { get; set; } = null!;
-        [Required]
+        [Required(ErrorMessage = "Email là bắt buộc.")]
         [EmailAddress(ErrorMessage = "Địa chỉ email không hợp lệ.")]
         public string Email { get; set; } = null!;
-        [MaxLength(32)]
+        [MaxLength(32, ErrorMessage = "Số điện thoại không được vượt quá 32 ký tự.")]
         [RegularExpression(@"^0\d{9}$", ErrorMessage = "Số điện thoại phải có 10 chữ số và bắt đầu bằng 0")]
         public string? PhoneNumber { get; set; }
-        [Required]
+        [Required(ErrorMessage = "Mật khẩu là bắt buộc.")]
         [MinLength(6, ErrorMessage = "Mật khẩu phải ít nhất 6 ký tự.")]
         public string Password { get; set; } = null!;
     }
@@ -42,5 +45,26 @@ namespace ai_speis_be.Models.DTOs
         public int UserId { get; set; }
         public string FullName { get; set; } = null!;
         public string Email { get; set; } = null!;
+        public string? ImageUrl { get; set; }
+    }
+    public class ForgotPasswordDto
+    {
+        [Required(ErrorMessage = "Email là bắt buộc.")]
+        [EmailAddress(ErrorMessage = "Địa chỉ email không hợp lệ.")]
+        public string Email { get; set; } = null!;
+    }
+
+    public class ResetPasswordDto
+    {
+        [Required(ErrorMessage = "Token là bắt buộc.")]
+        public string Token { get; set; } = null!;
+
+        [Required(ErrorMessage = "Mật khẩu mới là bắt buộc.")]
+        [MinLength(6, ErrorMessage = "Mật khẩu phải ít nhất 6 ký tự.")]
+        public string NewPassword { get; set; } = null!;
+
+        [Required(ErrorMessage = "Xác nhận mật khẩu là bắt buộc.")]
+        [Compare("NewPassword", ErrorMessage = "Mật khẩu xác nhận không khớp.")]
+        public string ConfirmPassword { get; set; } = null!;
     }
 }

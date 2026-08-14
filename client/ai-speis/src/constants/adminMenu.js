@@ -14,12 +14,6 @@ export const ADMIN_MENU_ITEMS = [
     path: '/admin/users',
   },
   {
-    id: 'roles',
-    label: 'Roles',
-    icon: 'Shield',
-    path: '/admin/roles',
-  },
-  {
     id: 'questions',
     label: 'Questions',
     icon: 'FileText',
@@ -38,41 +32,10 @@ export const ADMIN_MENU_ITEMS = [
     path: '/admin/payments',
   },
   {
-    id: 'rewards',
-    label: 'Rewards',
-    icon: 'Trophy',
-    path: '/admin/rewards',
-  },
-  {
-    id: 'community',
-    label: 'Community',
-    icon: 'MessageCircle',
-    path: '/admin/community',
-    hasBadge: true // Based on SDS: Yes — reported posts
-  },
-  {
-    id: 'analytics',
-    label: 'Analytics',
-    icon: 'LineChart',
-    path: '/admin/analytics',
-  },
-  {
     id: 'ai-usage',
     label: 'AI Usage',
     icon: 'Bot',
     path: '/admin/ai-usage',
-  },
-  {
-    id: 'revenue',
-    label: 'Revenue',
-    icon: 'Wallet',
-    path: '/admin/revenue',
-  },
-  {
-    id: 'refunds',
-    label: 'Refunds',
-    icon: 'History',
-    path: '/admin/refunds',
   },
 ];
 
@@ -89,4 +52,5 @@ export const ADMIN_ROUTES = {
   AI_USAGE: '/admin/ai-usage',
   REVENUE: '/admin/revenue',
   REFUNDS: '/admin/refunds',
+  NOTIFICATIONS: '/admin/notifications',
 };

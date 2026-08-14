@@ -1,3 +1,44 @@
 .env
 .env.*
 !.env.example
+.vs/
+
+# Build results
+[Bb]in/
+[Oo]bj/
+
+# Python virtual environment & cache
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Node modules
+node_modules/
+
+*.md
+*.json
+!.gitignore
+!server/ai-speis-be/Docs/TechnicalInterviewParallelAnalysis.md
+!server/ai-speis-be/Docs/TechnicalInterviewParallelImplementation.md
+!server/ai-speis-be/TechnicalInterviews/Rubrics/technical-rubric-v1.json
+!server/ai-speis-be/TechnicalInterviews/Rubrics/technical-rubric-v2.json
+!server/ai-speis-be/TechnicalInterviews/Rubrics/technical-rubric-v2-runtime.json
+!client/ai-speis/src/locales/en/interview.json
+!client/ai-speis/src/locales/vi/interview.json
+!client/ai-speis/src/locales/en/packages.json
+!client/ai-speis/src/locales/vi/packages.json
+!client/ai-speis/src/locales/en/cvjd.json
+!client/ai-speis/src/locales/vi/cvjd.json
+!client/ai-speis/src/locales/vi/admin-subscription.json
+!client/ai-speis/src/locales/en/admin-subscription.json
+!client/ai-speis/src/locales/vi/admin-payments.json
+!client/ai-speis/src/locales/en/admin-payments.json
+!client/ai-speis/src/locales/vi/admin-ai-usage.json
+!client/ai-speis/src/locales/en/admin-ai-usage.json
+!client/ai-speis/src/locales/vi/dashboard.json
+!client/ai-speis/src/locales/en/dashboard.json
+!Interview_app-main/
+docs/
+postman/
+.tmp/

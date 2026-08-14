@@ -5,10 +5,18 @@ import './i18n';
 import AppRoutes from './routes/AppRoutes';
 import reportWebVitals from './reportWebVitals';
 
+import TokenMonitor from './routes/TokenMonitor';
+import NotificationPopup from './components/UI/NotificationPopup';
+import { NotificationProvider } from './features/notifications/NotificationProvider';
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <AppRoutes />
+    <TokenMonitor />
+    <NotificationPopup />
+    <NotificationProvider>
+      <AppRoutes />
+    </NotificationProvider>
   </React.StrictMode>
 );
 

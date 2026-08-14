@@ -1,0 +1,83 @@
+.interview-progress-scroll {
+  width: 100%;
+  margin-bottom: var(--spacing-xl);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.interview-progress {
+  display: flex;
+  align-items: center;
+  min-width: 840px;
+  margin: 0;
+  padding: var(--spacing-md) var(--spacing-sm);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  list-style: none;
+}
+
+.interview-progress-item {
+  display: flex;
+  flex: 1 0 auto;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 126px;
+  color: var(--text-secondary);
+  font-size: var(--body-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.interview-progress-item:not(:last-child)::after {
+  content: '';
+  width: 32px;
+  height: 1px;
+  margin: 0 var(--spacing-md);
+  background: var(--border-strong);
+}
+
+.interview-progress-item--completed::after {
+  background: var(--primary-light);
+}
+
+.interview-progress-number {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--border-radius-sm);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.interview-progress-number--active {
+  border-color: var(--primary-dark);
+  background: var(--primary-dark);
+  color: var(--white);
+  box-shadow: var(--box-shadow-glow);
+}
+
+.interview-progress-item[aria-current='step'] .interview-progress-label {
+  color: var(--text-primary);
+  font-weight: var(--fw-bold);
+}
+
+.interview-progress-item--completed .interview-progress-number {
+  border-color: var(--primary-light);
+  background: var(--primary-xlight);
+  color: var(--primary-dark);
+}
+
+@media (max-width: 767px) {
+  .interview-progress-scroll {
+    margin-inline: -16px;
+    width: calc(100% + 32px);
+  }
+
+  .interview-progress {
+    padding-inline: 16px;
+  }
+}

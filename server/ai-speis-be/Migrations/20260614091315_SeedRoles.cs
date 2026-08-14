@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -12,14 +12,17 @@ namespace ai_speis_be.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.InsertData(
-                table: "Role",
-                columns: new[] { "RoleId", "Description", "RoleName", "Status" },
-                values: new object[,]
-                {
-                    { 1, "Quản trị viên", "admin", true },
-                    { 2, "Người dùng", "user", true }
-                });
+            // Use idempotent SQL to avoid primary key violations when roles already exist
+            // IDENTITY_INSERT must be ON to insert explicit values into an IDENTITY column
+            migrationBuilder.Sql(@"
+SET IDENTITY_INSERT [Role] ON;
+IF NOT EXISTS (SELECT 1 FROM [Role] WHERE [RoleId] = 1)
+    INSERT INTO [Role] ([RoleId], [Description], [RoleName], [Status])
+    VALUES (1, N'Quản trị viên', N'admin', CAST(1 AS bit));
+IF NOT EXISTS (SELECT 1 FROM [Role] WHERE [RoleId] = 2)
+    INSERT INTO [Role] ([RoleId], [Description], [RoleName], [Status])
+    VALUES (2, N'Người dùng', N'user', CAST(1 AS bit));
+SET IDENTITY_INSERT [Role] OFF;");
         }
 
         /// <inheritdoc />

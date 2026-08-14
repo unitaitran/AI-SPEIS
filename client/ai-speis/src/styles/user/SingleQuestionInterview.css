@@ -1,0 +1,115 @@
+/* Single Question Interview Specific Results Styling */
+.single-q-result-dimensions {
+  width: 100%;
+  text-align: left;
+  margin-top: 1.5rem;
+}
+
+.single-q-result-dimensions h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text-primary, #0f172a);
+}
+
+.single-q-dimensions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.single-q-dim-card {
+  background: var(--surface-2, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.single-q-dim-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.single-q-dim-head strong {
+  font-size: 0.95rem;
+  color: var(--text-primary, #0f172a);
+}
+
+.single-q-dim-badge {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary, #2563eb);
+  background: #eff6ff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  border: 1px solid #bfdbfe;
+}
+
+.single-q-evidence {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0.35rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+}
+
+.single-q-evidence.pos {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.single-q-evidence.neg {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+}
+
+.single-q-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.single-q-summary-card {
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.single-q-summary-card.pos {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.single-q-summary-card.neg {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.single-q-summary-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.single-q-summary-card ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}

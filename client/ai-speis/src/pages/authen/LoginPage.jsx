@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import AuthCard from '../../components/Auth/AuthCard';
 import LoginForm from '../../components/Auth/LoginForm';
 
 const LoginPage = () => {
+  const { t } = useTranslation('login');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -27,7 +29,7 @@ const LoginPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen w-full flex flex-col relative">
+    <div className="h-screen overflow-hidden w-full flex flex-col relative">
       {/* Toast notifications */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-50 flex flex-col gap-2">
         {successMessage && (
@@ -42,8 +44,9 @@ const LoginPage = () => {
         )}
       </div>
 
-      <AuthCard 
-        footerText="AI-SPEIS sử dụng hồ sơ, CV và lịch sử luyện tập để cá nhân hóa câu hỏi phỏng vấn."
+      <AuthCard
+        footerText={t('footer_text')}
+        mascotText={t('mascot_greeting')}
       >
         <LoginForm />
       </AuthCard>

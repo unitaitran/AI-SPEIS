@@ -1,0 +1,34 @@
+namespace ai_speis_be.TechnicalInterviews.AI
+{
+    /// <summary>
+    /// Gemini-specific provider boundary. The current transport uses Gemini's
+    /// OpenAI-compatible backend endpoint while keeping controllers/orchestrators
+    /// independent from the concrete vendor implementation.
+    /// </summary>
+    public sealed class GeminiTechnicalInterviewAIProvider : ITechnicalInterviewAIProvider
+    {
+        private readonly ExternalTechnicalInterviewAIProvider _transport;
+
+        public GeminiTechnicalInterviewAIProvider(ExternalTechnicalInterviewAIProvider transport)
+        {
+            _transport = transport;
+        }
+
+        public string ProviderName => "gemini";
+
+        public Task<AIProviderResult<TechnicalAISelectionResponse>> SelectQuestionsAsync(
+            TechnicalAISelectionRequest request,
+            CancellationToken cancellationToken) =>
+            _transport.SelectQuestionsAsync(request, cancellationToken, ProviderName);
+
+        public Task<AIProviderResult<TechnicalV2EvaluationResponse>> EvaluateAnswerV2Async(
+            TechnicalV2AnswerProcessingContext context,
+            CancellationToken cancellationToken) =>
+            _transport.EvaluateAnswerV2Async(context, cancellationToken, ProviderName);
+
+        public Task<AIProviderResult<TechnicalAIFinalSummaryResponse>> GenerateFinalSummaryAsync(
+            TechnicalAIFinalSummaryRequest request,
+            CancellationToken cancellationToken) =>
+            _transport.GenerateFinalSummaryAsync(request, cancellationToken, ProviderName);
+    }
+}

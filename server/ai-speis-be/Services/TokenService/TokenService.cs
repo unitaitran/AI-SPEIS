@@ -17,7 +17,7 @@ namespace ai_speis_be.Services.TokenService
             var key = jwtSetting["Key"] ?? throw new InvalidOperationException("Jwt:Key is missing");
             var issuer = jwtSetting["Issuer"] ?? throw new InvalidOperationException("Jwt:Issuer is missing");
             var audience = jwtSetting["Audience"] ?? throw new InvalidOperationException("Jwt:Audience is missing");
-            var expireMinutes = int.Parse(jwtSetting["ExpireMinutes"] ?? "30");
+            var expireMinutes = int.Parse(jwtSetting["ExpireMinutes"] ?? "10080");
             var claim = new List<Claim>
             {
                 new Claim(ClaimTypes.Email, email),

@@ -2,15 +2,68 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
-import enLanding from './locales/en/landing.json';
-import viLanding from './locales/vi/landing.json';
+import enHomepage from './locales/en/landing.json';
+import viHomepage from './locales/vi/landing.json';
+
+import enLogin from './locales/en/login.json';
+import viLogin from './locales/vi/login.json';
+
+import enRegister from './locales/en/register.json';
+import viRegister from './locales/vi/register.json';
+
+import enDashboard from './locales/en/dashboard.json';
+import viDashboard from './locales/vi/dashboard.json';
+import enAdminUsers from './locales/en/admin-users.json';
+import viAdminUsers from './locales/vi/admin-users.json';
+import enAdminDashboard from './locales/en/admin-dashboard.json';
+import viAdminDashboard from './locales/vi/admin-dashboard.json';
+import enAdminSubscription from './locales/en/admin-subscription.json';
+import viAdminSubscription from './locales/vi/admin-subscription.json';
+import enAdminPayments from './locales/en/admin-payments.json';
+import viAdminPayments from './locales/vi/admin-payments.json';
+import enAdminAiUsage from './locales/en/admin-ai-usage.json';
+import viAdminAiUsage from './locales/vi/admin-ai-usage.json';
+import enQuestionBank from './locales/en/questionBank.json';
+import viQuestionBank from './locales/vi/questionBank.json';
+import enInterview from './locales/en/interview.json';
+import viInterview from './locales/vi/interview.json';
+
+import enPackages from './locales/en/packages.json';
+import viPackages from './locales/vi/packages.json';
+
+import enCvjd from './locales/en/cvjd.json';
+import viCvjd from './locales/vi/cvjd.json';
 
 const resources = {
   en: {
-    landing: enLanding,
+    homepage: enHomepage,
+    login: enLogin,
+    register: enRegister,
+    dashboard: enDashboard,
+    'admin-users': enAdminUsers,
+    'admin-dashboard': enAdminDashboard,
+    'admin-subscription': enAdminSubscription,
+    'admin-payments': enAdminPayments,
+    'admin-ai-usage': enAdminAiUsage,
+    questionBank: enQuestionBank,
+    interview: enInterview,
+    packages: enPackages,
+    cvjd: enCvjd,
   },
   vi: {
-    landing: viLanding,
+    homepage: viHomepage,
+    login: viLogin,
+    register: viRegister,
+    dashboard: viDashboard,
+    'admin-users': viAdminUsers,
+    'admin-dashboard': viAdminDashboard,
+    'admin-subscription': viAdminSubscription,
+    'admin-payments': viAdminPayments,
+    'admin-ai-usage': viAdminAiUsage,
+    questionBank: viQuestionBank,
+    interview: viInterview,
+    packages: viPackages,
+    cvjd: viCvjd,
   },
 };
 
@@ -21,8 +74,8 @@ i18n
     resources,
     fallbackLng: 'vi',
     supportedLngs: ['vi', 'en'],
-    defaultNS: 'landing',
-    ns: ['landing'],
+    defaultNS: 'homepage',
+    ns: ['homepage', 'login', 'register', 'dashboard', 'admin-users', 'admin-dashboard', 'admin-subscription', 'admin-payments', 'admin-ai-usage', 'questionBank', 'interview', 'packages', 'cvjd'],
     interpolation: {
       escapeValue: false,
     },
