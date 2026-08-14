@@ -39,6 +39,18 @@ namespace ai_speis_be.Repositories.UserRepo
                 users = users.Where(user => user.Status == query.Status.Value);
             }
 
+            if (!string.IsNullOrWhiteSpace(query.Package))
+            {
+                var packageCode = query.Package.Trim().ToUpper();
+                users = users.Where(user =>
+                    _context.UserSubscriptions.Any(subscription =>
+                        subscription.UserId == user.UserId &&
+                        subscription.Plan.Code == packageCode) ||
+                    (!_context.UserSubscriptions.Any(subscription => subscription.UserId == user.UserId) &&
+                        ((packageCode == "PREMIUM" && user.IsPremium) ||
+                         (packageCode == "FREE" && !user.IsPremium))));
+            }
+
             var totalItems = await users.CountAsync(cancellationToken);
             var orderedUsers = ApplySorting(users, query.SortBy, query.SortDirection);
 
@@ -60,6 +72,11 @@ namespace ai_speis_be.Repositories.UserRepo
                         : user.Status
                             ? UserAccountStatus.Active
                             : UserAccountStatus.PendingActivation,
+                    Package = _context.UserSubscriptions
+                        .Where(subscription => subscription.UserId == user.UserId)
+                        .Select(subscription => subscription.Plan.Name)
+                        .FirstOrDefault() ?? (user.IsPremium ? "Premium" : "Free"),
+                    Quota = user.RemainingInterviewQuota,
                     CreatedAt = user.CreatedAt,
                     UpdatedAt = user.UpdatedAt
                 })
@@ -108,6 +125,11 @@ namespace ai_speis_be.Repositories.UserRepo
                     CreatedAt = user.CreatedAt,
                     UpdatedAt = user.UpdatedAt,
                     ImageUrl = user.ImageUrl,
+                    Package = _context.UserSubscriptions
+                        .Where(subscription => subscription.UserId == user.UserId)
+                        .Select(subscription => subscription.Plan.Name)
+                        .FirstOrDefault() ?? (user.IsPremium ? "Premium" : "Free"),
+                    Quota = user.RemainingInterviewQuota,
                     Profile = profile == null
                         ? null
                         : new AdminUserProfileDto

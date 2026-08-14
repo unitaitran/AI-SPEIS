@@ -607,7 +607,7 @@ function UserManagementPage() {
                       <Activity size={16} className="info-icon" />
                       <div className="info-content">
                         <span className="info-label">{t('quota')}</span>
-                        <span className="info-value quota-highlight">{detailUser.quota || '-'}</span>
+                        <span className="info-value quota-highlight">{detailUser.quota ?? '-'}</span>
                       </div>
                     </div>
                   </div>
@@ -1048,7 +1048,7 @@ function UserManagementPage() {
                             <span className="role-badge">{user.role || '-'}</span>
                           </td>
                           <td className="col-package">{user.package || '-'}</td>
-                          <td className="col-quota">{user.quota || '-'}</td>
+                          <td className="col-quota">{user.quota ?? '-'}</td>
                           <td className="col-date">
                             {registerDateVal
                               ? new Date(registerDateVal).toLocaleDateString()
