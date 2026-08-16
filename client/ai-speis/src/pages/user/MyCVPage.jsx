@@ -109,7 +109,29 @@ const renderFeedbackList = (text, type, t) => {
 };
 
 function MyCVPage() {
-  const { t } = useTranslation('dashboard');
+  const { t, i18n } = useTranslation('dashboard');
+
+  const getLocalizedCvErrorMessage = (rawMsg) => {
+    if (!rawMsg) return t('mycv.error_invalid_cv_default', 'Đây không phải là CV hợp lệ hoặc vị trí công việc chưa được hỗ trợ. Vui lòng thử lại.');
+    
+    const msgLower = String(rawMsg).toLowerCase();
+    
+    if (msgLower.includes('đặc tả') || msgLower.includes('srs') || msgLower.includes('software requirements specification')) {
+      if (i18n.language === 'en') {
+        return 'This document is a Software Requirements Specification (SRS) for system software, not a Curriculum Vitae (CV). The document describes system features, data architecture, and business processes rather than listing candidate personal information, education, and work experience.';
+      }
+      return 'Đây là tài liệu Đặc tả yêu cầu phần mềm (Software Requirements Specification - SRS) cho hệ thống AI-SPEIS, không phải là hồ sơ xin việc (CV). Tài liệu mô tả các tính năng hệ thống, kiến trúc dữ liệu và quy trình nghiệp vụ thay vì liệt kê thông tin cá nhân, trình độ học vấn và kinh nghiệm làm việc của một ứng viên.';
+    }
+
+    if (msgLower.includes('không phải là cv') || msgLower.includes('hồ sơ xin việc') || msgLower.includes('chưa được hỗ trợ')) {
+      if (i18n.language === 'en') {
+        return 'This is not a valid CV or the job position is not supported. Please try again with a valid candidate CV.';
+      }
+      return 'Đây không phải là CV hợp lệ hoặc vị trí công việc chưa được hỗ trợ. Hãy thử lại.';
+    }
+
+    return rawMsg;
+  };
 
   /* -----------------------------------------------------------------------
    *  Core state
@@ -551,7 +573,7 @@ function MyCVPage() {
         {error && (
           <div className="mycv-error-banner">
             <AlertCircle size={16} />
-            <span>{error}</span>
+            <span>{getLocalizedCvErrorMessage(error)}</span>
             <button onClick={() => setError(null)} className="mycv-error-close">
               <X size={14} />
             </button>

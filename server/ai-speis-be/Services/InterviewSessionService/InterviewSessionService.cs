@@ -1678,7 +1678,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                 "Free");
 
             var jobTitle = campaign.JDExtractedProfile?.JobTitle 
-                ?? campaign.JDExtractedProfile?.RoleTarget;
+                ?? campaign.JDExtractedProfile?.RoleTarget
+                ?? campaign.CVExtractedProfile?.RoleTarget;
 
             return new InterviewCampaignDto
             {

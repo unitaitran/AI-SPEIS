@@ -190,13 +190,12 @@ const normalizeBehaviorReview = (result, state) => {
 function FeedbackList({ icon: Icon, title, items, tone = 'neutral' }) {
   if (!items?.length) return null;
   return (
-    <div className={`p-4 rounded-xl border flex flex-col gap-2 ${
-      tone === 'positive' 
-        ? 'bg-success-light/30 border-success/30 text-success-dark' 
-        : tone === 'focus' 
-        ? 'bg-warning-light/30 border-warning/30 text-warning-dark'
-        : 'bg-primary-xlight/30 border-primary/30 text-primary-dark'
-    }`}>
+    <div className={`p-4 rounded-xl border flex flex-col gap-2 ${tone === 'positive'
+        ? 'bg-success-light/30 border-success/30 text-success-dark'
+        : tone === 'focus'
+          ? 'bg-warning-light/30 border-warning/30 text-warning-dark'
+          : 'bg-primary-xlight/30 border-primary/30 text-primary-dark'
+      }`}>
       <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
         <Icon size={16} /> {title}
       </h4>
@@ -428,6 +427,53 @@ function CampaignInterviewResultPage({ campaignId }) {
       });
     });
 
+    // Helper: Calculate Final Dimension Scores for a Main Question taking Clarifications into account (25% Main / 75% Clarification)
+    const computeMainQuestionFinalDimensions = (q) => {
+      const mainDims = {};
+      (q.dimensions || []).forEach((d) => {
+        const code = String(d.rubricCode || d.name || '').toUpperCase();
+        mainDims[code] = Number(d.score || 0);
+      });
+
+      const subQs = q.subQuestions || [];
+      const clarificationQ = subQs.find(sq => sq.questionType === 'Clarification' || sq.rubricVersion?.includes('clarification'));
+
+      if (clarificationQ && clarificationQ.dimensions?.length > 0) {
+        const finalDims = {};
+        const clarDims = {};
+        clarificationQ.dimensions.forEach((d) => {
+          const code = String(d.rubricCode || d.name || '').toUpperCase();
+          clarDims[code] = Number(d.score || 0);
+        });
+
+        const allCodes = new Set([...Object.keys(mainDims), ...Object.keys(clarDims)]);
+        allCodes.forEach((code) => {
+          const mScore = mainDims[code] ?? 0;
+          const cScore = clarDims[code] ?? mScore;
+          // Apply 25% Main / 75% Clarification weighting per rubric specification
+          finalDims[code] = (mScore * 0.25) + (cScore * 0.75);
+        });
+        return finalDims;
+      }
+
+      // If follow-ups exist, calculate average contribution
+      const followUpQs = subQs.filter(sq => sq.questionType !== 'Clarification');
+      if (followUpQs.length > 0) {
+        const finalDims = { ...mainDims };
+        followUpQs.forEach((fq) => {
+          (fq.dimensions || []).forEach((d) => {
+            const code = String(d.rubricCode || d.name || '').toUpperCase();
+            if (finalDims[code] !== undefined) {
+              finalDims[code] = (finalDims[code] + Number(d.score || 0)) / 2;
+            }
+          });
+        });
+        return finalDims;
+      }
+
+      return mainDims;
+    };
+
     if (allQuestions.length > 0) {
       let accSum = 0, accCount = 0;
       let depthSum = 0, depthCount = 0;
@@ -437,11 +483,16 @@ function CampaignInterviewResultPage({ campaignId }) {
       let behaCommSum = 0, behaCommCount = 0;
       let actionSum = 0, actionCount = 0;
 
-      allQuestions.forEach((q) => {
+      // Filter main questions (not sub-questions directly)
+      const mainQuestions = allQuestions.filter(q => !q.parentQuestionId && !q.isSubQuestion);
+      const targetQuestions = mainQuestions.length > 0 ? mainQuestions : allQuestions;
+
+      targetQuestions.forEach((q) => {
         const isBeha = q.roundType === 'Behavior' || q.roundType === 'Behavioral' || q.rubricVersion?.includes('behavioural');
-        (q.dimensions || []).forEach((d) => {
-          const code = String(d.rubricCode || d.name || '').toUpperCase();
-          const s = Number(d.score || 0);
+        const dims = computeMainQuestionFinalDimensions(q);
+
+        Object.keys(dims).forEach((code) => {
+          const s = dims[code];
           if (code.includes('ACCURACY')) { accSum += s; accCount++; }
           else if (code.includes('DEPTH') || code.includes('COMPETENCY')) { depthSum += s; depthCount++; }
           else if (code.includes('APPLICATION') || code.includes('APP')) { appSum += s; appCount++; }
@@ -451,22 +502,6 @@ function CampaignInterviewResultPage({ campaignId }) {
             else { techCommSum += s; techCommCount++; }
           }
           else if (code.includes('ACTION')) { actionSum += s; actionCount++; }
-        });
-
-        (q.subQuestions || []).forEach((sq) => {
-          (sq.dimensions || []).forEach((d) => {
-            const code = String(d.rubricCode || d.name || '').toUpperCase();
-            const s = Number(d.score || 0);
-            if (code.includes('ACCURACY')) { accSum += s; accCount++; }
-            else if (code.includes('DEPTH') || code.includes('COMPETENCY')) { depthSum += s; depthCount++; }
-            else if (code.includes('APPLICATION') || code.includes('APP')) { appSum += s; appCount++; }
-            else if (code.includes('REASONING') || code.includes('REASON') || code.includes('RESULT')) { reasSum += s; reasCount++; }
-            else if (code.includes('COMMUNICATION') || code.includes('COMM')) {
-              if (isBeha) { behaCommSum += s; behaCommCount++; }
-              else { techCommSum += s; techCommCount++; }
-            }
-            else if (code.includes('ACTION')) { actionSum += s; actionCount++; }
-          });
         });
       });
 
@@ -479,7 +514,7 @@ function CampaignInterviewResultPage({ campaignId }) {
       if (actionCount > 0) behaAction = actionSum / actionCount;
     }
 
-    // Formulas:
+    // Official 4 Global Competencies Formulas:
     // 1. Professional Knowledge = 35% Accuracy + 25% Depth + 15% Application + 25% Coding
     const profKnowledge = (0.35 * techAccuracy) + (0.25 * techDepth) + (0.15 * techApp) + (0.25 * codingScore);
 
@@ -572,7 +607,7 @@ function CampaignInterviewResultPage({ campaignId }) {
   return (
     <UserLayout>
       <div className="flex flex-col gap-6 pb-16 max-w-7xl mx-auto animate-pageEntrance">
-        
+
         {/* Header Session: Unwrapped Clean Flex Row (Left Info + Right Score) */}
         <div className="flex flex-col gap-3 w-full">
           <button
@@ -625,8 +660,8 @@ function CampaignInterviewResultPage({ campaignId }) {
           </div>
         </div>
 
-        {/* Dashboard 4 Chỉ số Đánh giá Cuối cùng (Competency Benchmark Metrics) - Only shown in Real / Mock Interview mode */}
-        {mode === 'Mock' && competencyMetrics && (
+        {/* Dashboard 4 Global Competency Benchmark Metrics (Single Source of Truth across all tabs & sessions) */}
+        {competencyMetrics && (
           <section className="flex flex-col gap-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
               <Target size={15} /> {copy.history.benchmarksTitle}
@@ -789,8 +824,8 @@ function CampaignInterviewResultPage({ campaignId }) {
                         </h5>
                         {activeSessionObj?.strengths?.length > 0
                           ? <ul className="list-disc list-inside text-xs text-text-primary space-y-1">
-                              {activeSessionObj.strengths.map((item, i) => <li key={i}>{item}</li>)}
-                            </ul>
+                            {activeSessionObj.strengths.map((item, i) => <li key={i}>{item}</li>)}
+                          </ul>
                           : <p className="text-xs text-text-muted italic">—</p>
                         }
                       </div>
@@ -802,8 +837,8 @@ function CampaignInterviewResultPage({ campaignId }) {
                         </h5>
                         {activeSessionObj?.areasForImprovement?.length > 0
                           ? <ul className="list-disc list-inside text-xs text-text-primary space-y-1">
-                              {activeSessionObj.areasForImprovement.map((item, i) => <li key={i}>{item}</li>)}
-                            </ul>
+                            {activeSessionObj.areasForImprovement.map((item, i) => <li key={i}>{item}</li>)}
+                          </ul>
                           : <p className="text-xs text-text-muted italic">—</p>
                         }
                       </div>
@@ -811,212 +846,211 @@ function CampaignInterviewResultPage({ campaignId }) {
                   </div>
                 )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* Cột Trái: Danh sách câu hỏi (30% / lg:col-span-4) */}
-                <aside className="lg:col-span-4 flex flex-col gap-3">
-                  <div className="p-4 bg-surface border border-border rounded-xl shadow-xs flex flex-col gap-3">
-                    <div className="flex items-center justify-between border-b border-border pb-2.5">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted">
-                        {copy.review.questionList}
-                      </h4>
-                      <span className="px-2 py-0.5 bg-surface-2 border border-border rounded-full text-xs font-bold text-text-primary">
-                        ({selectedQuestionIndex + 1}/{flatQuestionList.length})
-                      </span>
-                    </div>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                    <div className="flex flex-col gap-2">
-                      {roundReview.questions.map((q, mainIdx) => {
-                        const mainFlatIndex = flatQuestionList.findIndex((item) => item.key === `main-${q.id || mainIdx}`);
-                        const isMainSelected = selectedQuestionIndex === mainFlatIndex;
-                        const subQuestions = q.subQuestions || [];
-                        const hasSub = subQuestions.length > 0;
+                  {/* Cột Trái: Danh sách câu hỏi (30% / lg:col-span-4) */}
+                  <aside className="lg:col-span-4 flex flex-col gap-3">
+                    <div className="p-4 bg-surface border border-border rounded-xl shadow-xs flex flex-col gap-3">
+                      <div className="flex items-center justify-between border-b border-border pb-2.5">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+                          {copy.review.questionList}
+                        </h4>
+                        <span className="px-2 py-0.5 bg-surface-2 border border-border rounded-full text-xs font-bold text-text-primary">
+                          ({selectedQuestionIndex + 1}/{flatQuestionList.length})
+                        </span>
+                      </div>
 
-                        const selectedItem = flatQuestionList[selectedQuestionIndex];
-                        const isParentOfSelected = selectedItem?.isSubQuestion && selectedItem?.mainIndex === mainIdx;
-                        const isExpanded = expandedQuestions[mainIdx] || isParentOfSelected;
+                      <div className="flex flex-col gap-2">
+                        {roundReview.questions.map((q, mainIdx) => {
+                          const mainFlatIndex = flatQuestionList.findIndex((item) => item.key === `main-${q.id || mainIdx}`);
+                          const isMainSelected = selectedQuestionIndex === mainFlatIndex;
+                          const subQuestions = q.subQuestions || [];
+                          const hasSub = subQuestions.length > 0;
 
-                        return (
-                          <div key={q.id || mainIdx} className="flex flex-col gap-1.5">
-                            {/* Main Question Card Q1, Q2... */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedQuestionIndex(mainFlatIndex !== -1 ? mainFlatIndex : 0);
-                                if (hasSub) {
-                                  setExpandedQuestions((prev) => ({ ...prev, [mainIdx]: !prev[mainIdx] }));
-                                }
-                              }}
-                              className={`
+                          const selectedItem = flatQuestionList[selectedQuestionIndex];
+                          const isParentOfSelected = selectedItem?.isSubQuestion && selectedItem?.mainIndex === mainIdx;
+                          const isExpanded = expandedQuestions[mainIdx] || isParentOfSelected;
+
+                          return (
+                            <div key={q.id || mainIdx} className="flex flex-col gap-1.5">
+                              {/* Main Question Card Q1, Q2... */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedQuestionIndex(mainFlatIndex !== -1 ? mainFlatIndex : 0);
+                                  if (hasSub) {
+                                    setExpandedQuestions((prev) => ({ ...prev, [mainIdx]: !prev[mainIdx] }));
+                                  }
+                                }}
+                                className={`
                                 p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 relative overflow-hidden group
                                 ${isMainSelected
-                                  ? 'border-primary bg-[#F0F7FF] border-l-4 border-l-primary shadow-xs'
-                                  : 'border-border bg-surface hover:bg-surface-2'
-                                }
+                                    ? 'border-primary bg-[#F0F7FF] border-l-4 border-l-primary shadow-xs'
+                                    : 'border-border bg-surface hover:bg-surface-2'
+                                  }
                               `}
-                            >
-                              <div className="flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-extrabold text-primary">Q{q.order || mainIdx + 1}</span>
-                                  {hasSub && (
-                                    <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-full flex items-center gap-1">
-                                      +{subQuestions.length}
-                                      <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                                    </span>
+                              >
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-extrabold text-primary">Q{q.order || mainIdx + 1}</span>
+                                    {hasSub && (
+                                      <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-full flex items-center gap-1">
+                                        +{subQuestions.length}
+                                        <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                      </span>
+                                    )}
+                                  </div>
+                                  {formatScore(q.score, q.maxScore) && (
+                                    <span className="font-bold text-text-primary">{formatScore(q.score, q.maxScore)}</span>
                                   )}
                                 </div>
-                                {formatScore(q.score, q.maxScore) && (
-                                  <span className="font-bold text-text-primary">{formatScore(q.score, q.maxScore)}</span>
-                                )}
-                              </div>
-                              <p className="text-xs text-text-secondary line-clamp-2 font-medium leading-snug">
-                                {q.question || copy.review.missingQuestion}
-                              </p>
-                            </button>
+                                <p className="text-xs text-text-secondary line-clamp-2 font-medium leading-snug">
+                                  {q.question || copy.review.missingQuestion}
+                                </p>
+                              </button>
 
-                            {/* Sub-questions Dropdown List (Collapsed by default, expands on click) */}
-                            {hasSub && isExpanded && (
-                              <div className="pl-3 flex flex-col gap-1 border-l-2 border-primary/20 ml-2 animate-fadeIn">
-                                {subQuestions.map((subQ, subIdx) => {
-                                  const subFlatIndex = flatQuestionList.findIndex((item) => item.key === `sub-${subQ.id || subIdx}`);
-                                  const isSubSelected = selectedQuestionIndex === subFlatIndex;
+                              {/* Sub-questions Dropdown List (Collapsed by default, expands on click) */}
+                              {hasSub && isExpanded && (
+                                <div className="pl-3 flex flex-col gap-1 border-l-2 border-primary/20 ml-2 animate-fadeIn">
+                                  {subQuestions.map((subQ, subIdx) => {
+                                    const subFlatIndex = flatQuestionList.findIndex((item) => item.key === `sub-${subQ.id || subIdx}`);
+                                    const isSubSelected = selectedQuestionIndex === subFlatIndex;
 
-                                  return (
-                                    <button
-                                      key={subQ.id || subIdx}
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedQuestionIndex(subFlatIndex !== -1 ? subFlatIndex : mainFlatIndex);
-                                      }}
-                                      className={`
+                                    return (
+                                      <button
+                                        key={subQ.id || subIdx}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedQuestionIndex(subFlatIndex !== -1 ? subFlatIndex : mainFlatIndex);
+                                        }}
+                                        className={`
                                         p-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-1 text-xs
                                         ${isSubSelected
-                                          ? 'border-primary/80 bg-primary-xlight/40 font-semibold shadow-2xs'
-                                          : 'border-border/60 bg-surface-2 hover:bg-surface-muted'
-                                        }
+                                            ? 'border-primary/80 bg-primary-xlight/40 font-semibold shadow-2xs'
+                                            : 'border-border/60 bg-surface-2 hover:bg-surface-muted'
+                                          }
                                       `}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded uppercase ${
-                                          subQ.questionType === 'Clarification'
-                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                                        }`}>
-                                          {subQ.questionType === 'Clarification' ? copy.review.clarificationBadge : copy.review.followUpBadge}
-                                        </span>
-                                        <span className="font-extrabold text-primary">{formatScore(subQ.score, subQ.maxScore)}</span>
-                                      </div>
-                                      <p className="text-[11px] text-text-secondary line-clamp-1 font-medium">
-                                        {subQ.question}
-                                      </p>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded uppercase ${subQ.questionType === 'Clarification'
+                                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                            }`}>
+                                            {subQ.questionType === 'Clarification' ? copy.review.clarificationBadge : copy.review.followUpBadge}
+                                          </span>
+                                          <span className="font-extrabold text-primary">{formatScore(subQ.score, subQ.maxScore)}</span>
+                                        </div>
+                                        <p className="text-[11px] text-text-secondary line-clamp-1 font-medium">
+                                          {subQ.question}
+                                        </p>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                </aside>
+                  </aside>
 
-                {/* Cột Phải: Nội dung chi tiết câu hỏi & Đánh giá (70% / lg:col-span-8) */}
-                <article className="lg:col-span-8 p-6 bg-surface border border-border rounded-xl shadow-xs flex flex-col gap-6">
-                  
-                  {/* Header câu hỏi & Score */}
-                  <div className="flex items-start justify-between gap-4 pb-4 border-b border-border">
-                    <div className="flex flex-col gap-1.5 flex-1">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted">
-                        {selectedQuestion.questionType === 'MAIN' ? copy.review.mainQuestion : selectedQuestion.questionType}
-                      </span>
-                      <h3 className="text-base sm:text-lg font-bold text-text-primary leading-snug">
-                        {selectedQuestion.question}
-                      </h3>
-                      {selectedQuestion.skill && (
-                        <span className="text-xs font-semibold text-secondary mt-1">
-                          {copy.review.skill.replace('{{skill}}', selectedQuestion.skill)}
+                  {/* Cột Phải: Nội dung chi tiết câu hỏi & Đánh giá (70% / lg:col-span-8) */}
+                  <article className="lg:col-span-8 p-6 bg-surface border border-border rounded-xl shadow-xs flex flex-col gap-6">
+
+                    {/* Header câu hỏi & Score */}
+                    <div className="flex items-start justify-between gap-4 pb-4 border-b border-border">
+                      <div className="flex flex-col gap-1.5 flex-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted">
+                          {selectedQuestion.questionType === 'MAIN' ? copy.review.mainQuestion : selectedQuestion.questionType}
                         </span>
+                        <h3 className="text-base sm:text-lg font-bold text-text-primary leading-snug">
+                          {selectedQuestion.question}
+                        </h3>
+                        {selectedQuestion.skill && (
+                          <span className="text-xs font-semibold text-secondary mt-1">
+                            {copy.review.skill.replace('{{skill}}', selectedQuestion.skill)}
+                          </span>
+                        )}
+                      </div>
+
+                      {formatScore(selectedQuestion.score, selectedQuestion.maxScore) && (
+                        <div className="flex flex-col items-center px-4 py-2 bg-[#F0F7FF] border border-primary/20 rounded-xl shrink-0">
+                          <span className="text-[9px] uppercase font-extrabold text-primary-dark tracking-wider">{copy.review.scoreLabel}</span>
+                          <span className="text-lg font-extrabold text-primary">
+                            {formatScore(selectedQuestion.score, selectedQuestion.maxScore)}
+                          </span>
+                          {selectedQuestion.questionId && ['Technical', 'Behavior', 'Behavioral'].includes(activeSessionObj?.interviewRoundType || activeSessionObj?.roundType) && <Button variant="outline" size="sm" icon={RefreshCw} onClick={() => openSingleQuestionInterview(selectedQuestion, activeSessionObj.interviewRoundType || activeSessionObj.roundType, activeRoundSessionId)}>{copy.review.retryQuestion}</Button>}
+                        </div>
                       )}
                     </div>
 
-                    {formatScore(selectedQuestion.score, selectedQuestion.maxScore) && (
-                      <div className="flex flex-col items-center px-4 py-2 bg-[#F0F7FF] border border-primary/20 rounded-xl shrink-0">
-                        <span className="text-[9px] uppercase font-extrabold text-primary-dark tracking-wider">{copy.review.scoreLabel}</span>
-                        <span className="text-lg font-extrabold text-primary">
-                          {formatScore(selectedQuestion.score, selectedQuestion.maxScore)}
-                        </span>
-                        {selectedQuestion.questionId && ['Technical', 'Behavior', 'Behavioral'].includes(activeSessionObj?.interviewRoundType || activeSessionObj?.roundType) && <Button variant="outline" size="sm" icon={RefreshCw} onClick={() => openSingleQuestionInterview(selectedQuestion, activeSessionObj.interviewRoundType || activeSessionObj.roundType, activeRoundSessionId)}>{copy.review.retryQuestion}</Button>}
+                    {/* Transcript câu trả lời Sub-box */}
+                    <div className="flex flex-col gap-2.5 p-4.5 bg-[#F8FAFC] rounded-xl border border-border">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-2">
+                        <MessageSquareText size={16} className="text-primary" /> {copy.review.transcript}
+                      </h4>
+                      <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap font-mono">
+                        {selectedQuestion.transcript || copy.review.missingTranscript}
+                      </p>
+                    </div>
+
+                    {/* AI Feedback Summary */}
+
+
+                    {/* Rubric Breakdown */}
+                    {selectedQuestion.dimensions?.length > 0 && (
+                      <div className="flex flex-col gap-3">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                          <Target size={15} /> {copy.review.rubric}
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {selectedQuestion.dimensions.map((dim, idx) => (
+                            <CollapsibleCriterionCard
+                              key={dim.rubricCode || idx}
+                              dim={dim}
+                              isTechnicalV2Review={isTechnicalV2Review}
+                              technicalCriterionLabel={technicalCriterionLabel}
+                              copy={copy}
+                              t={t}
+                            />
+                          ))}
+                        </div>
                       </div>
                     )}
-                  </div>
 
-                  {/* Transcript câu trả lời Sub-box */}
-                  <div className="flex flex-col gap-2.5 p-4.5 bg-[#F8FAFC] rounded-xl border border-border">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-2">
-                      <MessageSquareText size={16} className="text-primary" /> {copy.review.transcript}
-                    </h4>
-                    <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap font-mono">
-                      {selectedQuestion.transcript || copy.review.missingTranscript}
-                    </p>
-                  </div>
+                    {/* Areas to Improve (per-question missingPoints) */}
+                    {selectedQuestion.missingPoints?.length > 0 && (
+                      <FeedbackList icon={Target} title={copy.review.improvements} items={selectedQuestion.missingPoints} tone="focus" />
+                    )}
 
-                  {/* AI Feedback Summary */}
-                  
-
-                  {/* Rubric Breakdown */}
-                  {selectedQuestion.dimensions?.length > 0 && (
-                    <div className="flex flex-col gap-3">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
-                        <Target size={15} /> {copy.review.rubric}
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {selectedQuestion.dimensions.map((dim, idx) => (
-                          <CollapsibleCriterionCard
-                            key={dim.rubricCode || idx}
-                            dim={dim}
-                            isTechnicalV2Review={isTechnicalV2Review}
-                            technicalCriterionLabel={technicalCriterionLabel}
-                            copy={copy}
-                            t={t}
-                          />
-                        ))}
-                      </div>
+                    {/* Navigation Footer */}
+                    <div className="flex items-center justify-between pt-4 border-t border-border mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={ChevronLeft}
+                        disabled={selectedQuestionIndex === 0}
+                        onClick={() => setSelectedQuestionIndex((prev) => prev - 1)}
+                      >
+                        {copy.review.previous}
+                      </Button>
+                      <span className="text-xs font-semibold text-text-muted">
+                        {selectedQuestionIndex + 1} / {flatQuestionList.length}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={selectedQuestionIndex === flatQuestionList.length - 1}
+                        onClick={() => setSelectedQuestionIndex((prev) => prev + 1)}
+                      >
+                        {copy.review.next}
+                        <ChevronRight size={16} />
+                      </Button>
                     </div>
-                  )}
-
-                  {/* Areas to Improve (per-question missingPoints) */}
-                  {selectedQuestion.missingPoints?.length > 0 && (
-                    <FeedbackList icon={Target} title={copy.review.improvements} items={selectedQuestion.missingPoints} tone="focus" />
-                  )}
-
-                  {/* Navigation Footer */}
-                  <div className="flex items-center justify-between pt-4 border-t border-border mt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={ChevronLeft}
-                      disabled={selectedQuestionIndex === 0}
-                      onClick={() => setSelectedQuestionIndex((prev) => prev - 1)}
-                    >
-                      {copy.review.previous}
-                    </Button>
-                    <span className="text-xs font-semibold text-text-muted">
-                      {selectedQuestionIndex + 1} / {flatQuestionList.length}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={selectedQuestionIndex === flatQuestionList.length - 1}
-                      onClick={() => setSelectedQuestionIndex((prev) => prev + 1)}
-                    >
-                      {copy.review.next}
-                      <ChevronRight size={16} />
-                    </Button>
-                  </div>
-                </article>
-              </div>
+                  </article>
+                </div>
               </div>
             )}
           </section>

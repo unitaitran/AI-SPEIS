@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
@@ -147,6 +147,24 @@ function PackagesPage() {
   const [showPurchaseView, setShowPurchaseView] = useState(() => {
     return new URLSearchParams(window.location.search).get('purchase') === 'true';
   });
+
+  const showQuotaResetCard = useMemo(() => {
+    if (!isPremiumUser) return false;
+    
+    // Explicitly hide for Monthly / 1 Month packages
+    const cycle = subscriptionData?.billingCycle;
+    if (cycle === 'Monthly' || cycle === 1 || cycle === '1') return false;
+
+    const planName = profileData?.subscriptionPlanName || profileData?.planName || '';
+    if (planName.toLowerCase().includes('1 month') || planName.toLowerCase().includes('monthly')) return false;
+
+    if (!subscriptionData?.quotaPeriodEndsAt || !subscriptionData?.subscriptionExpiresAt) return false;
+    const quotaEnd = new Date(subscriptionData.quotaPeriodEndsAt).getTime();
+    const subExpire = new Date(subscriptionData.subscriptionExpiresAt).getTime();
+    if (Number.isNaN(quotaEnd) || Number.isNaN(subExpire)) return false;
+
+    return (subExpire - quotaEnd) > (5 * 24 * 60 * 60 * 1000);
+  }, [isPremiumUser, subscriptionData, profileData]);
 
   useEffect(() => {
     const handleUrlChange = () => {
@@ -381,7 +399,7 @@ function PackagesPage() {
             </div>
 
             {/* Quota & Subscription Timeline Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`grid grid-cols-1 ${showQuotaResetCard ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
               {/* Card 1: Remaining Quota */}
               <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-4">
@@ -404,21 +422,23 @@ function PackagesPage() {
                 </div>
               </div>
 
-              {/* Card 2: Next Quota Reset Date */}
-              <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">{t('quotaReset', 'Ngày sạc lại 15 lượt tiếp')}</span>
-                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
-                    <RotateCcw size={20} />
+              {/* Card 2: Next Quota Reset Date (Only shown when subscription duration is > 1 month) */}
+              {showQuotaResetCard && (
+                <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">{t('quotaReset', 'Ngày sạc lại 15 lượt tiếp')}</span>
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                      <RotateCcw size={20} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-extrabold text-text-primary mb-1">
+                      {isPremiumUser ? formatDate(subscriptionData?.quotaPeriodEndsAt) : t('noReset', 'Không reset')}
+                    </div>
+                    <p className="text-xs text-text-secondary mt-2">{t('autoResetDesc', 'Hệ thống sẽ tự động làm mới 15 lượt vào ngày này.')}</p>
                   </div>
                 </div>
-                <div>
-                  <div className="text-2xl font-extrabold text-text-primary mb-1">
-                    {isPremiumUser ? formatDate(subscriptionData?.quotaPeriodEndsAt) : t('noReset', 'Không reset')}
-                  </div>
-                  <p className="text-xs text-text-secondary mt-2">{t('autoResetDesc', 'Hệ thống sẽ tự động làm mới 15 lượt vào ngày này.')}</p>
-                </div>
-              </div>
+              )}
 
               {/* Card 3: Premium Expiration Date */}
               <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm flex flex-col justify-between">
