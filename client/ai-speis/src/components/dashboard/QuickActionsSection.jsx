@@ -4,6 +4,8 @@ import { Clock, Target, FileText, ArrowRight } from 'lucide-react';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
 
+import { beginNewInterviewCampaign } from '../../utils/interviewContext';
+
 /**
  * QuickActionsSection Component
  * Hiển thị 3 card hoạt động chính của người dùng trên Dashboard:
@@ -14,11 +16,13 @@ import { USER_ROUTES } from '../../routes/routePaths';
 function QuickActionsSection({ latestInterview }) {
   const { t } = useTranslation('dashboard');
 
-  // Dữ liệu lần phỏng vấn gần nhất (sử dụng dữ liệu động thực tế từ CSDL)
+  const hasInterview = Boolean(latestInterview);
+
+  // Dữ liệu lần phỏng vấn gần nhất (lấy theo User ID từ CSDL)
   const lastInterviewData = {
     title: latestInterview?.jobTitle || t('quick_actions.card_1.default_title', 'Phỏng vấn gần nhất'),
-    score: latestInterview?.score ? `${latestInterview.score}/10` : (latestInterview ? 'Chưa chấm' : '8.5/10'),
-    date: latestInterview?.date || '12/08/2026',
+    score: hasInterview ? (latestInterview.score ? `${latestInterview.score}/10` : 'Chưa chấm') : '—',
+    date: latestInterview?.date || '—',
     path: latestInterview?.campaignId
       ? `/user/interview/campaign-result/${latestInterview.campaignId}`
       : USER_ROUTES.INTERVIEW_HISTORY,
@@ -31,14 +35,25 @@ function QuickActionsSection({ latestInterview }) {
       icon: Clock,
       iconBg: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400',
       title: lastInterviewData.title,
-      subtitle: t('quick_actions.card_1.subtitle', 'Tổng quan lần phỏng vấn gần nhất'),
+      subtitle: hasInterview
+        ? t('quick_actions.card_1.subtitle', 'Tổng quan lần phỏng vấn gần nhất')
+        : t('quick_actions.card_1.no_interview_subtitle', 'Chưa có dữ liệu phỏng vấn'),
       details: [
-        { label: t('quick_actions.card_1.score_label', 'Điểm tổng'), value: lastInterviewData.score, isHighlight: true },
+        { label: t('quick_actions.card_1.score_label', 'Điểm tổng'), value: lastInterviewData.score, isHighlight: hasInterview },
         { label: t('quick_actions.card_1.date_label', 'Ngày phỏng vấn'), value: lastInterviewData.date, isHighlight: false },
       ],
       description: null,
-      actionText: t('quick_actions.card_1.action', 'Xem chi tiết'),
-      onClick: () => navigate(lastInterviewData.path),
+      actionText: hasInterview
+        ? t('quick_actions.card_1.action', 'Xem chi tiết')
+        : t('quick_actions.card_1.start_action', 'Tạo phỏng vấn'),
+      onClick: () => {
+        if (hasInterview) {
+          navigate(lastInterviewData.path);
+        } else {
+          beginNewInterviewCampaign();
+          navigate(USER_ROUTES.INTERVIEW_MODE);
+        }
+      },
     },
     {
       id: 'cv-practice',
