@@ -35,8 +35,6 @@ namespace ai_speis_be.Controllers
             if (!success)
             {
                 var errorParts = errorMessage?.Split('|', 2) ?? Array.Empty<string>();
-                if (errorParts.Length == 2 && errorParts[0] == "SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED")
-                    return Conflict(new { Code = errorParts[0], Message = errorParts[1] });
                 if (errorParts.Length == 2)
                     return BadRequest(new { Code = errorParts[0], Message = errorParts[1] });
                 return BadRequest(new { Message = errorMessage });

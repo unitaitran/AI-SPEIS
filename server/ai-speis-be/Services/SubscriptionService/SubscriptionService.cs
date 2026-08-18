@@ -26,20 +26,7 @@ public class SubscriptionService : ISubscriptionService
         if (price.EffectiveFrom > now || price.EffectiveTo <= now)
             return (false, "SUBSCRIPTION_PRICE_NOT_AVAILABLE", "Mức giá chưa có hiệu lực hoặc đã hết hiệu lực.");
 
-        if (price.BillingCycle != BillingCycle.Monthly) return (true, null, null);
-
-        var activeYearlyTerm = await _context.SubscriptionTerms
-            .Include(term => term.Price)
-            .AnyAsync(term => term.UserSubscription.UserId == userId
-                && term.Status == SubscriptionTermStatus.Active
-                && term.StartsAt <= now
-                && term.EndsAt > now
-                && term.Price.BillingCycle == BillingCycle.Yearly,
-                cancellationToken);
-
-        return activeYearlyTerm
-            ? (false, "SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED", "Không thể đăng ký gói tháng khi gói năm vẫn còn hiệu lực.")
-            : (true, null, null);
+        return (true, null, null);
     }
 
     public async Task ActivateFromPaymentAsync(Payment payment, CancellationToken cancellationToken = default)
@@ -54,13 +41,6 @@ public class SubscriptionService : ISubscriptionService
         var subscription = await EnsureSubscriptionAsync(user, DateTime.UtcNow, cancellationToken);
         var now = payment.PaidAt ?? DateTime.UtcNow;
         await SynchronizeAsync(subscription, user, now, cancellationToken);
-
-        var activeTerm = subscription.Terms
-            .Where(term => term.Status == SubscriptionTermStatus.Active && term.StartsAt <= now && term.EndsAt > now)
-            .OrderByDescending(term => term.StartsAt)
-            .FirstOrDefault();
-        if (price.BillingCycle == BillingCycle.Monthly && activeTerm?.Price.BillingCycle == BillingCycle.Yearly)
-            throw new InvalidOperationException("SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED");
 
         var startsAt = subscription.Plan.IsFree || subscription.ExpiresAt == null || subscription.ExpiresAt <= now
             ? now
@@ -86,8 +66,9 @@ public class SubscriptionService : ISubscriptionService
         subscription.Status = UserSubscriptionStatus.Active;
         subscription.UpdatedAt = now;
 
-        // A new premium activation receives a fresh 15-quota period. Early renewal or
-        // Monthly -> Yearly only extends/schedules the next term and keeps current quota.
+        // A new premium activation receives a fresh quota period. Any early renewal,
+        // including Yearly -> Monthly, starts after the current subscription expires
+        // and keeps the current quota until the scheduled term becomes active.
         if (startsAt <= now)
         {
             subscription.PlanId = price.PlanId;
