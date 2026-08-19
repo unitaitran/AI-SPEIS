@@ -25,6 +25,10 @@ namespace ai_speis_be.Models.DTOs
         public int MaxInterviewQuota { get; set; }
         public string PlanName { get; set; } = string.Empty;
         public decimal? OverallScore { get; set; }
+        public decimal? ProfessionalKnowledge { get; set; }
+        public decimal? CommunicationSkill { get; set; }
+        public decimal? CvUnderstanding { get; set; }
+        public decimal? ProblemSolving { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<InterviewSessionDto> Sessions { get; set; } = new List<InterviewSessionDto>();

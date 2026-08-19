@@ -739,6 +739,22 @@ namespace ai_speis_be.Services.InterviewSessionService
             {
                 campaign.DashboardMetricsJson = JsonSerializer.Serialize(metrics);
                 campaign.OverallScore = overallScore;
+
+                if (campaign.Mode == InterviewMode.RealTest)
+                {
+                    campaign.ProfessionalKnowledge = metrics.FirstOrDefault(m => string.Equals(m.Code, "PROFESSIONAL_KNOWLEDGE", StringComparison.OrdinalIgnoreCase))?.Score;
+                    campaign.CommunicationSkill = metrics.FirstOrDefault(m => string.Equals(m.Code, "COMMUNICATION_SKILLS", StringComparison.OrdinalIgnoreCase))?.Score;
+                    campaign.CvUnderstanding = metrics.FirstOrDefault(m => string.Equals(m.Code, "CV_UNDERSTANDING", StringComparison.OrdinalIgnoreCase))?.Score;
+                    campaign.ProblemSolving = metrics.FirstOrDefault(m => string.Equals(m.Code, "PROBLEM_SOLVING", StringComparison.OrdinalIgnoreCase))?.Score;
+                }
+                else
+                {
+                    campaign.ProfessionalKnowledge = null;
+                    campaign.CommunicationSkill = null;
+                    campaign.CvUnderstanding = null;
+                    campaign.ProblemSolving = null;
+                }
+
                 campaign.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 await SyncSkillScoresToDbAsync(campaign.UserId, campaign.InterviewCampaignId, null, metrics, campaign.CompletedAt ?? DateTime.UtcNow);
@@ -771,6 +787,13 @@ namespace ai_speis_be.Services.InterviewSessionService
                 .OrderBy(s => s.EvaluatedAt)
                 .ToListAsync();
 
+            var realTestCampaigns = await _context.InterviewCampaigns
+                .AsNoTracking()
+                .Include(c => c.JDExtractedProfile)
+                .Where(c => c.UserId == userId && !c.IsDeleted && c.Mode == InterviewMode.RealTest && c.Status == InterviewCampaignStatus.Completed)
+                .OrderBy(c => c.CompletedAt ?? c.CreatedAt)
+                .ToListAsync();
+
             var skillDefinitions = new[]
             {
                 ("PROFESSIONAL_KNOWLEDGE", "Professional Knowledge", new[] { "Technical Depth", "Coding" }),
@@ -783,17 +806,56 @@ namespace ai_speis_be.Services.InterviewSessionService
 
             foreach (var (code, name, sources) in skillDefinitions)
             {
-                var skillHistory = skillScores
-                    .Where(s => string.Equals(s.SkillCode, code, StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(s => s.EvaluatedAt)
-                    .Select(s => new SkillHistoryPointDto
+                var skillHistory = new List<SkillHistoryPointDto>();
+
+                if (realTestCampaigns.Count > 0)
+                {
+                    foreach (var c in realTestCampaigns)
                     {
-                        SessionId = s.InterviewSessionId ?? s.InterviewCampaignId ?? 0,
-                        Title = !string.IsNullOrWhiteSpace(s.SessionTitle) ? s.SessionTitle : $"Phỏng vấn #{s.InterviewCampaignId ?? s.InterviewSessionId}",
-                        Score = s.Score,
-                        Date = s.EvaluatedAt
-                    })
-                    .ToList();
+                        decimal? val = code switch
+                        {
+                            "PROFESSIONAL_KNOWLEDGE" => c.ProfessionalKnowledge,
+                            "COMMUNICATION_SKILLS" => c.CommunicationSkill,
+                            "CV_UNDERSTANDING" => c.CvUnderstanding,
+                            "PROBLEM_SOLVING" => c.ProblemSolving,
+                            _ => null
+                        };
+
+                        if (!val.HasValue || val.Value <= 0)
+                        {
+                            var matchScore = skillScores.FirstOrDefault(s => s.InterviewCampaignId == c.InterviewCampaignId && string.Equals(s.SkillCode, code, StringComparison.OrdinalIgnoreCase))?.Score;
+                            if (matchScore.HasValue && matchScore.Value > 0) val = matchScore.Value;
+                        }
+
+                        if (val.HasValue && val.Value > 0)
+                        {
+                            var jobTitle = c.JDExtractedProfile?.JobTitle ?? c.JDExtractedProfile?.RoleTarget;
+                            var title = !string.IsNullOrWhiteSpace(jobTitle) ? $"{jobTitle} — Phỏng vấn mô phỏng" : $"Phỏng vấn #{c.InterviewCampaignId}";
+                            skillHistory.Add(new SkillHistoryPointDto
+                            {
+                                SessionId = c.InterviewCampaignId,
+                                Title = title,
+                                Score = val.Value,
+                                Date = c.CompletedAt ?? c.CreatedAt
+                            });
+                        }
+                    }
+                }
+
+                if (skillHistory.Count == 0)
+                {
+                    skillHistory = skillScores
+                        .Where(s => string.Equals(s.SkillCode, code, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s.EvaluatedAt)
+                        .Select(s => new SkillHistoryPointDto
+                        {
+                            SessionId = s.InterviewSessionId ?? s.InterviewCampaignId ?? 0,
+                            Title = !string.IsNullOrWhiteSpace(s.SessionTitle) ? s.SessionTitle : $"Phỏng vấn #{s.InterviewCampaignId ?? s.InterviewSessionId}",
+                            Score = s.Score,
+                            Date = s.EvaluatedAt
+                        })
+                        .ToList();
+                }
 
                 decimal? latestScore = skillHistory.Count > 0 ? skillHistory.Last().Score : null;
 
@@ -1702,6 +1764,10 @@ namespace ai_speis_be.Services.InterviewSessionService
                 CreatedAt = AsUtc(campaign.CreatedAt),
                 UpdatedAt = AsUtc(campaign.UpdatedAt),
                 OverallScore = campaign.OverallScore,
+                ProfessionalKnowledge = campaign.ProfessionalKnowledge,
+                CommunicationSkill = campaign.CommunicationSkill,
+                CvUnderstanding = campaign.CvUnderstanding,
+                ProblemSolving = campaign.ProblemSolving,
                 Sessions = campaign.InterviewSessions
                     .Where(session => !session.IsDeleted)
                     .OrderBy(session => GetRoundOrder(session.InterviewRoundType))
