@@ -1,0 +1,226 @@
+name: AI-SPEIS CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Frontend and Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # =========================
+      # Frontend
+      # =========================
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: client/ai-speis/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: client/ai-speis
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: client/ai-speis
+        run: npm run build
+
+      - name: Package frontend
+        run: |
+          tar -czf frontend-build.tar.gz \
+            -C client/ai-speis build
+
+      # =========================
+      # Backend
+      # =========================
+      - name: Build backend Docker image
+        run: |
+          docker build \
+            -t ai-speis-backend:${{ github.sha }} \
+            ./server/ai-speis-be
+
+      - name: Save backend Docker image
+        run: |
+          docker save \
+            -o ai-speis-backend.tar \
+            ai-speis-backend:${{ github.sha }}
+
+      # =========================
+      # Artifacts
+      # =========================
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend-build.tar.gz
+          retention-days: 3
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-image
+          path: ai-speis-backend.tar
+          retention-days: 3
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: frontend-build
+          path: deploy
+
+      - name: Download backend artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: backend-image
+          path: deploy
+
+      # =========================
+      # SSH setup
+      # =========================
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/ai-speis-deploy
+          chmod 600 ~/.ssh/ai-speis-deploy
+
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      # =========================
+      # Prepare deployment folder
+      # =========================
+      - name: Prepare VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh \
+            -i ~/.ssh/ai-speis-deploy \
+            "$VPS_USER@$VPS_HOST" \
+            "mkdir -p /opt/ai-speis/deploy"
+
+      # =========================
+      # Upload artifacts
+      # =========================
+      - name: Upload frontend
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          scp \
+            -i ~/.ssh/ai-speis-deploy \
+            deploy/frontend-build.tar.gz \
+            "$VPS_USER@$VPS_HOST:/opt/ai-speis/deploy/frontend-build.tar.gz"
+
+      - name: Upload backend image
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          scp \
+            -i ~/.ssh/ai-speis-deploy \
+            deploy/ai-speis-backend.tar \
+            "$VPS_USER@$VPS_HOST:/opt/ai-speis/deploy/ai-speis-backend.tar"
+
+      # =========================
+      # Deploy
+      # =========================
+      - name: Deploy application
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          ssh \
+            -i ~/.ssh/ai-speis-deploy \
+            "$VPS_USER@$VPS_HOST" \
+            "IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE_SCRIPT'
+
+          set -e
+
+          echo "=== Loading backend image ==="
+
+          docker load \
+            -i /opt/ai-speis/deploy/ai-speis-backend.tar
+
+          echo "=== Stopping old backend ==="
+
+          docker rm -f ai-speis-backend 2>/dev/null || true
+
+          echo "=== Starting new backend ==="
+
+          docker run -d \
+            --name ai-speis-backend \
+            --env-file /opt/ai-speis/backend/.env \
+            --network ai-speis-network \
+            -p 127.0.0.1:5000:8080 \
+            --restart unless-stopped \
+            "ai-speis-backend:${IMAGE_TAG}"
+
+          echo "=== Waiting for backend ==="
+
+          sleep 5
+
+          echo "=== Backend health check ==="
+
+          curl -fsS \
+            http://127.0.0.1:5000/api/subscription-plans \
+            > /dev/null
+
+          echo "Backend is healthy."
+
+          echo "=== Deploying frontend ==="
+
+          mkdir -p /opt/ai-speis/frontend
+
+          rm -rf /opt/ai-speis/frontend/*
+
+          tar -xzf \
+            /opt/ai-speis/deploy/frontend-build.tar.gz \
+            -C /opt/ai-speis/frontend \
+            --strip-components=1
+
+          echo "=== Testing Nginx ==="
+
+          nginx -t
+
+          echo "=== Reloading Nginx ==="
+
+          systemctl reload nginx
+
+          echo "=== Production deployment completed ==="
+
+          REMOTE_SCRIPT
+
+      # =========================
+      # Final verification
+      # =========================
+      - name: Verify production
+        run: |
+          curl -fsS https://aispeis.site/api/subscription-plans > /dev/null
+          curl -fsSI https://aispeis.site > /dev/null
+
+          echo "Production verification passed."
