@@ -27,8 +27,11 @@ namespace ai_speis_be.Services.GeminiAiParsingService
         public GeminiAiParsingService(IConfiguration configuration, IHttpClientFactory httpClientFactory)
         {
             _apiKey = configuration["GeminiAI:ApiKey"] 
-                ?? throw new InvalidOperationException("Gemini API key is missing. Add GeminiAI:ApiKey to appsettings or environment variables.");
-            _model = configuration["GeminiAI:Model"] ?? "gemini-3-flash-preview";
+                ?? configuration["GEMINI_API_KEY"]
+                ?? configuration["GEMINI_AI_API_KEY"]
+                ?? configuration["GeminiAI__ApiKey"]
+                ?? throw new InvalidOperationException("Gemini API key is missing. Add GeminiAI:ApiKey or GEMINI_API_KEY to appsettings or environment variables.");
+            _model = configuration["GeminiAI:Model"] ?? configuration["GEMINI_AI_MODEL"] ?? "gemini-3-flash-preview";
             _httpClientFactory = httpClientFactory;
         }
 

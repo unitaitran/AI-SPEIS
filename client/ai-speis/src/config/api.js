@@ -1,6 +1,16 @@
 // API Configuration
-//export const API_BASE_URL = 'https://localhost:7084'; 
-export const API_BASE_URL = 'http://localhost:5274';
+const getApiBaseUrl = () => {
+  const envUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_API_BASE_URL;
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  if (process.env.NODE_ENV === 'production' && typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return 'http://localhost:5274';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const ENDPOINTS = {
   LOGIN: `${API_BASE_URL}/api/auth/login`,
