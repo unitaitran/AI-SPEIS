@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, Component } from 'react';
+import React, { useState, useEffect, useRef, Component } from 'react';
 
 import Editor, { loader } from '@monaco-editor/react';
 import { codingService } from '../../../services/codingService';
@@ -105,7 +105,7 @@ const CodingInterviewPage = ({ sessionId }) => {
   const [code, setCode] = useState('');
 
   const [isRunning, setIsRunning] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting] = useState(false);
   const [runResult, setRunResult] = useState(null);
   const [submissionResult, setSubmissionResult] = useState(null);
 
@@ -197,13 +197,22 @@ const CodingInterviewPage = ({ sessionId }) => {
           });
 
           const desiredOrder = ['c', 'csharp', 'python', 'java', 'javascript', 'cpp'];
+          const nonJavaFilter = (lang) => {
+            const nameLower = (lang?.name || '').toLowerCase();
+            return !nameLower.includes('java') || nameLower.includes('javascript');
+          };
+
           const filteredLangs = desiredOrder
             .map((cat) => categoryMap[cat])
-            .filter(Boolean);
+            .filter(Boolean)
+            .filter(nonJavaFilter);
 
-          const finalLangs = filteredLangs.length > 0 ? filteredLangs : langRes;
+          const fallbackLangs = langRes.filter(nonJavaFilter);
+          const finalLangs = filteredLangs.length > 0 ? filteredLangs : fallbackLangs;
           setLanguages(finalLangs);
-          setSelectedLanguage(finalLangs[0]);
+          if (finalLangs.length > 0) {
+            setSelectedLanguage(finalLangs[0]);
+          }
         }
 
         if (sessionId) {
@@ -305,7 +314,7 @@ const CodingInterviewPage = ({ sessionId }) => {
     setRunResult(null);
     setSubmissionResult(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentQuestionIndex, selectedLanguage?.id]);
+  }, [currentQId, selectedLanguage?.id, currentQuestionIndex]);
 
   // Handle Monaco code changes and persist to userCodes state
   const handleCodeChange = (newValue) => {
@@ -333,6 +342,17 @@ const CodingInterviewPage = ({ sessionId }) => {
   const handleRunCode = async () => {
     if (!currentQuestion || !selectedLanguage) return;
 
+    const template = currentQuestion?.templates?.find(t => t.languageId === selectedLanguage.id);
+    const fallbackCode = template ? template.templateCode : getFallbackStarterCode(currentQuestion, selectedLanguage);
+    const sourceCodeToSubmit = (code && code.trim().length > 0)
+      ? code
+      : (fallbackCode && fallbackCode.trim().length > 0 ? fallbackCode : '// Starter Code');
+
+    if (!sourceCodeToSubmit || sourceCodeToSubmit.trim().length === 0) {
+      notify.warning('Vui lòng nhập mã nguồn trước khi chạy thử!');
+      return;
+    }
+
     setIsRunning(true);
     setRunResult(null);
     setActiveRightTab('console');
@@ -342,16 +362,16 @@ const CodingInterviewPage = ({ sessionId }) => {
         interviewSessionId: 0, // Test Run
         codingQuestionId: currentQId,
         languageId: selectedLanguage.id,
-        sourceCode: code,
+        sourceCode: sourceCodeToSubmit,
         isTestRun: true
       };
 
       const res = await codingService.submitCode(payload);
       setRunResult(res);
       if (res.status === 'Accepted') {
-        notify.success(`Chạy thử hoàn tất: All ${res.passedTestCases}/${res.totalTestCases} sample test cases PASSED!`);
+        notify.success('Chạy thử mã nguồn hoàn tất!');
       } else {
-        notify.info(`Chạy thử xong: ${res.passedTestCases}/${res.totalTestCases} sample test cases đã đạt (${res.status})`);
+        notify.info(`Chạy thử hoàn tất. Trạng thái: ${res.status}`);
       }
     } catch (err) {
       notify.error(err.message || 'Lỗi khi chạy thử code');
@@ -360,38 +380,6 @@ const CodingInterviewPage = ({ sessionId }) => {
     }
   };
 
-  // 2. SUBMIT CODE (Nộp Bài chính thức)
-  const handleSubmitCode = async () => {
-    if (!currentQuestion || !selectedLanguage) return;
-
-    setIsSubmitting(true);
-    setSubmissionResult(null);
-    setActiveRightTab('console');
-
-    try {
-      const payload = {
-        interviewSessionId: parseInt(sessionId, 10),
-        codingQuestionId: currentQId,
-        languageId: selectedLanguage.id,
-        sourceCode: code,
-        isTestRun: false
-      };
-
-      const res = await codingService.submitCode(payload);
-      setSubmissionResult(res);
-      setSubmittedQuestionIds((prev) => new Set(prev).add(currentQId));
-
-      if (res.status === 'Accepted') {
-        notify.success('Nộp bài thành công! Tất cả test cases đều vượt qua.');
-      } else {
-        notify.warning(`Đã nộp bài. Trạng thái: ${res.status} (${res.passedTestCases}/${res.totalTestCases} passed)`);
-      }
-    } catch (err) {
-      notify.error(err.message || 'Lỗi khi nộp bài');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleCompleteRound = async () => {
     if (isCompleting) return;
@@ -412,23 +400,24 @@ const CodingInterviewPage = ({ sessionId }) => {
             const codeKey = `${qId}_${selectedLanguage.id}`;
             const template = q?.templates?.find(t => t.languageId === selectedLanguage.id);
             const fallbackCode = template ? template.templateCode : getFallbackStarterCode(q, selectedLanguage);
-            const writtenCode = latestUserCodes[codeKey] || (qId === currentQId ? code : fallbackCode);
+            const rawWritten = latestUserCodes[codeKey] || (qId === currentQId ? code : fallbackCode);
+            const safeSourceCode = (rawWritten && rawWritten.trim().length > 0)
+              ? rawWritten
+              : (fallbackCode && fallbackCode.trim().length > 0 ? fallbackCode : `// No code submitted for question ${qId}`);
 
-            if (writtenCode && writtenCode.trim().length > 0) {
-              try {
-                const res = await codingService.submitCode({
-                  interviewSessionId: parseInt(sessionId, 10),
-                  codingQuestionId: qId,
-                  languageId: selectedLanguage.id,
-                  sourceCode: writtenCode,
-                  isTestRun: false,
-                });
-                if (res) {
-                  setSubmittedQuestionIds((prev) => new Set(prev).add(qId));
-                }
-              } catch (subErr) {
-                console.error(`Auto-submit code error for question ${qId}:`, subErr);
+            try {
+              const res = await codingService.submitCode({
+                interviewSessionId: parseInt(sessionId, 10),
+                codingQuestionId: qId,
+                languageId: selectedLanguage.id,
+                sourceCode: safeSourceCode,
+                isTestRun: false,
+              });
+              if (res) {
+                setSubmittedQuestionIds((prev) => new Set(prev).add(qId));
               }
+            } catch (subErr) {
+              console.error(`Auto-submit code error for question ${qId}:`, subErr);
             }
           }
         }
@@ -661,9 +650,14 @@ const CodingInterviewPage = ({ sessionId }) => {
                   value={selectedLanguage?.id || ''}
                   onChange={handleLanguageChange}
                 >
-                  {languages.map(lang => (
-                    <option key={lang.id} value={lang.id}>{lang.name}</option>
-                  ))}
+                  {languages
+                    .filter((lang) => {
+                      const nameLower = (lang?.name || '').toLowerCase();
+                      return !nameLower.includes('java') || nameLower.includes('javascript');
+                    })
+                    .map((lang) => (
+                      <option key={lang.id} value={lang.id}>{lang.name}</option>
+                    ))}
                 </select>
               </div>
 
@@ -678,15 +672,6 @@ const CodingInterviewPage = ({ sessionId }) => {
                   {isRunning ? '⏳ Đang chạy...' : '▶ Chạy thử (Run Code)'}
                 </button>
 
-                {/* BUTTON 2: SUBMIT CODE (NỘP BÀI) */}
-                <button
-                  className="btn-submit"
-                  onClick={handleSubmitCode}
-                  disabled={isRunning || isSubmitting}
-                  title="Nộp bài chấm điểm trên tất cả test cases"
-                >
-                  {isSubmitting ? '⏳ Đang nộp...' : '✓ Nộp bài (Submit)'}
-                </button>
               </div>
             </div>
 
@@ -743,7 +728,7 @@ const CodingInterviewPage = ({ sessionId }) => {
                     {!activeResult ? (
                       <div className="empty-console-card">
                         <div className="empty-icon">🚀</div>
-                        <p>Nhấn <strong>▶ Chạy thử (Run Code)</strong> để kiểm tra code trên Sample Test Cases hoặc <strong>✓ Nộp bài (Submit)</strong> để gửi kết quả chính thức.</p>
+                        <p>Nhấn <strong>▶ Chạy thử (Run Code)</strong> để thực thi mã nguồn.</p>
                       </div>
                     ) : (
                       <div className="result-details">
@@ -755,9 +740,6 @@ const CodingInterviewPage = ({ sessionId }) => {
                             </span>
                             <div className="status-info">
                               <h4 className="status-title">Status: {activeResult.status}</h4>
-                              <span className="passed-counter">
-                                ({activeResult.passedTestCases}/{activeResult.totalTestCases} Test Cases Passed)
-                              </span>
                             </div>
                           </div>
                           {isSubmission && <span className="official-submit-badge">Official Submit</span>}
@@ -797,57 +779,6 @@ const CodingInterviewPage = ({ sessionId }) => {
                               <span className="box-icon">💬</span> Standard Output (stdout):
                             </div>
                             <pre className="stdout-content">{activeResult.stdout}</pre>
-                          </div>
-                        )}
-
-                        {/* DETAILED TEST CASE RESULTS */}
-                        {activeResult.testCaseResults && activeResult.testCaseResults.length > 0 && (
-                          <div className="testcase-breakdown">
-                            <h4 className="breakdown-title">Chi tiết từng Test Case:</h4>
-                            <div className="testcase-grid">
-                              {activeResult.testCaseResults.map((tc, idx) => {
-                                const isPassed = tc.passed !== undefined ? tc.passed : (tc.status === 'Accepted');
-                                return (
-                                  <div key={idx} className={`testcase-card ${isPassed ? 'passed' : 'failed'}`}>
-                                    <div className="tc-header">
-                                      <span className="tc-num">Test Case #{idx + 1}</span>
-                                      <div className="tc-meta">
-                                        <span className={`tc-badge ${isPassed ? 'passed' : 'failed'}`}>
-                                          {isPassed ? '✓ PASSED' : '✗ FAILED'}
-                                        </span>
-                                        {tc.executionTimeMs != null && (
-                                          <span className="tc-time">({tc.executionTimeMs} ms)</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="tc-body">
-                                      {tc.input && (
-                                        <div className="tc-field">
-                                          <span className="field-lbl">Input:</span>
-                                          <pre className="code-block input-code">{safeFormatJson(tc.input)}</pre>
-                                        </div>
-                                      )}
-                                      <div className="tc-field">
-                                        <span className="field-lbl">Expected Output:</span>
-                                        <pre className="code-block expected-code">{safeFormatJson(tc.expectedOutput)}</pre>
-                                      </div>
-                                      <div className="tc-field">
-                                        <span className="field-lbl">Actual Output:</span>
-                                        <pre className={`code-block ${isPassed ? 'actual-passed' : 'actual-failed'}`}>
-                                          {safeFormatJson(tc.actualOutput || 'N/A')}
-                                        </pre>
-                                      </div>
-                                      {(tc.stderr || tc.errorMessage || tc.compileOutput) && (
-                                        <div className="tc-field tc-error">
-                                          <span className="field-lbl text-danger">Error / Stderr:</span>
-                                          <pre className="error-content">{tc.stderr || tc.errorMessage || tc.compileOutput}</pre>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
                           </div>
                         )}
                       </div>
