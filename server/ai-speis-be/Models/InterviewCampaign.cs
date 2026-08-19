@@ -59,6 +59,18 @@ namespace ai_speis_be.Models
 
         public string? DashboardMetricsJson { get; set; }
 
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? ProfessionalKnowledge { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? CommunicationSkill { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? CvUnderstanding { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? ProblemSolving { get; set; }
+
         public decimal? OverallScore { get; set; }
 
         [Required]
