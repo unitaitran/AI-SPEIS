@@ -129,13 +129,30 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "keys")));
 
+var allowedOriginsConfig = builder.Configuration["Cors:AllowedOrigins"]
+    ?? builder.Configuration["ALLOWED_ORIGINS"]
+    ?? "https://aispeis.site,https://www.aispeis.site,http://localhost:3000,http://localhost:5173";
+
+var allowedOrigins = allowedOriginsConfig
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowAll", corsBuilder =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        if (allowedOrigins.Contains("*"))
+        {
+            corsBuilder.AllowAnyOrigin()
+                       .AllowAnyMethod()
+                       .AllowAnyHeader();
+        }
+        else
+        {
+            corsBuilder.WithOrigins(allowedOrigins)
+                       .AllowAnyMethod()
+                       .AllowAnyHeader()
+                       .AllowCredentials();
+        }
     });
 });
 
@@ -210,7 +227,11 @@ builder.Services.AddScoped<IInterviewSessionService, InterviewSessionService>();
 // Register Judge0 Code Execution
 builder.Services.AddHttpClient("Judge0", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Judge0:BaseUrl"] ?? "http://localhost:2358");
+    var baseUrl = builder.Configuration["Judge0:BaseUrl"]
+        ?? builder.Configuration["JUDGE0_BASE_URL"]
+        ?? builder.Configuration["Judge0__BaseUrl"]
+        ?? "http://localhost:2358";
+    client.BaseAddress = new Uri(baseUrl);
     var timeoutSeconds = int.TryParse(builder.Configuration["Judge0:TimeoutSeconds"], out var t) ? t : 30;
     client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
@@ -443,6 +464,31 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    app.UseExceptionHandler(errorApp =>
+    {
+        errorApp.Run(async context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/json";
+
+            var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+            var exception = exceptionHandlerPathFeature?.Error;
+
+            var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogError(exception, "Unhandled Exception occurred in Production: {Message}", exception?.Message);
+
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                Message = "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.",
+                StatusCode = 500
+            });
+
+            await context.Response.WriteAsync(result);
+        });
+    });
+}
 
 app.UseStaticFiles();
 app.UseHttpsRedirection();
@@ -459,7 +505,10 @@ app.Use(async (context, next) =>
     catch (Exception ex) when (ex is Microsoft.AspNetCore.Authentication.AuthenticationFailureException
         || (ex.InnerException is Microsoft.AspNetCore.Authentication.AuthenticationFailureException))
     {
-        context.Response.Redirect("http://localhost:3000/#login?status=error&message=" + Uri.EscapeDataString("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."));
+        var loginUrl = app.Configuration["Frontend:LoginUrl"]
+            ?? app.Configuration["FRONTEND_LOGIN_URL"]
+            ?? "http://localhost:3000/#login";
+        context.Response.Redirect(loginUrl + "?status=error&message=" + Uri.EscapeDataString("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."));
     }
 });
 
@@ -477,7 +526,17 @@ static string GetRequiredConfiguration(IConfiguration configuration, string key)
     var value = configuration[key];
     if (string.IsNullOrWhiteSpace(value))
     {
-        throw new InvalidOperationException($"{key} is missing. Add it to .env or environment variables.");
+        var altKey = key.Replace(":", "__");
+        value = configuration[altKey];
+    }
+    if (string.IsNullOrWhiteSpace(value) && key.Equals("Jwt:Key", StringComparison.OrdinalIgnoreCase))
+    {
+        value = configuration["JWT_KEY"];
+    }
+
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        throw new InvalidOperationException($"FATAL: Required configuration '{key}' is missing. Add it to .env or environment variables.");
     }
 
     return value;

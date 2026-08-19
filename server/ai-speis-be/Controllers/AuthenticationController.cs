@@ -17,13 +17,31 @@ namespace ai_speis_be.Controllers
         private readonly IUserService _userService;
         private readonly ITokenService _tokenService;
         private readonly IEmailSender _emailSender;
+        private readonly string _frontendBaseUrl;
 
-
-        public AuthenticationController(IUserService userService, ITokenService tokenService, IEmailSender emailSender)
+        public AuthenticationController(
+            IUserService userService,
+            ITokenService tokenService,
+            IEmailSender emailSender,
+            IConfiguration configuration)
         {
             _userService = userService;
             _tokenService = tokenService;
             _emailSender = emailSender;
+
+            var loginUrl = configuration["Frontend:LoginUrl"] ?? configuration["FRONTEND_LOGIN_URL"];
+            if (!string.IsNullOrWhiteSpace(loginUrl))
+            {
+                var hashIndex = loginUrl.IndexOf('#');
+                _frontendBaseUrl = hashIndex > 0 ? loginUrl[..hashIndex].TrimEnd('/') : loginUrl.TrimEnd('/');
+            }
+            else
+            {
+                var baseUrl = configuration["Frontend:BaseUrl"] ?? configuration["FRONTEND_BASE_URL"];
+                _frontendBaseUrl = !string.IsNullOrWhiteSpace(baseUrl)
+                    ? baseUrl.TrimEnd('/')
+                    : "http://localhost:3000";
+            }
         }
 
         [HttpPost("login")]
@@ -166,11 +184,11 @@ namespace ai_speis_be.Controllers
             var failureMessage = "Link xác nhận không hợp lệ hoặc đã hết hạn";
             if (!confirmed)
             {
-                var url = $"http://localhost:3000/#login?status=error&message={Uri.EscapeDataString(failureMessage)}";
+                var url = $"{_frontendBaseUrl}/#login?status=error&message={Uri.EscapeDataString(failureMessage)}";
                 return Redirect(url);
             }
 
-            var redirectUrl = $"http://localhost:3000/#login?status=success&message={Uri.EscapeDataString(successMessage)}";
+            var redirectUrl = $"{_frontendBaseUrl}/#login?status=success&message={Uri.EscapeDataString(successMessage)}";
             return Redirect(redirectUrl);
  
 
@@ -232,7 +250,7 @@ namespace ai_speis_be.Controllers
             var jwtToken = _tokenService.GenerateToken(user.UserId, user.Role.RoleName, user.FullName, user.Email);
             await HttpContext.SignOutAsync("External");
 
-            var redirectUrl = $"http://localhost:3000/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}&imageUrl={Uri.EscapeDataString(user.ImageUrl ?? "")}&isPremium={user.IsPremium}&remainingInterviewQuota={user.RemainingInterviewQuota}";
+            var redirectUrl = $"{_frontendBaseUrl}/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}&imageUrl={Uri.EscapeDataString(user.ImageUrl ?? "")}&isPremium={user.IsPremium}&remainingInterviewQuota={user.RemainingInterviewQuota}";
             return Redirect(redirectUrl);
         }
 
@@ -261,7 +279,7 @@ namespace ai_speis_be.Controllers
                 return StatusCode(500, new { Message = "Không thể tạo token đặt lại mật khẩu" });
             }
 
-            var resetLink = $"http://localhost:3000/#reset-password?token={token}";
+            var resetLink = $"{_frontendBaseUrl}/#reset-password?token={token}";
 
             var emailTemplate = $@"
 <!DOCTYPE html>

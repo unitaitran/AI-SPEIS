@@ -14,10 +14,13 @@ namespace ai_speis_be.Services.TokenService
         public string GenerateToken(int userId, string role, string fullName, string email)
         {
             var jwtSetting = _configuration.GetSection("Jwt");
-            var key = jwtSetting["Key"] ?? throw new InvalidOperationException("Jwt:Key is missing");
-            var issuer = jwtSetting["Issuer"] ?? throw new InvalidOperationException("Jwt:Issuer is missing");
-            var audience = jwtSetting["Audience"] ?? throw new InvalidOperationException("Jwt:Audience is missing");
-            var expireMinutes = int.Parse(jwtSetting["ExpireMinutes"] ?? "10080");
+            var key = jwtSetting["Key"]
+                ?? _configuration["JWT_KEY"]
+                ?? _configuration["Jwt__Key"]
+                ?? throw new InvalidOperationException("FATAL: Jwt:Key is missing. Add Jwt:Key or JWT_KEY to environment variables.");
+            var issuer = jwtSetting["Issuer"] ?? _configuration["Jwt__Issuer"] ?? "ai-speis-be";
+            var audience = jwtSetting["Audience"] ?? _configuration["Jwt__Audience"] ?? "ai-speis-fe";
+            var expireMinutes = int.Parse(jwtSetting["ExpireMinutes"] ?? _configuration["Jwt__ExpireMinutes"] ?? "10080");
             var claim = new List<Claim>
             {
                 new Claim(ClaimTypes.Email, email),
