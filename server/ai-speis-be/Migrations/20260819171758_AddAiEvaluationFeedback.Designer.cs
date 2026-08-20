@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ai_speis_be.Models;
 
@@ -11,9 +12,11 @@ using ai_speis_be.Models;
 namespace ai_speis_be.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260819171758_AddAiEvaluationFeedback")]
+    partial class AddAiEvaluationFeedback
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -129,8 +132,15 @@ namespace ai_speis_be.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AiEvaluationFeedbackId"));
 
+                    b.Property<string>("AdminReviewNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("EvaluationSnapshotJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EvaluationType")
                         .IsRequired()
@@ -145,10 +155,36 @@ namespace ai_speis_be.Migrations
                     b.Property<int>("InterviewSessionId")
                         .HasColumnType("int");
 
+                    b.Property<string>("QuestionSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("ScoreSnapshot")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("SessionQuestionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TranscriptSnapshot")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -159,6 +195,11 @@ namespace ai_speis_be.Migrations
                     b.HasKey("AiEvaluationFeedbackId");
 
                     b.HasIndex("InterviewSessionId");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("IX_AiEvaluationFeedback_Status_CreatedAt");
 
                     b.HasIndex("UserId", "CreatedAt")
                         .HasDatabaseName("IX_AiEvaluationFeedback_UserId_CreatedAt");
@@ -2759,6 +2800,11 @@ namespace ai_speis_be.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("ai_speis_be.Models.User", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("ai_speis_be.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -2766,6 +2812,8 @@ namespace ai_speis_be.Migrations
                         .IsRequired();
 
                     b.Navigation("InterviewSession");
+
+                    b.Navigation("ReviewedByUser");
 
                     b.Navigation("User");
                 });

@@ -38,7 +38,7 @@ export const notificationTypeConfig = {
   SUBSCRIPTION_CANCELLED: { category: 'SUBSCRIPTION', icon: Info, severity: 'INFO', recipientRole: user, actionLabel: 'View subscription', destination: () => USER_ROUTES.PACKAGES },
   SUBSCRIPTION_PLAN_CHANGED: { category: 'SUBSCRIPTION', icon: CreditCard, severity: 'INFO', recipientRole: user, actionLabel: 'View subscription', destination: () => USER_ROUTES.PACKAGES },
   SUBSCRIPTION_USAGE_LIMIT_REACHED: { category: 'SUBSCRIPTION', icon: AlertTriangle, severity: 'WARNING', recipientRole: user, actionLabel: 'Upgrade plan', destination: () => USER_ROUTES.PACKAGES },
-  AI_EVALUATION_REQUIRES_REVIEW: { category: 'AI_EVALUATION', icon: Bot, severity: 'WARNING', recipientRole: admin, actionLabel: 'Review evaluation', destination: () => AUTHENTICATED_ADMIN_ROUTES.AI_USAGE },
+  AI_EVALUATION_REQUIRES_REVIEW: { category: 'AI_EVALUATION', icon: Bot, severity: 'WARNING', recipientRole: admin, actionLabel: 'Review evaluation', destination: () => AUTHENTICATED_ADMIN_ROUTES.AI_FEEDBACK },
   AI_EVALUATION_FAILED: { category: 'AI_EVALUATION', icon: CircleAlert, severity: 'ERROR', recipientRole: admin, actionLabel: 'View evaluation issue', destination: () => AUTHENTICATED_ADMIN_ROUTES.AI_USAGE },
   FINAL_FEEDBACK_FAILED: { category: 'AI_EVALUATION', icon: RefreshCw, severity: 'ERROR', recipientRole: admin, actionLabel: 'Retry feedback', destination: () => AUTHENTICATED_ADMIN_ROUTES.AI_USAGE },
   SYSTEM_SERVICE_UNAVAILABLE: { category: 'SYSTEM', icon: ServerCrash, severity: 'CRITICAL', recipientRole: admin, actionLabel: 'View system status', destination: () => AUTHENTICATED_ADMIN_ROUTES.DASHBOARD },
@@ -73,6 +73,7 @@ const allowedPathPrefixes = [
   AUTHENTICATED_ADMIN_ROUTES.SUBSCRIPTION,
   AUTHENTICATED_ADMIN_ROUTES.PAYMENTS,
   AUTHENTICATED_ADMIN_ROUTES.AI_USAGE,
+  AUTHENTICATED_ADMIN_ROUTES.AI_FEEDBACK,
 ];
 
 function isSafeActionUrl(value, role) {

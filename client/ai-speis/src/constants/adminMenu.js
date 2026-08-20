@@ -37,6 +37,12 @@ export const ADMIN_MENU_ITEMS = [
     icon: 'Bot',
     path: '/admin/ai-usage',
   },
+  {
+    id: 'ai-feedback',
+    label: 'AI Feedback',
+    icon: 'Flag',
+    path: '/admin/ai-feedback',
+  },
 ];
 
 export const ADMIN_ROUTES = {
@@ -50,6 +56,7 @@ export const ADMIN_ROUTES = {
   COMMUNITY: '/admin/community',
   ANALYTICS: '/admin/analytics',
   AI_USAGE: '/admin/ai-usage',
+  AI_FEEDBACK: '/admin/ai-feedback',
   REVENUE: '/admin/revenue',
   REFUNDS: '/admin/refunds',
   NOTIFICATIONS: '/admin/notifications',

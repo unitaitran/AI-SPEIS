@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '../config/api';
 
-const AI_FEEDBACK_ENDPOINT = `${API_BASE_URL}/api/ai-feedback`; // TODO: Confirm endpoint when backend contract is finalized.
+const AI_FEEDBACK_ENDPOINT = `${API_BASE_URL}/api/ai-feedback`;
+const ADMIN_AI_FEEDBACK_ENDPOINT = `${API_BASE_URL}/api/admin/ai-feedback`;
 
 class AiEvaluationFeedbackError extends Error {
   constructor(message, { status, details } = {}) {
@@ -88,11 +89,23 @@ const getMyFeedback = ({ signal } = {}) => request(
   { signal },
 );
 
-export { submitEvaluationFeedback, getMyFeedback, AiEvaluationFeedbackError };
+const getAdminFeedback = ({ search = '', pageNumber = 1, pageSize = 20, signal } = {}) => {
+  const params = new URLSearchParams({ search, pageNumber: String(pageNumber), pageSize: String(pageSize) });
+  return request(`${ADMIN_AI_FEEDBACK_ENDPOINT}?${params.toString()}`, { signal });
+};
+
+const getAdminFeedbackDetail = (feedbackId, { signal } = {}) => request(
+  `${ADMIN_AI_FEEDBACK_ENDPOINT}/${feedbackId}`,
+  { signal },
+);
+
+export { submitEvaluationFeedback, getMyFeedback, getAdminFeedback, getAdminFeedbackDetail, AiEvaluationFeedbackError };
 
 const aiEvaluationFeedbackApi = {
   submitEvaluationFeedback,
   getMyFeedback,
+  getAdminFeedback,
+  getAdminFeedbackDetail,
 };
 
 export default aiEvaluationFeedbackApi;
