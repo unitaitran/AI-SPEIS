@@ -320,9 +320,9 @@ namespace ai_speis_be.Services.InterviewSessionService
             if (session.Status == InterviewSessionStatus.Active
                 && campaign.Status == InterviewCampaignStatus.Active)
             {
-                if (EnsureActiveCampaignTiming(campaign, now))
-                    await _context.SaveChangesAsync();
-                var activeQuota = await GetQuotaMetadataAsync(campaign.User, now);
+                EnsureActiveCampaignTiming(campaign, now);
+                var activeQuota = await ConsumeCampaignQuotaMetadataAsync(campaign, now);
+                await _context.SaveChangesAsync();
                 return (true, null, MapCampaignToResponse(campaign, activeQuota));
             }
 
@@ -339,8 +339,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                 campaign.ExpiresAt = campaign.StartedAt.Value.AddMinutes(campaign.DurationMinutes);
                 campaign.UpdatedAt = now;
                 session.UpdatedAt = now;
+                var recoveredQuota = await ConsumeCampaignQuotaMetadataAsync(campaign, now);
                 await _context.SaveChangesAsync();
-                var recoveredQuota = await GetQuotaMetadataAsync(campaign.User, now);
                 return (true, null, MapCampaignToResponse(campaign, recoveredQuota));
             }
 
@@ -375,8 +375,8 @@ namespace ai_speis_be.Services.InterviewSessionService
             session.Status = InterviewSessionStatus.Active;
             session.UpdatedAt = now;
             campaign.UpdatedAt = now;
+            var startedQuota = await ConsumeCampaignQuotaMetadataAsync(campaign, now);
             await _context.SaveChangesAsync();
-            var startedQuota = await GetQuotaMetadataAsync(campaign.User, now);
             return (true, null, MapCampaignToResponse(campaign, startedQuota));
         }
 
@@ -430,6 +430,15 @@ namespace ai_speis_be.Services.InterviewSessionService
             if (campaign == null) return (false, "Không tìm thấy đợt phỏng vấn.", null);
 
             var now = DateTime.UtcNow;
+            var hasStarted = campaign.StartedAt.HasValue
+                || campaign.InterviewSessions.Any(session =>
+                    !session.IsDeleted
+                    && (session.Status == InterviewSessionStatus.Active
+                        || session.Status == InterviewSessionStatus.Completed));
+            var quota = hasStarted
+                ? await ConsumeCampaignQuotaMetadataAsync(campaign, now)
+                : await GetQuotaMetadataAsync(campaign.User, now);
+
             foreach (var session in campaign.InterviewSessions.Where(s => !s.IsDeleted && s.Status != InterviewSessionStatus.Completed))
             {
                 session.Status = InterviewSessionStatus.Cancelled;
@@ -444,7 +453,6 @@ namespace ai_speis_be.Services.InterviewSessionService
             }
 
             await _context.SaveChangesAsync();
-            var quota = await GetQuotaMetadataAsync(campaign.User, now);
             return (true, null, MapCampaignToResponse(campaign, quota));
         }
 
@@ -1244,11 +1252,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                 campaign.Status = InterviewCampaignStatus.Completed;
                 campaign.CompletedAt = now;
                 campaign.UpdatedAt = now;
-                var consumed = await _subscriptionService.ConsumeCampaignQuotaAsync(
-                    campaign.User,
-                    campaign.InterviewCampaignId,
-                    now);
-                quota = new QuotaMetadata(consumed.Remaining, consumed.Limit, consumed.PlanCode == "PREMIUM" ? "Premium" : "Free");
+                quota = await ConsumeCampaignQuotaMetadataAsync(campaign, now);
             }
 
             await _context.SaveChangesAsync();
@@ -1843,6 +1847,20 @@ namespace ai_speis_be.Services.InterviewSessionService
         private async Task<QuotaMetadata> GetQuotaMetadataAsync(User user, DateTime now)
         {
             var quota = await _subscriptionService.GetQuotaAsync(user, now);
+            return new QuotaMetadata(
+                quota.Remaining,
+                quota.Limit,
+                quota.PlanCode == "PREMIUM" ? "Premium" : "Free");
+        }
+
+        private async Task<QuotaMetadata> ConsumeCampaignQuotaMetadataAsync(
+            InterviewCampaign campaign,
+            DateTime now)
+        {
+            var quota = await _subscriptionService.ConsumeCampaignQuotaAsync(
+                campaign.User,
+                campaign.InterviewCampaignId,
+                now);
             return new QuotaMetadata(
                 quota.Remaining,
                 quota.Limit,

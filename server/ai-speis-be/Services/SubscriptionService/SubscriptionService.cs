@@ -140,7 +140,7 @@ public class SubscriptionService : ISubscriptionService
                 Delta = -1,
                 ReferenceType = CampaignReference,
                 ReferenceId = referenceId,
-                Reason = "Completed interview campaign.",
+                Reason = "Started interview campaign.",
                 CreatedAt = now
             });
             var remaining = period.QuotaLimit - period.UsedQuota - period.ReservedQuota;
