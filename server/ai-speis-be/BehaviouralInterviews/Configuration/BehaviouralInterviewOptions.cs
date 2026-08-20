@@ -22,7 +22,11 @@ namespace ai_speis_be.BehaviouralInterviews.Configuration
             return new BehaviouralInterviewOptions
             {
                 Provider = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_PROVIDER", "external"),
-                ApiKey = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_API_KEY", string.Empty),
+                ApiKey = Get(configuration, "BEHAVIOURAL_INTERVIEW_AI_API_KEY",
+                    Get(configuration, "TECHNICAL_INTERVIEW_AI_API_KEY",
+                        Get(configuration, "GEMINI_API_KEY",
+                            Get(configuration, "GeminiAI:ApiKey",
+                                Get(configuration, "GeminiAI__ApiKey", string.Empty))))),
                 BaseUrl = EnsureTrailingSlash(Get(
                     configuration,
                     "BEHAVIOURAL_INTERVIEW_AI_BASE_URL",
