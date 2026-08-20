@@ -11,7 +11,6 @@ import {
   Play,
   RefreshCw,
   RotateCcw,
-  UserRound,
   Volume2,
 } from 'lucide-react';
 import BehavioralCompletion from '../../components/behavioralInterview/BehavioralCompletion';
@@ -30,7 +29,7 @@ import useBehavioralInterviewSession from '../../features/behavioralInterview/us
 import useQuestionAudio from '../../features/technicalInterview/useQuestionAudio';
 import useTechnicalRecorder from '../../features/technicalInterview/useTechnicalRecorder';
 import { navigate } from '../../routes/navigation';
-import { getCampaignResultPath, getCodingInterviewRoomPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
+import { getCampaignResultPath, getInterviewRoomPath, USER_ROUTES } from '../../routes/routePaths';
 import { submitEvaluationFeedback } from '../../services/aiEvaluationFeedbackApi';
 import interviewSessionService from '../../services/InterviewSessionService';
 import notify from '../../utils/notification';
@@ -38,7 +37,6 @@ import {
   getActiveInterviewContext,
   getInterviewSetupDraft,
   getNextOpenSession,
-  getRoundOrder,
   saveActiveInterviewContext,
   resolveNextInterviewStage,
   InterviewStage,
@@ -93,7 +91,6 @@ function BehavioralInterviewPage({ sessionId }) {
     remainingSeconds,
     stopTimer,
     handleQuestionAudioEnded,
-    handleTimerExpired,
   } = useInterviewStrategy(
     room.session?.mode || initialContext?.campaign?.mode || setupDraft?.mode
   );
@@ -305,7 +302,7 @@ function BehavioralInterviewPage({ sessionId }) {
     } else {
       refreshCompletedCampaign();
     }
-  }, [pauseQuestionAudio, refreshCompletedCampaign, resetRecorder, room.phase, mode, resolvedSessionId, initialContext, room.generalSession?.interviewCampaignId, preGenerator.isCompleted]);
+  }, [pauseQuestionAudio, refreshCompletedCampaign, resetRecorder, room.phase, mode, resolvedSessionId, initialContext, room.generalSession?.interviewCampaignId, room.session?.interviewCampaignId, preGenerator.isCompleted]);
 
   // ── Pre-Generation: Kích hoạt tạo trước Technical khi câu hỏi 1 xuất hiện ──
   const preGenTriggeredRef = useRef(false);
@@ -326,7 +323,7 @@ function BehavioralInterviewPage({ sessionId }) {
     return t(`error.${code}`, { defaultValue: t('error.UNKNOWN_ERROR') });
   }, [t]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     stopTimer();
     const transcript = recorder.transcript.trim();
     if (!transcript) {
@@ -354,7 +351,7 @@ function BehavioralInterviewPage({ sessionId }) {
     } catch (submitError) {
       setLocalError(submitError);
     }
-  };
+  }, [recorder, room, stopTimer, resolvedSessionId]);
 
   useEffect(() => {
     handleSubmitRef.current = handleSubmit;
@@ -374,7 +371,7 @@ function BehavioralInterviewPage({ sessionId }) {
         autoSubmittingRef.current = false;
       });
     }
-  }, [recorder.recordingStatus, recorder.transcript, isSubmitting]);
+  }, [handleSubmit, isSubmitting, recorder.recordingStatus, recorder.transcript]);
 
   const requestNavigation = useCallback((path) => {
     if (!phaseIsActive) return true;
@@ -516,7 +513,6 @@ function BehavioralInterviewPage({ sessionId }) {
   );
 
   const questionType = room.currentQuestion?.questionType;
-  const isContinuation = questionType && questionType !== 'Main';
 
   return (
     <InterviewRoomShell

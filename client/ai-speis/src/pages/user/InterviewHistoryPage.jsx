@@ -18,7 +18,6 @@ import {
   Sparkles,
   Trophy,
   UserCheck,
-  X,
   XCircle,
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';

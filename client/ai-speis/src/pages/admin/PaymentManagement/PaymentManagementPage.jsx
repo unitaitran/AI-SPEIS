@@ -227,10 +227,6 @@ export default function PaymentManagementPage() {
     }
   };
 
-  const changePageSize = (value) => {
-    setPage(1);
-  };
-
 const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
 const pageButtons = useMemo(() => {

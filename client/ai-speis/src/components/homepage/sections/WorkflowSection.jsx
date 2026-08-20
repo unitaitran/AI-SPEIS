@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Bot, CheckCircle2, FileUp, PlayCircle, Sparkles, Trophy } from 'lucide-react';
+import { ArrowRight, Bot, FileUp, PlayCircle, Sparkles, Trophy } from 'lucide-react';
 
 function WorkflowSection({ t }) {
   const steps = [
