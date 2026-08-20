@@ -10,19 +10,23 @@ namespace ai_speis_be.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<decimal>(
-                name: "AiApplicationScore",
-                table: "TechnicalAnswer",
-                type: "decimal(18,2)",
-                nullable: true);
+            migrationBuilder.Sql(@"
+                IF COL_LENGTH(N'dbo.TechnicalAnswer', N'AiApplicationScore') IS NULL
+                BEGIN
+                    ALTER TABLE [dbo].[TechnicalAnswer] ADD [AiApplicationScore] decimal(18,2) NULL;
+                END
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "AiApplicationScore",
-                table: "TechnicalAnswer");
+            migrationBuilder.Sql(@"
+                IF COL_LENGTH(N'dbo.TechnicalAnswer', N'AiApplicationScore') IS NOT NULL
+                BEGIN
+                    ALTER TABLE [dbo].[TechnicalAnswer] DROP COLUMN [AiApplicationScore];
+                END
+            ");
         }
     }
 }
