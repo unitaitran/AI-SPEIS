@@ -38,10 +38,25 @@ namespace ai_speis_be.Controllers
             else
             {
                 var baseUrl = configuration["Frontend:BaseUrl"] ?? configuration["FRONTEND_BASE_URL"];
-                _frontendBaseUrl = !string.IsNullOrWhiteSpace(baseUrl)
-                    ? baseUrl.TrimEnd('/')
-                    : "http://localhost:3000";
+                _frontendBaseUrl = !string.IsNullOrWhiteSpace(baseUrl) ? baseUrl.TrimEnd('/') : string.Empty;
             }
+        }
+
+        private string GetFrontendBaseUrl()
+        {
+            if (!string.IsNullOrWhiteSpace(_frontendBaseUrl))
+            {
+                return _frontendBaseUrl;
+            }
+
+            var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
+            var host = Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? Request.Host.Value;
+            if (!string.IsNullOrWhiteSpace(host) && !host.Contains("127.0.0.1"))
+            {
+                return $"{scheme}://{host}".TrimEnd('/');
+            }
+
+            return "http://localhost:3000";
         }
 
         [HttpPost("login")]
@@ -250,7 +265,8 @@ namespace ai_speis_be.Controllers
             var jwtToken = _tokenService.GenerateToken(user.UserId, user.Role.RoleName, user.FullName, user.Email);
             await HttpContext.SignOutAsync("External");
 
-            var redirectUrl = $"{_frontendBaseUrl}/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}&imageUrl={Uri.EscapeDataString(user.ImageUrl ?? "")}&isPremium={user.IsPremium}&remainingInterviewQuota={user.RemainingInterviewQuota}";
+            var baseUrl = GetFrontendBaseUrl();
+            var redirectUrl = $"{baseUrl}/#dashboard?token={jwtToken}&userId={user.UserId}&role={user.Role.RoleName}&fullName={Uri.EscapeDataString(user.FullName)}&email={Uri.EscapeDataString(user.Email)}&imageUrl={Uri.EscapeDataString(user.ImageUrl ?? "")}&isPremium={user.IsPremium}&remainingInterviewQuota={user.RemainingInterviewQuota}";
             return Redirect(redirectUrl);
         }
 
