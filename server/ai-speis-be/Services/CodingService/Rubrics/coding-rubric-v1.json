@@ -1,0 +1,32 @@
+{
+  "version": "coding-rubric-v1",
+  "bands": [
+    {
+      "code": "LOW_FIT",
+      "name": "Thấp",
+      "minimumScore": 0,
+      "maximumScore": 39,
+      "cvRatio": 0.70,
+      "jdRatio": 0.30,
+      "allowedDifficulties": ["Easy", "Medium"]
+    },
+    {
+      "code": "MEDIUM_FIT",
+      "name": "Trung bình",
+      "minimumScore": 40,
+      "maximumScore": 69,
+      "cvRatio": 0.50,
+      "jdRatio": 0.50,
+      "allowedDifficulties": ["Medium"]
+    },
+    {
+      "code": "HIGH_FIT",
+      "name": "Cao",
+      "minimumScore": 70,
+      "maximumScore": 100,
+      "cvRatio": 0.30,
+      "jdRatio": 0.70,
+      "allowedDifficulties": ["Medium", "Hard"]
+    }
+  ]
+}

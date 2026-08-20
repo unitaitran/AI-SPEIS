@@ -1,0 +1,140 @@
+{
+    "version": "behavioural-rubric-v2",
+    "scoringPolicyVersion": "behavioural-scoring-v2",
+    "minimumScore": 0,
+    "maximumScore": 10,
+    "roundingPrecision": 2,
+    "evidenceRequiredWhenScoreAbove": 0,
+    "dimensions": [
+        {
+            "code": "SITUATION_TASK",
+            "name": "Situation & Context",
+            "description": "Mô tả rõ ràng bối cảnh, khó khăn hoặc mục tiêu cụ thể.",
+            "weight": 0.15
+        },
+        {
+            "code": "ACTION",
+            "name": "Action & Ownership",
+            "description": "Nêu rõ vai trò cá nhân, những gì ứng viên ĐÃ LÀM (dùng từ 'Tôi' thay vì 'Chúng tôi').",
+            "weight": 0.30
+        },
+        {
+            "code": "RESULT",
+            "name": "Result & Reflection",
+            "description": "Kết quả cụ thể, có số liệu đo lường hoặc bài học rút ra.",
+            "weight": 0.20
+        },
+        {
+            "code": "COMPETENCY",
+            "name": "Competency Fit",
+            "description": "Thể hiện kỹ năng cốt lõi cần đánh giá (ví dụ: Lãnh đạo, Làm việc nhóm, Giải quyết vấn đề).",
+            "weight": 0.20
+        },
+        {
+            "code": "COMMUNICATION",
+            "name": "Communication",
+            "description": "Trình bày mạch lạc, rõ ràng, chuyên nghiệp, đi vào trọng tâm.",
+            "weight": 0.15
+        }
+    ],
+    "levels": [
+        {
+            "code": "SCORE_0",
+            "score": 0,
+            "description": "Không trả lời hoặc hoàn toàn sai lạc hướng."
+        },
+        {
+            "code": "SCORE_1",
+            "score": 1,
+            "description": "Rất yếu; gần như không có thông tin liên quan."
+        },
+        {
+            "code": "SCORE_2",
+            "score": 2,
+            "description": "Rất yếu; trả lời rất chung chung, mơ hồ, cần Clarification."
+        },
+        {
+            "code": "SCORE_3",
+            "score": 3,
+            "description": "Yếu; thiếu các phần quan trọng của STAR, cần Follow-up."
+        },
+        {
+            "code": "SCORE_4",
+            "score": 4,
+            "description": "Yếu; đã có hướng đúng nhưng còn thiếu sót đáng kể."
+        },
+        {
+            "code": "SCORE_5",
+            "score": 5,
+            "description": "Đạt yêu cầu tối thiểu; đúng chuẩn STAR nhưng chi tiết sơ sài."
+        },
+        {
+            "code": "SCORE_6",
+            "score": 6,
+            "description": "Đạt khá; nắm được phần lớn nội dung cần trình bày."
+        },
+        {
+            "code": "SCORE_7",
+            "score": 7,
+            "description": "Khá; áp dụng STAR tốt, hành động và kết quả tương đối rõ."
+        },
+        {
+            "code": "SCORE_8",
+            "score": 8,
+            "description": "Rất tốt; còn rất ít thiếu sót, kết quả đo lường được."
+        },
+        {
+            "code": "SCORE_9",
+            "score": 9,
+            "description": "Xuất sắc; đầy đủ, chính xác, phân tích bối cảnh sâu."
+        },
+        {
+            "code": "SCORE_10",
+            "score": 10,
+            "description": "Cực kỳ xuất sắc; hành động chủ động, kết quả đo lường được và rút ra bài học giá trị."
+        }
+    ],
+    "performanceBands": [
+        {
+            "code": "EXCELLENT",
+            "name": "Xuất sắc",
+            "minimum": 9.00,
+            "maximum": 10.00
+        },
+        {
+            "code": "VERY_GOOD",
+            "name": "Rất tốt",
+            "minimum": 8.00,
+            "maximum": 8.99
+        },
+        {
+            "code": "GOOD",
+            "name": "Khá",
+            "minimum": 6.50,
+            "maximum": 7.99
+        },
+        {
+            "code": "FAIR",
+            "name": "Đạt yêu cầu",
+            "minimum": 5.00,
+            "maximum": 6.49
+        },
+        {
+            "code": "WEAK",
+            "name": "Yếu",
+            "minimum": 3.00,
+            "maximum": 4.99
+        },
+        {
+            "code": "POOR",
+            "name": "Rất yếu",
+            "minimum": 0.00,
+            "maximum": 2.99
+        }
+    ],
+    "limits": {
+        "maxClarificationsPerMainQuestion": 1,
+        "maxFollowUpsPerMainQuestion": 2,
+        "maxTotalSubQuestionsPerMainQuestion": 3
+    }
+}
