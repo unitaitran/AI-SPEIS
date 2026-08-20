@@ -176,7 +176,7 @@ jobs:
             --name ai-speis-backend \
             -v /opt/ai-speis/uploads:/app/wwwroot/uploads \
             -v /opt/ai-speis/AvatarImage:/app/wwwroot/AvatarImage \
-            -v /opt/ai-speis/keys:/app/keys:ro \
+            -v /opt/ai-speis/keys:/app/keys \
             --env-file /opt/ai-speis/backend/.env \
             --network ai-speis-network \
             -p 127.0.0.1:5000:8080 \
