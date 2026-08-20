@@ -608,7 +608,7 @@ public sealed class TechnicalV2InterviewOrchestratorTests
         var selection = new Mock<ITechnicalQuestionSelectionService>();
         selection.Setup(item => item.PreparePoolAsync(It.IsAny<TechnicalSelectionContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TechnicalQuestionPoolResult { Candidates = questions });
-        selection.Setup(item => item.SelectMainQuestionsWithAIAsync(It.IsAny<TechnicalSelectionContext>(), It.IsAny<IReadOnlyList<Question>>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        selection.Setup(item => item.SelectMainQuestionsWithAIAsync(It.IsAny<TechnicalSelectionContext>(), It.IsAny<IReadOnlyList<Question>>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IReadOnlyList<Question>?)null);
         selection.Setup(item => item.SelectBankSubQuestionAsync(
                 It.IsAny<TechnicalLockedMainQuestionSnapshot>(),

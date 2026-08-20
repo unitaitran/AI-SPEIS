@@ -184,19 +184,6 @@ function BehavioralInterviewPage({ sessionId }) {
       || completionResult.mainQuestions?.length
     )
   );
-  const behavioralEvaluationId = completionResult?.evaluationId
-    ?? completionResult?.behavioralEvaluationId
-    ?? completionResult?.resultId
-    ?? null;
-  const behavioralFeedbackQuestions = useMemo(() => (
-    Array.isArray(completionResult?.mainQuestions)
-      ? completionResult.mainQuestions.map((question, index) => ({
-        id: question?.sessionQuestionId ?? question?.mainQuestionIndex ?? index + 1,
-        label: tf('feedback.questionItem', { index: question?.mainQuestionIndex || index + 1 }),
-      }))
-      : []
-  ), [completionResult?.mainQuestions, tf]);
-
   useEffect(() => {
     const currentId = room.currentQuestion?.sessionQuestionId || null;
     if (currentId && previousQuestionRef.current !== currentId) {
@@ -452,12 +439,8 @@ function BehavioralInterviewPage({ sessionId }) {
       await submitEvaluationFeedback(payload);
       setIsFeedbackModalOpen(false);
       notify.success(tf('feedback.toastSuccess'));
-    } catch (submitError) {
-      if (Number(submitError?.status) === 404) {
-        notify.warning(tf('feedback.apiNotImplemented'));
-      } else {
-        notify.error(tf('feedback.toastError'));
-      }
+    } catch {
+      notify.error(tf('feedback.toastError'));
     } finally {
       setIsSubmittingFeedback(false);
     }
@@ -719,9 +702,9 @@ function BehavioralInterviewPage({ sessionId }) {
         }}
         onSubmit={handleSubmitFeedback}
         isSubmitting={isSubmittingFeedback}
-        questions={behavioralFeedbackQuestions}
         interviewSessionId={resolvedSessionId}
-        evaluationId={behavioralEvaluationId}
+        evaluationType="Behavioral"
+        evaluationLabel={t('rounds.Behavioral', 'Behavioral')}
         t={tf}
       />
     </InterviewRoomShell>

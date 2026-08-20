@@ -20,6 +20,15 @@ jest.mock('./notificationService', () => ({
   },
 }));
 
+jest.mock('./notificationRealtime', () => ({
+  createNotificationRealtimeConnection: () => ({
+    state: 'Disconnected',
+    start: () => Promise.resolve(),
+    stop: () => Promise.resolve(),
+    onclose: () => {},
+  }),
+}));
+
 const userNotification = {
   id: 'n-1', recipientRole: 'USER', type: 'CV_PROCESSING_FAILED', category: 'PROFILE', severity: 'ERROR',
   title: 'CV processing failed', message: 'Please upload the document again.', entityType: 'CV', entityId: 'cv-1',
@@ -81,6 +90,14 @@ describe('notification type configuration', () => {
 
   test('maps an admin evaluation issue to the existing AI usage page', () => {
     expect(getNotificationDestination(adminNotification, 'ADMIN')).toBe('/admin/ai-usage');
+  });
+
+  test('maps a user feedback review notification to the admin feedback queue', () => {
+    expect(getNotificationDestination({
+      ...adminNotification,
+      type: 'AI_EVALUATION_REQUIRES_REVIEW',
+      actionUrl: null,
+    }, 'ADMIN')).toBe('/admin/ai-feedback');
   });
 
   test('does not render a raw CV parser error', () => {
