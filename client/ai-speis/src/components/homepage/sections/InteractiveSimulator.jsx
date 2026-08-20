@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, CheckCircle2, Code2, Cpu, FileText, Mic, Play, Sparkles, Terminal, Volume2, Zap } from 'lucide-react';
+import { Bot, CheckCircle2, Code2, FileText, Mic, Play, Sparkles, Terminal, Zap } from 'lucide-react';
 
 function InteractiveSimulator({ t }) {
   const [activeTab, setActiveTab] = useState('cv'); // 'cv' | 'voice' | 'coding'

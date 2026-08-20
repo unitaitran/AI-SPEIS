@@ -90,7 +90,9 @@ const getMyFeedback = ({ signal } = {}) => request(
 
 export { submitEvaluationFeedback, getMyFeedback, AiEvaluationFeedbackError };
 
-export default {
+const aiEvaluationFeedbackApi = {
   submitEvaluationFeedback,
   getMyFeedback,
 };
+
+export default aiEvaluationFeedbackApi;

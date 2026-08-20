@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, FileText, CalendarDays, TrendingUp, Zap, Target } from 'lucide-react';
+import { ArrowRight, CalendarDays, TrendingUp, Target } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { navigate } from '../../routes/navigation';
 import { USER_ROUTES } from '../../routes/routePaths';
@@ -206,22 +206,6 @@ function DashboardPage() {
   ];
 
   const quotaExhausted = remainingInterviewQuota === 0;
-  const oneAttemptLeft = remainingInterviewQuota === 1;
-
-  const suggestions = [
-    {
-      title: t('suggestions.item_1.title', 'Mô tả một dự án khó khăn nhất bạn từng tham gia.'),
-      desc: t('suggestions.item_1.desc', 'Tập trung vào kỹ năng giải quyết vấn đề và leadership thể hiện trong dự án ReactJS.')
-    },
-    {
-      title: t('suggestions.item_2.title', 'Tại sao bạn lại chọn chuyển hướng sang lĩnh vực Data Science?'),
-      desc: t('suggestions.item_2.desc', 'Chuẩn bị câu chuyện chuyển đổi nghề nghiệp logic và thuyết phục.')
-    },
-    {
-      title: t('suggestions.item_3.title', 'Điểm yếu lớn nhất của bạn trong công việc là gì?'),
-      desc: t('suggestions.item_3.desc', 'Cách trả lời trung thực nhưng vẫn thể hiện sự cầu tiến và giải pháp khắc phục.')
-    }
-  ];
 
   const isEnglish = (i18n?.language || '').toLowerCase().startsWith('en');
 

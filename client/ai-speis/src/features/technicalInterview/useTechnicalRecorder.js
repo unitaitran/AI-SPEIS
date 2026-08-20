@@ -239,7 +239,7 @@ export default function useTechnicalRecorder(language = 'vi') {
     } finally {
       startInFlightRef.current = false;
     }
-  }, [cleanupMedia, clearTimer, language, transcribe]);
+  }, [cleanupMedia, clearTimer, language, sttStatus, transcribe]);
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {

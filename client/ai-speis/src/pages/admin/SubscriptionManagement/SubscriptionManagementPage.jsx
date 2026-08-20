@@ -345,7 +345,7 @@ export default function SubscriptionManagementPage() {
 
     setIsSaving(true);
     try {
-      let targetPlanId = planForm.planId;
+      let targetPlanId = selectedPlanId || planForm.planId;
 
       if (modalMode === 'edit' && targetPlanId) {
         await api(`/api/admin/subscription-plans/${targetPlanId}`, {

@@ -1,5 +1,4 @@
 import React from 'react';
-import { ArrowRight, Globe } from 'lucide-react';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import { beginNewInterviewCampaign } from '../../../utils/interviewContext';
 

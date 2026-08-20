@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Upload,
   FileText,
@@ -30,6 +30,21 @@ import { mapCvJdMatchResponse } from '../../features/cvJdFastCheck/cvJdMatchAdap
 import FastCheckResult from '../../features/cvJdFastCheck/FastCheckResult';
 import notify from '../../utils/notification';
 import '../../styles/user/MyCVPage.css';
+
+const STATUS_INT_MAP = {
+  0: 'Pending',
+  1: 'Processing',
+  2: 'ConfirmationRequired',
+  3: 'Confirmed',
+  4: 'Failed',
+  5: 'AnalysisFailed',
+  6: 'Archived',
+};
+
+const getStatusString = (status) => {
+  if (typeof status === 'number') return STATUS_INT_MAP[status] || 'Unknown';
+  return status;
+};
 
 function CVJDManagementPage() {
   const { t } = useTranslation('cvjd');  
@@ -91,13 +106,7 @@ function CVJDManagementPage() {
     }, 3000);
   };
 
-  useEffect(() => {
-    fetchCVHistory();
-    fetchJDHistory();
-    fetchFastCheckResults();
-  }, []);
-
-  const fetchCVHistory = async () => {
+  const fetchCVHistory = useCallback(async () => {
     setIsLoadingCvs(true);
     try {
       const result = await cvService.getMyCVHistory(1, 10); 
@@ -114,9 +123,9 @@ function CVJDManagementPage() {
     } finally {
       setIsLoadingCvs(false);
     }
-  };
+  }, []);
 
-  const fetchFastCheckResults = async () => {
+  const fetchFastCheckResults = useCallback(async () => {
     try {
       const response = await jdService.getFastCheckResults();
       if (response && response.data) {
@@ -129,9 +138,9 @@ function CVJDManagementPage() {
     } catch (err) {
       console.error('Lỗi khi lấy lịch sử FastCheck:', err);
     }
-  };
+  }, []);
 
-  const fetchJDHistory = async () => {
+  const fetchJDHistory = useCallback(async () => {
     setIsLoadingJds(true);
     try {
       const result = await jdService.getMyJDHistory(1, 5); // Tối đa 5 JDs
@@ -143,7 +152,13 @@ function CVJDManagementPage() {
     } finally {
       setIsLoadingJds(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCVHistory();
+    fetchJDHistory();
+    fetchFastCheckResults();
+  }, [fetchCVHistory, fetchJDHistory, fetchFastCheckResults]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -152,20 +167,7 @@ function CVJDManagementPage() {
   };
 
   // Convert numeric status enum back to string mapping if needed
-  const STATUS_INT_MAP = {
-    0: 'Pending',
-    1: 'Processing',
-    2: 'ConfirmationRequired',
-    3: 'Confirmed',
-    4: 'Failed',
-    5: 'AnalysisFailed',
-    6: 'Archived',
-  };
 
-  const getStatusString = (status) => {
-    if (typeof status === 'number') return STATUS_INT_MAP[status] || 'Unknown';
-    return status;
-  };
 
   const handleCVClick = (id) => {
     navigate(USER_ROUTES.CV_DETAIL);

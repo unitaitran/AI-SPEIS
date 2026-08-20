@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu, ChevronDown, Ticket, User, LogOut, Settings, Globe, Loader2, Crown } from 'lucide-react';
+import { ChevronDown, Ticket, User, LogOut, Settings, Globe, Loader2, Crown } from 'lucide-react';
 import { navigate } from '../../../routes/navigation';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import { getAvatarUrl } from '../../../routes/auth';

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Check, Sparkles, Star, Zap } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Star } from 'lucide-react';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import { API_BASE_URL } from '../../../config/api';
 

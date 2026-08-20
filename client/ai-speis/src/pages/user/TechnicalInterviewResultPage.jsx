@@ -35,10 +35,7 @@ function TechnicalInterviewResultPage({ sessionId }) {
     result,
     isLoading,
     error,
-    feedbackError,
-    isRetryingFeedback,
     reload,
-    retryFeedback,
   } = useTechnicalInterviewResult(resolvedSessionId);
   const nextRoundSession = getNextOpenSession(campaign, resolvedSessionId);
   const campaignCompleted = campaign?.status === 'Completed';
@@ -82,7 +79,6 @@ function TechnicalInterviewResultPage({ sessionId }) {
   } else if (error) {
     content = <TechnicalInterviewErrorState title={t('result.loadFailedTitle')} message={t(getTechnicalV2ErrorKey(error), { defaultValue: t('error.UNKNOWN_ERROR') })} onRetry={reload} onBack={() => navigate(USER_ROUTES.DASHBOARD)} retryLabel={t('retry')} backLabel={t('backToDashboard')} />;
   } else if (result) {
-    const feedbackFailed = String(result.finalFeedbackStatus || '').toUpperCase() === 'FAILED';
     content = (
       <>
 
