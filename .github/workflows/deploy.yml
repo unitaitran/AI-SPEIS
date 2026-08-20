@@ -120,7 +120,7 @@ jobs:
           ssh \
             -i ~/.ssh/ai-speis-deploy \
             "$VPS_USER@$VPS_HOST" \
-            "mkdir -p /opt/ai-speis/deploy"
+            mkdir -p /opt/ai-speis/deploy /opt/ai-speis/uploads
 
       # =========================
       # Upload artifacts
@@ -174,6 +174,7 @@ jobs:
 
           docker run -d \
             --name ai-speis-backend \
+            -v /opt/ai-speis/uploads:/app/wwwroot/uploads \
             --env-file /opt/ai-speis/backend/.env \
             --network ai-speis-network \
             -p 127.0.0.1:5000:8080 \
