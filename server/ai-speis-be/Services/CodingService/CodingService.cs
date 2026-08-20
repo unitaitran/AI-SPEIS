@@ -628,9 +628,17 @@ namespace ai_speis_be.Services.CodingService
 
             if (newQuestions.Count > 0)
             {
-                await _context.CodingQuestions.AddRangeAsync(newQuestions, cancellationToken);
-                await _context.SaveChangesAsync(cancellationToken);
-                importedCount = newQuestions.Count;
+                try
+                {
+                    await _context.CodingQuestions.AddRangeAsync(newQuestions, cancellationToken);
+                    await _context.SaveChangesAsync(cancellationToken);
+                    importedCount = newQuestions.Count;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Lỗi khi lưu dữ liệu Coding Questions vào SQL Server Database.");
+                    return (false, $"Lỗi lưu vào cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}", 0);
+                }
             }
 
             return (true, null, importedCount);
