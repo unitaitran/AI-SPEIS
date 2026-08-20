@@ -39,6 +39,8 @@
 
   <ItemGroup>
     <Content Update="TechnicalInterviews\Rubrics\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="BehaviouralInterviews\Rubrics\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Services\CodingService\Rubrics\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>
