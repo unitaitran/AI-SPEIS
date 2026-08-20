@@ -749,6 +749,3 @@ namespace ai_speis_be.Services.CodingService
         }
     }
 }
-        }
-    }
-}
