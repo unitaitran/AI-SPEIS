@@ -39,6 +39,7 @@ using ai_speis_be.Services.SubscriptionPlanService;
 using ai_speis_be.Services.RewardService;
 using ai_speis_be.Services.SubscriptionService;
 using ai_speis_be.Services.NotificationService;
+using ai_speis_be.Services.AiEvaluationFeedbackService;
 using ai_speis_be.Hubs;
 using ai_speis_be.BehaviouralInterviews.AI;
 using ai_speis_be.BehaviouralInterviews.Configuration;
@@ -201,6 +202,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationEmailDeliveryService, NotificationEmailDeliveryService>();
 builder.Services.AddScoped<INotificationEventPublisher, NotificationEventPublisher>();
 builder.Services.AddScoped<IAdminNotificationPublisher, AdminNotificationPublisher>();
+builder.Services.AddScoped<IAiEvaluationFeedbackService, AiEvaluationFeedbackService>();
 builder.Services.AddScoped<INotificationRealtimeNotifier, NotificationRealtimeNotifier>();
 
 // Background Worker for CV Parsing

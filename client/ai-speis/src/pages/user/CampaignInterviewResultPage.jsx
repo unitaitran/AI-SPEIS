@@ -12,6 +12,7 @@ import {
   Code2,
   FileQuestion,
   FileText,
+  Flag,
   Layers,
   MessageSquareText,
   Play,
@@ -28,6 +29,9 @@ import technicalV2InterviewApi from '../../services/technicalV2InterviewApi';
 import behavioralInterviewApi from '../../services/behavioralInterviewApi';
 import { normalizeTechnicalV2Review } from '../../features/technicalInterview/technicalV2InterviewResult';
 import { getInterviewHistoryCopy, formatInterviewTitle } from '../../features/interviewHistory/interviewHistoryCopy';
+import FeedbackModal from '../../components/feedback/FeedbackModal';
+import { submitEvaluationFeedback } from '../../services/aiEvaluationFeedbackApi';
+import notify from '../../utils/notification';
 
 // UI Primitives
 import Card from '../../components/UI/Card';
@@ -274,6 +278,21 @@ function CampaignInterviewResultPage({ campaignId }) {
   const [roundError, setRoundError] = useState('');
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
   const [expandedQuestions, setExpandedQuestions] = useState({});
+  const [feedbackTarget, setFeedbackTarget] = useState(null);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  const handleSubmitFeedback = async (payload) => {
+    setIsSubmittingFeedback(true);
+    try {
+      await submitEvaluationFeedback(payload);
+      setFeedbackTarget(null);
+      notify.success(t('feedback.toastSuccess'));
+    } catch {
+      notify.error(t('feedback.toastError'));
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   const loadCampaign = useCallback(async () => {
     if (!campaignId) {
@@ -585,15 +604,48 @@ function CampaignInterviewResultPage({ campaignId }) {
     );
   }
 
-  const mode = (campaignData?.mode || campaignResult?.mode || '').toLowerCase().includes('mock') || (campaignData?.sessions?.length === 3)
-    ? 'Mock'
-    : 'Practice';
+  const campaignMode = String(campaignData?.mode || campaignResult?.mode || '').toLowerCase();
+  const isRealTest = campaignMode === 'realtest' || campaignMode === 'mock';
+  const mode = isRealTest ? 'Mock' : 'Practice';
 
   const sessionName = formatInterviewTitle(campaignData || campaignResult, copy);
   const status = campaignData?.status || campaignResult?.status || 'Completed';
   const sConfig = getStatusConfig(status, copy);
   const overallScore = campaignResult?.overallScore ?? campaignData?.overallScore ?? campaignData?.OverallScore;
   const sessionsList = campaignData?.sessions || campaignResult?.rounds || [];
+  const feedbackRoundOptions = sessionsList
+    .filter((session) => {
+      const roundType = session.interviewRoundType || session.roundType;
+      const isEvaluatedRound = roundType === 'Technical' || ['Behavior', 'Behavioral'].includes(roundType);
+      return isEvaluatedRound && (!session.status || String(session.status).toLowerCase() === 'completed');
+    })
+    .map((session) => {
+      const roundType = session.interviewRoundType || session.roundType;
+      const evaluationType = roundType === 'Technical' ? 'Technical' : 'Behavioral';
+      return {
+        interviewSessionId: session.interviewSessionId,
+        evaluationType,
+        label: getRoundConfig(roundType, copy).label,
+      };
+    });
+  const activeFeedbackRound = feedbackRoundOptions.find((round) => round.interviewSessionId === activeRoundSessionId);
+  const canReportFeedback = isRealTest
+    ? String(status).toLowerCase() === 'completed' && feedbackRoundOptions.length > 0
+    : Boolean(activeFeedbackRound);
+
+  const openRoundFeedback = () => {
+    if (isRealTest) {
+      setFeedbackTarget({ roundOptions: feedbackRoundOptions });
+      return;
+    }
+    if (activeFeedbackRound) {
+      setFeedbackTarget({
+        interviewSessionId: activeFeedbackRound.interviewSessionId,
+        evaluationType: activeFeedbackRound.evaluationType,
+        evaluationLabel: activeFeedbackRound.label,
+      });
+    }
+  };
 
   const selectedQuestion = flatQuestionList[selectedQuestionIndex] || flatQuestionList[0] || roundReview?.questions?.[0] || null;
   const isTechnicalV2Review = roundReview?.runtimeVersion === 'V2';
@@ -643,13 +695,16 @@ function CampaignInterviewResultPage({ campaignId }) {
             </div>
 
             {/* Right: Level 1 Overall Score Badge on SAME horizontal row */}
-            <div className="flex flex-col items-center justify-center px-4 py-2 bg-primary-xlight/60 border border-primary/20 rounded-xl shrink-0 ml-auto">
-              <span className="text-[10px] uppercase font-extrabold text-primary-dark tracking-wider">
-                {copy.history.overallScore}
-              </span>
-              <span className="text-2xl sm:text-3xl font-black text-primary">
-                {formatScore(overallScore, 10) || copy.history.noScore}
-              </span>
+            <div className="ml-auto flex shrink-0 flex-col items-end gap-2">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-primary/20 bg-primary-xlight/60 px-4 py-2">
+                <span className="text-[10px] uppercase font-extrabold text-primary-dark tracking-wider">
+                  {copy.history.overallScore}
+                </span>
+                <span className="text-2xl sm:text-3xl font-black text-primary">
+                  {formatScore(overallScore, 10) || copy.history.noScore}
+                </span>
+              </div>
+              {canReportFeedback ? <Button variant="outline" size="sm" icon={Flag} onClick={openRoundFeedback}>{t('feedback.reportButton')}</Button> : null}
             </div>
           </div>
         </div>
@@ -970,7 +1025,7 @@ function CampaignInterviewResultPage({ campaignId }) {
                       </div>
 
                       {formatScore(selectedQuestion.score, selectedQuestion.maxScore) && (
-                        <div className="flex flex-col items-center px-4 py-2 bg-[#F0F7FF] border border-primary/20 rounded-xl shrink-0">
+                        <div className="flex flex-col items-center gap-2 px-4 py-2 bg-[#F0F7FF] border border-primary/20 rounded-xl shrink-0">
                           <span className="text-[9px] uppercase font-extrabold text-primary-dark tracking-wider">{copy.review.scoreLabel}</span>
                           <span className="text-lg font-extrabold text-primary">
                             {formatScore(selectedQuestion.score, selectedQuestion.maxScore)}
@@ -1050,6 +1105,19 @@ function CampaignInterviewResultPage({ campaignId }) {
           </section>
         )}
       </div>
+      <FeedbackModal
+        isOpen={Boolean(feedbackTarget)}
+        onClose={() => {
+          if (!isSubmittingFeedback) setFeedbackTarget(null);
+        }}
+        onSubmit={handleSubmitFeedback}
+        isSubmitting={isSubmittingFeedback}
+        interviewSessionId={feedbackTarget?.interviewSessionId}
+        roundOptions={feedbackTarget?.roundOptions}
+        evaluationType={feedbackTarget?.evaluationType}
+        evaluationLabel={feedbackTarget?.evaluationLabel}
+        t={t}
+      />
     </UserLayout>
   );
 }

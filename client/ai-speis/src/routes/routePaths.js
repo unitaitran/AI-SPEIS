@@ -55,5 +55,6 @@ export const AUTHENTICATED_ADMIN_ROUTES = {
   SUBSCRIPTION: '/admin/subscription',
   PAYMENTS: '/admin/payments',
   AI_USAGE: '/admin/ai-usage',
+  AI_FEEDBACK: '/admin/ai-feedback',
   NOTIFICATIONS: '/admin/notifications',
 };

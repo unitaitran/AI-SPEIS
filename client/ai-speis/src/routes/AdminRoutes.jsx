@@ -9,6 +9,7 @@ import SubscriptionManagementPage from '../pages/admin/SubscriptionManagement/Su
 import AIUsagePage from '../pages/admin/AIUsage/AIUsagePage';
 import PaymentManagementPage from '../pages/admin/PaymentManagement/PaymentManagementPage';
 import NotificationCenterPage from '../pages/admin/NotificationCenterPage';
+import AiFeedbackReviewPage from '../pages/admin/AiFeedbackReview/AiFeedbackReviewPage';
 
 import { useTranslation } from 'react-i18next';
 
@@ -56,6 +57,8 @@ function AdminRoutes({ pathname }) {
   content = <SubscriptionManagementPage />;
 } else if (activePathname === ADMIN_ROUTES.AI_USAGE) {
   content = <AIUsagePage />;
+} else if (activePathname === ADMIN_ROUTES.AI_FEEDBACK) {
+  content = <AiFeedbackReviewPage />;
 } else if (activePathname === ADMIN_ROUTES.PAYMENTS) {
   content = <PaymentManagementPage />;
 } else if (activePathname === ADMIN_ROUTES.NOTIFICATIONS) {

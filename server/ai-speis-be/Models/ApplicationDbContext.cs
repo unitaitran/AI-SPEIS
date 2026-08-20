@@ -53,6 +53,7 @@ namespace ai_speis_be.Models
         public DbSet<UserSkillScore> UserSkillScores { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
         public DbSet<SingleQuestionRetry> SingleQuestionRetries { get; set; } = null!;
+        public DbSet<AiEvaluationFeedback> AiEvaluationFeedbacks { get; set; } = null!;
 
 
 
@@ -102,6 +103,25 @@ namespace ai_speis_be.Models
             modelBuilder.Entity<Notification>()
                 .HasIndex(notification => new { notification.DeliveryChannel, notification.DeliveryStatus, notification.NextRetryAt })
                 .HasDatabaseName("IX_Notification_EmailRetry");
+
+            modelBuilder.Entity<AiEvaluationFeedback>()
+                .HasQueryFilter(item => !item.InterviewSession.IsDeleted);
+
+            modelBuilder.Entity<AiEvaluationFeedback>()
+                .HasOne(item => item.User)
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<AiEvaluationFeedback>()
+                .HasOne(item => item.InterviewSession)
+                .WithMany()
+                .HasForeignKey(item => item.InterviewSessionId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<AiEvaluationFeedback>()
+                .HasIndex(item => new { item.UserId, item.CreatedAt })
+                .HasDatabaseName("IX_AiEvaluationFeedback_UserId_CreatedAt");
 
             modelBuilder.Entity<CVFile>()
                 .HasOne(cv => cv.User)
