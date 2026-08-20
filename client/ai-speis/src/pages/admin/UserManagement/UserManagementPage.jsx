@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Eye,
@@ -76,18 +76,7 @@ function UserManagementPage() {
     setCurrentPage(1);
   }, [filters.role, filters.status, filters.package, debouncedSearch]);
 
-  // Fetch users on mount and when pagination, sorting, or filters change
-  useEffect(() => {
-    fetchUsers();
-  }, [currentPage, pageSize, sortBy, sortOrder, filters.role, filters.status, filters.package, debouncedSearch]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -133,7 +122,12 @@ function UserManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, pageSize, filters.role, filters.status, filters.package, debouncedSearch, sortBy, sortOrder]);
+
+  // Fetch users on mount and when pagination, sorting, or filters change
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   // Handle filter changes
   const handleFilterChange = (e) => {

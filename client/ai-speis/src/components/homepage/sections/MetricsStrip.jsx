@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, CheckCircle, ShieldCheck, Users, Zap } from 'lucide-react';
+import { Award, ShieldCheck, Users, Zap } from 'lucide-react';
 
 function MetricsStrip({ t }) {
   const metrics = [

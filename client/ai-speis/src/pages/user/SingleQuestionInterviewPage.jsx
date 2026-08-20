@@ -9,7 +9,6 @@ import {
   FileText,
   Loader2,
   Pause,
-  RefreshCw,
   RotateCcw,
   Sparkles,
   ThumbsDown,

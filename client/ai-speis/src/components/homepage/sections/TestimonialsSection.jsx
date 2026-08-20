@@ -1,5 +1,5 @@
 import React from 'react';
-import { Quote, Sparkles, Star } from 'lucide-react';
+import { Sparkles, Star } from 'lucide-react';
 
 function TestimonialsSection({ t }) {
   const defaultTestimonials = [

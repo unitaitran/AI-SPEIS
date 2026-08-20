@@ -10,7 +10,6 @@ import {
   Play,
   RefreshCw,
   RotateCcw,
-  UserRound,
   Volume2,
 } from 'lucide-react';
 import BehavioralRecorderControls from '../../components/behavioralInterview/BehavioralRecorderControls';

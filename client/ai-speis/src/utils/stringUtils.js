@@ -25,7 +25,7 @@ export function calculateAccuracy(expected, actual) {
     (str || '')
       .toLowerCase()
       .replace(/\[tên của bạn\]/g, '')
-      .replace(/[.,/#!$%^&*;:{}=\-_`~()\[\]]/g, '')
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()[\]]/g, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
 

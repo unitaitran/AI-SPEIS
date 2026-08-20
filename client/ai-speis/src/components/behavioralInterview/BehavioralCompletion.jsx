@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, ArrowRight, CheckCircle2, LayoutDashboard, RefreshCw } from 'lucide-react';
+import { ArrowRight, CheckCircle2, LayoutDashboard } from 'lucide-react';
 
 function BehavioralCompletion({
   result,
@@ -14,7 +14,6 @@ function BehavioralCompletion({
 }) {
   const summary = result?.summary || {};
   const recommendations = summary.recommendationsForImprovement || summary.TopRecommendations || [];
-  const feedbackFailed = String(result?.finalFeedbackStatus || '').toUpperCase() === 'FAILED';
   return (
     <section className="behavior-completion" aria-labelledby="behavior-completion-title">
       <div className="behavior-completion__icon"><CheckCircle2 size={42} /></div>

@@ -13,7 +13,6 @@ import {
   FileQuestion,
   FileText,
   Layers,
-  Lightbulb,
   MessageSquareText,
   Play,
   Sparkles,
@@ -141,7 +140,6 @@ const getBehaviouralMissingPoints = (question, roundImprovements = []) => {
 
 const normalizeBehaviorReview = (result, state) => {
   const answers = (state?.transcript || []).filter((entry) => String(entry.role).toLowerCase() === 'candidate');
-  const roundFeedback = result?.summary?.overallBehavioralAssessment || result?.summary?.executiveSummary || '';
   const roundImprovements = result?.summary?.weaknesses?.length
     ? result.summary.weaknesses
     : result?.summary?.competencyGaps || [];
@@ -163,10 +161,6 @@ const normalizeBehaviorReview = (result, state) => {
         transcript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
         answerTranscript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
       }));
-
-      const mainTranscript = question.answerTranscript
-        || answers.find((answer) => answer.sessionQuestionId === question.sessionQuestionId)?.content
-        || '';
 
       return {
         id: question.sessionQuestionId,
@@ -383,7 +377,7 @@ function CampaignInterviewResultPage({ campaignId }) {
       });
     });
     return list;
-  }, [roundReview?.questions, copy.review.mainQuestion]);
+  }, [roundReview?.questions, copy.review.mainQuestion, copy.review.clarificationQuestion, copy.review.followUpQuestion]);
 
   const competencyMetrics = useMemo(() => {
     if (!campaignResult && !campaignData) return null;
@@ -561,7 +555,7 @@ function CampaignInterviewResultPage({ campaignId }) {
         badgeColor: 'bg-emerald-600 text-white',
       },
     ];
-  }, [campaignResult, campaignData, roundReview]);
+  }, [campaignResult, campaignData, roundReview, copy.history]);
 
   if (isLoading) {
     return (

@@ -78,7 +78,7 @@ const renderFeedbackList = (text, type, t) => {
   if (items.length === 0) return <p className="mycv-empty-note">{t('mycv.no_data', 'Chưa có thông tin.')}</p>;
 
   return items.map((item, idx) => {
-    const cleanItem = item.replace(/^[-*•\d\.\s]+/, '');
+    const cleanItem = item.replace(/^[-*•\d.\s]+/, '');
     const colonIdx = cleanItem.indexOf(':');
     const dashIdx = cleanItem.indexOf(' - ');
 
@@ -284,7 +284,7 @@ function MyCVPage() {
         // network error — keep polling
       }
     }, POLL_INTERVAL_MS);
-  }, [stopPolling, fetchCV, t]);
+  }, [stopPolling, fetchCV]);
 
   /* -----------------------------------------------------------------------
    *  Init
@@ -358,13 +358,6 @@ function MyCVPage() {
       setIsUploading(false);
       setError(err.message || t('mycv.error_upload', 'Không thể tải lên file CV. Vui lòng thử lại.'));
     }
-  };
-
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = '';
-    await processFile(file);
   };
 
   const handleDragOver = (e) => {

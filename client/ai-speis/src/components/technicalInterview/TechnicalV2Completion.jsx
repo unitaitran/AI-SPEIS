@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, CheckCircle2, LayoutDashboard, RefreshCw } from 'lucide-react';
+import { ArrowRight, CheckCircle2, LayoutDashboard } from 'lucide-react';
 
 function TechnicalV2Completion({
   result,
