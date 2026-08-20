@@ -149,8 +149,8 @@ namespace ai_speis_be.Repositories.QuestionRepo
         {
             var dbQuery = _context.Questions.AsNoTracking().Where(q => !q.IsDeleted);
 
-            // Filter by QuestionType = "Behavioral"
-            dbQuery = dbQuery.Where(q => q.QuestionType == "Behavioral");
+            // Filter by QuestionType = "Behavioral" or "Behavioural"
+            dbQuery = dbQuery.Where(q => q.QuestionType == "Behavioral" || q.QuestionType == "Behavioural");
 
             if (!string.IsNullOrWhiteSpace(query.Language))
             {
@@ -160,10 +160,27 @@ namespace ai_speis_be.Repositories.QuestionRepo
             if (query.ExperienceLevels.Count > 0)
             {
                 var levels = query.ExperienceLevels.ToList();
-                // Khớp ExperienceLevel chính xác hoặc nằm trong LevelTags ("Intern,Fresher")
-                dbQuery = dbQuery.Where(q =>
-                    (q.ExperienceLevel != null && levels.Contains(q.ExperienceLevel))
-                    || (q.LevelTags != null && levels.Any(level => q.LevelTags.Contains(level))));
+                var param = Expression.Parameter(typeof(Question), "q");
+                Expression? body = null;
+                var expProp = Expression.Property(param, nameof(Question.ExperienceLevel));
+                var levelTagsProp = Expression.Property(param, nameof(Question.LevelTags));
+                var notNullExp = Expression.NotEqual(expProp, Expression.Constant(null, typeof(string)));
+                var notNullTags = Expression.NotEqual(levelTagsProp, Expression.Constant(null, typeof(string)));
+                var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
+
+                foreach (var level in levels)
+                {
+                    var expEqual = Expression.AndAlso(notNullExp, Expression.Equal(expProp, Expression.Constant(level, typeof(string))));
+                    var tagContains = Expression.AndAlso(notNullTags, Expression.Call(levelTagsProp, containsMethod, Expression.Constant(level, typeof(string))));
+                    var levelCondition = Expression.OrElse(expEqual, tagContains);
+                    body = body == null ? levelCondition : Expression.OrElse(body, levelCondition);
+                }
+
+                if (body != null)
+                {
+                    var lambda = Expression.Lambda<Func<Question, bool>>(body, param);
+                    dbQuery = dbQuery.Where(lambda);
+                }
             }
 
             if (query.ExcludedQuestionIds.Count > 0)

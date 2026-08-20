@@ -45,7 +45,10 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                 SingleQuestionEvaluationProvider = Get(configuration, "SINGLE_QUESTION_EVALUATION_PROVIDER", "gemini"),
                 SingleQuestionEvaluationModel = Get(configuration, "SINGLE_QUESTION_EVALUATION_MODEL", string.Empty),
                 Model = Get(configuration, "TECHNICAL_INTERVIEW_AI_MODEL", "gemini-3.5-flash"),
-                ApiKey = Get(configuration, "TECHNICAL_INTERVIEW_AI_API_KEY", string.Empty),
+                ApiKey = Get(configuration, "TECHNICAL_INTERVIEW_AI_API_KEY",
+                    Get(configuration, "GEMINI_API_KEY",
+                        Get(configuration, "GeminiAI:ApiKey",
+                            Get(configuration, "GeminiAI__ApiKey", string.Empty)))),
                 BaseUrl = EnsureTrailingSlash(Get(
                     configuration,
                     "TECHNICAL_INTERVIEW_AI_BASE_URL",
