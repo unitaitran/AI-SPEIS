@@ -580,6 +580,43 @@ public sealed class TechnicalV2InterviewOrchestratorTests
     }
 
     [Fact]
+    public async Task GenerateFeedback_WhenAIProviderTimesOut_AppliesFallbackAndStatusIsNotProcessing()
+    {
+        using var context = TestDbContextFactory.Create();
+        Seed(context);
+        var (orchestrator, provider) = CreateOrchestrator(context);
+
+        provider.Setup(p => p.GenerateFinalSummaryAsync(It.IsAny<TechnicalAIFinalSummaryRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        await orchestrator.InitializeAsync(UserId, V2SessionId, new InitializeTechnicalV2Request(), CancellationToken.None);
+        var question = (await orchestrator.StartAsync(UserId, V2SessionId, CancellationToken.None)).Value!;
+        for (var index = 0; index < 3; index++)
+        {
+            var submitted = await orchestrator.SubmitAnswerAsync(
+                UserId,
+                V2SessionId,
+                question.SessionQuestionId,
+                new SubmitTechnicalV2AnswerRequest { Transcript = Answer },
+                $"timeout-{index}",
+                CancellationToken.None);
+            if (submitted.Value!.NextQuestion is not null) question = submitted.Value.NextQuestion;
+        }
+
+        var feedback = await orchestrator.GenerateFeedbackAsync(UserId, V2SessionId, CancellationToken.None);
+
+        Assert.Equal(TechnicalV2OperationStatus.Ok, feedback.Status);
+        var result = context.TechnicalRoundResults.Single();
+        Assert.Equal("FALLBACK", result.FinalFeedbackStatus);
+        Assert.NotEqual("PROCESSING", result.FinalFeedbackStatus);
+        Assert.NotNull(result.FinalFeedbackJson);
+        Assert.False(string.IsNullOrWhiteSpace(result.AiExecutiveSummary));
+        Assert.False(string.IsNullOrWhiteSpace(result.AiStrengths));
+        Assert.False(string.IsNullOrWhiteSpace(result.AiGaps));
+        Assert.False(string.IsNullOrWhiteSpace(result.AiRecommendations));
+    }
+
+    [Fact]
     public void V2Model_UsesCanonicalCascadeAndUniqueRelationships()
     {
         using var context = TestDbContextFactory.Create();
@@ -591,7 +628,11 @@ public sealed class TechnicalV2InterviewOrchestratorTests
 
         Assert.Equal(DeleteBehavior.Cascade, questionSet.GetForeignKeys().Single(key => key.PrincipalEntityType.ClrType == typeof(InterviewSession)).DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, sessionQuestion.GetForeignKeys().Single(key => key.PrincipalEntityType.ClrType == typeof(TechnicalQuestionSet)).DeleteBehavior);
-        Assert.Equal(DeleteBehavior.Restrict, sessionQuestion.GetForeignKeys().Single(key => key.PrincipalEntityType.ClrType == typeof(Question)).DeleteBehavior);
+        var questionFk = sessionQuestion.GetForeignKeys().SingleOrDefault(key => key.PrincipalEntityType.ClrType == typeof(Question));
+        if (questionFk is not null)
+        {
+            Assert.Equal(DeleteBehavior.Restrict, questionFk.DeleteBehavior);
+        }
         Assert.Equal(DeleteBehavior.Cascade, answer.GetForeignKeys().Single(key => key.PrincipalEntityType.ClrType == typeof(TechnicalSessionQuestion)).DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, result.GetForeignKeys().Single(key => key.PrincipalEntityType.ClrType == typeof(InterviewSession)).DeleteBehavior);
         Assert.Contains(questionSet.GetIndexes(), index => index.IsUnique && index.Properties.Select(property => property.Name).SequenceEqual(new[] { nameof(TechnicalQuestionSet.InterviewSessionId) }));

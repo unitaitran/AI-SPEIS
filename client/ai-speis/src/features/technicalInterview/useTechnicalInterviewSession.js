@@ -438,6 +438,13 @@ export default function useTechnicalInterviewSession(sessionId) {
         { idempotencyKey: idempotencyKeysRef.current.get(keyId) },
       );
 
+      if (response?.decision === 'RETRYABLE_ERROR' || (response?.fallbackUsed && !response?.nextQuestion && response?.decision !== 'COMPLETE')) {
+        throw new TechnicalV2InterviewError(
+          'Dịch vụ đánh giá gặp sự cố. Bạn có thể gửi lại câu trả lời.',
+          { code: TechnicalV2ErrorCode.AI_PROVIDER_TIMEOUT, status: 502 }
+        );
+      }
+
       const nextState = response?.state || state.session;
       const nextQuestion = response?.nextQuestion || null;
       dispatch({

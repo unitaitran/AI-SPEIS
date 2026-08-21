@@ -24,11 +24,7 @@ warmup_status = {"status": "starting", "detail": "Preparing local models"}
 
 @app.on_event("startup")
 def warm_up_dependencies() -> None:
-    """Move cold-start work ahead of the first demo interaction.
 
-    A failed warm-up must not prevent the API from starting: endpoints retain
-    their detailed error messages for unavailable local/external services.
-    """
     try:
         service.store.collection_exists(settings.technical_collection)
         service.store.collection_exists(settings.behavioral_collection)
@@ -47,6 +43,14 @@ class GenerateRequest(BaseModel):
     interview_type: Literal["technical", "behavioral"] = "technical"
     count: int = Field(default=3, ge=1, le=3)
     language: Literal["vi", "en"] = "vi"
+
+
+class RetrieveRequest(BaseModel):
+    cv_profile: dict[str, Any]
+    interview_type: Literal["technical", "behavioral"] = "technical"
+    count: int = Field(default=3, ge=1, le=3)
+    language: Literal["vi", "en"] = "vi"
+
 
 
 class EvaluateRequest(BaseModel):
@@ -119,6 +123,20 @@ def generate_questions(body: GenerateRequest) -> dict[str, Any]:
         return {"candidate_id": profile.get("candidate_id"), "questions": questions}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/questions/retrieve")
+def retrieve_questions(body: RetrieveRequest) -> dict[str, Any]:
+    """Retrieval-only endpoint: returns existing Qdrant Question Bank records unchanged without LLM generation."""
+    try:
+        profile = normalize_cv_profile(body.cv_profile)
+        questions = service.retrieve_questions(
+            profile, body.interview_type, body.count, body.language
+        )
+        return {"candidate_id": profile.get("candidate_id"), "questions": questions}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 
 @app.post("/answers/evaluate")

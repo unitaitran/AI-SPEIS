@@ -1,6 +1,7 @@
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
+using ai_speis_be.Services.RagService;
 using ai_speis_be.TechnicalInterviews.AI;
 using ai_speis_be.TechnicalInterviews.Configuration;
 using ai_speis_be.TechnicalInterviews.Planning;
@@ -68,6 +69,7 @@ namespace ai_speis_be.TechnicalInterviews.Selection
         private readonly IQuestionRepoitory _questionRepository;
         private readonly ITechnicalInterviewAIProviderResolver _aiProviderResolver;
         private readonly ITechnicalAIResponseValidator _validator;
+        private readonly IRagQuestionRetrievalClient _ragClient;
         private readonly TechnicalInterviewOptions _options;
         private readonly ILogger<TechnicalQuestionSelectionService> _logger;
 
@@ -75,12 +77,14 @@ namespace ai_speis_be.TechnicalInterviews.Selection
             IQuestionRepoitory questionRepository,
             ITechnicalInterviewAIProviderResolver aiProviderResolver,
             ITechnicalAIResponseValidator validator,
+            IRagQuestionRetrievalClient ragClient,
             TechnicalInterviewOptions options,
             ILogger<TechnicalQuestionSelectionService> logger)
         {
             _questionRepository = questionRepository;
             _aiProviderResolver = aiProviderResolver;
             _validator = validator;
+            _ragClient = ragClient;
             _options = options;
             _logger = logger;
         }
@@ -93,6 +97,15 @@ namespace ai_speis_be.TechnicalInterviews.Selection
             int jdFocusCount,
             CancellationToken cancellationToken)
         {
+            var providerName = !string.IsNullOrWhiteSpace(baseContext.AiProvider)
+                ? TechnicalInterviewAIProviderResolver.Normalize(baseContext.AiProvider)
+                : "gemini";
+            if (string.Equals(providerName, "ollama", StringComparison.OrdinalIgnoreCase))
+            {
+                // Qdrant RAG path retrieves existing Question Bank records unchanged without LLM adaptation.
+                return candidatePool.Take(targetCount > 0 ? targetCount : 3).ToList();
+            }
+
             var effectiveTargetCount = targetCount > 0 ? targetCount : 3;
             if (candidatePool.Count < effectiveTargetCount)
             {
@@ -177,6 +190,35 @@ namespace ai_speis_be.TechnicalInterviews.Selection
             if (context.PlanSlot is not null)
             {
                 return await PreparePlannedPoolAsync(context, cancellationToken);
+            }
+
+            var providerName = !string.IsNullOrWhiteSpace(context.AiProvider)
+                ? TechnicalInterviewAIProviderResolver.Normalize(context.AiProvider)
+                : "gemini";
+            if (string.Equals(providerName, "ollama", StringComparison.OrdinalIgnoreCase))
+            {
+                var ragResult = await _ragClient.RetrieveQuestionsAsync(
+                    context.JobRole,
+                    context.ExperienceLevel,
+                    context.SelectedSkills,
+                    context.Language,
+                    _options.StandardMainQuestionCount,
+                    cancellationToken);
+
+                if (!ragResult.Success)
+                {
+                    _logger.LogWarning("Qwen RAG question retrieval failed: {ErrorCode} - {Detail}", ragResult.ErrorCode, ragResult.ErrorDetail);
+                    return new TechnicalQuestionPoolResult
+                    {
+                        ErrorCode = ragResult.ErrorCode ?? "RAG_SERVICE_UNAVAILABLE"
+                    };
+                }
+
+                return new TechnicalQuestionPoolResult
+                {
+                    Candidates = ragResult.Questions,
+                    Relaxation = "qdrant-rag"
+                };
             }
 
             var roleTargets = TechnicalQuestionMetadata.ResolveRoleAliases(context.JobRole);

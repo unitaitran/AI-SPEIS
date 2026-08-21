@@ -584,7 +584,8 @@ namespace ai_speis_be.Services.InterviewSessionService
                     LevelAssessment = v2Result?.AiLevelAssessment,
                     Strengths = DeserializeStringList(v2Result?.AiStrengths),
                     AreasForImprovement = DeserializeStringList(v2Result?.AiGaps),
-                    Recommendations = DeserializeStringList(v2Result?.AiRecommendations)
+                    Recommendations = DeserializeStringList(v2Result?.AiRecommendations),
+                    FinalFeedbackStatus = v2Result?.FinalFeedbackStatus
                 });
             }
 

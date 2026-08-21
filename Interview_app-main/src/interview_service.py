@@ -236,6 +236,82 @@ class InterviewService:
                 raise ValueError(f"No unique {difficulty} question available in the question bank")
         return selected
 
+    def retrieve_questions(
+        self,
+        cv_profile: dict[str, Any],
+        interview_type: str = "technical",
+        count: int = 3,
+        language: str = "vi",
+    ) -> list[dict[str, Any]]:
+        """Retrieve raw question-bank records from Qdrant without calling any LLM."""
+        interview_type = interview_type.lower()
+        language = language.lower()
+        if interview_type not in {"technical", "behavioral"}:
+            raise ValueError("interview_type must be technical or behavioral")
+        if language not in {"vi", "en"}:
+            raise ValueError("language must be vi or en")
+
+        normalized = normalize_cv_profile(cv_profile)
+        query = profile_search_query(normalized, interview_type)
+        grouped_templates = self._retrieve_templates_by_difficulty(
+            query, interview_type, language, count
+        )
+
+        results: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        for level, templates in grouped_templates.items():
+            for payload in templates:
+                is_active = payload.get("is_active")
+                if is_active is False or is_active == 0 or str(is_active).lower() == "false":
+                    continue
+
+                q_id = str(self._payload_value(payload, ("id", "source_id"))).strip()
+                q_text = self._payload_value(payload, ("question_text", "question"))
+                if not q_id or not q_text or not str(q_text).strip():
+                    continue
+
+                if q_id in seen_ids:
+                    continue
+
+                raw_kp = payload.get("expected_key_points")
+                if isinstance(raw_kp, list):
+                    expected_key_points = [str(item).strip() for item in raw_kp if str(item).strip()]
+                elif isinstance(raw_kp, str) and raw_kp.strip():
+                    kp_str = raw_kp.strip()
+                    if ";" in kp_str:
+                        expected_key_points = [item.strip() for item in kp_str.split(";") if item.strip()]
+                    elif "," in kp_str:
+                        expected_key_points = [item.strip() for item in kp_str.split(",") if item.strip()]
+                    else:
+                        expected_key_points = [kp_str]
+                else:
+                    expected_key_points = []
+
+                seen_ids.add(q_id)
+                results.append({
+                    "id": q_id,
+                    "question_text": str(q_text).strip(),
+                    "skill": self._payload_value(payload, ("skill", "skill_or_competency")) or "",
+                    "subskill": self._payload_value(payload, ("subskill",)) or "",
+                    "difficulty": self._payload_value(payload, ("difficulty", "level")) or level,
+                    "language": self._payload_value(payload, ("language", "lang")) or language,
+                    "expected_answer": payload.get("expected_answer") or "",
+                    "expected_key_points": expected_key_points,
+                    "clarification_question": payload.get("clarification_question") or "",
+                    "follow_up_1": payload.get("follow_up_1") or "",
+                    "follow_up_2": payload.get("follow_up_2") or "",
+                    "experience_level": self._payload_value(payload, ("experience_level", "level")) or "",
+                    "is_active": True,
+                })
+                if len(results) >= count:
+                    break
+            if len(results) >= count:
+                break
+
+        return results
+
+
     @staticmethod
     def select_follow_up(
         *,
@@ -301,8 +377,9 @@ class InterviewService:
         if len(claimed_covered) != len(covered_ids):
             warnings.append("Model returned unknown or duplicate covered_key_point_ids.")
         scores = evaluation.get("scores") or {}
+        raw_accuracy = scores.get("accuracy") if isinstance(scores, dict) else None
         try:
-            accuracy = float(scores.get("accuracy"))
+            accuracy = float(raw_accuracy) if raw_accuracy is not None else None
         except (TypeError, ValueError):
             accuracy = None
         if evaluation["key_point_coverage"] is not None and evaluation["key_point_coverage"] >= 0.75 and accuracy is not None and accuracy <= 1:

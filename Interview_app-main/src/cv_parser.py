@@ -169,7 +169,17 @@ def normalize_cv_profile(data: dict[str, Any]) -> dict[str, Any]:
         ),
         "cv_file_id": _text(data.get("cv_file_id") or data.get("CVFileId")),
         "role_target": _text(
-            data.get("role_target") or data.get("RoleTarget") or raw.get("roleTarget")
+            data.get("role_target")
+            or data.get("RoleTarget")
+            or raw.get("roleTarget")
+            or data.get("job_role")
+            or data.get("JobRole")
+            or raw.get("jobRole")
+        ),
+        "experience_level": _text(
+            data.get("experience_level")
+            or data.get("ExperienceLevel")
+            or raw.get("experienceLevel")
         ),
         "education": _normalize_education(education_source),
         "experience": _normalize_experience(experience_source),
@@ -272,6 +282,7 @@ def profile_search_query(profile: dict[str, Any], interview_type: str) -> str:
     project_names = [item["name"] for item in normalized["projects"] if item["name"]]
     parts = [
         normalized["role_target"],
+        f"Experience level: {normalized['experience_level']}" if normalized.get("experience_level") else "",
         "technical interview" if interview_type == "technical" else "behavioral STAR interview",
         "Skills: " + ", ".join(skills[:30]) if skills else "",
         "Project technologies: " + ", ".join(project_tech[:10]) if project_tech else "",

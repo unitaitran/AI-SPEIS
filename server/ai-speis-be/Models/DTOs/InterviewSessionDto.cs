@@ -63,6 +63,7 @@ namespace ai_speis_be.Models.DTOs
         public List<string> Strengths { get; set; } = new();
         public List<string> AreasForImprovement { get; set; } = new();
         public List<string> Recommendations { get; set; } = new();
+        public string? FinalFeedbackStatus { get; set; }
         public List<CodingQuestionResultDto> CodingQuestions { get; set; } = new();
     }
 
