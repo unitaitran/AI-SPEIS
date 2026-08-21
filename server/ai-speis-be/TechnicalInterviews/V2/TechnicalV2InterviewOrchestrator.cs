@@ -288,9 +288,9 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 if (existing.EvaluationStatus == TechnicalAnswerEvaluationStatus.Fallback)
                 {
                     // Candidate Retry flow for failed/stale evaluations without duplicate TechnicalAnswer creation
-                    if (!string.Equals(existing.SubmissionIdempotencyKey, idempotencyKey, StringComparison.Ordinal)
+                    if (string.Equals(existing.SubmissionIdempotencyKey, idempotencyKey, StringComparison.Ordinal)
                         && existing.SubmissionIdempotencyKey.Length > 0
-                        && !string.Equals(existing.Transcript, transcript, StringComparison.Ordinal))
+                        && !string.Equals(existing.Transcript?.Trim(), transcript.Trim(), StringComparison.Ordinal))
                     {
                         return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "IDEMPOTENCY_PAYLOAD_MISMATCH", "The idempotency key was already used with another payload.");
                     }
@@ -360,9 +360,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
 
                 if (string.Equals(existing.SubmissionIdempotencyKey, idempotencyKey, StringComparison.Ordinal))
                 {
-                    if (!string.Equals(existing.Transcript, transcript, StringComparison.Ordinal)
-                        || !string.Equals(existing.AudioId, request.AudioId, StringComparison.Ordinal)
-                        || existing.SttConfidence != request.SttConfidence)
+                    if (!string.Equals(existing.Transcript?.Trim(), transcript.Trim(), StringComparison.Ordinal))
                         return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "IDEMPOTENCY_PAYLOAD_MISMATCH", "The idempotency key was already used with another payload.");
                     return TechnicalV2OperationResult<TechnicalV2SubmitAnswerResponseDto>.Ok(BuildSubmitResponse(session!, set, question, existing, FindCurrent(set)));
                 }

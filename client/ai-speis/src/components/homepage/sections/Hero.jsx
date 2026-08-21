@@ -1,8 +1,11 @@
 import { ArrowRight, Bot, Play, Sparkles, Star, Zap } from 'lucide-react';
 import { USER_ROUTES } from '../../../routes/routePaths';
+import { getStoredSession } from '../../../routes/auth';
 import { beginNewInterviewCampaign } from '../../../utils/interviewContext';
 
 function Hero({ t }) {
+  const session = getStoredSession();
+
   return (
     <section className="home-hero" id="hero">
       <div className="home-hero__content">
@@ -20,8 +23,10 @@ function Hero({ t }) {
         <div className="home-actions">
           <a
             className="home-button home-button--primary"
-            href={USER_ROUTES.INTERVIEW_MODE}
-            onClick={beginNewInterviewCampaign}
+            href={session ? USER_ROUTES.INTERVIEW_MODE : '#login'}
+            onClick={() => {
+              if (session) beginNewInterviewCampaign();
+            }}
           >
             <span>{t('buttons.startInterview', 'Bắt đầu miễn phí')}</span>
             <ArrowRight size={18} />

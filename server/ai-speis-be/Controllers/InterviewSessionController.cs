@@ -162,12 +162,13 @@ namespace ai_speis_be.Controllers
                 return NotFound(new { Message = "Interview campaign was not found." });
             }
 
-            if (!string.Equals(campaign.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(campaign.Status, "Completed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(campaign.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
             {
                 return Conflict(new
                 {
                     Code = "CAMPAIGN_RESULT_NOT_READY",
-                    Message = "The final campaign result is available only after every selected round is completed."
+                    Message = "The final campaign result is available only after every selected round is completed or finalized."
                 });
             }
 

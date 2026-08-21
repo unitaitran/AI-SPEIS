@@ -371,11 +371,16 @@ export default function useBehavioralInterviewSession(sessionId) {
     if (!question?.sessionQuestionId || submitInFlightRef.current) return null;
 
     const keyId = String(question.sessionQuestionId);
-    if (!idempotencyKeysRef.current.has(keyId)) {
+    const cached = idempotencyKeysRef.current.get(keyId);
+    let idempotencyKey;
+    if (cached && cached.transcript === normalizedTranscript) {
+      idempotencyKey = cached.key;
+    } else {
       const suffix = typeof crypto?.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      idempotencyKeysRef.current.set(keyId, `behavior-${sessionId}-${keyId}-${suffix}`);
+      idempotencyKey = `behavior-${sessionId}-${keyId}-${suffix}`;
+      idempotencyKeysRef.current.set(keyId, { key: idempotencyKey, transcript: normalizedTranscript });
     }
 
     submitInFlightRef.current = true;
@@ -391,7 +396,7 @@ export default function useBehavioralInterviewSession(sessionId) {
           ...(Number.isFinite(durationSeconds) ? { answerDurationSeconds: durationSeconds } : {}),
           ...(Number.isFinite(sttConfidence) ? { sttConfidence } : {}),
         },
-        { idempotencyKey: idempotencyKeysRef.current.get(keyId) },
+        { idempotencyKey },
       );
 
       dispatch({
@@ -417,6 +422,9 @@ export default function useBehavioralInterviewSession(sessionId) {
     } catch (error) {
       if (error?.name === 'AbortError') return null;
       const normalized = normalizeError(error);
+      if (normalized?.code === BehavioralErrorCode.IDEMPOTENCY_PAYLOAD_MISMATCH || normalized?.status === 409) {
+        idempotencyKeysRef.current.delete(keyId);
+      }
 
       try {
         const current = await behavioralInterviewApi.getCurrentQuestion(sessionId);

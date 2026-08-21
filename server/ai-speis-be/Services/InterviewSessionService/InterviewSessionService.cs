@@ -549,7 +549,7 @@ namespace ai_speis_be.Services.InterviewSessionService
         public async Task<CampaignInterviewResultDto?> GetCampaignResultAsync(int userId, int campaignId)
         {
             var campaign = await GetOwnedCampaignAsync(userId, campaignId);
-            if (campaign == null || campaign.Status != InterviewCampaignStatus.Completed) return null;
+            if (campaign == null || (campaign.Status != InterviewCampaignStatus.Completed && campaign.Status != InterviewCampaignStatus.Cancelled)) return null;
 
             var rounds = new List<CampaignRoundResultDto>();
             var technicalDimensions = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
@@ -791,7 +791,7 @@ namespace ai_speis_be.Services.InterviewSessionService
             var realTestCampaigns = await _context.InterviewCampaigns
                 .AsNoTracking()
                 .Include(c => c.JDExtractedProfile)
-                .Where(c => c.UserId == userId && !c.IsDeleted && c.Mode == InterviewMode.RealTest && c.Status == InterviewCampaignStatus.Completed)
+                .Where(c => c.UserId == userId && !c.IsDeleted && c.Mode == InterviewMode.RealTest && (c.Status == InterviewCampaignStatus.Completed || c.Status == InterviewCampaignStatus.Cancelled))
                 .OrderBy(c => c.CompletedAt ?? c.CreatedAt)
                 .ToListAsync();
 
@@ -822,13 +822,29 @@ namespace ai_speis_be.Services.InterviewSessionService
                             _ => null
                         };
 
-                        if (!val.HasValue || val.Value <= 0)
+                        if (!val.HasValue)
                         {
                             var matchScore = skillScores.FirstOrDefault(s => s.InterviewCampaignId == c.InterviewCampaignId && string.Equals(s.SkillCode, code, StringComparison.OrdinalIgnoreCase))?.Score;
-                            if (matchScore.HasValue && matchScore.Value > 0) val = matchScore.Value;
+                            if (matchScore.HasValue) val = matchScore.Value;
                         }
 
-                        if (val.HasValue && val.Value > 0)
+                        if (!val.HasValue && !string.IsNullOrWhiteSpace(c.DashboardMetricsJson))
+                        {
+                            try
+                            {
+                                var dm = JsonSerializer.Deserialize<List<CampaignDashboardMetricDto>>(c.DashboardMetricsJson);
+                                val = dm?.FirstOrDefault(m => string.Equals(m.Code, code, StringComparison.OrdinalIgnoreCase))?.Score;
+                            }
+                            catch { }
+                        }
+
+                        if (!val.HasValue)
+                        {
+                            var campResult = await GetCampaignResultAsync(userId, c.InterviewCampaignId);
+                            val = campResult?.DashboardMetrics?.FirstOrDefault(m => string.Equals(m.Code, code, StringComparison.OrdinalIgnoreCase))?.Score;
+                        }
+
+                        if (val.HasValue)
                         {
                             var jobTitle = c.JDExtractedProfile?.JobTitle ?? c.JDExtractedProfile?.RoleTarget;
                             var title = !string.IsNullOrWhiteSpace(jobTitle) ? $"{jobTitle} — Phỏng vấn mô phỏng" : $"Phỏng vấn #{c.InterviewCampaignId}";
@@ -1001,18 +1017,18 @@ namespace ai_speis_be.Services.InterviewSessionService
                 }
             }
 
-            var hasScores = await _context.UserSkillScores.AsNoTracking().AnyAsync(s => s.UserId == userId && s.Score > 0);
-            if (hasScores) return;
-
             var userCampaigns = await _context.InterviewCampaigns
                 .AsNoTracking()
                 .Include(c => c.JDExtractedProfile)
-                .Where(c => c.UserId == userId && !c.IsDeleted && c.Mode == InterviewMode.RealTest)
+                .Where(c => c.UserId == userId && !c.IsDeleted && c.Mode == InterviewMode.RealTest && (c.Status == InterviewCampaignStatus.Completed || c.Status == InterviewCampaignStatus.Cancelled))
                 .OrderBy(c => c.CreatedAt)
                 .ToListAsync();
 
             foreach (var campaign in userCampaigns)
             {
+                var alreadySynced = await _context.UserSkillScores.AsNoTracking().AnyAsync(s => s.UserId == userId && s.InterviewCampaignId == campaign.InterviewCampaignId);
+                if (alreadySynced) continue;
+
                 List<CampaignDashboardMetricDto>? metrics = null;
                 if (!string.IsNullOrWhiteSpace(campaign.DashboardMetricsJson))
                 {
@@ -1023,13 +1039,13 @@ namespace ai_speis_be.Services.InterviewSessionService
                     catch { }
                 }
 
-                if (metrics == null || !metrics.Any(m => m.Score.HasValue && m.Score.Value > 0))
+                if (metrics == null || !metrics.Any(m => m.Score.HasValue))
                 {
                     var res = await GetCampaignResultAsync(userId, campaign.InterviewCampaignId);
                     metrics = res?.DashboardMetrics;
                 }
 
-                if (metrics != null && metrics.Any(m => m.Score.HasValue && m.Score.Value > 0))
+                if (metrics != null && metrics.Any(m => m.Score.HasValue))
                 {
                     await SyncSkillScoresToDbAsync(
                         userId,
@@ -1039,9 +1055,6 @@ namespace ai_speis_be.Services.InterviewSessionService
                         campaign.CompletedAt ?? campaign.CreatedAt);
                 }
             }
-
-            var hasScoresNow = await _context.UserSkillScores.AsNoTracking().AnyAsync(s => s.UserId == userId && s.Score > 0);
-            if (hasScoresNow) return;
 
             // Deep Fallback: Query all evaluated interview sessions for this user
             var userSessions = await (
