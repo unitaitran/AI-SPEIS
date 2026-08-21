@@ -52,6 +52,8 @@ const openSingleQuestionInterview = (question, roundType, originalSessionId) => 
     roundType,
     originalSessionId,
     language: 'vi',
+    returnPath: window.location.pathname + window.location.search,
+    returnLabel: 'Quay lại',
   }));
   navigate(USER_ROUTES.SINGLE_QUESTION_INTERVIEW);
 };

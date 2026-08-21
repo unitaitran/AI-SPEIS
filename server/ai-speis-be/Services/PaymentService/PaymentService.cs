@@ -248,6 +248,17 @@ namespace ai_speis_be.Services.PaymentService
                 var accessKey = _configuration["MoMo:AccessKey"] ?? "";
                 var secretKey = _configuration["MoMo:SecretKey"] ?? "";
                 var apiEndpoint = _configuration["MoMo:ApiEndpoint"] ?? "";
+
+                // Local test / Dev fallback when MoMo credentials are not configured
+                if (string.IsNullOrWhiteSpace(partnerCode) || string.IsNullOrWhiteSpace(apiEndpoint))
+                {
+                    if (resultCode == 0 || resultCode == null)
+                    {
+                        await CompletePaymentAsync(payment, PaymentStatus.Paid, $"DEV_MOCK_{orderCode}", cancellationToken);
+                        return (true, null);
+                    }
+                }
+
                 var requestId = Guid.NewGuid().ToString();
 
                 var rawHash = $"accessKey={accessKey}&orderId={orderCode}&partnerCode={partnerCode}&requestId={requestId}";
@@ -501,6 +512,14 @@ namespace ai_speis_be.Services.PaymentService
             var apiEndpoint = _configuration["MoMo:ApiEndpoint"] ?? "";
             var redirectUrl = _configuration["MoMo:RedirectUrl"] ?? "";
             var ipnUrl = _configuration["MoMo:IpnUrl"] ?? "";
+
+            // Local dev fallback when MoMo credentials are not configured
+            if (string.IsNullOrWhiteSpace(partnerCode) || string.IsNullOrWhiteSpace(apiEndpoint))
+            {
+                var frontendUrl = _configuration["Frontend:LoginUrl"] ?? "http://localhost:3000";
+                var baseHost = frontendUrl.Contains('#') ? frontendUrl.Substring(0, frontendUrl.IndexOf('#')) : frontendUrl;
+                return $"{baseHost.TrimEnd('/')}/packages?orderId={payment.OrderCode}&resultCode=0";
+            }
 
             var orderInfo = $"Thanh toan goi Premium AI-SPEIS: {payment.OrderCode}";
             var amount = Convert.ToInt64(decimal.Round(payment.Amount, 0, MidpointRounding.AwayFromZero)).ToString();

@@ -226,6 +226,8 @@ function QuestionsPage() {
       roundType,
       language: question.language || (isVi ? 'vi' : 'en'),
       originalSessionId: null,
+      returnPath: USER_ROUTES.QUESTIONS,
+      returnLabel: 'Quay lại ngân hàng câu hỏi',
     }));
     navigate(USER_ROUTES.SINGLE_QUESTION_INTERVIEW);
   };

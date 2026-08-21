@@ -380,6 +380,7 @@ function DashboardPage() {
         {/* Skill Trend Modal */}
         <SkillHistoryModal
           skill={selectedSkillForModal}
+          allSkills={capabilities}
           onClose={() => setSelectedSkillForModal(null)}
         />
       </div>

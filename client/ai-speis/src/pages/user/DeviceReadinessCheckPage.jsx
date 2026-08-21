@@ -22,6 +22,7 @@ import { getCodingInterviewRoomPath, getInterviewRoomPath, USER_ROUTES } from '.
 import { ENDPOINTS } from '../../config/api';
 import audioService from '../../services/AudioService';
 import behavioralInterviewApi from '../../services/behavioralInterviewApi';
+import technicalV2InterviewApi from '../../services/technicalV2InterviewApi';
 import interviewSessionService from '../../services/InterviewSessionService';
 import { calculateAccuracy } from '../../utils/stringUtils';
 import {
@@ -97,6 +98,13 @@ function stopAudioContext(audioContext) {
 async function prepareInterviewRound(session) {
   if (session?.interviewRoundType === 'Behavior') {
     await behavioralInterviewApi.start(session.interviewSessionId);
+  } else if (session?.interviewRoundType === 'Technical') {
+    try {
+      await technicalV2InterviewApi.initialize(session.interviewSessionId);
+    } catch {
+      // Session may already be initialized (e.g., pre-generator)
+    }
+    await technicalV2InterviewApi.start(session.interviewSessionId);
   }
 }
 
