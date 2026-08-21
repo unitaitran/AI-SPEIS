@@ -1,9 +1,12 @@
 import React from 'react';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { USER_ROUTES } from '../../../routes/routePaths';
+import { getStoredSession } from '../../../routes/auth';
 import { beginNewInterviewCampaign } from '../../../utils/interviewContext';
 
 function CTASection({ t }) {
+  const session = getStoredSession();
+
   return (
     <section className="home-cta-banner-section" id="cta">
       <div className="home-section-shell">
@@ -19,8 +22,10 @@ function CTASection({ t }) {
           <div className="cta-actions">
             <a
               className="home-button home-button--primary home-button--large"
-              href={USER_ROUTES.INTERVIEW_MODE}
-              onClick={beginNewInterviewCampaign}
+              href={session ? USER_ROUTES.INTERVIEW_MODE : '#login'}
+              onClick={() => {
+                if (session) beginNewInterviewCampaign();
+              }}
             >
               <span>{t('ctaBanner.button', 'Bắt đầu luyện tập ngay')}</span>
               <ArrowRight size={20} />

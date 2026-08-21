@@ -44,6 +44,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
         private readonly ILogger<BehaviouralInterviewOrchestrator> _logger;
         private readonly INotificationEventPublisher? _notificationPublisher;
         private readonly IAdminNotificationPublisher? _adminNotificationPublisher;
+        private readonly IServiceProvider? _serviceProvider;
 
         public BehaviouralInterviewOrchestrator(
             ApplicationDbContext context,
@@ -58,7 +59,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             BehaviouralInterviewOptions options,
             ILogger<BehaviouralInterviewOrchestrator> logger,
             INotificationEventPublisher? notificationPublisher = null,
-            IAdminNotificationPublisher? adminNotificationPublisher = null)
+            IAdminNotificationPublisher? adminNotificationPublisher = null,
+            IServiceProvider? serviceProvider = null)
         {
             _context = context;
             _selectionService = selectionService;
@@ -73,6 +75,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             _logger = logger;
             _notificationPublisher = notificationPublisher;
             _adminNotificationPublisher = adminNotificationPublisher;
+            _serviceProvider = serviceProvider;
         }
 
         public async Task<BehaviouralOperationResult<BehaviouralInterviewSessionDto>> InitializeAsync(
@@ -864,14 +867,56 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BuildResultDto(sessionId, questionSet, concurrentlyCreatedResult));
             }
 
-            await TryGenerateBehaviouralFinalFeedbackAsync(
-                session,
-                questionSet,
-                roundResult,
-                rubric,
-                cancellationToken);
-            roundResult.FeedbackConcurrencyVersion++;
-            await _context.SaveChangesAsync(cancellationToken);
+            // Fire and forget background AI feedback generation when scope is available
+            var currentUserId = userId;
+            var currentSessionId = sessionId;
+            try
+            {
+                var scope = _serviceProvider?.CreateScope();
+                if (scope is not null)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using (scope)
+                            {
+                                var orchestrator = scope.ServiceProvider.GetService<IBehaviouralInterviewOrchestrator>();
+                                if (orchestrator is not null)
+                                {
+                                    await orchestrator.GenerateFeedbackAsync(currentUserId, currentSessionId, CancellationToken.None);
+                                }
+                                else
+                                {
+                                    await GenerateFeedbackAsync(currentUserId, currentSessionId, CancellationToken.None);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Background Behavioural final feedback generation failed for session {SessionId}.", currentSessionId);
+                        }
+                    });
+                }
+                else
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await GenerateFeedbackAsync(currentUserId, currentSessionId, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Background Behavioural final feedback generation failed for session {SessionId}.", currentSessionId);
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to launch background Behavioural final feedback generation for session {SessionId}.", currentSessionId);
+            }
 
             var transitionError = await EnsureLifecycleCompletionAsync(userId, session);
             if (transitionError is not null)
@@ -881,8 +926,6 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     "ROUND_LIFECYCLE_TRANSITION_FAILED",
                     transitionError);
             }
-
-            await PublishFeedbackNotificationAsync(session, userId, roundResult, cancellationToken);
 
             return BehaviouralOperationResult<BehaviouralInterviewResultDto>.Ok(
                 BuildResultDto(sessionId, questionSet, roundResult));
@@ -902,10 +945,8 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
 
             var roundResult = await _context.BehaviourRoundResults
                 .FirstOrDefaultAsync(r => r.InterviewSessionId == sessionId, cancellationToken);
-            if (roundResult is null || !HasCompleteFinalFeedback(roundResult))
+            if (roundResult is null)
             {
-                // Repair sessions completed through an interrupted client request
-                // or an older incomplete feedback flow before returning null data.
                 return await CompleteAsync(userId, sessionId, cancellationToken);
             }
 

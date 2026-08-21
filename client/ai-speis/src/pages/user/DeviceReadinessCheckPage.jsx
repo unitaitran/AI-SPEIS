@@ -35,6 +35,12 @@ import {
 } from '../../utils/interviewContext';
 import '../../styles/user/DeviceReadinessCheckPage.css';
 
+const getSupportedMimeType = () => {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+  return ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+    .find((type) => MediaRecorder.isTypeSupported(type)) || '';
+};
+
 const CHECK_STATUS = Object.freeze({
   CHECKING: 'checking',
   PASSED: 'passed',
@@ -340,43 +346,154 @@ function DeviceReadinessCheckPage() {
     
     recordingChunksRef.current = [];
     
-    try {
-      const recorder = new MediaRecorder(activeStreamRef.current);
-      activeRecorderRef.current = recorder;
-      
-      const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextConstructor) {
-        const audioContext = new AudioContextConstructor();
-        activeAudioContextRef.current = audioContext;
-        const source = audioContext.createMediaStreamSource(activeStreamRef.current);
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 1024;
-        analyser.smoothingTimeConstant = 0.72;
-        source.connect(analyser);
-        const frameData = new Uint8Array(analyser.fftSize);
-        
-        let previousVoiceActive = false;
-        const watchVoiceActivity = () => {
-          analyser.getByteTimeDomainData(frameData);
-          let total = 0;
-          for (let index = 0; index < frameData.length; index += 1) {
-            const centeredSample = (frameData[index] - 128) / 128;
-            total += centeredSample * centeredSample;
-          }
-          const rms = Math.sqrt(total / frameData.length);
-          const nextVoiceActive = rms >= VOICE_ACTIVITY_THRESHOLD;
-          if (previousVoiceActive !== nextVoiceActive) {
-            previousVoiceActive = nextVoiceActive;
-            setVoiceActive(nextVoiceActive);
-          }
-          voiceActivityFrameRef.current = window.requestAnimationFrame(watchVoiceActivity);
-        };
-        watchVoiceActivity();
-      }
+    if (wsRef.current) {
+      try { wsRef.current.close(); } catch {}
+      wsRef.current = null;
+    }
+    if (activeRecorderRef.current && activeRecorderRef.current.state !== 'inactive') {
+      try { activeRecorderRef.current.stop(); } catch {}
+      activeRecorderRef.current = null;
+    }
 
+    try {
       const wsUrl = `${ENDPOINTS.AUDIO_SPEECH_TO_TEXT_WS}?languageCode=${interviewLanguage === 'en' ? 'en-US' : 'vi-VN'}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (!wsRef.current || wsRef.current !== ws) return;
+
+        try {
+          const mimeType = getSupportedMimeType();
+          const recorder = new MediaRecorder(activeStreamRef.current, mimeType ? { mimeType } : undefined);
+          activeRecorderRef.current = recorder;
+          console.debug('[STT] MediaRecorder MIME:', recorder.mimeType || mimeType || 'default');
+
+          const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextConstructor) {
+            const audioContext = new AudioContextConstructor();
+            activeAudioContextRef.current = audioContext;
+            const source = audioContext.createMediaStreamSource(activeStreamRef.current);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 1024;
+            analyser.smoothingTimeConstant = 0.72;
+            source.connect(analyser);
+            const frameData = new Uint8Array(analyser.fftSize);
+
+            let previousVoiceActive = false;
+            const watchVoiceActivity = () => {
+              analyser.getByteTimeDomainData(frameData);
+              let total = 0;
+              for (let index = 0; index < frameData.length; index += 1) {
+                const centeredSample = (frameData[index] - 128) / 128;
+                total += centeredSample * centeredSample;
+              }
+              const rms = Math.sqrt(total / frameData.length);
+              const nextVoiceActive = rms >= VOICE_ACTIVITY_THRESHOLD;
+              if (previousVoiceActive !== nextVoiceActive) {
+                previousVoiceActive = nextVoiceActive;
+                setVoiceActive(nextVoiceActive);
+              }
+              voiceActivityFrameRef.current = window.requestAnimationFrame(watchVoiceActivity);
+            };
+            watchVoiceActivity();
+          }
+
+          recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              recordingChunksRef.current.push(event.data);
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(event.data);
+              }
+            }
+          };
+
+          recorder.onstop = async () => {
+            stopAudioContext(activeAudioContextRef.current);
+            activeAudioContextRef.current = null;
+            if (voiceActivityFrameRef.current !== null) {
+              window.cancelAnimationFrame(voiceActivityFrameRef.current);
+              voiceActivityFrameRef.current = null;
+            }
+            setVoiceActive(false);
+            setIsRecording(false);
+
+            if (recordingChunksRef.current.length === 0) {
+              updateCheck('recording', { status: CHECK_STATUS.FAILED, detail: t('device.noAudioData'), meta: t('common.failed') });
+              setIsChecking(false);
+              return;
+            }
+
+            setMessage({ type: 'info', text: t('device.checkingAccuracy') });
+
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send("STOP");
+            } else {
+              const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+              try {
+                const { transcript: resultText } = await audioService.checkSpeechToText(
+                  blob,
+                  interviewLanguage === 'en' ? 'en-US' : 'vi-VN',
+                );
+                setTranscript(resultText);
+                const acc = calculateAccuracy(sampleText, resultText);
+                setAccuracy(acc);
+
+                if (acc >= 70) {
+                  updateCheck('recording', {
+                    status: CHECK_STATUS.PASSED,
+                    detail: t('device.accuracyPassed', { accuracy: acc }),
+                    meta: t('common.passed'),
+                  });
+                  setMessage({ type: 'success', text: t('device.allPassed') });
+                } else {
+                  updateCheck('recording', {
+                    status: CHECK_STATUS.FAILED,
+                    detail: t('device.accuracyFailed', { accuracy: acc }),
+                    meta: t('common.failed'),
+                  });
+                  setMessage({ type: 'error', text: t('device.readAgain') });
+                }
+              } catch (error) {
+                updateCheck('recording', {
+                  status: CHECK_STATUS.FAILED,
+                  detail: t('device.serverError', { message: error.message }),
+                  meta: t('common.failed'),
+                });
+                setMessage({ type: 'error', text: t('device.sttFailed') });
+              } finally {
+                setIsChecking(false);
+              }
+            }
+          };
+
+          recorder.start(100);
+
+          // Start live transcription using Web Speech API if supported
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+          if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = interviewLanguage === 'en' ? 'en-US' : 'vi-VN';
+
+            recognition.onresult = (event) => {
+              let fullTranscript = '';
+              for (let i = 0; i < event.results.length; ++i) {
+                fullTranscript += event.results[i][0].transcript;
+              }
+              setLiveTranscript(fullTranscript.trim());
+            };
+
+            recognition.start();
+            speechRecognitionRef.current = recognition;
+          }
+        } catch (err) {
+          setIsChecking(false);
+          setIsRecording(false);
+          setMessage({ type: 'error', text: t('device.recorderFailed') });
+        }
+      };
 
       ws.onmessage = (event) => {
         const resultText = event.data || '';
@@ -410,97 +527,8 @@ function DeviceReadinessCheckPage() {
         });
         setMessage({ type: 'error', text: t('device.sttFailed') });
         setIsChecking(false);
-      };
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordingChunksRef.current.push(event.data);
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(event.data);
-          }
-        }
-      };
-
-      recorder.onstop = async () => {
-        stopAudioContext(activeAudioContextRef.current);
-        activeAudioContextRef.current = null;
-        if (voiceActivityFrameRef.current !== null) {
-          window.cancelAnimationFrame(voiceActivityFrameRef.current);
-          voiceActivityFrameRef.current = null;
-        }
-        setVoiceActive(false);
         setIsRecording(false);
-        
-        if (recordingChunksRef.current.length === 0) {
-           updateCheck('recording', { status: CHECK_STATUS.FAILED, detail: t('device.noAudioData'), meta: t('common.failed') });
-           setIsChecking(false);
-           return;
-        }
-
-        setMessage({ type: 'info', text: t('device.checkingAccuracy') });
-        
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send("STOP");
-        } else {
-          const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
-          try {
-            const { transcript: resultText } = await audioService.checkSpeechToText(
-              blob,
-              interviewLanguage === 'en' ? 'en-US' : 'vi-VN',
-            );
-            setTranscript(resultText);
-            const acc = calculateAccuracy(sampleText, resultText);
-            setAccuracy(acc);
-
-            if (acc >= 70) {
-              updateCheck('recording', {
-                status: CHECK_STATUS.PASSED,
-                detail: t('device.accuracyPassed', { accuracy: acc }),
-                meta: t('common.passed'),
-              });
-              setMessage({ type: 'success', text: t('device.allPassed') });
-            } else {
-              updateCheck('recording', {
-                status: CHECK_STATUS.FAILED,
-                detail: t('device.accuracyFailed', { accuracy: acc }),
-                meta: t('common.failed'),
-              });
-              setMessage({ type: 'error', text: t('device.readAgain') });
-            }
-          } catch (error) {
-            updateCheck('recording', {
-              status: CHECK_STATUS.FAILED,
-              detail: t('device.serverError', { message: error.message }),
-              meta: t('common.failed'),
-            });
-            setMessage({ type: 'error', text: t('device.sttFailed') });
-          } finally {
-            setIsChecking(false);
-          }
-        }
       };
-
-      recorder.start(100);
-
-      // Start live transcription using Web Speech API if supported
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = interviewLanguage === 'en' ? 'en-US' : 'vi-VN';
-        
-        recognition.onresult = (event) => {
-          let fullTranscript = '';
-          for (let i = 0; i < event.results.length; ++i) {
-            fullTranscript += event.results[i][0].transcript;
-          }
-          setLiveTranscript(fullTranscript.trim());
-        };
-
-        recognition.start();
-        speechRecognitionRef.current = recognition;
-      }
     } catch (err) {
       setIsChecking(false);
       setIsRecording(false);

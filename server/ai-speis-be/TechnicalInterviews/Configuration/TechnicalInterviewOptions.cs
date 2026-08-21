@@ -28,6 +28,7 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
         public int GlobalConcurrencyLimit { get; init; } = 10;
         public int EvaluationTimeoutMs { get; init; } = 120_000;
         public int EvaluationMaxRetries { get; init; } = 1;
+        public int ProcessingStaleThresholdSeconds { get; init; } = 120;
         public string OllamaBaseUrl { get; init; } = "http://localhost:11434/v1/";
         public string OllamaModel { get; init; } = string.Empty;
         // Evaluation needs strict JSON. A fine-tuned question model may remain
@@ -79,8 +80,9 @@ namespace ai_speis_be.TechnicalInterviews.Configuration
                 ReliabilityMinimumQuestionCount = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_MINIMUM_COUNT", 5, 3, 20),
                 ReliabilityFollowUpLimit = GetInt(configuration, "TECHNICAL_INTERVIEW_RELIABILITY_FOLLOW_UP_LIMIT", 2, 0, 6),
                 GlobalConcurrencyLimit = GetInt(configuration, "TECHNICAL_AI_GLOBAL_CONCURRENCY_LIMIT", 10, 1, 100),
-                EvaluationTimeoutMs = GetInt(configuration, "TECHNICAL_AI_EVALUATION_TIMEOUT_MS", 120_000, 1_000, 300_000),
+                EvaluationTimeoutMs = GetInt(configuration, "TECHNICAL_AI_EVALUATION_TIMEOUT_MS", 45_000, 1_000, 300_000),
                 EvaluationMaxRetries = GetInt(configuration, "TECHNICAL_AI_EVALUATION_MAX_RETRIES", 1, 0, 3),
+                ProcessingStaleThresholdSeconds = GetInt(configuration, "TECHNICAL_AI_PROCESSING_STALE_THRESHOLD_SECONDS", 120, 10, 3600),
                 InputTokenCostPerMillion = GetDecimal(
                     configuration,
                     "TECHNICAL_AI_INPUT_TOKEN_COST_PER_MILLION",

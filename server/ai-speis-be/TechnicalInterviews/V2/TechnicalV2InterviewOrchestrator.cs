@@ -271,14 +271,97 @@ namespace ai_speis_be.TechnicalInterviews.V2
             var existing = question.Answer;
             if (existing is not null)
             {
+                var attemptStartTime = existing.EvaluatedAt ?? existing.CreatedAt;
+                if (existing.EvaluationStatus == TechnicalAnswerEvaluationStatus.Processing
+                    && (DateTime.UtcNow - attemptStartTime).TotalSeconds > _options.ProcessingStaleThresholdSeconds)
+                {
+                    _logger.LogWarning("Stale evaluation detected for answer {AnswerId}. Resetting status to Fallback for retry.", existing.TechnicalAnswerId);
+                    existing.EvaluationStatus = TechnicalAnswerEvaluationStatus.Fallback;
+                    existing.AiErrorCode = "STALE_EVALUATION_TIMEOUT";
+                }
+
+                if (existing.EvaluationStatus == TechnicalAnswerEvaluationStatus.Processing)
+                {
+                    return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "EVALUATION_PROCESSING", "Answer evaluation is still processing.");
+                }
+
+                if (existing.EvaluationStatus == TechnicalAnswerEvaluationStatus.Fallback)
+                {
+                    // Candidate Retry flow for failed/stale evaluations without duplicate TechnicalAnswer creation
+                    if (string.Equals(existing.SubmissionIdempotencyKey, idempotencyKey, StringComparison.Ordinal)
+                        && existing.SubmissionIdempotencyKey.Length > 0
+                        && !string.Equals(existing.Transcript?.Trim(), transcript.Trim(), StringComparison.Ordinal))
+                    {
+                        return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "IDEMPOTENCY_PAYLOAD_MISMATCH", "The idempotency key was already used with another payload.");
+                    }
+
+                    existing.Transcript = transcript;
+                    existing.AudioId = request.AudioId;
+                    existing.SubmissionIdempotencyKey = idempotencyKey;
+                    existing.SttConfidence = request.SttConfidence;
+                    existing.EvaluationStatus = TechnicalAnswerEvaluationStatus.Processing;
+                    existing.EvaluatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync(cancellationToken);
+
+                    var retryEvaluation = await EvaluateAsync(session!, question, existing, cancellationToken);
+                    existing.AiProvider = ResolveProvider(session).ProviderName;
+                    ApplyEvaluation(existing, question, retryEvaluation);
+
+                    if (existing.EvaluationStatus == TechnicalAnswerEvaluationStatus.Fallback || !retryEvaluation.Success)
+                    {
+                        existing.FinalQuestionScore = null;
+                        existing.ComputedScore = null;
+                        question.Status = TechnicalSessionQuestionStatus.Asked;
+                        await _context.SaveChangesAsync(cancellationToken);
+                        return TechnicalV2OperationResult<TechnicalV2SubmitAnswerResponseDto>.Ok(
+                            BuildSubmitResponse(session!, set, question, existing, next: null, decision: "RETRYABLE_ERROR"));
+                    }
+
+                    var retryRubric = GetRubric();
+                    var retryRoot = ResolveMainQuestion(question, set);
+                    var retryDecision = ResolveDecision(question, retryRoot, set, existing.FinalQuestionScore ?? retryRubric.MinimumScore, retryRubric);
+                    if (retryDecision.FinalizeMainQuestion)
+                    {
+                        retryDecision = TryForceReliabilityFollowUp(set, retryRoot, retryRubric) ?? retryDecision;
+                    }
+                    TechnicalSessionQuestion? retryNext = null;
+                    if (!retryDecision.FinalizeMainQuestion && retryDecision.NextQuestionType is not null)
+                    {
+                        var followUpNumber = set.Questions.Count(item =>
+                            item.ParentQuestionId == retryRoot.TechnicalSessionQuestionId
+                            && item.QuestionType == TechnicalSessionQuestionType.FollowUp) + 1;
+                        retryNext = await CreateSubQuestionAsync(
+                            session!,
+                            set,
+                            retryRoot,
+                            retryDecision.NextQuestionType.Value,
+                            followUpNumber,
+                            cancellationToken);
+                        if (retryNext is null)
+                        {
+                            retryDecision = V2Decision.NextMain;
+                        }
+                    }
+
+                    if (retryDecision.FinalizeMainQuestion)
+                    {
+                        FinalizeMainQuestion(retryRoot, set, retryRubric);
+                        retryNext = ActivateNextMain(set, retryRoot);
+                        if (retryNext is null)
+                        {
+                            retryDecision = V2Decision.Complete;
+                        }
+                    }
+
+                    await _context.SaveChangesAsync(cancellationToken);
+                    return TechnicalV2OperationResult<TechnicalV2SubmitAnswerResponseDto>.Ok(
+                        BuildSubmitResponse(session!, set, question, existing, retryNext, retryDecision.ApiDecision));
+                }
+
                 if (string.Equals(existing.SubmissionIdempotencyKey, idempotencyKey, StringComparison.Ordinal))
                 {
-                    if (!string.Equals(existing.Transcript, transcript, StringComparison.Ordinal)
-                        || !string.Equals(existing.AudioId, request.AudioId, StringComparison.Ordinal)
-                        || existing.SttConfidence != request.SttConfidence)
+                    if (!string.Equals(existing.Transcript?.Trim(), transcript.Trim(), StringComparison.Ordinal))
                         return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "IDEMPOTENCY_PAYLOAD_MISMATCH", "The idempotency key was already used with another payload.");
-                    if (existing.EvaluationStatus == TechnicalAnswerEvaluationStatus.Processing)
-                        return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "EVALUATION_PROCESSING", "Answer evaluation is still processing.");
                     return TechnicalV2OperationResult<TechnicalV2SubmitAnswerResponseDto>.Ok(BuildSubmitResponse(session!, set, question, existing, FindCurrent(set)));
                 }
                 return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "ALREADY_ANSWERED", "This canonical question already has an answer.");
@@ -294,7 +377,8 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 SubmissionIdempotencyKey = idempotencyKey,
                 SttConfidence = request.SttConfidence,
                 EvaluationStatus = TechnicalAnswerEvaluationStatus.Processing,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                EvaluatedAt = DateTime.UtcNow
             };
             question.Answer = answer;
             question.Status = TechnicalSessionQuestionStatus.Answered;
@@ -305,6 +389,16 @@ namespace ai_speis_be.TechnicalInterviews.V2
             var evaluation = await EvaluateAsync(session!, question, answer, cancellationToken);
             answer.AiProvider = ResolveProvider(session).ProviderName;
             ApplyEvaluation(answer, question, evaluation);
+
+            if (answer.EvaluationStatus == TechnicalAnswerEvaluationStatus.Fallback || !evaluation.Success)
+            {
+                answer.FinalQuestionScore = null;
+                answer.ComputedScore = null;
+                question.Status = TechnicalSessionQuestionStatus.Asked;
+                await _context.SaveChangesAsync(cancellationToken);
+                return TechnicalV2OperationResult<TechnicalV2SubmitAnswerResponseDto>.Ok(
+                    BuildSubmitResponse(session!, set, question, answer, next: null, decision: "RETRYABLE_ERROR"));
+            }
 
             var rubric = GetRubric();
             var root = ResolveMainQuestion(question, set);
@@ -392,22 +486,46 @@ namespace ai_speis_be.TechnicalInterviews.V2
             if (session!.Status != InterviewSessionStatus.Completed)
                 await _sessionLifecycle.CompleteSessionAsync(userId, sessionId);
 
-            // Fire and forget background AI feedback generation so completion returns immediately
+            // Fire and forget background AI feedback generation when scope is available
             var currentUserId = userId;
             var currentSessionId = sessionId;
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                var scope = _serviceProvider?.CreateScope();
+                if (scope is not null)
                 {
-                    using var scope = _serviceProvider.CreateScope();
-                    var orchestrator = scope.ServiceProvider.GetRequiredService<ITechnicalV2InterviewOrchestrator>();
-                    await orchestrator.GenerateFeedbackAsync(currentUserId, currentSessionId, CancellationToken.None);
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using (scope)
+                            {
+                                var orchestrator = scope.ServiceProvider.GetService<ITechnicalV2InterviewOrchestrator>();
+                                if (orchestrator is not null)
+                                {
+                                    await orchestrator.GenerateFeedbackAsync(currentUserId, currentSessionId, CancellationToken.None);
+                                }
+                                else
+                                {
+                                    await GenerateFeedbackAsync(currentUserId, currentSessionId, CancellationToken.None);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Background Technical final feedback generation failed for session {SessionId}.", currentSessionId);
+                        }
+                    });
                 }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogError(ex, "Background Technical final feedback generation failed for session {SessionId}.", currentSessionId);
+                    await GenerateFeedbackAsync(currentUserId, currentSessionId, cancellationToken);
                 }
-            });
+            }
+            catch
+            {
+                await GenerateFeedbackAsync(currentUserId, currentSessionId, cancellationToken);
+            }
 
             return TechnicalV2OperationResult<TechnicalV2ResultDto>.Ok(BuildResultDto(session!, set, result));
         }
@@ -503,6 +621,8 @@ namespace ai_speis_be.TechnicalInterviews.V2
             AIProviderResult<TechnicalAIFinalSummaryResponse> ai;
             try
             {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromMilliseconds(_options.EvaluationTimeoutMs));
                 ai = await provider.GenerateFinalSummaryAsync(new TechnicalAIFinalSummaryRequest
                 {
                     RubricVersion = rubric.Version,
@@ -535,9 +655,19 @@ namespace ai_speis_be.TechnicalInterviews.V2
                     SkillResults = BuildSkillScores(set.Questions.Where(item => item.QuestionType == TechnicalSessionQuestionType.Main))
                         .Select(item => (object)new { skill = item.Key, score = item.Value })
                         .ToList()
-                }, cancellationToken);
+                }, cts.Token);
             }
-            catch (Exception exception) when (exception is not OperationCanceledException)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("Technical final feedback provider timed out after {TimeoutMs}ms for session {SessionId}.", _options.EvaluationTimeoutMs, session.InterviewSessionId);
+                ai = new AIProviderResult<TechnicalAIFinalSummaryResponse>
+                {
+                    Success = false,
+                    Model = provider.ProviderName,
+                    ErrorCode = "AI_FEEDBACK_TIMEOUT"
+                };
+            }
+            catch (Exception exception)
             {
                 _logger.LogError(exception, "Technical final feedback provider failed for session {SessionId}.", session.InterviewSessionId);
                 ai = new AIProviderResult<TechnicalAIFinalSummaryResponse>
@@ -634,7 +764,33 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 ScoringPolicyVersion = rubric.ScoringPolicyVersion,
             };
             var provider = ResolveProvider(session);
-            var ai = await provider.EvaluateAnswerV2Async(context, cancellationToken);
+            AIProviderResult<TechnicalV2EvaluationResponse> ai;
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromMilliseconds(_options.EvaluationTimeoutMs));
+                ai = await provider.EvaluateAnswerV2Async(context, cts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("Technical V2 AI evaluation timed out after {TimeoutMs}ms for session {SessionId}.", _options.EvaluationTimeoutMs, session.InterviewSessionId);
+                ai = new AIProviderResult<TechnicalV2EvaluationResponse>
+                {
+                    Success = false,
+                    ErrorCode = "AI_EVALUATION_TIMEOUT",
+                    Model = provider.ProviderName
+                };
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Technical V2 AI evaluation failed for session {SessionId}.", session.InterviewSessionId);
+                ai = new AIProviderResult<TechnicalV2EvaluationResponse>
+                {
+                    Success = false,
+                    ErrorCode = "AI_PROVIDER_EXCEPTION",
+                    Model = provider.ProviderName
+                };
+            }
             if (ai.Success && ai.Data is not null)
             {
                 var check = _validator.ValidateEvaluationV2(ai.Data, rubric, context.BuildAnswerContext());
@@ -710,8 +866,8 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 var fallback = BuildFallbackEvaluation(rubric, ai.ErrorCode);
                 var dimensions = fallback.Evaluation!.DimensionEvaluations!;
                 answer.AiCriteriaDetailJson = JsonSerializer.Serialize(dimensions, JsonOptions);
-                answer.FinalQuestionScore = 0m;
-                answer.ComputedScore = 0m;
+                answer.FinalQuestionScore = null;
+                answer.ComputedScore = null;
                 answer.AiStrengths = null;
                 answer.AiMissingPoints = JsonSerializer.Serialize(
                     dimensions.SelectMany(item => item.MissingEvidence ?? new List<string>()).ToList(),
@@ -725,7 +881,9 @@ namespace ai_speis_be.TechnicalInterviews.V2
             answer.EvaluationLatencyMs = ai.LatencyMs;
             answer.EvaluationRetryCount = ai.RetryCount;
             answer.EvaluatedAt = DateTime.UtcNow;
-            question.Status = TechnicalSessionQuestionStatus.Evaluated;
+            question.Status = (ai.Success && ai.Data is not null)
+                ? TechnicalSessionQuestionStatus.Evaluated
+                : TechnicalSessionQuestionStatus.Asked;
         }
 
         private static TechnicalV2EvaluationResponse BuildFallbackEvaluation(

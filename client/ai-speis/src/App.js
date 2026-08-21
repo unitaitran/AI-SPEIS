@@ -12,7 +12,7 @@ import ForgotPasswordPage from './pages/authen/ForgotPasswordPage';
 import ResetPasswordPage from './pages/authen/ResetPasswordPage';
 import HomePage from './components/homepage/HomePage';
 import { getStoredSession, getDefaultRouteForRole } from './routes/auth';
-import { navigate } from './routes/navigation';
+import { NAVIGATION_EVENT, navigate } from './routes/navigation';
 
 function AuthRedirect() {
   useEffect(() => {
@@ -29,9 +29,15 @@ function App() {
   const [currentHash, setCurrentHash] = useState(window.location.hash);
 
   useEffect(() => {
-    const onHashChange = () => setCurrentHash(window.location.hash);
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    const syncHash = () => setCurrentHash(window.location.hash);
+    window.addEventListener('hashchange', syncHash);
+    window.addEventListener('popstate', syncHash);
+    window.addEventListener(NAVIGATION_EVENT, syncHash);
+    return () => {
+      window.removeEventListener('hashchange', syncHash);
+      window.removeEventListener('popstate', syncHash);
+      window.removeEventListener(NAVIGATION_EVENT, syncHash);
+    };
   }, []);
 
   useEffect(() => {
