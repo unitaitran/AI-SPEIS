@@ -17,7 +17,12 @@ import {
   CheckSquare,
   Building,
   Sparkles,
-  Info
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  TrendingUp
 } from 'lucide-react';
 import UserLayout from '../../layouts/user/UserLayout';
 import { useTranslation } from 'react-i18next';
@@ -62,7 +67,17 @@ function CVJDManagementPage() {
   const [showJDInfoModal, setShowJDInfoModal] = useState(false);
   const [selectedJDParsedData, setSelectedJDParsedData] = useState(null);
   const [selectedJDId, setSelectedJDId] = useState(null);
+  const [isRawTextExpanded, setIsRawTextExpanded] = useState(false);
+  const [isCopiedRawText, setIsCopiedRawText] = useState(false);
   const jdPollTimerRef = useRef(null);
+
+  const handleCopyRawText = (text) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setIsCopiedRawText(true);
+    setTimeout(() => setIsCopiedRawText(false), 2000);
+    notify.success('Đã sao chép nội dung JD vào clipboard!');
+  };
 
   // Fast Check State
   const [fastCheckResults, setFastCheckResults] = useState({});
@@ -498,13 +513,13 @@ function CVJDManagementPage() {
                   className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-colors ${jdUploadType === 'file' ? 'bg-surface-1 text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
                   onClick={() => setJdUploadType('file')}
                 >
-                  <Upload size={16} /> Upload PDF
+                  <Upload size={16} /> {t('uploadPdf', 'Upload PDF')}
                 </button>
                 <button 
                   className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-colors ${jdUploadType === 'text' ? 'bg-surface-1 text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
                   onClick={() => setJdUploadType('text')}
                 >
-                  <Type size={16} /> Dán Text
+                  <Type size={16} /> {t('pasteText', 'Dán Text')}
                 </button>
               </div>
 
@@ -513,30 +528,30 @@ function CVJDManagementPage() {
                   <div className="bg-primary/10 text-primary w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Upload size={24} />
                   </div>
-                  <h4 className="text-text-primary font-medium mb-1">Chọn hoặc kéo thả file JD</h4>
-                  <p className="text-sm text-text-secondary mb-4">Hỗ trợ định dạng PDF (tối đa 5MB)</p>
+                  <h4 className="text-text-primary font-medium mb-1">{t('dropJdFile', 'Chọn hoặc kéo thả file JD')}</h4>
+                  <p className="text-sm text-text-secondary mb-4">{t('pdfSupport', 'Hỗ trợ định dạng PDF (tối đa 5MB)')}</p>
                   <label className="mycv-btn mycv-btn--primary mx-auto w-max cursor-pointer">
-                    Chọn tệp
+                    {t('selectFile', 'Chọn tệp')}
                     <input type="file" accept=".pdf" hidden onChange={(e) => { if(e.target.files.length) submitJDUpload(e.target.files[0]) }} />
                   </label>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-text-primary mb-2">Tên Job Description</label>
+                    <label className="block text-sm font-medium text-text-primary mb-2">{t('jdNameLabel', 'Tên Job Description')}</label>
                     <input 
                       type="text"
                       className="w-full bg-surface-2 border border-border rounded-lg p-3 text-text-primary focus:outline-none focus:border-primary"
-                      placeholder="VD: Frontend Developer tại công ty X..."
+                      placeholder={t('jdNamePlaceholder', 'VD: Frontend Developer tại công ty X...')}
                       value={jdTextName}
                       onChange={(e) => setJdTextName(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text-primary mb-2">Nội dung JD</label>
+                    <label className="block text-sm font-medium text-text-primary mb-2">{t('jdContentLabel', 'Nội dung JD')}</label>
                     <textarea 
                       className="w-full bg-surface-2 border border-border rounded-lg p-3 text-text-primary min-h-[200px] focus:outline-none focus:border-primary resize-none"
-                      placeholder="Dán nội dung Job Description vào đây..."
+                      placeholder={t('jdContentPlaceholder', 'Dán nội dung Job Description vào đây...')}
                       value={jdText}
                       onChange={(e) => setJdText(e.target.value)}
                     ></textarea>
@@ -546,14 +561,14 @@ function CVJDManagementPage() {
             </div>
             
             <div className="p-4 border-t border-border flex justify-end gap-3 bg-surface-2/50">
-              <button className="mycv-btn mycv-btn--outline" onClick={() => setShowJDModal(false)}>Hủy</button>
+              <button className="mycv-btn mycv-btn--outline" onClick={() => setShowJDModal(false)}>{t('cancel', 'Hủy')}</button>
               {jdUploadType === 'text' && (
                 <button 
                   className="mycv-btn mycv-btn--primary" 
                   onClick={() => submitJDUpload()}
                   disabled={!jdText.trim() || !jdTextName.trim()}
                 >
-                  Xác nhận lưu
+                  {t('confirmSave', 'Xác nhận lưu')}
                 </button>
               )}
             </div>
@@ -562,135 +577,312 @@ function CVJDManagementPage() {
       )}
 
       {/* JD Info Modal */}
-      {showJDInfoModal && selectedJDParsedData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-1 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col animate-pageEntrance border border-border">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
-              <h3 className="text-lg font-semibold text-primary flex items-center gap-2">
-                <div className="p-1.5 bg-primary text-white rounded-md shadow-sm">
-                  <Briefcase size={18} />
-                </div>
-                Kết quả phân tích JD
-              </h3>
-              <button onClick={() => setShowJDInfoModal(false)} className="p-1 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            
-            {/* Modal Body */}
-            <div className="p-4 overflow-y-auto flex-1 space-y-6 bg-surface-1">
+      {showJDInfoModal && selectedJDParsedData && (() => {
+        const selectedJD = jds.find(j => j.jdFileId === selectedJDId);
+        const displayJobTitle = selectedJDParsedData.jobTitle || selectedJD?.jobTitle || t('untitledPosition', 'Vị trí chưa đặt tên');
+        const displayFileName = selectedJDParsedData.fileName || selectedJD?.fileName || selectedJD?.jdTextName || t('defaultFileName', 'Tệp Job Description');
+        
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 jd-modal-overlay">
+            <div className="bg-surface-1 rounded-xl shadow-xl w-full max-w-4xl overflow-hidden max-h-[92vh] flex flex-col jd-modal-dialog border border-border relative">
               
-              {/* Header Cards (2 columns) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-surface-2 p-4 rounded-lg border border-border/50 shadow-sm">
-                   <div className="flex items-center gap-2 mb-2">
-                     <Target size={16} className="text-primary" />
-                     <h4 className="text-base font-semibold text-text-primary">Chức danh & Cấp bậc</h4>
-                   </div>
-                   <div className="space-y-1">
-                     <p className="text-sm text-text-secondary"><strong className="text-text-primary">Vị trí:</strong> {selectedJDParsedData.jobTitle || 'Không xác định'}</p>
-                     <p className="text-sm text-text-secondary"><strong className="text-text-primary">Cấp bậc:</strong> {selectedJDParsedData.experienceLevel || 'Không xác định'}</p>
-                   </div>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 bg-primary text-white rounded-lg shadow-sm flex-shrink-0">
+                    <Briefcase size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-lg sm:text-xl font-bold text-text-primary truncate">
+                        {displayJobTitle}
+                      </h3>
+                      {selectedJDParsedData.experienceLevel && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
+                          <TrendingUp size={12} />
+                          {selectedJDParsedData.experienceLevel}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5 flex-wrap">
+                      <span className="flex items-center gap-1 font-medium text-text-secondary">
+                        <FileText size={13} className="text-primary flex-shrink-0" />
+                        <span className="truncate max-w-[220px] sm:max-w-xs">{displayFileName}</span>
+                      </span>
+                      <span className="text-border">•</span>
+                      <span className="flex items-center gap-1 text-primary font-medium">
+                        <Sparkles size={12} />
+                        {t('aiParsed', 'AI Đã phân tích')}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-surface-2 p-4 rounded-lg border border-border/50 shadow-sm flex flex-col justify-between">
-                   <div className="flex items-center gap-2 mb-2">
-                     <CheckCircle2 size={16} className="text-[#4A90E2]" />
-                     <h4 className="text-base font-semibold text-text-primary">CV-JD Fast Check</h4>
-                   </div>
-                   {fastCheckResults[selectedJDId] ? (
-                     <div className="space-y-2">
-                       <p className="text-sm text-text-secondary">Độ phù hợp: <span className="font-bold text-[#4A90E2]">{fastCheckResults[selectedJDId].suitabilityLevel}</span> ({fastCheckResults[selectedJDId].score}%)</p>
-                       <button onClick={(e) => { e.stopPropagation(); setShowJDInfoModal(false); handleFastCheckClick(selectedJDId, e); }} className="text-xs bg-[#4A90E2]/10 text-[#4A90E2] px-3 py-1.5 rounded font-medium hover:bg-[#4A90E2]/20 transition-colors w-max cursor-pointer">
-                         Xem chi tiết Fast Check
-                       </button>
-                     </div>
-                   ) : (
-                     <div className="space-y-2">
-                       <p className="text-sm text-text-secondary leading-relaxed">
-                         JD này đã có dữ liệu trích xuất. Hãy chạy Fast Check để đối chiếu với CV của bạn.
-                       </p>
-                       <button onClick={(e) => { e.stopPropagation(); handleFastCheckClick(selectedJDId, e); }} disabled={isFastChecking[selectedJDId] || !cvs[0]} className="text-xs bg-[#4A90E2]/10 text-[#4A90E2] px-3 py-1.5 rounded font-medium hover:bg-[#4A90E2]/20 transition-colors flex items-center gap-1.5 w-max disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
-                         {isFastChecking[selectedJDId] ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                         {isFastChecking[selectedJDId] ? `${t('analyzing', 'Đang phân tích')}...` : 'Chạy Fast Check ngay'}
-                       </button>
-                     </div>
-                   )}
-                </div>
+                
+                <button 
+                  onClick={() => setShowJDInfoModal(false)} 
+                  className="p-1.5 text-text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer flex-shrink-0 ml-2"
+                  title={t('close', 'Đóng')}
+                >
+                  <X size={20} />
+                </button>
               </div>
+              
+              {/* Modal Body */}
+              <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4 bg-surface-1">
+                
+                {/* Top 2 Cards: Overview + Fast Check */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left: Role & Target Info */}
+                  <div className="bg-surface-2 p-5 rounded-2xl border border-border/80 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <Target size={22} className="text-primary" />
+                        <h4 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+                          {t('roleAndLevel', 'Chức danh & Cấp bậc')}
+                        </h4>
+                      </div>
 
-              {/* Skills Section */}
-              <div className="space-y-4">
-                <div>
-                   <div className="flex items-center gap-2 mb-2">
-                     <CheckSquare size={16} className="text-success" />
-                     <h4 className="text-base font-semibold text-text-primary">{t('skills', 'Kỹ năng')} yêu cầu (Bắt buộc)</h4>
-                   </div>
-                   <div className="flex flex-wrap gap-2">
-                     {selectedJDParsedData.requiredSkills?.length > 0 ? (
-                       selectedJDParsedData.requiredSkills.map((sk, i) => (
-                          <span key={i} className="px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-medium">{sk}</span>
-                       ))
-                     ) : (
-                       <span className="text-sm text-text-secondary italic">Không có dữ liệu</span>
-                     )}
-                   </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm sm:text-base font-medium text-text-secondary">{t('position', 'Vị trí')}:</span>
+                          <span className="text-sm sm:text-base font-semibold text-text-primary text-right truncate max-w-[240px]">
+                            {selectedJDParsedData.jobTitle || t('undefined', 'Không xác định')}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm sm:text-base font-medium text-text-secondary">{t('level', 'Cấp bậc')}:</span>
+                          <span className="text-sm sm:text-base font-semibold px-2.5 py-0.5 rounded-md bg-primary/10 text-primary">
+                            {selectedJDParsedData.experienceLevel || t('undefined', 'Không xác định')}
+                          </span>
+                        </div>
+
+                        {selectedJDParsedData.roleTarget && (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm sm:text-base font-medium text-text-secondary">{t('field', 'Lĩnh vực')}:</span>
+                            <span className="text-sm sm:text-base font-semibold text-text-primary">
+                              {selectedJDParsedData.roleTarget}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: CV-JD Fast Check Card */}
+                  <div className="bg-surface-2 p-5 rounded-2xl border border-border/80 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                    {/* Top Row: Title + Enlarged Mascot Box */}
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h4 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+                          {t('fastCheckTitle', 'CV–JD Fast Check')}
+                        </h4>
+                      </div>
+
+                      {/* Enlarged Mascot Thumbnail */}
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-border/80 shadow-sm bg-white flex-shrink-0 flex items-center justify-center">
+                        <img 
+                          src="/studying_mascot.jpg" 
+                          alt="AI SPEIS Studying Mascot" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Score & Detail Button */}
+                    {fastCheckResults[selectedJDId] ? (
+                      <div className="flex items-end justify-between gap-3 mt-3">
+                        <div>
+                          <div className="text-xs sm:text-sm font-semibold text-text-secondary mb-0.5">
+                            {t('matchRate', 'Độ phù hợp')}
+                          </div>
+                          <div className="flex items-baseline gap-2.5">
+                            <span className="text-3xl sm:text-4xl font-extrabold text-emerald-500 tracking-tight">
+                              {fastCheckResults[selectedJDId].score}%
+                            </span>
+                            <span className="text-sm sm:text-base font-semibold text-text-primary">
+                              {fastCheckResults[selectedJDId].suitabilityLevel}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setShowJDInfoModal(false); 
+                            handleFastCheckClick(selectedJDId, e); 
+                          }} 
+                          className="px-4 py-2 rounded-xl border border-border bg-surface-1 hover:border-primary hover:bg-primary/5 text-text-primary text-xs sm:text-sm font-semibold transition-all duration-200 shadow-sm cursor-pointer whitespace-nowrap"
+                        >
+                          {t('viewDetails', 'Xem chi tiết')}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-end justify-between gap-3 mt-3">
+                        <div>
+                          <div className="text-xs sm:text-sm font-medium text-text-secondary">
+                            {t('notCheckedYet', 'Chưa đối chiếu với CV')}
+                          </div>
+                          <div className="text-xs text-text-muted mt-0.5">
+                            {t('clickToAnalyze', 'Bấm để AI kiểm tra ngay')}
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            handleFastCheckClick(selectedJDId, e); 
+                          }} 
+                          disabled={isFastChecking[selectedJDId] || !cvs[0]} 
+                          className="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary-dark text-xs sm:text-sm font-semibold transition-all duration-200 shadow-sm cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        >
+                          {isFastChecking[selectedJDId] ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              <span>{t('analyzing', 'Đang phân tích')}...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 size={14} />
+                              <span>{t('checkNow', 'Kiểm tra ngay')}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                   <div className="flex items-center gap-2 mb-2">
-                     <Star size={16} className="text-warning" />
-                     <h4 className="text-base font-semibold text-text-primary">{t('skills', 'Kỹ năng')} ưu tiên (Nice-to-have)</h4>
-                   </div>
-                   <div className="flex flex-wrap gap-2">
-                     {selectedJDParsedData.niceToHaveSkills?.length > 0 ? (
-                       selectedJDParsedData.niceToHaveSkills.map((sk, i) => (
-                          <span key={i} className="px-2.5 py-1 bg-info/10 text-info border border-info/20 rounded text-xs font-medium">{sk}</span>
-                       ))
-                     ) : (
-                       <span className="text-sm text-text-secondary italic">Không có dữ liệu</span>
-                     )}
-                   </div>
-                </div>
-              </div>
+                {/* Skills Row: Left (Required) + Right (Nice-to-have) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left: Required Skills */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckSquare size={16} className="text-success" />
+                      <h4 className="text-sm font-semibold text-text-primary">{t('requiredSkills', 'Kỹ năng yêu cầu (Bắt buộc)')}</h4>
+                      {selectedJDParsedData.requiredSkills?.length > 0 && (
+                        <span className="text-[11px] font-semibold px-2 py-0.2 rounded bg-success-light text-success">
+                          {selectedJDParsedData.requiredSkills.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedJDParsedData.requiredSkills?.length > 0 ? (
+                        selectedJDParsedData.requiredSkills.map((sk, i) => (
+                          <span 
+                            key={i} 
+                            className="px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-md text-xs font-medium"
+                          >
+                            {sk}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-text-muted italic">{t('noData', 'Không có dữ liệu')}</span>
+                      )}
+                    </div>
+                  </div>
 
-              {/* Detail Text Sections */}
-              <div className="space-y-4 border-t border-border/50 pt-4">
-                <div>
-                   <div className="flex items-center gap-2 mb-2">
-                     <Award size={16} className="text-primary" />
-                     <h4 className="text-base font-semibold text-text-primary">Trách nhiệm công việc</h4>
-                   </div>
-                   <div className="bg-surface-2 p-4 rounded-lg border border-border/50">
-                     <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{selectedJDParsedData.responsibilities || 'Không có dữ liệu'}</p>
-                   </div>
+                  {/* Right: Nice-to-have Skills */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Star size={16} className="text-warning" />
+                      <h4 className="text-sm font-semibold text-text-primary">{t('niceToHaveSkills', 'Kỹ năng ưu tiên (Nice-to-have)')}</h4>
+                      {selectedJDParsedData.niceToHaveSkills?.length > 0 && (
+                        <span className="text-[11px] font-semibold px-2 py-0.2 rounded bg-warning-light text-warning">
+                          {selectedJDParsedData.niceToHaveSkills.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedJDParsedData.niceToHaveSkills?.length > 0 ? (
+                        selectedJDParsedData.niceToHaveSkills.map((sk, i) => (
+                          <span 
+                            key={i} 
+                            className="px-2.5 py-1 bg-info/10 text-info border border-info/20 rounded-md text-xs font-medium"
+                          >
+                            {sk}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-text-muted italic">{t('noData', 'Không có dữ liệu')}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                   <div className="flex items-center gap-2 mb-2">
-                     <Building size={16} className="text-primary" />
-                     <h4 className="text-base font-semibold text-text-primary">Đặc điểm công ty</h4>
-                   </div>
-                   <div className="bg-surface-2 p-4 rounded-lg border border-border/50">
-                     <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{selectedJDParsedData.companyCharacteristics || 'Không có dữ liệu'}</p>
-                   </div>
-                </div>
-                {selectedJDParsedData.rawText && (
+
+                {/* Responsibilities & Company (Full width) */}
+                <div className="space-y-3 border-t border-border/50 pt-3">
+                  {/* Responsibilities */}
                   <div>
-                     <div className="flex items-center gap-2 mb-2">
-                       <FileText size={16} className="text-primary" />
-                       <h4 className="text-base font-semibold text-text-primary">Nội dung JD gốc</h4>
-                     </div>
-                     <div className="bg-surface-2 p-4 rounded-lg border border-border/50 max-h-60 overflow-y-auto">
-                       <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{selectedJDParsedData.rawText}</p>
-                     </div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Award size={16} className="text-primary" />
+                      <h4 className="text-sm font-semibold text-text-primary">{t('responsibilities', 'Trách nhiệm công việc')}</h4>
+                    </div>
+                    <div className="bg-surface-2 p-3.5 rounded-lg border border-border/60 border-l-4 border-l-primary">
+                      <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                        {selectedJDParsedData.responsibilities || t('noData', 'Không có dữ liệu')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Company Culture */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Building size={16} className="text-primary" />
+                      <h4 className="text-sm font-semibold text-text-primary">{t('companyCulture', 'Đặc điểm công ty')}</h4>
+                    </div>
+                    <div className="bg-surface-2 p-3.5 rounded-lg border border-border/60">
+                      <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                        {selectedJDParsedData.companyCharacteristics || t('noData', 'Không có dữ liệu')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Raw JD Text Collapsible */}
+                {selectedJDParsedData.rawText && (
+                  <div className="bg-surface-2 rounded-lg border border-border/60 overflow-hidden">
+                    <div 
+                      className="flex items-center justify-between p-3 bg-surface-1 cursor-pointer select-none hover:bg-surface-2 transition-colors" 
+                      onClick={() => setIsRawTextExpanded(!isRawTextExpanded)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText size={16} className="text-primary" />
+                        <span className="text-sm font-semibold text-text-primary">{t('rawJdContent', 'Nội dung JD gốc')}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyRawText(selectedJDParsedData.rawText);
+                          }}
+                          className="text-xs px-2.5 py-1 rounded border border-border hover:bg-surface-1 text-text-secondary hover:text-text-primary transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Sao chép toàn bộ nội dung JD"
+                        >
+                          {isCopiedRawText ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+                          {isCopiedRawText ? t('copied', 'Đã sao chép') : t('copy', 'Sao chép')}
+                        </button>
+                        <span className="text-text-secondary p-0.5">
+                          {isRawTextExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </span>
+                      </div>
+                    </div>
+                    {isRawTextExpanded && (
+                      <div className="p-3 border-t border-border/60 bg-surface-1">
+                        <pre className="jd-raw-textarea text-xs text-text-secondary whitespace-pre-wrap font-mono max-h-56 overflow-y-auto leading-relaxed">
+                          {selectedJDParsedData.rawText}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
 
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Fast Check Result Modal */}
       {showFastCheckModal && currentFastCheckJD && fastCheckResults[currentFastCheckJD] && (
@@ -701,7 +893,7 @@ function CVJDManagementPage() {
                 <div className="p-1.5 bg-primary text-white rounded-md shadow-sm">
                   <Sparkles size={18} />
                 </div>
-                Kết quả CV-JD Fast Check
+                {t('fastCheckResultTitle', 'Kết quả CV-JD Fast Check')}
               </h3>
               <button onClick={() => setShowFastCheckModal(false)} className="p-1 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors">
                 <X size={20} />

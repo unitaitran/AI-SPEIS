@@ -78,9 +78,18 @@ export default function SingleQuestionInterviewPage() {
   const leave = () => {
     recorder.cleanup();
     questionAudio.pause();
+    const targetPath = interview?.returnPath;
     sessionStorage.removeItem(STORAGE_KEY);
-    navigate(USER_ROUTES.INTERVIEW_HISTORY);
+    if (targetPath) {
+      navigate(targetPath);
+    } else if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate(USER_ROUTES.QUESTIONS);
+    }
   };
+
+  const returnLabel = interview?.returnLabel || 'Quay lại';
 
   const submit = async () => {
     const transcript = recorder.transcript?.trim();
@@ -151,7 +160,7 @@ export default function SingleQuestionInterviewPage() {
             <p>{error}</p>
             <div>
               <button type="button" onClick={leave}>
-                <ArrowLeft size={18} /> Quay lại lịch sử
+                <ArrowLeft size={18} /> {returnLabel}
               </button>
             </div>
           </div>
@@ -260,7 +269,7 @@ export default function SingleQuestionInterviewPage() {
                   Thử lại câu hỏi này
                 </button>
                 <button type="button" className="behavior-completion__primary" onClick={leave}>
-                  Quay lại lịch sử
+                  {returnLabel}
                   <ArrowRight size={18} />
                 </button>
               </div>
@@ -285,7 +294,7 @@ export default function SingleQuestionInterviewPage() {
               </div>
               <div className="behavior-stage__top-actions">
                 <button type="button" className="behavior-stage__end" onClick={leave}>
-                  <ArrowLeft size={16} /> Quay lại
+                  <ArrowLeft size={16} /> {returnLabel}
                 </button>
               </div>
             </header>

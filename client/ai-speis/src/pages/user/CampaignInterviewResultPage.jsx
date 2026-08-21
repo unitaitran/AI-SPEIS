@@ -76,6 +76,8 @@ const openSingleQuestionInterview = (question, roundType, originalSessionId) => 
     roundType,
     originalSessionId,
     language: 'vi',
+    returnPath: window.location.pathname + window.location.search,
+    returnLabel: 'Quay lại',
   }));
   navigate(USER_ROUTES.SINGLE_QUESTION_INTERVIEW);
 };
@@ -709,8 +711,8 @@ function CampaignInterviewResultPage({ campaignId }) {
           </div>
         </div>
 
-        {/* Dashboard 4 Global Competency Benchmark Metrics (Single Source of Truth across all tabs & sessions) */}
-        {competencyMetrics && (
+        {/* Dashboard 4 Global Competency Benchmark Metrics (Only visible for Real/Mock Interviews) */}
+        {isRealTest && competencyMetrics && (
           <section className="flex flex-col gap-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
               <Target size={15} /> {copy.history.benchmarksTitle}

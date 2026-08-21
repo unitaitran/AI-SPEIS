@@ -114,15 +114,19 @@ function PackagesPage() {
           : []),
       ];
 
-      const planName = plan.isFree
+      const planDisplayName = plan.name || (plan.isFree
         ? t('freePlanName', 'Gói Cơ Bản (Free)')
-        : t('premiumPlanName', 'Premium');
+        : t('premiumPlanName', 'Premium'));
 
       if (plan.isFree) {
         return [{
           id: `plan-${plan.planId}`,
+          planId: plan.planId,
+          planCode: plan.code || 'FREE',
+          planName: plan.name,
+          interviewQuota: plan.interviewQuota,
           isFree: true,
-          name: planName,
+          name: planDisplayName,
           subtitle: t('freeSubtitle', 'Bắt đầu hành trình của bạn'),
           amount: 0,
           features: baseFeatures
@@ -131,9 +135,13 @@ function PackagesPage() {
       return (plan.prices || []).map((price) => ({
         id: `price-${price.priceId}`,
         priceId: price.priceId,
+        planId: plan.planId,
+        planCode: plan.code || 'PREMIUM',
+        planName: plan.name,
+        interviewQuota: plan.interviewQuota,
         billingCycle: price.billingCycle,
         isFree: false,
-        name: `${planName} ${price.billingCycle === 2 ? t('yearlyCycleName', '1 Năm') : t('monthlyCycleName', '1 Tháng')}`,
+        name: `${planDisplayName} ${price.billingCycle === 2 ? t('yearlyCycleName', '1 Năm') : t('monthlyCycleName', '1 Tháng')}`,
         subtitle: price.billingCycle === 2 ? t('premiumYearlySubtitle', 'Tiết kiệm nhất') : t('premiumMonthlySubtitle', 'Lựa chọn phổ biến'),
         amount: price.amount,
         features: baseFeatures,
@@ -151,12 +159,8 @@ function PackagesPage() {
   const showQuotaResetCard = useMemo(() => {
     if (!isPremiumUser) return false;
     
-    // Explicitly hide for Monthly / 1 Month packages
     const cycle = subscriptionData?.billingCycle;
     if (cycle === 'Monthly' || cycle === 1 || cycle === '1') return false;
-
-    const planName = profileData?.subscriptionPlanName || profileData?.planName || '';
-    if (planName.toLowerCase().includes('1 month') || planName.toLowerCase().includes('monthly')) return false;
 
     if (!subscriptionData?.quotaPeriodEndsAt || !subscriptionData?.subscriptionExpiresAt) return false;
     const quotaEnd = new Date(subscriptionData.quotaPeriodEndsAt).getTime();
@@ -164,7 +168,7 @@ function PackagesPage() {
     if (Number.isNaN(quotaEnd) || Number.isNaN(subExpire)) return false;
 
     return (subExpire - quotaEnd) > (5 * 24 * 60 * 60 * 1000);
-  }, [isPremiumUser, subscriptionData, profileData]);
+  }, [isPremiumUser, subscriptionData]);
 
   useEffect(() => {
     const handleUrlChange = () => {
@@ -215,7 +219,6 @@ function PackagesPage() {
       }
       return latestSubscription;
     } catch {
-      // Ignore errors
       return null;
     }
   };
@@ -235,7 +238,6 @@ function PackagesPage() {
     };
   }, []);
 
-  // Check for MoMo payment callback in URL params
   useEffect(() => {
     const processPaymentCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -246,8 +248,6 @@ function PackagesPage() {
       if (!orderId) return;
 
       setIsVerifying(true);
-
-      // Clean query string from browser bar immediately to prevent duplicate requests on F5
       window.history.replaceState({}, document.title, window.location.pathname);
 
       if (resultCode && resultCode !== '0') {
@@ -280,12 +280,10 @@ function PackagesPage() {
             }
           }));
         } else {
-          setError(data.message || data.Message || 'Xác minh giao dịch thất bại.');
-          notify.error(data.message || data.Message || 'Xác minh giao dịch thất bại.', { title: t('paymentFailed', 'Lỗi') });
+          setError(data.message || t('paymentFailed', 'Thanh toán không thành công'));
         }
-      } catch (err) {
-        setError(err.message || 'Lỗi khi kiểm tra kết quả thanh toán.');
-        notify.error(err.message || 'Lỗi khi kiểm tra kết quả thanh toán.');
+      } catch {
+        setError(t('verificationError', 'Lỗi khi xác minh giao dịch. Vui lòng liên hệ hỗ trợ.'));
       } finally {
         setIsVerifying(false);
       }
@@ -328,7 +326,7 @@ function PackagesPage() {
         setIsCreating(false);
         setLoadingPackageId(null);
       } else {
-        throw new Error('URL thanh toán MoMo không hợp lệ.');
+        throw new Error('URL thanh toán không hợp lệ.');
       }
     } catch (apiError) {
       setError(apiError.message || 'Không thể tạo phiên thanh toán.');
@@ -345,26 +343,18 @@ function PackagesPage() {
     : 0;
   const checkoutFinalAmount = Math.max(0, checkoutOriginalAmount - checkoutDiscount);
 
-  const getUserTier = () => {
-    if (!isPremiumUser || subscriptionData?.planCode === 'FREE') {
-      return 0; // Free
-    }
-    const cycle = subscriptionData?.billingCycle;
-    if (cycle === 'Yearly' || cycle === 2 || cycle === '2') {
-      return 2; // Premium 1 Year
-    }
-    return 1; // Premium 1 Month
-  };
-  const userTier = getUserTier();
+  const currentPlanCode = subscriptionData?.planCode ?? (isPremiumUser ? 'PREMIUM' : 'FREE');
+  const currentPlanId = subscriptionData?.planId;
+  const currentPriceId = subscriptionData?.priceId;
+  const currentBillingCycle = subscriptionData?.billingCycle;
+  const currentCycleNumber = (currentBillingCycle === 'Yearly' || currentBillingCycle === 2 || currentBillingCycle === '2') ? 2 : 1;
 
   return (
     <UserLayout>
       <div className={`payment-page payment-page-expand space-y-8 pb-12 ${isDarkMode ? 'payment-page--dark' : ''}`}>
 
-        {/* Render Subscription Dashboard if not toggled to Purchase View */}
         {!showPurchaseView ? (
           <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
-            {/* Subscription Status Hero Card */}
             <div className={`relative overflow-hidden rounded-3xl border ${isPremiumUser ? 'border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent' : 'border-border bg-gradient-to-br from-surface-2 to-surface-1'} p-6 md:p-8 shadow-xl`}>
               {isPremiumUser && <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />}
 
@@ -379,11 +369,13 @@ function PackagesPage() {
                     </div>
                     <h1 className="text-2xl md:text-3xl font-extrabold text-text-primary">
                       {isPremiumUser
-                        ? (userTier === 2 ? t('premiumYearly', 'Premium 1 Năm') + ' 👑' : t('premiumMonthly', 'Premium 1 Tháng') + ' 👑')
+                        ? `${subscriptionData?.planName || 'Premium'} ${currentCycleNumber === 2 ? t('yearlyCycleName', '1 Năm') : t('monthlyCycleName', '1 Tháng')} 👑`
                         : t('freePlan', 'Gói Cơ Bản (Free)')}
                     </h1>
                     <p className="text-sm text-text-secondary">
-                      {isPremiumUser ? t('premiumDesc', 'Tài khoản của bạn đang có 15 lượt mỗi chu kỳ 30 ngày.') : t('freeDesc', 'Nâng cấp để nhận 15 lượt phỏng vấn mỗi chu kỳ 30 ngày.')}
+                      {isPremiumUser
+                        ? t('premiumDesc', 'Tài khoản của bạn đang có {{quota}} lượt mỗi chu kỳ 30 ngày.', { quota: subscriptionData?.maxInterviewQuota || 15 })
+                        : t('freeDesc', 'Nâng cấp để nhận 15 lượt phỏng vấn mỗi chu kỳ 30 ngày.')}
                     </p>
                   </div>
                 </div>
@@ -398,9 +390,7 @@ function PackagesPage() {
               </div>
             </div>
 
-            {/* Quota & Subscription Timeline Grid */}
             <div className={`grid grid-cols-1 ${showQuotaResetCard ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
-              {/* Card 1: Remaining Quota */}
               <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">{t('quotaRemaining', 'Số lượt còn lại trong tháng')}</span>
@@ -418,11 +408,9 @@ function PackagesPage() {
                       style={{ width: `${Math.min(100, Math.max(0, ((subscriptionData?.remainingInterviewQuota ?? profileData?.remainingInterviewQuota ?? (isPremiumUser ? 15 : 3)) / (subscriptionData?.maxInterviewQuota ?? (isPremiumUser ? 15 : 3))) * 100))}%` }}
                     />
                   </div>
-                  <p className="text-xs text-text-secondary mt-2">{isPremiumUser ? t('quotaDescPremium', '15 lượt, làm mới theo chu kỳ cố định 30 ngày') : t('quotaDescFree', '3 lượt dùng thử miễn phí')}</p>
                 </div>
               </div>
 
-              {/* Card 2: Next Quota Reset Date (Only shown when subscription duration is > 1 month) */}
               {showQuotaResetCard && (
                 <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-4">
@@ -435,12 +423,10 @@ function PackagesPage() {
                     <div className="text-2xl font-extrabold text-text-primary mb-1">
                       {isPremiumUser ? formatDate(subscriptionData?.quotaPeriodEndsAt) : t('noReset', 'Không reset')}
                     </div>
-                    <p className="text-xs text-text-secondary mt-2">{t('autoResetDesc', 'Hệ thống sẽ tự động làm mới 15 lượt vào ngày này.')}</p>
                   </div>
                 </div>
               )}
 
-              {/* Card 3: Premium Expiration Date */}
               <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">{t('premiumExpire', 'Hạn gói đăng ký')}</span>
@@ -452,52 +438,48 @@ function PackagesPage() {
                   <div className="text-2xl font-extrabold text-text-primary mb-1">
                     {formatDate(subscriptionData?.subscriptionExpiresAt ?? profileData?.premiumExpireAt)}
                   </div>
-                  <p className="text-xs text-text-secondary mt-2">{t('expireDesc', 'Thời gian hết hạn sử dụng các đặc quyền Premium.')}</p>
                 </div>
               </div>
             </div>
 
-            {/* Premium Benefits Summary */}
-            {isPremiumUser && (
-              <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
-                  <ShieldCheck className="text-amber-500" size={22} /> {t('benefitsTitle', 'Đặc quyền gói Premium của bạn')}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-2/60 border border-border">
-                    <Zap className="text-amber-500 shrink-0 mt-0.5" size={20} />
-                    <div>
-                      <p className="text-sm font-bold text-text-primary">{t('benefit1', '15 lượt phỏng vấn mỗi tháng')}</p>
-                      <p className="text-xs text-text-secondary">{t('benefit1Desc', 'Luyện tập phỏng vấn AI chuyên sâu mọi chủ đề.')}</p>
-                    </div>
+            <div className="rounded-3xl border border-border bg-surface-1 p-6 md:p-8 shadow-sm">
+              <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+                <ShieldCheck size={20} className="text-primary" /> {t('activeBenefits', 'Đặc quyền tài khoản hiện tại')}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-surface-2/60 border border-border/80 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
+                    <Zap size={18} />
                   </div>
-                  <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-2/60 border border-border">
-                    <RotateCcw className="text-amber-500 shrink-0 mt-0.5" size={20} />
-                    <div>
-                      <p className="text-sm font-bold text-text-primary">{t('benefit2', 'Tự động sạc lại lượt hàng tháng')}</p>
-                      <p className="text-xs text-text-secondary">{t('benefit2Desc', 'Mỗi 30 ngày số lượt sẽ được sạc lại 15 lượt.')}</p>
-                    </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-text-primary mb-0.5">{isPremiumUser ? t('advancedAi', 'AI Toàn Diện') : t('basicAi', 'AI Cơ Bản')}</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed">{isPremiumUser ? t('advancedAiDesc', 'Mô hình AI nâng cao phân tích đa chiều câu trả lời') : t('basicAiDesc', 'Trải nghiệm phỏng vấn cơ bản để làm quen')}</p>
                   </div>
-                  <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-2/60 border border-border">
-                    <Sparkles className="text-amber-500 shrink-0 mt-0.5" size={20} />
-                    <div>
-                      <p className="text-sm font-bold text-text-primary">{t('benefit3', 'Phân tích & Đánh giá chuyên sâu')}</p>
-                      <p className="text-xs text-text-secondary">{t('benefit3Desc', 'Chấm điểm tiêu chuẩn STAR & gợi ý cải thiện chi tiết.')}</p>
-                    </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface-2/60 border border-border/80 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
+                    <Sparkles size={18} />
                   </div>
-                  <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-2/60 border border-border">
-                    <Crown className="text-amber-500 shrink-0 mt-0.5" size={20} />
-                    <div>
-                      <p className="text-sm font-bold text-text-primary">{t('benefit4', 'Đã kích hoạt toàn bộ tính năng')}</p>
-                      <p className="text-xs text-text-secondary">{t('benefit4Desc', 'Trải nghiệm sớm nhất các mô hình AI mới.')}</p>
-                    </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-text-primary mb-0.5">{t('benefit3', 'Phân tích & Đánh giá')}</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed">{isPremiumUser ? t('benefit3DescPremium', 'Chi tiết điểm mạnh, điểm yếu & gợi ý cải thiện') : t('benefit3DescFree', 'Báo cáo tổng quan mức độ hoàn thành')}</p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface-2/60 border border-border/80 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
+                    <RotateCcw size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-text-primary mb-0.5">{t('quotaPolicy', 'Cơ chế làm mới')}</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed">{isPremiumUser ? t('quotaPolicyDescPremium', 'Tự động làm mới 15 lượt sau mỗi 30 ngày') : t('quotaPolicyDescFree', 'Cố định 3 lượt dùng thử khi đăng ký')}</p>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         ) : (
-          /* Package Purchase Selection Grid */
           <>
             <button
               type="button"
@@ -541,13 +523,37 @@ function PackagesPage() {
               {PACKAGES.map((pkg) => {
                 const isFree = pkg.isFree;
                 const isLoadingThis = isCreating && loadingPackageId === pkg.priceId;
-                const pkgTier = isFree ? 0 : (pkg.billingCycle === 2 ? 2 : 1);
-                const isCurrentPackage = pkgTier === userTier;
-                const isLowerPackage = pkgTier < userTier;
+                
+                let isCurrentPackage = false;
+                if (!isPremiumUser || currentPlanCode === 'FREE') {
+                  isCurrentPackage = Boolean(isFree);
+                } else {
+                  if (isFree) {
+                    isCurrentPackage = false;
+                  } else if (currentPriceId != null && pkg.priceId != null) {
+                    isCurrentPackage = pkg.priceId === currentPriceId;
+                  } else {
+                    const planMatches = (currentPlanId != null && pkg.planId === currentPlanId) ||
+                                        (pkg.planCode && pkg.planCode === currentPlanCode);
+                    const quotaMatches = subscriptionData?.maxInterviewQuota ? pkg.interviewQuota === subscriptionData.maxInterviewQuota : true;
+                    isCurrentPackage = planMatches && pkg.billingCycle === currentCycleNumber && quotaMatches;
+                  }
+                }
+
+                let isLowerPackage = false;
+                if (isPremiumUser && currentPlanCode !== 'FREE') {
+                  if (isFree) {
+                    isLowerPackage = true;
+                  } else if (isCurrentPackage) {
+                    isLowerPackage = false;
+                  } else if (currentCycleNumber === 2 && pkg.billingCycle === 1) {
+                    isLowerPackage = true;
+                  }
+                }
 
                 let yearlyDiscountPercent = null;
                 if (pkg.billingCycle === 2) {
-                  const monthlyPkg = PACKAGES.find((p) => p.billingCycle === 1);
+                  const monthlyPkg = PACKAGES.find((p) => p.planId === pkg.planId && p.billingCycle === 1) || PACKAGES.find((p) => p.billingCycle === 1);
                   const monthlyAmount = monthlyPkg ? monthlyPkg.amount : 59000;
                   if (monthlyAmount > 0 && pkg.amount > 0) {
                     const fullYearMonthlyCost = monthlyAmount * 12;
@@ -666,7 +672,6 @@ function PackagesPage() {
           </>
         )}
 
-        {/* Checkout Modal Portal */}
         {selectedPackage && createPortal(
           <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn">
             <div

@@ -18,6 +18,16 @@ const KNOWN_FIELDS = new Set([
   'matchingSkills',
   'missingSkills',
   'advice',
+  'fastCheckResultId',
+  'cvFileId',
+  'jdFileId',
+  'userId',
+  'createdAt',
+  'updatedAt',
+  'isDeleted',
+  'status',
+  'matchPercentage',
+  'id',
 ]);
 
 const toUniqueStringList = (value) => {

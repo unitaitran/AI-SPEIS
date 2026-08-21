@@ -536,12 +536,13 @@ function TechnicalInterviewPage({ sessionId }) {
           <BehavioralRoomDialog
             dialog={dialog}
             mode={mode}
-            busy={room.phase === TechnicalV2FlowPhase.COMPLETING}
+            roundType="Technical"
+            busy={room.phase === TechnicalV2FlowPhase.COMPLETING || isEndingAllRef.current}
             onCancel={() => { setDialog(null); setPendingNavigation(null); }}
             onConfirm={handleDialogConfirm}
             t={t}
           />
-          <EvaluatingAnalysisModal isOpen={room.phase === TechnicalV2FlowPhase.COMPLETING} />
+          <EvaluatingAnalysisModal isOpen={room.phase === TechnicalV2FlowPhase.COMPLETING || isEndingAllRef.current} />
         </>
       )}
     >

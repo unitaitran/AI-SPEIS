@@ -438,7 +438,7 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 result = await _context.TechnicalRoundResults.FirstAsync(item => item.InterviewSessionId == sessionId, cancellationToken);
             }
             await GenerateFinalFeedbackCoreAsync(session!, set!, result, GetRubric(), cancellationToken);
-            return TechnicalV2OperationResult<TechnicalV2ResultDto>.Ok(BuildResultDto(session, set, result));
+            return TechnicalV2OperationResult<TechnicalV2ResultDto>.Ok(BuildResultDto(session!, set!, result));
         }
 
         private async Task GenerateFinalFeedbackCoreAsync(
