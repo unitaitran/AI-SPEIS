@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   X,
@@ -7,8 +8,63 @@ import {
   Minus,
   Calendar,
   Sparkles,
-  BarChart2,
+  Layers,
+  MessageSquare,
+  FileCheck2,
+  Lightbulb,
 } from 'lucide-react';
+import './SkillHistoryModal.css';
+
+const DEFAULT_SKILL_CONFIGS = {
+  PROFESSIONAL_KNOWLEDGE: {
+    code: 'PROFESSIONAL_KNOWLEDGE',
+    label: 'Kiến thức chuyên môn',
+    labelEn: 'Professional Knowledge',
+    icon: Layers,
+    color: '#0284c7',
+    bgLight: '#f0f9ff',
+    border: '#bae6fd',
+    gradientFrom: '#38bdf8',
+    gradientTo: '#0284c7',
+    textColor: '#0369a1',
+  },
+  COMMUNICATION_SKILLS: {
+    code: 'COMMUNICATION_SKILLS',
+    label: 'Kỹ năng giao tiếp',
+    labelEn: 'Communication Skills',
+    icon: MessageSquare,
+    color: '#9333ea',
+    bgLight: '#faf5ff',
+    border: '#e9d5ff',
+    gradientFrom: '#c084fc',
+    gradientTo: '#9333ea',
+    textColor: '#7e22ce',
+  },
+  CV_UNDERSTANDING: {
+    code: 'CV_UNDERSTANDING',
+    label: 'Hiểu biết về CV',
+    labelEn: 'CV Understanding',
+    icon: FileCheck2,
+    color: '#d97706',
+    bgLight: '#fffbeb',
+    border: '#fde68a',
+    gradientFrom: '#fbbf24',
+    gradientTo: '#d97706',
+    textColor: '#b45309',
+  },
+  PROBLEM_SOLVING: {
+    code: 'PROBLEM_SOLVING',
+    label: 'Giải quyết vấn đề',
+    labelEn: 'Problem Solving',
+    icon: Lightbulb,
+    color: '#059669',
+    bgLight: '#ecfdf5',
+    border: '#a7f3d0',
+    gradientFrom: '#34d399',
+    gradientTo: '#059669',
+    textColor: '#047857',
+  },
+};
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -23,42 +79,83 @@ function formatDate(dateStr) {
   }
 }
 
-function SkillHistoryModal({ skill, onClose }) {
+function SkillHistoryModal({ skill, allSkills = [], onClose }) {
   const { i18n } = useTranslation();
-  const isEnglish = i18n.language === 'en';
+  const isEnglish = (i18n.language || '').toLowerCase().startsWith('en');
+  const [activeCode, setActiveCode] = useState(skill?.code || 'PROFESSIONAL_KNOWLEDGE');
   const [hoveredPoint, setHoveredPoint] = useState(null);
+
+  useEffect(() => {
+    if (skill?.code) {
+      setActiveCode(skill.code);
+    }
+  }, [skill?.code]);
+
+  // Merge full list of 4 skills
+  const skillsList = useMemo(() => {
+    const defaultCodes = ['PROFESSIONAL_KNOWLEDGE', 'COMMUNICATION_SKILLS', 'CV_UNDERSTANDING', 'PROBLEM_SOLVING'];
+    return defaultCodes.map((code) => {
+      const foundInProps = (allSkills || []).find((s) => s.code === code);
+      const conf = DEFAULT_SKILL_CONFIGS[code];
+      const currentScore = foundInProps?.score ?? (skill?.code === code ? skill.score : 0);
+      const history = foundInProps?.history ?? (skill?.code === code ? skill.history : []);
+      return {
+        ...conf,
+        ...foundInProps,
+        score: Number(currentScore) || 0,
+        history: history || [],
+      };
+    });
+  }, [allSkills, skill]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    };
+    if (skill) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [skill, onClose]);
 
   if (!skill) return null;
 
-  const rawHistory = Array.isArray(skill.history) && skill.history.length > 0
-    ? skill.history
+  const activeSkill = skillsList.find((s) => s.code === activeCode) || skillsList[0];
+  const conf = DEFAULT_SKILL_CONFIGS[activeSkill.code] || DEFAULT_SKILL_CONFIGS.PROFESSIONAL_KNOWLEDGE;
+
+  const rawHistory = Array.isArray(activeSkill.history) && activeSkill.history.length > 0
+    ? activeSkill.history
     : [
-      { title: 'Phỏng vấn gần nhất', score: skill.score || 0, date: new Date().toISOString() },
+      { title: 'Phỏng vấn gần nhất', score: activeSkill.score || 0, date: new Date().toISOString() },
     ];
 
-  const history = rawHistory.map((item) => {
+  const history = rawHistory.map((item, idx) => {
     const rawVal = item.score ?? item.Score ?? item.value ?? item.Value;
     const scoreNum = Number(rawVal);
-    const fallbackSkillScore = Number(skill.score) || 0;
+    const fallbackScore = Number(activeSkill.score) || 0;
     const validScore = (!Number.isNaN(scoreNum) && scoreNum > 0)
       ? scoreNum
-      : (fallbackSkillScore > 0 ? fallbackSkillScore : 0);
+      : (fallbackScore > 0 ? fallbackScore : 0);
 
     return {
-      title: item.title || item.Title || 'Buổi phỏng vấn',
+      title: item.title || item.Title || `Phỏng vấn #${idx + 1}`,
       score: validScore,
       date: item.date || item.Date || new Date().toISOString(),
     };
   });
 
-  const skillTitle = isEnglish ? (skill.labelEn || skill.name) : (skill.label || skill.name);
-  const latestScore = Number(history[history.length - 1]?.score ?? skill.score ?? 0);
+  const skillTitle = isEnglish ? (activeSkill.labelEn || activeSkill.name) : (activeSkill.label || activeSkill.name);
+  const latestScore = Number(history[history.length - 1]?.score ?? activeSkill.score ?? 0);
   const firstScore = Number(history[0]?.score ?? latestScore);
   const scoreDiff = latestScore - firstScore;
 
   // Chart coordinate calculations
   const chartHeight = 180;
-  const chartWidth = 520;
+  const chartWidth = 560;
   const paddingX = 40;
   const paddingTop = 20;
   const paddingBottom = 30;
@@ -77,7 +174,7 @@ function SkillHistoryModal({ skill, onClose }) {
   // Generate SVG path string
   let pathD = '';
   if (points.length === 1) {
-    pathD = `M ${points[0].x - 40} ${points[0].y} L ${points[0].x + 40} ${points[0].y}`;
+    pathD = `M ${points[0].x - 45} ${points[0].y} L ${points[0].x + 45} ${points[0].y}`;
   } else {
     pathD = points.reduce((acc, pt, idx) => (
       idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`
@@ -87,204 +184,170 @@ function SkillHistoryModal({ skill, onClose }) {
   // Area fill below line
   let areaD = '';
   if (points.length === 1) {
-    areaD = `M ${points[0].x - 40} ${points[0].y} L ${points[0].x + 40} ${points[0].y} L ${points[0].x + 40} ${chartHeight - paddingBottom} L ${points[0].x - 40} ${chartHeight - paddingBottom} Z`;
+    areaD = `M ${points[0].x - 45} ${points[0].y} L ${points[0].x + 45} ${points[0].y} L ${points[0].x + 45} ${chartHeight - paddingBottom} L ${points[0].x - 45} ${chartHeight - paddingBottom} Z`;
   } else {
     const lastPt = points[points.length - 1];
     const firstPt = points[0];
     areaD = `${pathD} L ${lastPt.x} ${chartHeight - paddingBottom} L ${firstPt.x} ${chartHeight - paddingBottom} Z`;
   }
 
-  return (
+  const ActiveIcon = conf.icon;
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
-      className="behavior-dialog-backdrop"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'grid',
-        placeItems: 'center',
-        background: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(6px)',
-        padding: '1rem',
-      }}
+      className="skill-modal-backdrop"
       role="presentation"
       onClick={onClose}
     >
       <section
-        className="behavior-dialog"
-        style={{
-          width: 'min(620px, 100%)',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          borderRadius: '20px',
-          background: '#ffffff',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: 0,
-        }}
+        className="skill-modal-container"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="skill-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: '1.5rem 1.75rem',
-            borderBottom: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-            borderTopLeftRadius: '20px',
-            borderTopRightRadius: '20px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="skill-modal-header">
+          <div className="skill-modal-header__left">
             <div
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '12px',
-                background: '#e0f2fe',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#0284c7',
-              }}
+              className="skill-modal-header__icon"
+              style={{ background: conf.bgLight, color: conf.color }}
             >
-              <BarChart2 size={22} />
+              <ActiveIcon size={24} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#0f172a' }}>
+              <h2 id="skill-modal-title" className="skill-modal-header__title">
                 {skillTitle}
               </h2>
-              <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>
-                {isEnglish ? 'Skill Progress & Fluctuation Trend' : 'Tiến trình & Biểu đồ độ lên xuống qua các buổi phỏng vấn'}
+              <span className="skill-modal-header__subtitle">
+                {isEnglish ? 'Skill Progress & Fluctuation Trend' : 'Tiến trình & Biểu đồ biến động qua các buổi phỏng vấn'}
               </span>
             </div>
           </div>
           <button
             type="button"
+            className="skill-modal-header__close"
             onClick={onClose}
-            style={{
-              border: 'none',
-              background: '#f1f5f9',
-              borderRadius: '50%',
-              width: '36px',
-              height: '36px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: '#64748b',
-              transition: 'all 0.2s',
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.background = '#e2e8f0'; }}
-            onMouseOut={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+            aria-label="Close"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Body Content */}
-        <div style={{ padding: '1.5rem 1.75rem' }}>
-          {/* Summary Cards Row */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '1rem',
-              marginBottom: '1.5rem',
-            }}
-          >
+        <div className="skill-modal-body">
+          {/* Top 4 Skill Tabs */}
+          <div className="skill-modal-tabs">
+            {skillsList.map((item) => {
+              const isActive = item.code === activeCode;
+              const itemConf = DEFAULT_SKILL_CONFIGS[item.code] || conf;
+              const TabIcon = itemConf.icon;
+              const itemScore = Number(item.score) || 0;
+
+              return (
+                <button
+                  key={item.code}
+                  type="button"
+                  className={`skill-modal-tab ${isActive ? 'skill-modal-tab--active' : ''}`}
+                  style={{
+                    borderColor: isActive ? itemConf.color : '#e2e8f0',
+                  }}
+                  onClick={() => setActiveCode(item.code)}
+                >
+                  <div className="skill-modal-tab__top">
+                    <div
+                      className="skill-modal-tab__icon"
+                      style={{
+                        background: isActive ? itemConf.color : itemConf.bgLight,
+                        color: isActive ? '#ffffff' : itemConf.color,
+                      }}
+                    >
+                      <TabIcon size={16} />
+                    </div>
+                    <span
+                      className="skill-modal-tab__badge"
+                      style={{
+                        background: isActive ? itemConf.bgLight : '#f1f5f9',
+                        color: isActive ? itemConf.textColor : '#64748b',
+                        border: `1px solid ${isActive ? itemConf.border : '#e2e8f0'}`,
+                      }}
+                    >
+                      {itemScore.toFixed(1)}/10
+                    </span>
+                  </div>
+                  <span
+                    className="skill-modal-tab__title"
+                    style={{ color: isActive ? itemConf.textColor : '#1e293b' }}
+                  >
+                    {isEnglish ? item.labelEn : item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 3 Summary Cards */}
+          <div className="skill-modal-metrics">
             {/* Metric 1: Latest Score */}
             <div
-              style={{
-                padding: '1rem',
-                borderRadius: '14px',
-                background: '#f0f9ff',
-                border: '1px solid #bae6fd',
-              }}
+              className="skill-modal-metric-card"
+              style={{ background: conf.bgLight, border: `1px solid ${conf.border}` }}
             >
-              <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#0369a1', textTransform: 'uppercase' }}>
+              <span className="skill-modal-metric-card__label" style={{ color: conf.textColor }}>
                 {isEnglish ? 'Latest Score' : 'Lần gần nhất'}
               </span>
-              <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0284c7', marginTop: '0.25rem' }}>
+              <div className="skill-modal-metric-card__value" style={{ color: conf.color }}>
                 {latestScore.toFixed(1)} <small style={{ fontSize: '0.875rem', fontWeight: '500' }}>/ 10</small>
               </div>
             </div>
 
             {/* Metric 2: Initial Score */}
             <div
-              style={{
-                padding: '1rem',
-                borderRadius: '14px',
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-              }}
+              className="skill-modal-metric-card"
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
             >
-              <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase' }}>
+              <span className="skill-modal-metric-card__label" style={{ color: '#64748b' }}>
                 {isEnglish ? 'Initial Score' : 'Lần đầu tiên'}
               </span>
-              <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#475569', marginTop: '0.25rem' }}>
+              <div className="skill-modal-metric-card__value" style={{ color: '#475569' }}>
                 {firstScore.toFixed(1)} <small style={{ fontSize: '0.875rem', fontWeight: '500' }}>/ 10</small>
               </div>
             </div>
 
             {/* Metric 3: Score Trend */}
             <div
+              className="skill-modal-metric-card"
               style={{
-                padding: '1rem',
-                borderRadius: '14px',
                 background: scoreDiff > 0 ? '#f0fdf4' : scoreDiff < 0 ? '#fef2f2' : '#f8fafc',
                 border: `1px solid ${scoreDiff > 0 ? '#bbf7d0' : scoreDiff < 0 ? '#fecaca' : '#e2e8f0'}`,
               }}
             >
               <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: '600',
-                  color: scoreDiff > 0 ? '#15803d' : scoreDiff < 0 ? '#b91c1c' : '#64748b',
-                  textTransform: 'uppercase',
-                }}
+                className="skill-modal-metric-card__label"
+                style={{ color: scoreDiff > 0 ? '#15803d' : scoreDiff < 0 ? '#b91c1c' : '#64748b' }}
               >
                 {isEnglish ? 'Total Fluctuation' : 'Độ lên xuống'}
               </span>
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  fontSize: '1.35rem',
-                  fontWeight: '800',
-                  color: scoreDiff > 0 ? '#16a34a' : scoreDiff < 0 ? '#dc2626' : '#64748b',
-                  marginTop: '0.25rem',
-                }}
+                className="skill-modal-metric-card__value"
+                style={{ color: scoreDiff > 0 ? '#16a34a' : scoreDiff < 0 ? '#dc2626' : '#64748b' }}
               >
-                {scoreDiff > 0 ? <TrendingUp size={20} /> : scoreDiff < 0 ? <TrendingDown size={20} /> : <Minus size={20} />}
+                {scoreDiff > 0 ? <TrendingUp size={22} /> : scoreDiff < 0 ? <TrendingDown size={22} /> : <Minus size={22} />}
                 {scoreDiff > 0 ? `+${scoreDiff.toFixed(1)}` : scoreDiff.toFixed(1)}
               </div>
             </div>
           </div>
 
-          {/* SVG Line Chart Section */}
-          <div
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '16px',
-              padding: '1.25rem 1rem 0.75rem',
-              marginBottom: '1.5rem',
-              position: 'relative',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', padding: '0 0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Sparkles size={16} style={{ color: '#0284c7' }} />
-                {isEnglish ? 'Skill Evolution Curve' : 'Biểu đồ đường biến động năng lực'}
+          {/* SVG Line Chart */}
+          <div className="skill-modal-chart-card">
+            <div className="skill-modal-chart-header">
+              <span className="skill-modal-chart-title">
+                <Sparkles size={16} style={{ color: conf.color }} />
+                {isEnglish ? `${skillTitle} Evolution Curve` : `Biểu đồ biến động ${skillTitle.toLowerCase()}`}
               </span>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+              <span className="skill-modal-chart-count">
                 {history.length} {isEnglish ? 'Evaluated Sessions' : 'Lượt đánh giá'}
               </span>
             </div>
@@ -294,12 +357,12 @@ function SkillHistoryModal({ skill, onClose }) {
               style={{ width: '100%', height: 'auto', overflow: 'visible' }}
             >
               <defs>
-                <linearGradient id="skillAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#0284c7" stopOpacity="0.0" />
+                <linearGradient id={`skillAreaGrad_${activeCode}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={conf.gradientFrom} stopOpacity="0.35" />
+                  <stop offset="100%" stopColor={conf.gradientTo} stopOpacity="0.0" />
                 </linearGradient>
-                <filter id="shadowFilter" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#0284c7" floodOpacity="0.3" />
+                <filter id={`shadowFilter_${activeCode}`} x="-10%" y="-10%" width="120%" height="120%">
+                  <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor={conf.color} floodOpacity="0.25" />
                 </filter>
               </defs>
 
@@ -332,17 +395,17 @@ function SkillHistoryModal({ skill, onClose }) {
               })}
 
               {/* Area Under Line */}
-              <path d={areaD} fill="url(#skillAreaGradient)" />
+              <path d={areaD} fill={`url(#skillAreaGrad_${activeCode})`} />
 
               {/* Connecting Line */}
               <path
                 d={pathD}
                 fill="none"
-                stroke="#0284c7"
+                stroke={conf.color}
                 strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                filter="url(#shadowFilter)"
+                filter={`url(#shadowFilter_${activeCode})`}
               />
 
               {/* Interactive Data Node Points */}
@@ -355,7 +418,7 @@ function SkillHistoryModal({ skill, onClose }) {
                       cy={pt.y}
                       r={isHovered ? 8 : 6}
                       fill="#ffffff"
-                      stroke="#0284c7"
+                      stroke={conf.color}
                       strokeWidth={isHovered ? 3.5 : 2.5}
                       style={{ cursor: 'pointer', transition: 'all 0.2s' }}
                       onMouseEnter={() => setHoveredPoint(pt)}
@@ -368,7 +431,7 @@ function SkillHistoryModal({ skill, onClose }) {
                       textAnchor="middle"
                       fontSize="11"
                       fontWeight="800"
-                      fill="#0284c7"
+                      fill={conf.color}
                     >
                       {pt.scoreVal.toFixed(1)}
                     </text>
@@ -379,22 +442,8 @@ function SkillHistoryModal({ skill, onClose }) {
 
             {/* Hover Tooltip Popup */}
             {hoveredPoint ? (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '10px',
-                  right: '15px',
-                  background: '#0f172a',
-                  color: '#ffffff',
-                  padding: '0.5rem 0.85rem',
-                  borderRadius: '10px',
-                  fontSize: '0.75rem',
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                  zIndex: 30,
-                  pointerEvents: 'none',
-                }}
-              >
-                <div style={{ fontWeight: '700', color: '#38bdf8' }}>{hoveredPoint.title || 'Buổi phỏng vấn'}</div>
+              <div className="skill-modal-tooltip">
+                <div style={{ fontWeight: '700', color: conf.gradientFrom }}>{hoveredPoint.title || 'Buổi phỏng vấn'}</div>
                 <div>{formatDate(hoveredPoint.date)}</div>
                 <div style={{ marginTop: '2px', fontWeight: '800', color: '#f59e0b' }}>
                   Điểm: {hoveredPoint.scoreVal.toFixed(2)} / 10
@@ -403,63 +452,41 @@ function SkillHistoryModal({ skill, onClose }) {
             ) : null}
           </div>
 
-          {/* History Breakdown List */}
-          <div>
-            <h3 style={{ margin: '0 0 0.85rem', fontSize: '0.9375rem', fontWeight: '700', color: '#0f172a' }}>
+          {/* Detailed Timeline Breakdown */}
+          <div className="skill-modal-timeline">
+            <h3 className="skill-modal-timeline__title">
               {isEnglish ? 'Detailed Session Timeline' : 'Chi tiết từng đợt phỏng vấn'}
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            <div className="skill-modal-timeline__list">
               {history.slice().reverse().map((item, idx, arr) => {
                 const itemScore = Number(item.score) || 0;
                 const prevItemScore = idx < arr.length - 1 ? Number(arr[idx + 1].score) || 0 : null;
                 const diff = prevItemScore != null ? itemScore - prevItemScore : null;
 
                 return (
-                  <div
-                    key={idx}
-                    style={{
-                      padding: '0.85rem 1rem',
-                      borderRadius: '12px',
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div key={idx} className="skill-modal-timeline__item">
+                    <div className="skill-modal-timeline__item-left">
                       <div
-                        style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '50%',
-                          background: '#e0f2fe',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#0284c7',
-                        }}
+                        className="skill-modal-timeline__item-icon"
+                        style={{ background: conf.bgLight, color: conf.color }}
                       >
                         <Calendar size={18} />
                       </div>
                       <div>
-                        <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#1e293b' }}>
+                        <div className="skill-modal-timeline__item-name">
                           {item.title || `Phỏng vấn #${arr.length - idx}`}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        <div className="skill-modal-timeline__item-date">
                           {formatDate(item.date)}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                    <div className="skill-modal-timeline__item-right">
                       {diff != null ? (
                         <span
+                          className="skill-modal-timeline__diff-badge"
                           style={{
-                            fontSize: '0.75rem',
-                            fontWeight: '700',
-                            padding: '0.2rem 0.5rem',
-                            borderRadius: '6px',
                             background: diff > 0 ? '#dcfce7' : diff < 0 ? '#fee2e2' : '#f1f5f9',
                             color: diff > 0 ? '#15803d' : diff < 0 ? '#b91c1c' : '#64748b',
                           }}
@@ -468,15 +495,8 @@ function SkillHistoryModal({ skill, onClose }) {
                         </span>
                       ) : null}
                       <span
-                        style={{
-                          fontSize: '1rem',
-                          fontWeight: '800',
-                          color: '#0284c7',
-                          background: '#ffffff',
-                          padding: '0.25rem 0.75rem',
-                          borderRadius: '8px',
-                          border: '1px solid #bae6fd',
-                        }}
+                        className="skill-modal-timeline__score-badge"
+                        style={{ color: conf.color, border: `1px solid ${conf.border}` }}
                       >
                         {itemScore.toFixed(1)} / 10
                       </span>
@@ -488,7 +508,8 @@ function SkillHistoryModal({ skill, onClose }) {
           </div>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
 

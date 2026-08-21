@@ -226,6 +226,11 @@ namespace ai_speis_be.Services.GoogleQuotaService
                 Filter = "state:ENABLED"
             };
 
+            if (_serviceUsageClient == null)
+            {
+                return result;
+            }
+
             var paginator = _serviceUsageClient.ListServicesAsync(request);
 
             await foreach (var service in paginator.WithCancellation(ct))
@@ -256,6 +261,11 @@ namespace ai_speis_be.Services.GoogleQuotaService
 
             try
             {
+                if (_metricClient == null)
+                {
+                    return result;
+                }
+
                 var now = DateTime.UtcNow;
                 var request = new ListTimeSeriesRequest
                 {

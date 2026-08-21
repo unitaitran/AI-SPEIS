@@ -1386,3 +1386,92 @@
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* ---------- JD Info Modal & Mascot Styles ---------- */
+.jd-modal-overlay {
+  animation: mycv-fade-in 0.2s ease-out;
+}
+
+.jd-modal-dialog {
+  animation: mycv-zoom-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.jd-header-glow {
+  background: linear-gradient(135deg, rgba(111, 182, 232, 0.15) 0%, rgba(124, 58, 237, 0.08) 50%, rgba(255, 255, 255, 0) 100%);
+}
+
+.jd-mascot-float {
+  animation: jd-mascot-bob 3.5s ease-in-out infinite;
+}
+
+@keyframes jd-mascot-bob {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.jd-speech-bubble {
+  position: relative;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+.jd-speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 20px;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  border-right: 1px solid rgba(124, 58, 237, 0.15);
+  border-bottom: 1px solid rgba(124, 58, 237, 0.15);
+  transform: rotate(45deg);
+}
+
+.jd-skill-chip-req {
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.9) 0%, rgba(240, 253, 250, 0.9) 100%);
+  border: 1px solid rgba(111, 182, 232, 0.35);
+  color: #0369a1;
+}
+
+.jd-skill-chip-req:hover {
+  transform: translateY(-1px);
+  border-color: #0284c7;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.15);
+}
+
+.jd-skill-chip-nice {
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, rgba(254, 252, 232, 0.9) 0%, rgba(255, 247, 237, 0.9) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #b45309;
+}
+
+.jd-skill-chip-nice:hover {
+  transform: translateY(-1px);
+  border-color: #d97706;
+  box-shadow: 0 3px 8px rgba(217, 119, 6, 0.15);
+}
+
+.jd-raw-textarea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.3) transparent;
+}
+
+.jd-raw-textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.jd-raw-textarea::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.3);
+  border-radius: 9999px;
+}
+

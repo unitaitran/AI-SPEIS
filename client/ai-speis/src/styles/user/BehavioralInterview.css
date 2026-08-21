@@ -607,29 +607,209 @@
   display: grid;
   place-items: center;
   padding: var(--spacing-md);
-  background: rgba(31, 45, 61, .38);
-  backdrop-filter: blur(3px);
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(6px);
+  animation: behaviorFadeIn 0.2s ease-out;
 }
 
 .behavior-dialog {
-  width: min(480px, 100%);
-  padding: var(--spacing-lg);
-  border-radius: var(--border-radius-lg);
-  background: var(--surface-2);
-  box-shadow: var(--box-shadow-lg);
+  position: relative;
+  width: min(480px, calc(100vw - 32px));
+  padding: 32px 28px 24px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: behaviorScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.behavior-dialog header { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 12px; }
-.behavior-dialog__icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--warning-light); color: var(--warning); }
-.behavior-dialog h2 { margin: 0; font-size: var(--heading-3); }
-.behavior-dialog header p { margin: var(--spacing-xs) 0 0; color: var(--text-secondary); }
-.behavior-dialog header > button { width: 40px; min-height: 40px; padding: 0; border-color: transparent; }
-.behavior-dialog__warning { margin: var(--spacing-lg) 0; padding: 12px var(--spacing-md); border-radius: var(--border-radius); background: var(--warning-light); color: var(--text-primary); font-size: var(--body-sm); }
-.behavior-dialog footer { display: flex; justify-content: flex-end; gap: var(--spacing-sm); flex-wrap: wrap; }
-.behavior-dialog footer .behavior-dialog__confirm { border-color: var(--error); background: var(--error); color: var(--white); }
-.behavior-dialog footer .behavior-dialog__confirm-sub { border-color: var(--primary); background: var(--primary-xlight); color: var(--primary-dark); }
-.behavior-dialog footer .behavior-dialog__confirm-sub:hover { background: var(--primary-light); }
+
+.behavior-dialog__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.behavior-dialog__close:hover:not(:disabled) {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  transform: scale(1.06);
+}
+
+.behavior-dialog__mascot-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104px;
+  height: 104px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(186, 230, 253, 0.55) 0%, rgba(224, 242, 254, 0.2) 65%, transparent 100%);
+  animation: behaviorMascotFloat 3.5s ease-in-out infinite;
+}
+
+.behavior-dialog__mascot-img {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(37, 99, 235, 0.15));
+  user-select: none;
+  pointer-events: none;
+}
+
+.behavior-dialog__content {
+  margin-bottom: 14px;
+  width: 100%;
+}
+
+.behavior-dialog h2 {
+  margin: 0 0 8px !important;
+  font-size: 1.3rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.3 !important;
+}
+
+.behavior-dialog p {
+  margin: 0 auto !important;
+  font-size: 0.92rem !important;
+  color: #64748b !important;
+  line-height: 1.5 !important;
+  max-width: 400px;
+}
+
+.behavior-dialog__warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 20px !important;
+  padding: 12px 14px !important;
+  border-radius: 12px !important;
+  background: #fffbeb !important;
+  border: 1px solid #fde68a !important;
+  color: #92400e !important;
+  font-size: 0.85rem !important;
+  text-align: left;
+  line-height: 1.45;
+}
+
+.behavior-dialog__warning-icon {
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+.behavior-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.behavior-dialog__footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.behavior-dialog__btn-cancel {
+  flex: 1;
+  border: 1.5px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #475569 !important;
+}
+
+.behavior-dialog__btn-cancel:hover:not(:disabled) {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
+  color: #1e293b !important;
+}
+
+.behavior-dialog__btn-danger {
+  flex: 1;
+  border: none !important;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.28);
+}
+
+.behavior-dialog__btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.38);
+  transform: translateY(-1px);
+}
+
+.behavior-dialog__btn-round {
+  flex: 1;
+  border: none !important;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+}
+
+.behavior-dialog__btn-round:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.38);
+  transform: translateY(-1px);
+}
+
+.behavior-dialog__footer--real {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
 
 .behavior-spin { animation: behaviorSpin .8s linear infinite; }
+
+@keyframes behaviorMascotFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes behaviorFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes behaviorScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
 
 @keyframes behaviorSpin { to { transform: rotate(360deg); } }
 @keyframes behaviorBlink { 50% { opacity: .35; } }

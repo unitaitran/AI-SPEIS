@@ -35,19 +35,30 @@ public class SubscriptionController : ControllerBase
         var now = DateTime.UtcNow;
         var quota = await _subscriptionService.GetQuotaAsync(user, now, cancellationToken);
         var rewardPoints = await _rewardService.GetAvailablePointsAsync(userId, cancellationToken);
-        var billingCycle = await _context.SubscriptionTerms
+        
+        var userSubscription = await _context.UserSubscriptions
+            .Include(us => us.Plan)
+            .FirstOrDefaultAsync(us => us.UserId == userId && us.Status == UserSubscriptionStatus.Active, cancellationToken);
+
+        var activeTerm = await _context.SubscriptionTerms
+            .Include(term => term.Price)
             .Where(term => term.UserSubscription.UserId == userId
-                && term.Status == SubscriptionTermStatus.Active
-                && term.StartsAt <= now && term.EndsAt > now)
-            .OrderByDescending(term => term.StartsAt)
-            .Select(term => (BillingCycle?)term.Price.BillingCycle)
+                && (term.Status == SubscriptionTermStatus.Active || (term.Status == SubscriptionTermStatus.Scheduled && term.EndsAt > now))
+                && term.EndsAt > now)
+            .OrderByDescending(term => term.Price.BillingCycle)
+            .ThenByDescending(term => term.StartsAt)
             .FirstOrDefaultAsync(cancellationToken);
+
         await _context.SaveChangesAsync(cancellationToken);
 
         return Ok(new
         {
             planCode = quota.PlanCode,
-            billingCycle = billingCycle?.ToString(),
+            planId = userSubscription?.PlanId ?? (quota.PlanCode == "FREE" ? 1 : (int?)null),
+            planName = userSubscription?.Plan?.Name,
+            priceId = activeTerm?.PriceId,
+            billingCycle = activeTerm != null ? ((int)activeTerm.Price.BillingCycle).ToString() : null,
+            billingCycleName = activeTerm?.Price?.BillingCycle.ToString(),
             remainingInterviewQuota = quota.Remaining,
             maxInterviewQuota = quota.Limit,
             quotaPeriodEndsAt = quota.PeriodEndsAt,

@@ -62,15 +62,48 @@ public class SubscriptionService : ISubscriptionService
         if (price.BillingCycle == BillingCycle.Monthly && activeTerm?.Price.BillingCycle == BillingCycle.Yearly)
             throw new InvalidOperationException("SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED");
 
-        var startsAt = subscription.Plan.IsFree || subscription.ExpiresAt == null || subscription.ExpiresAt <= now
-            ? now
-            : subscription.ExpiresAt.Value;
-        var endsAt = price.BillingCycle switch
+        var isUpgradeToYearly = activeTerm != null && activeTerm.Price.BillingCycle == BillingCycle.Monthly && price.BillingCycle == BillingCycle.Yearly;
+        var isNewOrExpired = subscription.Plan.IsFree || subscription.ExpiresAt == null || subscription.ExpiresAt <= now;
+
+        DateTime startsAt;
+        DateTime endsAt;
+
+        if (isUpgradeToYearly)
         {
-            BillingCycle.Monthly => startsAt.AddMonths(price.BillingCycleCount),
-            BillingCycle.Yearly => startsAt.AddYears(price.BillingCycleCount),
-            _ => throw new InvalidOperationException("Unsupported billing cycle.")
-        };
+            // Immediate upgrade to Yearly: starts now, adds remaining days from monthly plan to the 1-year duration
+            var baseEnd = subscription.ExpiresAt.HasValue && subscription.ExpiresAt.Value > now
+                ? subscription.ExpiresAt.Value
+                : now;
+            startsAt = now;
+            endsAt = baseEnd.AddYears(price.BillingCycleCount);
+
+            // Complete existing monthly term since it is upgraded
+            if (activeTerm != null)
+            {
+                activeTerm.Status = SubscriptionTermStatus.Completed;
+            }
+        }
+        else if (isNewOrExpired)
+        {
+            startsAt = now;
+            endsAt = price.BillingCycle switch
+            {
+                BillingCycle.Monthly => startsAt.AddMonths(price.BillingCycleCount),
+                BillingCycle.Yearly => startsAt.AddYears(price.BillingCycleCount),
+                _ => throw new InvalidOperationException("Unsupported billing cycle.")
+            };
+        }
+        else
+        {
+            // Same-tier renewal (extends existing expiration date)
+            startsAt = subscription.ExpiresAt ?? now;
+            endsAt = price.BillingCycle switch
+            {
+                BillingCycle.Monthly => startsAt.AddMonths(price.BillingCycleCount),
+                BillingCycle.Yearly => startsAt.AddYears(price.BillingCycleCount),
+                _ => throw new InvalidOperationException("Unsupported billing cycle.")
+            };
+        }
 
         subscription.Terms.Add(new SubscriptionTerm
         {
@@ -86,8 +119,6 @@ public class SubscriptionService : ISubscriptionService
         subscription.Status = UserSubscriptionStatus.Active;
         subscription.UpdatedAt = now;
 
-        // A new premium activation receives a fresh 15-quota period. Early renewal or
-        // Monthly -> Yearly only extends/schedules the next term and keeps current quota.
         if (startsAt <= now)
         {
             subscription.PlanId = price.PlanId;

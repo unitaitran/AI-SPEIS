@@ -8,8 +8,9 @@ import { getCampaignResultPath, getInterviewRoomPath } from '../../../routes/rou
 import { getActiveInterviewContext, getNextOpenSession, saveActiveInterviewContext } from '../../../utils/interviewContext';
 import notify from '../../../utils/notification';
 import UserLayout from '../../../layouts/user/UserLayout';
-import EndSessionConfirmDialog from '../../../components/technicalInterview/EndSessionConfirmDialog';
+import BehavioralRoomDialog from '../../../components/behavioralInterview/BehavioralRoomDialog';
 import EvaluatingAnalysisModal from '../../../components/interviewRoom/EvaluatingAnalysisModal';
+import '../../../styles/user/BehavioralInterview.css';
 import '../../../styles/user/CodingInterviewPage.css';
 
 // Configure reliable CDN path for Monaco Editor
@@ -258,9 +259,6 @@ const CodingInterviewPage = ({ sessionId }) => {
   const getQuestionId = (q) => q?.codingQuestionId ?? q?.id;
   const currentQId = getQuestionId(currentQuestion);
 
-  const canComplete = questions.length > 0
-    && questions.every((q) => submittedQuestionIds.has(getQuestionId(q)));
-
   // Generate fallback starter code template based on question signature and language
   const getFallbackStarterCode = (q, lang) => {
     if (!q || !lang) return '';
@@ -381,7 +379,7 @@ const CodingInterviewPage = ({ sessionId }) => {
   };
 
 
-  const handleCompleteRound = async () => {
+  const handleCompleteRound = async (action = 'endRound') => {
     if (isCompleting) return;
     setIsCompleting(true);
     try {
@@ -423,9 +421,28 @@ const CodingInterviewPage = ({ sessionId }) => {
         }
       }
 
+      const currentContext = getActiveInterviewContext();
+      if (action === 'endAll') {
+        const campaignId = currentContext?.campaign?.interviewCampaignId;
+        try {
+          await interviewSessionService.completeSession(sessionId);
+        } catch {
+          // ignore
+        }
+        if (campaignId) {
+          try {
+            await interviewSessionService.finishCampaign(campaignId);
+          } catch {
+            // best effort
+          }
+          setIsEndConfirmOpen(false);
+          navigate(getCampaignResultPath(campaignId), { replace: true });
+          return;
+        }
+      }
+
       const campaign = await interviewSessionService.completeSession(sessionId);
       const nextSession = getNextOpenSession(campaign, sessionId);
-      const currentContext = getActiveInterviewContext();
       saveActiveInterviewContext({
         campaign,
         activeSessionId: nextSession?.status === 'Active' ? nextSession.interviewSessionId : null,
@@ -820,12 +837,25 @@ const CodingInterviewPage = ({ sessionId }) => {
         </div>
 
         {/* CONFIRM FINISH CODING SESSION DIALOG */}
-        <EndSessionConfirmDialog
-          isOpen={isEndConfirmOpen}
-          isSubmitting={isCompleting}
-          canComplete={canComplete}
-          onClose={() => setIsEndConfirmOpen(false)}
+        <BehavioralRoomDialog
+          dialog={isEndConfirmOpen ? { type: 'end' } : null}
+          mode={getActiveInterviewContext()?.campaign?.mode || 'Practice'}
+          roundType="Coding"
+          busy={isCompleting}
+          onCancel={() => setIsEndConfirmOpen(false)}
           onConfirm={handleCompleteRound}
+          t={(key, options) => {
+            if (key === 'endInterviewTitle') return 'Kết thúc bài phỏng vấn Coding?';
+            if (key === 'endInterviewDescription') return 'Hệ thống sẽ hoàn tất và chấm điểm các bài code đã nộp.';
+            if (key === 'unansweredWarning') return 'Các bài chưa hoàn thành hoặc chưa nộp có thể ảnh hưởng đến kết quả cuối.';
+            if (key === 'keepInterviewing') return 'Tiếp tục làm bài';
+            if (key === 'confirmEnd') return 'Kết thúc phỏng vấn';
+            if (key === 'endRealTitle') return 'Bạn muốn kết thúc như thế nào?';
+            if (key === 'endRealDescription') return 'Bạn có thể chọn kết thúc riêng vòng Coding để chuyển tiếp hoặc kết thúc toàn bộ buổi phỏng vấn.';
+            if (key === 'endRoundOnly') return 'Kết thúc vòng Coding';
+            if (key === 'endAllRounds') return 'Kết thúc toàn bộ buổi';
+            return options?.defaultValue || key;
+          }}
         />
 
         {/* EVALUATING ANALYSIS MODAL */}

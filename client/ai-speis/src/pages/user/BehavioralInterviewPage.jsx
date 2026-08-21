@@ -527,12 +527,13 @@ function BehavioralInterviewPage({ sessionId }) {
           <BehavioralRoomDialog
             dialog={dialog}
             mode={mode}
-            busy={room.phase === BehavioralFlowPhase.COMPLETING}
+            roundType="Behavior"
+            busy={room.phase === BehavioralFlowPhase.COMPLETING || isEndingAllRef.current}
             onCancel={() => { setDialog(null); setPendingNavigation(null); }}
             onConfirm={handleDialogConfirm}
             t={t}
           />
-          <EvaluatingAnalysisModal isOpen={room.phase === BehavioralFlowPhase.COMPLETING} />
+          <EvaluatingAnalysisModal isOpen={room.phase === BehavioralFlowPhase.COMPLETING || isEndingAllRef.current} />
         </>
       )}
     >
