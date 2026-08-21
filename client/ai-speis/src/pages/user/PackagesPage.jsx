@@ -250,13 +250,6 @@ function PackagesPage() {
       setIsVerifying(true);
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      if (resultCode && resultCode !== '0') {
-        setError(momoMessage || `${t('paymentError', 'Thanh toán không thành công')} hoặc đã bị hủy.`);
-        notify.error(momoMessage || 'Thanh toán không thành công.', { title: t('paymentFailed', 'Thanh toán thất bại') });
-        setIsVerifying(false);
-        return;
-      }
-
       try {
         const wasAlreadyPremium = isPremiumUser;
         const data = await paymentService.verifyPaymentResult(orderId, resultCode);
@@ -282,8 +275,12 @@ function PackagesPage() {
         } else {
           setError(data.message || t('paymentFailed', 'Thanh toán không thành công'));
         }
-      } catch {
-        setError(t('verificationError', 'Lỗi khi xác minh giao dịch. Vui lòng liên hệ hỗ trợ.'));
+      } catch (verificationError) {
+        const failureMessage = verificationError?.message
+          || momoMessage
+          || t('verificationError', 'Lỗi khi xác minh giao dịch. Vui lòng liên hệ hỗ trợ.');
+        setError(failureMessage);
+        notify.error(failureMessage, { title: t('paymentFailed', 'Thanh toán thất bại') });
       } finally {
         setIsVerifying(false);
       }
