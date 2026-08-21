@@ -15,7 +15,6 @@ services:
     restart: always
     environment:
       ENABLE_CGROUPS: "false"
-      RAILS_SERVER_PROCESSES: "0"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: aispeis_password_2026

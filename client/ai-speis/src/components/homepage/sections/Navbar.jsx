@@ -1,5 +1,6 @@
 import React from 'react';
 import { USER_ROUTES } from '../../../routes/routePaths';
+import { getStoredSession } from '../../../routes/auth';
 import { beginNewInterviewCampaign } from '../../../utils/interviewContext';
 
 const navItems = [
@@ -16,6 +17,7 @@ function Navbar({ currentHash = '', onToggleLanguage, t, i18n }) {
   const hashPath = (currentHash || '').split('?')[0];
   const currentLang = i18n?.language?.startsWith('vi') ? 'VI' : 'EN';
   const flagIcon = currentLang === 'VI' ? '🇻🇳' : '🇬🇧';
+  const session = getStoredSession();
 
   return (
     <header className="home-navbar">
@@ -54,8 +56,10 @@ function Navbar({ currentHash = '', onToggleLanguage, t, i18n }) {
           </a>
           <a
             className="home-button home-button--primary home-button--compact"
-            href={USER_ROUTES.INTERVIEW_MODE}
-            onClick={beginNewInterviewCampaign}
+            href={session ? USER_ROUTES.INTERVIEW_MODE : '#login'}
+            onClick={() => {
+              if (session) beginNewInterviewCampaign();
+            }}
           >
             <span>{t('buttons.startInterview', 'Luyện tập ngay')}</span>
           </a>

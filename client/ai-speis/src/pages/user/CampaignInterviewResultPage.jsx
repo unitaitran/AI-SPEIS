@@ -168,6 +168,10 @@ const normalizeBehaviorReview = (result, state) => {
         answerTranscript: subQ.answerTranscript || answers.find((ans) => ans.sessionQuestionId === subQ.sessionQuestionId)?.content || '',
       }));
 
+      const mainTranscript = question.answerTranscript
+        || answers.find((answer) => answer.sessionQuestionId === question.sessionQuestionId)?.content
+        || '';
+
       return {
         id: question.sessionQuestionId,
         questionId: question.questionId || null,
@@ -180,6 +184,8 @@ const normalizeBehaviorReview = (result, state) => {
         dimensions: question.dimensions || [],
         missingPoints: getBehaviouralMissingPoints(question, roundImprovements),
         suggestions: result?.summary?.recommendationsForImprovement || [],
+        transcript: mainTranscript,
+        answerTranscript: mainTranscript,
         subQuestions,
         adaptiveHistory: subQuestions,
       };
@@ -273,7 +279,7 @@ function CampaignInterviewResultPage({ campaignId }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Round Selection State
+  const [roundsReviewMap, setRoundsReviewMap] = useState({});
   const [activeRoundSessionId, setActiveRoundSessionId] = useState(null);
   const [roundReview, setRoundReview] = useState(null);
   const [isRoundLoading, setIsRoundLoading] = useState(false);
@@ -295,6 +301,19 @@ function CampaignInterviewResultPage({ campaignId }) {
       setIsSubmittingFeedback(false);
     }
   };
+
+  const refreshCampaignResult = useCallback(async () => {
+    if (!campaignId) return null;
+    try {
+      const res = await interviewSessionService.getCampaignResult(campaignId);
+      if (res) {
+        setCampaignResult(res);
+      }
+      return res;
+    } catch {
+      return null;
+    }
+  }, [campaignId]);
 
   const loadCampaign = useCallback(async () => {
     if (!campaignId) {
@@ -318,6 +337,36 @@ function CampaignInterviewResultPage({ campaignId }) {
       if (firstSession) {
         setActiveRoundSessionId(firstSession.interviewSessionId);
       }
+
+      // Prefetch details for all completed non-coding sessions in parallel
+      const completedSessions = (foundCampaign?.sessions || []).filter(
+        (s) => String(s.status).toLowerCase() === 'completed' && !['Code', 'Coding'].includes(s.interviewRoundType || s.roundType)
+      );
+      if (completedSessions.length > 0) {
+        Promise.all(completedSessions.map(async (s) => {
+          const rType = s.interviewRoundType || s.roundType;
+          try {
+            if (rType === 'Technical') {
+              const reviewRes = await technicalV2InterviewApi.getResult(s.interviewSessionId);
+              return { id: s.interviewSessionId, review: normalizeTechnicalV2Review(reviewRes) };
+            }
+            if (['Behavior', 'Behavioral'].includes(rType)) {
+              const [bRes, state] = await Promise.all([
+                behavioralInterviewApi.getResult(s.interviewSessionId),
+                behavioralInterviewApi.getState(s.interviewSessionId),
+              ]);
+              return { id: s.interviewSessionId, review: normalizeBehaviorReview(bRes, state) };
+            }
+          } catch {
+            return null;
+          }
+          return null;
+        })).then((results) => {
+          const newMap = {};
+          results.filter(Boolean).forEach((r) => { newMap[r.id] = r.review; });
+          setRoundsReviewMap((prev) => ({ ...prev, ...newMap }));
+        });
+      }
     } catch (loadError) {
       setError(copy.history.loadError);
     } finally {
@@ -336,17 +385,67 @@ function CampaignInterviewResultPage({ campaignId }) {
     return { ...fromCampaign, ...fromResult };
   }, [activeRoundSessionId, campaignData?.sessions, campaignResult?.rounds]);
 
+  const isFeedbackProcessing = useMemo(() => {
+    if (!activeSessionObj) return false;
+    const status = String(activeSessionObj.finalFeedbackStatus || '').toUpperCase();
+    return status === 'PROCESSING';
+  }, [activeSessionObj]);
+
+  const pollStartTimeRef = React.useRef(null);
+
+  useEffect(() => {
+    let timerId = null;
+
+    if (isFeedbackProcessing) {
+      if (!pollStartTimeRef.current) {
+        pollStartTimeRef.current = Date.now();
+      }
+
+      const poll = async () => {
+        const elapsedMs = Date.now() - (pollStartTimeRef.current || Date.now());
+        if (elapsedMs > 140000) {
+          pollStartTimeRef.current = null;
+          return;
+        }
+
+        const res = await refreshCampaignResult();
+        const currentRound = (res?.rounds || []).find((r) => r.interviewSessionId === activeRoundSessionId);
+        const currentStatus = String(currentRound?.finalFeedbackStatus || '').toUpperCase();
+
+        if (currentStatus === 'PROCESSING') {
+          timerId = setTimeout(poll, 2500);
+        } else {
+          pollStartTimeRef.current = null;
+        }
+      };
+
+      timerId = setTimeout(poll, 2500);
+    } else {
+      pollStartTimeRef.current = null;
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [isFeedbackProcessing, activeRoundSessionId, refreshCampaignResult]);
+
   // Fetch detailed review when active round changes (for Technical / Behavior)
-  const loadRoundDetail = useCallback(async () => {
-    if (!activeRoundSessionId || !activeSessionObj) return;
-    const roundType = activeSessionObj.interviewRoundType || activeSessionObj.roundType;
+  const loadRoundDetail = useCallback(async (isSilent = false) => {
+    if (!activeRoundSessionId) return;
+    const sessionObj = (campaignData?.sessions || []).find((s) => s.interviewSessionId === activeRoundSessionId)
+      || (campaignResult?.rounds || []).find((r) => r.interviewSessionId === activeRoundSessionId);
+    if (!sessionObj) return;
+
+    const roundType = sessionObj.interviewRoundType || sessionObj.roundType;
     if (['Code', 'Coding'].includes(roundType)) {
       setRoundReview(null);
       setIsRoundLoading(false);
       return;
     }
 
-    setIsRoundLoading(true);
+    if (!isSilent) {
+      setIsRoundLoading(true);
+    }
     setRoundError('');
     try {
       let reviewData;
@@ -361,17 +460,24 @@ function CampaignInterviewResultPage({ campaignId }) {
         reviewData = normalizeBehaviorReview(res, state);
       }
       setRoundReview(reviewData);
+      setRoundsReviewMap((prev) => ({ ...prev, [activeRoundSessionId]: reviewData }));
       setSelectedQuestionIndex(0);
     } catch (err) {
-      setRoundError(copy.review.loadError);
+      if (!isSilent) {
+        setRoundError(copy.review.loadError);
+      }
     } finally {
-      setIsRoundLoading(false);
+      if (!isSilent) {
+        setIsRoundLoading(false);
+      }
     }
-  }, [activeRoundSessionId, activeSessionObj, copy.review.loadError]);
+  }, [activeRoundSessionId, campaignData?.sessions, campaignResult?.rounds, copy.review.loadError]);
 
   useEffect(() => {
-    loadRoundDetail();
-  }, [loadRoundDetail]);
+    if (activeRoundSessionId) {
+      loadRoundDetail(false);
+    }
+  }, [activeRoundSessionId, loadRoundDetail]);
 
   const flatQuestionList = useMemo(() => {
     if (!roundReview?.questions) return [];
@@ -410,12 +516,20 @@ function CampaignInterviewResultPage({ campaignId }) {
     const codingScore = Math.min(10, Math.max(0, Number(codingRound?.score ?? 0)));
 
     // 2. Technical round overall & fallback
+    const techSession = (campaignData?.sessions || []).find((s) => (s.interviewRoundType || s.roundType) === 'Technical');
     const techRound = rounds.find((r) => (r.interviewRoundType || r.roundType) === 'Technical');
-    const techOverall = Math.min(10, Math.max(0, Number(techRound?.score ?? 0)));
+    const techReview = (techSession ? roundsReviewMap[techSession.interviewSessionId] : null)
+      || Object.values(roundsReviewMap).find((r) => r.runtimeVersion === 'V2')
+      || (roundReview?.runtimeVersion === 'V2' ? roundReview : null);
+    const techOverall = Math.min(10, Math.max(0, Number(techRound?.score ?? techReview?.overallScore ?? 0)));
 
     // 3. Behavioral round overall & fallback
+    const behaSession = (campaignData?.sessions || []).find((s) => ['Behavior', 'Behavioral'].includes(s.interviewRoundType || s.roundType));
     const behaRound = rounds.find((r) => ['Behavior', 'Behavioral'].includes(r.interviewRoundType || r.roundType));
-    const behaOverall = Math.min(10, Math.max(0, Number(behaRound?.score ?? 0)));
+    const behaReview = (behaSession ? roundsReviewMap[behaSession.interviewSessionId] : null)
+      || Object.values(roundsReviewMap).find((r) => r.runtimeVersion !== 'V2')
+      || (roundReview?.runtimeVersion !== 'V2' ? roundReview : null);
+    const behaOverall = Math.min(10, Math.max(0, Number(behaRound?.score ?? behaReview?.overallScore ?? 0)));
 
     let techAccuracy = techOverall;
     let techDepth = techOverall;
@@ -427,7 +541,7 @@ function CampaignInterviewResultPage({ campaignId }) {
     let behaAction = behaOverall;
 
     // Aggregate dimensions across ALL rounds in campaign so benchmarks remain stable regardless of active tab
-    const allRounds = [techRound, behaRound, codingRound, roundReview].filter(Boolean);
+    const allRounds = [techRound, behaRound, codingRound, roundReview, ...Object.values(roundsReviewMap)].filter(Boolean);
     const allQuestions = [];
     const visitedQuestionIds = new Set();
 
@@ -576,7 +690,51 @@ function CampaignInterviewResultPage({ campaignId }) {
         badgeColor: 'bg-emerald-600 text-white',
       },
     ];
-  }, [campaignResult, campaignData, roundReview, copy.history]);
+  }, [campaignResult, campaignData, roundReview, roundsReviewMap, copy.history]);
+
+  const campaignMode = String(campaignData?.mode || campaignResult?.mode || '').toLowerCase();
+  const isRealTest = campaignMode === 'realtest' || campaignMode === 'mock';
+  const mode = isRealTest ? 'Mock' : 'Practice';
+
+  const sessionName = formatInterviewTitle(campaignData || campaignResult, copy);
+  const status = campaignData?.status || campaignResult?.status || 'Completed';
+  const sConfig = getStatusConfig(status, copy);
+  const sessionsList = useMemo(() => {
+    return campaignData?.sessions || campaignResult?.rounds || [];
+  }, [campaignData?.sessions, campaignResult?.rounds]);
+  const calculatedOverallScore = useMemo(() => {
+    const rawScore = campaignResult?.overallScore ?? campaignData?.overallScore ?? campaignData?.OverallScore;
+    if (rawScore != null && Number(rawScore) > 0) return Number(rawScore);
+    const validScores = sessionsList
+      .map((s) => {
+        const roundRes = (campaignResult?.rounds || []).find((r) => r.interviewSessionId === s.interviewSessionId);
+        const sc = roundRes?.score ?? s.score ?? roundsReviewMap[s.interviewSessionId]?.overallScore;
+        return Number.isFinite(Number(sc)) && Number(sc) > 0 ? Number(sc) : null;
+      })
+      .filter((sc) => sc !== null);
+    if (validScores.length === 0) return null;
+    return Number((validScores.reduce((a, b) => a + b, 0) / validScores.length).toFixed(1));
+  }, [campaignResult, campaignData, sessionsList, roundsReviewMap]);
+  const overallScore = calculatedOverallScore;
+  const feedbackRoundOptions = sessionsList
+    .filter((session) => {
+      const roundType = session.interviewRoundType || session.roundType;
+      const isEvaluatedRound = roundType === 'Technical' || ['Behavior', 'Behavioral'].includes(roundType);
+      return isEvaluatedRound && (!session.status || String(session.status).toLowerCase() === 'completed');
+    })
+    .map((session) => {
+      const roundType = session.interviewRoundType || session.roundType;
+      const evaluationType = roundType === 'Technical' ? 'Technical' : 'Behavioral';
+      return {
+        interviewSessionId: session.interviewSessionId,
+        evaluationType,
+        label: getRoundConfig(roundType, copy).label,
+      };
+    });
+  const activeFeedbackRound = feedbackRoundOptions.find((round) => round.interviewSessionId === activeRoundSessionId);
+  const canReportFeedback = isRealTest
+    ? String(status).toLowerCase() === 'completed' && feedbackRoundOptions.length > 0
+    : Boolean(activeFeedbackRound);
 
   if (isLoading) {
     return (
@@ -605,35 +763,6 @@ function CampaignInterviewResultPage({ campaignId }) {
       </UserLayout>
     );
   }
-
-  const campaignMode = String(campaignData?.mode || campaignResult?.mode || '').toLowerCase();
-  const isRealTest = campaignMode === 'realtest' || campaignMode === 'mock';
-  const mode = isRealTest ? 'Mock' : 'Practice';
-
-  const sessionName = formatInterviewTitle(campaignData || campaignResult, copy);
-  const status = campaignData?.status || campaignResult?.status || 'Completed';
-  const sConfig = getStatusConfig(status, copy);
-  const overallScore = campaignResult?.overallScore ?? campaignData?.overallScore ?? campaignData?.OverallScore;
-  const sessionsList = campaignData?.sessions || campaignResult?.rounds || [];
-  const feedbackRoundOptions = sessionsList
-    .filter((session) => {
-      const roundType = session.interviewRoundType || session.roundType;
-      const isEvaluatedRound = roundType === 'Technical' || ['Behavior', 'Behavioral'].includes(roundType);
-      return isEvaluatedRound && (!session.status || String(session.status).toLowerCase() === 'completed');
-    })
-    .map((session) => {
-      const roundType = session.interviewRoundType || session.roundType;
-      const evaluationType = roundType === 'Technical' ? 'Technical' : 'Behavioral';
-      return {
-        interviewSessionId: session.interviewSessionId,
-        evaluationType,
-        label: getRoundConfig(roundType, copy).label,
-      };
-    });
-  const activeFeedbackRound = feedbackRoundOptions.find((round) => round.interviewSessionId === activeRoundSessionId);
-  const canReportFeedback = isRealTest
-    ? String(status).toLowerCase() === 'completed' && feedbackRoundOptions.length > 0
-    : Boolean(activeFeedbackRound);
 
   const openRoundFeedback = () => {
     if (isRealTest) {
@@ -751,7 +880,7 @@ function CampaignInterviewResultPage({ campaignId }) {
               const isSelected = s.interviewSessionId === activeRoundSessionId;
 
               const roundResultObj = (campaignResult?.rounds || []).find((r) => r.interviewSessionId === s.interviewSessionId);
-              const roundScore = roundResultObj?.score ?? s.score;
+              const roundScore = roundResultObj?.score ?? s.score ?? roundsReviewMap[s.interviewSessionId]?.overallScore ?? (isSelected ? roundReview?.overallScore : null);
 
               return (
                 <button
@@ -845,55 +974,62 @@ function CampaignInterviewResultPage({ campaignId }) {
               <div className="flex flex-col gap-6">
 
                 {/* === ROUND SUMMARY PANEL (from RoundResult table) === */}
-                {(activeSessionObj?.summary || activeSessionObj?.strengths?.length > 0 || activeSessionObj?.areasForImprovement?.length > 0 || activeSessionObj?.levelAssessment) && (
+                {(isFeedbackProcessing || activeSessionObj?.summary || activeSessionObj?.strengths?.length > 0 || (activeSessionObj?.areasForImprovement || activeSessionObj?.knowledgeGaps || activeSessionObj?.missingPoints)?.length > 0 || activeSessionObj?.levelAssessment) && (
                   <div className="p-5 bg-surface border border-border rounded-xl shadow-xs flex flex-col gap-3">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
                       <Sparkles size={15} className="text-primary" />
                       {copy.review.aiFeedback || 'AI Feedback'}
                     </h4>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* Col 1: Executive Summary */}
-                      <div className="p-3.5 rounded-xl border border-primary/20 bg-primary-xlight/10 flex flex-col gap-2">
-                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                          <ClipboardCheck size={13} /> Summary
-                        </h5>
-                        {activeSessionObj?.levelAssessment && activeSessionObj.levelAssessment !== activeSessionObj.summary && (
-                          <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark w-fit">
-                            {activeSessionObj.levelAssessment}
-                          </span>
-                        )}
-                        <p className="text-xs text-text-primary leading-relaxed">
-                          {activeSessionObj?.summary || '—'}
-                        </p>
+                    {isFeedbackProcessing ? (
+                      <div className="p-4 rounded-xl border border-primary/20 bg-primary-xlight/10 flex items-center justify-center gap-3 py-6 text-xs text-primary font-medium">
+                        <RefreshCw className="animate-spin text-primary" size={18} />
+                        <span>Đang tổng hợp nhận xét AI...</span>
                       </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Col 1: Executive Summary */}
+                        <div className="p-3.5 rounded-xl border border-primary/20 bg-primary-xlight/10 flex flex-col gap-2">
+                          <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                            <ClipboardCheck size={13} /> Summary
+                          </h5>
+                          {activeSessionObj?.levelAssessment && activeSessionObj.levelAssessment !== activeSessionObj.summary && (
+                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark w-fit">
+                              {activeSessionObj.levelAssessment}
+                            </span>
+                          )}
+                          <p className="text-xs text-text-primary leading-relaxed">
+                            {activeSessionObj?.summary || '—'}
+                          </p>
+                        </div>
 
-                      {/* Col 2: Strengths */}
-                      <div className="p-3.5 rounded-xl border border-success/25 bg-success-light/10 flex flex-col gap-2">
-                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-success-dark flex items-center gap-1.5">
-                          <CheckCircle2 size={13} /> {copy.review.strengths || 'Strengths'}
-                        </h5>
-                        {activeSessionObj?.strengths?.length > 0
-                          ? <ul className="list-disc list-inside text-xs text-text-primary space-y-1">
-                            {activeSessionObj.strengths.map((item, i) => <li key={i}>{item}</li>)}
-                          </ul>
-                          : <p className="text-xs text-text-muted italic">—</p>
-                        }
-                      </div>
+                        {/* Col 2: Strengths */}
+                        <div className="p-3.5 rounded-xl border border-success/25 bg-success-light/10 flex flex-col gap-2">
+                          <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-success-dark flex items-center gap-1.5">
+                            <CheckCircle2 size={13} /> {copy.review.strengths || 'Strengths'}
+                          </h5>
+                          {activeSessionObj?.strengths?.length > 0
+                            ? <ul className="list-disc list-inside text-xs text-text-primary space-y-1">
+                              {activeSessionObj.strengths.map((item, i) => <li key={i}>{item}</li>)}
+                            </ul>
+                            : <p className="text-xs text-text-muted italic">—</p>
+                          }
+                        </div>
 
-                      {/* Col 3: Areas to Improve */}
-                      <div className="p-3.5 rounded-xl border border-warning/25 bg-warning-light/10 flex flex-col gap-2">
-                        <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-warning-dark flex items-center gap-1.5">
-                          <Target size={13} /> {copy.review.improvements || 'Areas to Improve'}
-                        </h5>
-                        {activeSessionObj?.areasForImprovement?.length > 0
-                          ? <ul className="list-disc list-inside text-xs text-text-primary space-y-1">
-                            {activeSessionObj.areasForImprovement.map((item, i) => <li key={i}>{item}</li>)}
-                          </ul>
-                          : <p className="text-xs text-text-muted italic">—</p>
-                        }
+                        {/* Col 3: Areas to Improve */}
+                        <div className="p-3.5 rounded-xl border border-warning/25 bg-warning-light/10 flex flex-col gap-2">
+                          <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-warning-dark flex items-center gap-1.5">
+                            <Target size={13} /> {copy.review.improvements || 'Areas to Improve'}
+                          </h5>
+                          {(activeSessionObj?.areasForImprovement || activeSessionObj?.knowledgeGaps || activeSessionObj?.missingPoints)?.length > 0
+                            ? <ul className="list-disc list-inside text-xs text-text-primary space-y-1">
+                              {(activeSessionObj.areasForImprovement || activeSessionObj.knowledgeGaps || activeSessionObj.missingPoints).map((item, i) => <li key={i}>{item}</li>)}
+                            </ul>
+                            : <p className="text-xs text-text-muted italic">—</p>
+                          }
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
 

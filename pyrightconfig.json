@@ -1,0 +1,9 @@
+{
+  "venvPath": "Interview_app-main",
+  "venv": "venv",
+  "pythonPath": "Interview_app-main/venv/Scripts/python.exe",
+  "extraPaths": [
+    "Interview_app-main",
+    "Interview_app-main/venv/Lib/site-packages"
+  ]
+}

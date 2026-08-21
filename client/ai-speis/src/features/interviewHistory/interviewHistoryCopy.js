@@ -289,6 +289,7 @@ const COPY = {
       missingQuestion: 'Question content is unavailable', 
       skill: 'Skill: {{skill}}', 
       transcript: 'Answer transcript', 
+      missingTranscript: 'No answer transcript is available.',
       aiFeedback: 'AI feedback', 
       rubric: 'Evaluation criteria', 
       strengths: 'Strengths', 

@@ -284,10 +284,12 @@ public sealed class TechnicalQuestionSelectionServiceTests
 
         var validator = new TechnicalAIResponseValidator();
         var logger = new Mock<Microsoft.Extensions.Logging.ILogger<TechnicalQuestionSelectionService>>();
+        var ragClient = new Mock<ai_speis_be.Services.RagService.IRagQuestionRetrievalClient>();
         var service = new TechnicalQuestionSelectionService(
             repository.Object,
             aiResolver.Object,
             validator,
+            ragClient.Object,
             new TechnicalInterviewOptions(),
             logger.Object);
 
@@ -333,10 +335,12 @@ public sealed class TechnicalQuestionSelectionServiceTests
 
         var validator = new TechnicalAIResponseValidator();
         var logger = new Mock<Microsoft.Extensions.Logging.ILogger<TechnicalQuestionSelectionService>>();
+        var ragClient = new Mock<ai_speis_be.Services.RagService.IRagQuestionRetrievalClient>();
         var service = new TechnicalQuestionSelectionService(
             repository.Object,
             aiResolver.Object,
             validator,
+            ragClient.Object,
             new TechnicalInterviewOptions(),
             logger.Object);
 
@@ -361,15 +365,18 @@ public sealed class TechnicalQuestionSelectionServiceTests
 
     private static TechnicalQuestionSelectionService CreateService(
         IQuestionRepoitory repository,
-        TechnicalInterviewOptions? options = null)
+        TechnicalInterviewOptions? options = null,
+        ai_speis_be.Services.RagService.IRagQuestionRetrievalClient? ragClient = null)
     {
         var aiResolver = new Mock<ITechnicalInterviewAIProviderResolver>();
         var validator = new TechnicalAIResponseValidator();
         var logger = new Mock<Microsoft.Extensions.Logging.ILogger<TechnicalQuestionSelectionService>>();
+        var defaultRag = new Mock<ai_speis_be.Services.RagService.IRagQuestionRetrievalClient>();
         return new TechnicalQuestionSelectionService(
             repository,
             aiResolver.Object,
             validator,
+            ragClient ?? defaultRag.Object,
             options ?? new TechnicalInterviewOptions(),
             logger.Object);
     }

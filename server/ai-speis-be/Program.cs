@@ -273,6 +273,17 @@ builder.Services.AddScoped<ITechnicalAIResponseValidator, TechnicalAIResponseVal
 builder.Services.AddScoped<ITechnicalRubricScoringService, TechnicalRubricScoringService>();
 builder.Services.AddScoped<ITechnicalQuestionPlanBuilder, TechnicalQuestionPlanBuilder>();
 builder.Services.AddScoped<ITechnicalQuestionOrderRandomizer, TechnicalQuestionOrderRandomizer>();
+builder.Services.AddHttpClient("PythonRAG", client =>
+{
+    var baseUrl = builder.Configuration["PythonRAG:BaseUrl"]
+        ?? builder.Configuration["PYTHON_RAG_BASE_URL"]
+        ?? "http://localhost:8000";
+    client.BaseAddress = new Uri(baseUrl);
+    var timeoutSeconds = int.TryParse(builder.Configuration["PythonRAG:TimeoutSeconds"], out var t) ? t : 30;
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+});
+builder.Services.AddScoped<ai_speis_be.Services.RagService.IRagQuestionRetrievalClient, ai_speis_be.Services.RagService.RagQuestionRetrievalClient>();
+
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ai_speis_be.TechnicalInterviews.V2.ITechnicalV2InterviewOrchestrator, ai_speis_be.TechnicalInterviews.V2.TechnicalV2InterviewOrchestrator>();
 builder.Services.AddScoped<ai_speis_be.Services.ISingleQuestionRetryService, ai_speis_be.Services.SingleQuestionRetryService>();

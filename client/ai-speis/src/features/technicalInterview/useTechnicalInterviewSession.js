@@ -414,12 +414,17 @@ export default function useTechnicalInterviewSession(sessionId) {
     if (!question?.sessionQuestionId || submitInFlightRef.current) return null;
 
     const keyId = String(question.sessionQuestionId);
-    if (!idempotencyKeysRef.current.has(keyId)) {
+    const cached = idempotencyKeysRef.current.get(keyId);
+    let idempotencyKey;
+    if (cached && cached.transcript === normalizedTranscript) {
+      idempotencyKey = cached.key;
+    } else {
       const runtimeCrypto = typeof window !== 'undefined' ? window.crypto : null;
       const suffix = typeof runtimeCrypto?.randomUUID === 'function'
         ? runtimeCrypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      idempotencyKeysRef.current.set(keyId, `technical-v2-${sessionId}-${keyId}-${suffix}`);
+      idempotencyKey = `technical-v2-${sessionId}-${keyId}-${suffix}`;
+      idempotencyKeysRef.current.set(keyId, { key: idempotencyKey, transcript: normalizedTranscript });
     }
 
     submitInFlightRef.current = true;
@@ -435,8 +440,15 @@ export default function useTechnicalInterviewSession(sessionId) {
           ...(Number.isFinite(durationSeconds) ? { answerDurationSeconds: durationSeconds } : {}),
           ...(Number.isFinite(sttConfidence) ? { sttConfidence } : {}),
         },
-        { idempotencyKey: idempotencyKeysRef.current.get(keyId) },
+        { idempotencyKey },
       );
+
+      if (response?.decision === 'RETRYABLE_ERROR' || (response?.fallbackUsed && !response?.nextQuestion && response?.decision !== 'COMPLETE')) {
+        throw new TechnicalV2InterviewError(
+          'Dịch vụ đánh giá gặp sự cố. Bạn có thể gửi lại câu trả lời.',
+          { code: TechnicalV2ErrorCode.AI_PROVIDER_TIMEOUT, status: 502 }
+        );
+      }
 
       const nextState = response?.state || state.session;
       const nextQuestion = response?.nextQuestion || null;
@@ -463,6 +475,9 @@ export default function useTechnicalInterviewSession(sessionId) {
     } catch (error) {
       if (error?.name === 'AbortError') return null;
       const normalized = normalizeError(error);
+      if (normalized?.code === TechnicalV2ErrorCode.IDEMPOTENCY_PAYLOAD_MISMATCH || normalized?.status === 409) {
+        idempotencyKeysRef.current.delete(keyId);
+      }
       try {
         const reconciliation = await reconcileSubmission(question, normalizedTranscript, state.generalSession);
         if (reconciliation.accepted) {
