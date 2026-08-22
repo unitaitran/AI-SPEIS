@@ -3,13 +3,13 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Net;
 using ai_speis_be.Models;
 using ai_speis_be.Models.DTOs.Payment;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.PaymentRepo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using ai_speis_be.Services.EmailService;
 using ai_speis_be.Services.RewardService;
 using ai_speis_be.Services.SubscriptionService;
 using ai_speis_be.Services.NotificationService;
@@ -26,7 +26,6 @@ namespace ai_speis_be.Services.PaymentService
         private readonly ApplicationDbContext _context;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
-        private readonly IEmailSender _emailSender;
         private readonly IRewardService _rewardService;
         private readonly ISubscriptionService _subscriptionService;
         private readonly INotificationEventPublisher? _notificationPublisher;
@@ -37,7 +36,6 @@ namespace ai_speis_be.Services.PaymentService
             ApplicationDbContext context,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
-            IEmailSender emailSender,
             IRewardService rewardService,
             ISubscriptionService subscriptionService,
             INotificationEventPublisher? notificationPublisher = null,
@@ -47,7 +45,6 @@ namespace ai_speis_be.Services.PaymentService
             _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
-            _emailSender = emailSender;
             _rewardService = rewardService;
             _subscriptionService = subscriptionService;
             _notificationPublisher = notificationPublisher;
@@ -363,52 +360,6 @@ namespace ai_speis_be.Services.PaymentService
                 await _subscriptionService.ActivateFromPaymentAsync(payment, cancellationToken);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == payment.UserId, cancellationToken);
-                if (user is not null)
-                {
-                    // Send email
-                    var billingCycle = await _context.SubscriptionPrices
-                        .Where(price => price.PriceId == payment.PriceId)
-                        .Select(price => price.BillingCycle)
-                        .FirstOrDefaultAsync(cancellationToken);
-                    var packageDuration = billingCycle == BillingCycle.Yearly ? "1 năm" : "1 tháng";
-                    var subject = "👑 Kích Hoạt Gói Premium Thành Công - AI-SPEIS";
-                    var emailBody = $@"
-                        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;'>
-                            <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 10px 10px 0 0;'>
-                                <h1 style='color: #fff; margin: 0; font-size: 24px;'>Chúc mừng bạn đã nâng cấp Premium!</h1>
-                            </div>
-                            <div style='padding: 30px; background-color: #f9f9f9; border-left: 1px solid #ddd; border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; border-radius: 0 0 10px 10px;'>
-                                <p style='font-size: 16px;'>Xin chào <strong>{user.FullName}</strong>,</p>
-                                <p>Cảm ơn bạn đã tin tưởng và nâng cấp gói dịch vụ <strong>Premium ({packageDuration})</strong> tại AI-SPEIS.</p>
-                                <p>Thanh toán đã được xác nhận. Thời hạn Premium hiện tại của bạn đến ngày <strong>{user.PremiumExpireAt:dd/MM/yyyy}</strong>. Quota 15 lượt chỉ được cấp khi kỳ Premium tương ứng bắt đầu và làm mới sau mỗi 30 ngày.</p>
-                                
-                                <div style='background-color: #fff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FFA500;'>
-                                    <h3 style='margin-top: 0; color: #FFA500;'>Đặc quyền của bạn:</h3>
-                                    <ul style='margin-bottom: 0; padding-left: 20px;'>
-                                        <li>15 lượt phỏng vấn AI toàn diện mỗi tháng</li>
-                                        <li>Đánh giá & phân tích kỹ năng chuyên sâu</li>
-                                        <li>Làm mới 15 lượt ưu tiên mỗi tháng</li>
-                                    </ul>
-                                </div>
-                                
-                                <p>Hãy truy cập nền tảng và trải nghiệm những buổi phỏng vấn cùng AI ngay hôm nay!</p>
-                                
-                                <div style='text-align: center; margin-top: 30px;'>
-                                    <a href='{_configuration["Frontend:LoginUrl"]?.Replace("#login", "")}' style='background-color: #4A90E2; color: #fff; text-decoration: none; padding: 12px 25px; border-radius: 5px; font-weight: bold; display: inline-block;'>Bắt đầu phỏng vấn</a>
-                                </div>
-                            </div>
-                            <div style='text-align: center; padding: 15px; color: #888; font-size: 12px;'>
-                                <p>&copy; {DateTime.UtcNow.Year} AI-SPEIS. Mọi thắc mắc xin vui lòng liên hệ bộ phận hỗ trợ.</p>
-                            </div>
-                        </div>";
-
-                    // Delivery is queued and tracked by PublishSubscriptionActivatedNotificationAsync
-                    // after the payment transaction commits. Do not send a fire-and-forget email here.
-                    _ = subject;
-                    _ = emailBody;
-                }
-
                 await transaction.CommitAsync(cancellationToken);
                 transactionCommitted = true;
                 await PublishSubscriptionActivatedNotificationAsync(payment, cancellationToken);
@@ -467,23 +418,101 @@ namespace ai_speis_be.Services.PaymentService
             if (_notificationPublisher is null) return;
             try
             {
-                var subscription = await _context.UserSubscriptions.Include(item => item.Plan)
-                    .FirstOrDefaultAsync(item => item.UserId == payment.UserId, cancellationToken);
-                if (subscription is null) return;
+                var subscription = await _context.UserSubscriptions
+                    .AsNoTracking()
+                    .Where(item => item.UserId == payment.UserId)
+                    .Select(item => new
+                    {
+                        item.UserSubscriptionId,
+                        item.ExpiresAt,
+                        item.User.FullName
+                    })
+                    .FirstOrDefaultAsync(cancellationToken);
+                var purchasedPrice = await _context.SubscriptionPrices
+                    .AsNoTracking()
+                    .Where(price => price.PriceId == payment.PriceId)
+                    .Select(price => new
+                    {
+                        price.Plan.Name,
+                        price.Plan.Code,
+                        price.Plan.InterviewQuota,
+                        price.Plan.QuotaResetDays,
+                        price.BillingCycle,
+                        price.BillingCycleCount
+                    })
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (subscription is null || purchasedPrice is null) return;
+
+                var planName = purchasedPrice.Name;
+                var safePlanName = WebUtility.HtmlEncode(planName);
+                var safeFullName = WebUtility.HtmlEncode(subscription.FullName);
+                var duration = FormatBillingDuration(purchasedPrice.BillingCycle, purchasedPrice.BillingCycleCount);
+                var expiryDate = subscription.ExpiresAt?.ToString("dd/MM/yyyy") ?? "N/A";
+                var interviewQuota = purchasedPrice.InterviewQuota;
+                var interviewUrl = WebUtility.HtmlEncode(_configuration["Frontend:LoginUrl"]?.Replace("#login", ""));
+                var emailSubject = $"👑 Kích Hoạt Gói {planName} Thành Công - AI-SPEIS";
+                var emailBody = $"""
+                    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;'>
+                        <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 10px 10px 0 0;'>
+                            <h1 style='color: #fff; margin: 0; font-size: 24px;'>Chúc mừng bạn đã nâng cấp {safePlanName}!</h1>
+                        </div>
+                        <div style='padding: 30px; background-color: #f9f9f9; border-left: 1px solid #ddd; border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; border-radius: 0 0 10px 10px;'>
+                            <p style='font-size: 16px;'>Xin chào <strong>{safeFullName}</strong>,</p>
+                            <p>Cảm ơn bạn đã tin tưởng và nâng cấp gói dịch vụ <strong>{safePlanName} ({WebUtility.HtmlEncode(duration)})</strong> tại AI-SPEIS.</p>
+                            <p>Thanh toán đã được xác nhận. Thời hạn {safePlanName} hiện tại của bạn đến ngày <strong>{expiryDate}</strong>.</p>
+                            <div style='background-color: #fff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FFA500;'>
+                                <h3 style='margin-top: 0; color: #FFA500;'>Đặc quyền của bạn:</h3>
+                                <ul style='margin-bottom: 0; padding-left: 20px;'>
+                                    <li>{interviewQuota} lượt phỏng vấn AI toàn diện mỗi tháng</li>
+                                    <li>Đánh giá &amp; phân tích kỹ năng chuyên sâu</li>
+                                    <li>Làm mới {interviewQuota} lượt ưu tiên mỗi tháng</li>
+                                </ul>
+                            </div>
+                            <p>Hãy truy cập nền tảng và trải nghiệm những buổi phỏng vấn cùng AI ngay hôm nay!</p>
+                            <div style='text-align: center; margin-top: 30px;'>
+                                <a href='{interviewUrl}' style='background-color: #4A90E2; color: #fff; text-decoration: none; padding: 12px 25px; border-radius: 5px; font-weight: bold; display: inline-block;'>Bắt đầu phỏng vấn</a>
+                            </div>
+                        </div>
+                        <div style='text-align: center; padding: 15px; color: #888; font-size: 12px;'>
+                            <p>&copy; {DateTime.UtcNow.Year} AI-SPEIS. Mọi thắc mắc xin vui lòng liên hệ bộ phận hỗ trợ.</p>
+                        </div>
+                    </div>
+                    """;
                 await _notificationPublisher.PublishAsync(new NotificationEvent(
                     payment.UserId, NotificationRecipientRole.USER, NotificationType.SUBSCRIPTION_ACTIVATED,
-                    NotificationCategory.SUBSCRIPTION, NotificationSeverity.SUCCESS, "Subscription activated",
-                    $"Your {subscription.Plan.Name} subscription is now active.", NotificationEntityType.SUBSCRIPTION,
+                    NotificationCategory.SUBSCRIPTION, NotificationSeverity.SUCCESS, "Subscription purchase confirmed",
+                    $"Your {planName} subscription purchase has been confirmed.", NotificationEntityType.SUBSCRIPTION,
                     subscription.UserSubscriptionId.ToString(), "/user/packages",
-                    $"SUBSCRIPTION_ACTIVATED:{payment.PaymentId}:{payment.UserId}", new { planName = subscription.Plan.Name },
+                    $"SUBSCRIPTION_ACTIVATED:{payment.PaymentId}:{payment.UserId}",
+                    new
+                    {
+                        planName,
+                        planCode = purchasedPrice.Code,
+                        interviewQuota = purchasedPrice.InterviewQuota,
+                        quotaResetDays = purchasedPrice.QuotaResetDays,
+                        billingCycle = purchasedPrice.BillingCycle.ToString(),
+                        billingCycleCount = purchasedPrice.BillingCycleCount,
+                        subscription.ExpiresAt
+                    },
                     EmailDelivery: new TransactionalEmailContent(
-                        "Subscription activated - AI-SPEIS",
-                        $"<p>Your {subscription.Plan.Name} subscription is now active.</p>")), cancellationToken);
+                        emailSubject,
+                        emailBody)), cancellationToken);
             }
             catch (Exception exception)
             {
                 Console.WriteLine($"[NotificationError] Failed to publish subscription activation: {exception.Message}");
             }
+        }
+
+        private static string FormatBillingDuration(BillingCycle billingCycle, int billingCycleCount)
+        {
+            var count = Math.Max(1, billingCycleCount);
+            return billingCycle switch
+            {
+                BillingCycle.Monthly => $"{count} tháng",
+                BillingCycle.Yearly => $"{count} năm",
+                _ => $"{count} kỳ"
+            };
         }
 
         private async Task PublishPaymentFailureNotificationAsync(Payment payment, CancellationToken cancellationToken)
@@ -521,7 +550,13 @@ namespace ai_speis_be.Services.PaymentService
                 return $"{baseHost.TrimEnd('/')}/packages?orderId={payment.OrderCode}&resultCode=0";
             }
 
-            var orderInfo = $"Thanh toan goi Premium AI-SPEIS: {payment.OrderCode}";
+            var purchasedPlanName = await _context.SubscriptionPrices
+                .AsNoTracking()
+                .Where(price => price.PriceId == payment.PriceId)
+                .Select(price => price.Plan.Name)
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? "AI-SPEIS";
+            var orderInfo = $"Thanh toan goi {purchasedPlanName} AI-SPEIS: {payment.OrderCode}";
             var amount = Convert.ToInt64(decimal.Round(payment.Amount, 0, MidpointRounding.AwayFromZero)).ToString();
             var requestId = Guid.NewGuid().ToString();
             var extraData = "";

@@ -26,20 +26,24 @@ public class SubscriptionService : ISubscriptionService
         if (price.EffectiveFrom > now || price.EffectiveTo <= now)
             return (false, "SUBSCRIPTION_PRICE_NOT_AVAILABLE", "Mức giá chưa có hiệu lực hoặc đã hết hiệu lực.");
 
-        if (price.BillingCycle != BillingCycle.Monthly) return (true, null, null);
+        var currentSubscription = await _context.UserSubscriptions
+            .AsNoTracking()
+            .Include(subscription => subscription.Plan)
+            .FirstOrDefaultAsync(subscription => subscription.UserId == userId, cancellationToken);
 
-        var activeYearlyTerm = await _context.SubscriptionTerms
-            .Include(term => term.Price)
-            .AnyAsync(term => term.UserSubscription.UserId == userId
-                && term.Status == SubscriptionTermStatus.Active
-                && term.StartsAt <= now
-                && term.EndsAt > now
-                && term.Price.BillingCycle == BillingCycle.Yearly,
-                cancellationToken);
+        var hasActivePaidPlan = currentSubscription is not null
+            && !currentSubscription.Plan.IsFree
+            && currentSubscription.Status == UserSubscriptionStatus.Active
+            && currentSubscription.ExpiresAt > now;
+        if (!hasActivePaidPlan) return (true, null, null);
 
-        return activeYearlyTerm
-            ? (false, "SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED", "Không thể đăng ký gói tháng khi gói năm vẫn còn hiệu lực.")
-            : (true, null, null);
+        if (string.Equals(currentSubscription!.Plan.Code, price.Plan.Code, StringComparison.OrdinalIgnoreCase))
+            return (true, null, null);
+
+        return price.Plan.InterviewQuota > currentSubscription.Plan.InterviewQuota
+            ? (true, null, null)
+            : (false, "SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED",
+                "Chỉ có thể chuyển sang gói khác có quota cao hơn gói hiện tại.");
     }
 
     public async Task ActivateFromPaymentAsync(Payment payment, CancellationToken cancellationToken = default)
@@ -55,54 +59,41 @@ public class SubscriptionService : ISubscriptionService
         var now = payment.PaidAt ?? DateTime.UtcNow;
         await SynchronizeAsync(subscription, user, now, cancellationToken);
 
-        var activeTerm = subscription.Terms
-            .Where(term => term.Status == SubscriptionTermStatus.Active && term.StartsAt <= now && term.EndsAt > now)
-            .OrderByDescending(term => term.StartsAt)
-            .FirstOrDefault();
-        if (price.BillingCycle == BillingCycle.Monthly && activeTerm?.Price.BillingCycle == BillingCycle.Yearly)
-            throw new InvalidOperationException("SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED");
-
-        var isUpgradeToYearly = activeTerm != null && activeTerm.Price.BillingCycle == BillingCycle.Monthly && price.BillingCycle == BillingCycle.Yearly;
         var isNewOrExpired = subscription.Plan.IsFree || subscription.ExpiresAt == null || subscription.ExpiresAt <= now;
+        var isSameCodeRenewal = !isNewOrExpired
+            && string.Equals(subscription.Plan.Code, price.Plan.Code, StringComparison.OrdinalIgnoreCase);
+        var isHigherPlanReplacement = !isNewOrExpired
+            && !isSameCodeRenewal
+            && price.Plan.InterviewQuota > subscription.Plan.InterviewQuota;
+
+        if (!isNewOrExpired && !isSameCodeRenewal && !isHigherPlanReplacement)
+            throw new InvalidOperationException("SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED");
 
         DateTime startsAt;
         DateTime endsAt;
 
-        if (isUpgradeToYearly)
+        if (isSameCodeRenewal)
         {
-            // Immediate upgrade to Yearly: starts now, adds remaining days from monthly plan to the 1-year duration
-            var baseEnd = subscription.ExpiresAt.HasValue && subscription.ExpiresAt.Value > now
-                ? subscription.ExpiresAt.Value
-                : now;
-            startsAt = now;
-            endsAt = baseEnd.AddYears(price.BillingCycleCount);
-
-            // Complete existing monthly term since it is upgraded
-            if (activeTerm != null)
-            {
-                activeTerm.Status = SubscriptionTermStatus.Completed;
-            }
-        }
-        else if (isNewOrExpired)
-        {
-            startsAt = now;
-            endsAt = price.BillingCycle switch
-            {
-                BillingCycle.Monthly => startsAt.AddMonths(price.BillingCycleCount),
-                BillingCycle.Yearly => startsAt.AddYears(price.BillingCycleCount),
-                _ => throw new InvalidOperationException("Unsupported billing cycle.")
-            };
+            // A cycle change within the same plan code is a renewal. Preserve all
+            // purchased time and append the new term after the current expiry.
+            startsAt = subscription.ExpiresAt!.Value;
+            endsAt = AddBillingDuration(startsAt, price);
         }
         else
         {
-            // Same-tier renewal (extends existing expiration date)
-            startsAt = subscription.ExpiresAt ?? now;
-            endsAt = price.BillingCycle switch
+            startsAt = now;
+            endsAt = AddBillingDuration(startsAt, price);
+
+            if (isHigherPlanReplacement)
             {
-                BillingCycle.Monthly => startsAt.AddMonths(price.BillingCycleCount),
-                BillingCycle.Yearly => startsAt.AddYears(price.BillingCycleCount),
-                _ => throw new InvalidOperationException("Unsupported billing cycle.")
-            };
+                // A higher plan with a different code replaces every active or
+                // prepaid future term immediately. Keep the rows for audit history.
+                foreach (var term in subscription.Terms.Where(term =>
+                             term.Status is SubscriptionTermStatus.Active or SubscriptionTermStatus.Scheduled))
+                {
+                    term.Status = SubscriptionTermStatus.Cancelled;
+                }
+            }
         }
 
         subscription.Terms.Add(new SubscriptionTerm
@@ -121,6 +112,8 @@ public class SubscriptionService : ISubscriptionService
 
         if (startsAt <= now)
         {
+            if (subscription.PlanId != price.PlanId)
+                CloseCurrentQuotaPeriod(subscription, now);
             subscription.PlanId = price.PlanId;
             subscription.Plan = price.Plan;
             subscription.StartedAt = now;
@@ -133,6 +126,14 @@ public class SubscriptionService : ISubscriptionService
         user.PremiumExpireAt = endsAt;
         user.UpdatedAt = now;
     }
+
+    private static DateTime AddBillingDuration(DateTime startsAt, SubscriptionPrice price) =>
+        price.BillingCycle switch
+        {
+            BillingCycle.Monthly => startsAt.AddMonths(price.BillingCycleCount),
+            BillingCycle.Yearly => startsAt.AddYears(price.BillingCycleCount),
+            _ => throw new InvalidOperationException("Unsupported billing cycle.")
+        };
 
     public async Task<UserQuotaSnapshot> GetQuotaAsync(
         User user,
@@ -213,6 +214,7 @@ public class SubscriptionService : ISubscriptionService
     {
         foreach (var term in subscription.Terms)
         {
+            if (term.Status == SubscriptionTermStatus.Cancelled) continue;
             if (term.EndsAt <= now && term.Status != SubscriptionTermStatus.Cancelled) term.Status = SubscriptionTermStatus.Completed;
             else if (term.StartsAt <= now && term.EndsAt > now) term.Status = SubscriptionTermStatus.Active;
         }
@@ -279,6 +281,13 @@ public class SubscriptionService : ISubscriptionService
             UsedQuota = plan.InterviewQuota - normalizedRemaining,
             ReservedQuota = 0
         });
+    }
+
+    private static void CloseCurrentQuotaPeriod(UserSubscription subscription, DateTime now)
+    {
+        var currentPeriod = GetCurrentPeriod(subscription, now);
+        if (currentPeriod is not null && (currentPeriod.PeriodEnd is null || currentPeriod.PeriodEnd > now))
+            currentPeriod.PeriodEnd = now;
     }
 
     private static QuotaPeriod? GetCurrentPeriod(UserSubscription subscription, DateTime now) =>

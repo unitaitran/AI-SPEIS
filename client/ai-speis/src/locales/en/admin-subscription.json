@@ -16,7 +16,7 @@
     "activePlans": "Active Plans",
     "plansSuffix": "plans",
     "newThisMonth": "+{{count}} new this month",
-    "premiumUsers": "Premium Users",
+    "paidUsers": "Paid plan users",
     "monthlyRevenue": "Monthly Revenue (MRR)",
     "annualRevenue": "Annual Revenue (ARR)",
     "mostPopular": "Most Popular Plan",

@@ -170,8 +170,9 @@ function DashboardPage() {
   };
 
   const expDateFormatted = formatExpirationDate(subscriptionExpiresAt);
-  const quotaSubtext = planName === 'Premium'
-    ? (expDateFormatted ? `${t('stats.quota_expires', 'Hạn gói Premium')}: ${expDateFormatted}` : t('stats.premium_active', 'Gói Premium đang kích hoạt'))
+  const isPaidPlan = Boolean(planName && String(planName).toLowerCase() !== 'free');
+  const quotaSubtext = isPaidPlan
+    ? (expDateFormatted ? `Hạn gói ${planName}: ${expDateFormatted}` : `Gói ${planName} đang kích hoạt`)
     : t('stats.free_plan', 'Gói Miễn phí');
 
   const stats = [

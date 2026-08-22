@@ -206,7 +206,7 @@ function PackagesPage() {
 
       if (quotaRes.ok) {
         const qData = await quotaRes.json();
-        if (qData.planName === 'Premium') {
+        if (qData.planName && String(qData.planName).toLowerCase() !== 'free') {
           setIsPremiumUser(true);
         }
       }
@@ -215,7 +215,7 @@ function PackagesPage() {
         const data = await subscriptionRes.json();
         latestSubscription = data;
         setSubscriptionData(data);
-        setIsPremiumUser(data.planCode === 'PREMIUM');
+        setIsPremiumUser(Boolean(data.planCode && data.planCode !== 'FREE'));
       }
       return latestSubscription;
     } catch {
@@ -269,7 +269,7 @@ function PackagesPage() {
             detail: {
               remainingInterviewQuota: latest?.remainingInterviewQuota,
               maxInterviewQuota: latest?.maxInterviewQuota,
-              planName: latest?.planCode === 'PREMIUM' ? 'Premium' : 'Free',
+              planName: latest?.planName || latest?.planCode || 'Free',
             }
           }));
         } else {
@@ -317,7 +317,7 @@ function PackagesPage() {
           detail: {
             remainingInterviewQuota: latest?.remainingInterviewQuota,
             maxInterviewQuota: latest?.maxInterviewQuota,
-            planName: latest?.planCode === 'PREMIUM' ? 'Premium' : 'Free',
+            planName: latest?.planName || latest?.planCode || 'Free',
           }
         }));
         setIsCreating(false);
@@ -345,6 +345,15 @@ function PackagesPage() {
   const currentPriceId = subscriptionData?.priceId;
   const currentBillingCycle = subscriptionData?.billingCycle;
   const currentCycleNumber = (currentBillingCycle === 'Yearly' || currentBillingCycle === 2 || currentBillingCycle === '2') ? 2 : 1;
+  const currentQuotaLimit = Number(subscriptionData?.maxInterviewQuota ?? 0);
+  const isReplacementUpgrade = Boolean(
+    selectedPackage
+    && isPremiumUser
+    && !selectedPackage.isFree
+    && selectedPackage.planCode
+    && selectedPackage.planCode !== currentPlanCode
+    && Number(selectedPackage.interviewQuota ?? 0) > currentQuotaLimit
+  );
 
   return (
     <UserLayout>
@@ -543,8 +552,8 @@ function PackagesPage() {
                     isLowerPackage = true;
                   } else if (isCurrentPackage) {
                     isLowerPackage = false;
-                  } else if (currentCycleNumber === 2 && pkg.billingCycle === 1) {
-                    isLowerPackage = true;
+                  } else if (pkg.planCode && pkg.planCode !== currentPlanCode) {
+                    isLowerPackage = Number(pkg.interviewQuota ?? 0) <= currentQuotaLimit;
                   }
                 }
 
@@ -695,6 +704,24 @@ function PackagesPage() {
                 </p>
               </div>
 
+              {isReplacementUpgrade && (
+                <div className="mt-5 flex gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-left">
+                  <AlertTriangle size={22} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <p className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                      {t('replacementUpgradeTitle', 'Gói cao hơn sẽ thay thế gói hiện tại ngay lập tức')}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                      {t('replacementUpgradeWarning', 'Thời gian và quota còn lại của {{currentPlan}} sẽ không được bảo lưu. Gói {{targetPlan}} bắt đầu ngay với {{quota}} lượt và thời hạn mới tính từ lúc thanh toán thành công.', {
+                        currentPlan: subscriptionData?.planName || currentPlanCode,
+                        targetPlan: selectedPackage.planName || selectedPackage.name,
+                        quota: selectedPackage.interviewQuota,
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <fieldset className="mt-6 space-y-3">
                 <legend className="mb-2 text-sm font-bold text-text-primary">{t('chooseRewardOption', 'Chọn cách sử dụng điểm')}</legend>
                 <label className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition ${!useRewardPoints ? 'border-primary bg-primary-xlight/50' : 'border-border bg-surface-2'}`}>
@@ -753,7 +780,11 @@ function PackagesPage() {
                   className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white disabled:opacity-60 cursor-pointer"
                 >
                   {isCreating && <RefreshCw size={18} className="animate-spin" />}
-                  {checkoutFinalAmount === 0 ? t('payWithPoints', 'Thanh toán bằng điểm') : t('continueWithMomo', 'Tiếp tục với MoMo · {{amount}}', { amount: formatVnd(checkoutFinalAmount, t) })}
+                  {isReplacementUpgrade
+                    ? t('confirmReplacementUpgrade', 'Xác nhận thay thế và thanh toán')
+                    : checkoutFinalAmount === 0
+                      ? t('payWithPoints', 'Thanh toán bằng điểm')
+                      : t('continueWithMomo', 'Tiếp tục với MoMo · {{amount}}', { amount: formatVnd(checkoutFinalAmount, t) })}
                 </button>
               </div>
             </div>

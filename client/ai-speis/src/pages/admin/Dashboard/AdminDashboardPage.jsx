@@ -161,16 +161,17 @@ export default function AdminDashboardPage() {
     return subscriptions.distribution.map((item) => {
       let translatedLabel = item.label || item.Label || '';
       const lower = translatedLabel.toLowerCase();
-      if (lower.includes('free') || lower.includes('miễn phí')) {
+      if (lower === 'free' || lower.includes('free plan') || lower.includes('miễn phí')) {
         translatedLabel = t('free', 'Miễn phí');
-      } else if (lower.includes('monthly') || lower.includes('tháng')) {
-        translatedLabel = t('month', 'Tháng');
-      } else if (lower.includes('yearly') || lower.includes('năm')) {
-        translatedLabel = t('year', 'Năm');
       }
       return { ...item, translatedLabel };
     });
   }, [subscriptions?.distribution, t]);
+
+  const leadingPaidPlan = useMemo(() => formattedSubDistribution
+    .filter((item) => String(item.label || item.Label || '').toUpperCase() !== 'FREE')
+    .reduce((best, item) => Number(item.count || 0) > Number(best?.count || 0) ? item : best, null),
+  [formattedSubDistribution]);
 
   const formattedPaymentStatusDistribution = useMemo(() => {
     if (!payments?.statusDistribution) return [];
@@ -281,7 +282,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Premium Users -> /admin/subscription */}
+        {/* Paid plan users -> /admin/subscription */}
         <div
           className="dashboard-card overview-card dashboard-card--clickable"
           onClick={() => navigate('/admin/subscription')}
@@ -292,13 +293,13 @@ export default function AdminDashboardPage() {
             </span>
             <div className="overview-card__top-right">
               <span className="payment-tag payment-tag--paid">
-                {subscriptions?.distribution?.find(d => (d?.label || d?.Label || '').toLowerCase().includes('monthly'))?.percentage ?? 0}%
+                {leadingPaidPlan ? `${leadingPaidPlan.translatedLabel} ${leadingPaidPlan.percentage ?? 0}%` : '—'}
               </span>
               <ChevronRight size={16} className="dashboard-card__nav-icon" />
             </div>
           </div>
-          <div className="overview-card__val">{overview?.premiumUsers?.toLocaleString(langCode) ?? 0}</div>
-          <div className="overview-card__lbl">{t('cardPremiumUsers', 'Thành viên gói Premium')}</div>
+          <div className="overview-card__val">{overview?.paidUsers?.toLocaleString(langCode) ?? 0}</div>
+          <div className="overview-card__lbl">{t('cardPaidPlanUsers', 'Thành viên gói trả phí')}</div>
           <div className="overview-card__sub">
             <span>{t('freeUsers', 'Miễn phí:')} <strong>{overview?.freeUsers ?? 0}</strong></span>
             <span>•</span>

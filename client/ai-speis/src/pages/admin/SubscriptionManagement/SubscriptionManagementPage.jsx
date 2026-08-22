@@ -75,7 +75,7 @@ export const normalizeMonitoring = (payload) => {
     ? Object.fromEntries(source.planSubscriberCounts.map((item) => [String(item.planId), Number(item.subscriberCount || 0)]))
     : {};
   return {
-    activePremiumUsers: Number(source.activePremiumUsers || source.premiumUsers || 0),
+    activePaidUsers: Number(source.activePaidUsers || 0),
     totalActivePlans: Number(source.totalActivePlans || 0),
     planSubscriberCounts,
   };
@@ -261,7 +261,7 @@ export default function SubscriptionManagementPage() {
   // Non-revenue KPI Metrics Cards
   const metrics = useMemo(() => {
     const activePlans = plans.filter((plan) => plan?.isActive).length;
-    const premiumUsersCount = monitoring?.activePremiumUsers ?? 0;
+    const paidUsersCount = monitoring?.activePaidUsers ?? 0;
 
     const mostPopularPlan = plans.reduce((best, plan) => {
       const currentCount = getSubscriberCount(plan, monitoring);
@@ -290,8 +290,8 @@ export default function SubscriptionManagementPage() {
         icon: Users,
         color: 'text-purple-600',
         bg: 'bg-purple-50',
-        label: t('kpi.premiumUsers', 'Người dùng Premium'),
-        value: formatNumber(premiumUsersCount, language),
+        label: t('kpi.paidUsers', 'Người dùng gói trả phí'),
+        value: formatNumber(paidUsersCount, language),
         subText: 'Thành viên đang sử dụng',
       },
       {

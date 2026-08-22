@@ -1262,7 +1262,7 @@ namespace ai_speis_be.Services.InterviewSessionService
                     campaign.User,
                     campaign.InterviewCampaignId,
                     now);
-                quota = new QuotaMetadata(consumed.Remaining, consumed.Limit, consumed.PlanCode == "PREMIUM" ? "Premium" : "Free");
+                quota = new QuotaMetadata(consumed.Remaining, consumed.Limit, GetPlanDisplayName(consumed.PlanCode));
             }
 
             await _context.SaveChangesAsync();
@@ -1860,7 +1860,14 @@ namespace ai_speis_be.Services.InterviewSessionService
             return new QuotaMetadata(
                 quota.Remaining,
                 quota.Limit,
-                quota.PlanCode == "PREMIUM" ? "Premium" : "Free");
+                GetPlanDisplayName(quota.PlanCode));
         }
+
+        private static string GetPlanDisplayName(string planCode) =>
+            planCode.Equals("FREE", StringComparison.OrdinalIgnoreCase)
+                ? "Free"
+                : planCode.Equals("PREMIUM", StringComparison.OrdinalIgnoreCase)
+                    ? "Premium"
+                    : planCode;
     }
 }

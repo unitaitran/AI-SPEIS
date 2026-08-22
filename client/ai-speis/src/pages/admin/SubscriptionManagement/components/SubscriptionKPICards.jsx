@@ -21,7 +21,7 @@ function SubscriptionKPICards({ plans, monitoring }) {
   const locale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
 
   const activePlans = plans.filter((plan) => plan.isActive).length;
-  const premiumUsers = monitoring?.activePremiumUsers ?? null;
+  const paidUsers = monitoring?.activePaidUsers ?? null;
   const totalQuota = monitoring?.quota?.totalQuota ?? null;
   const monthlyRevenue = monitoring?.monthlyRevenueVnd ?? monitoring?.payments?.monthlyRevenueVnd ?? null;
   const annualRevenue = monitoring?.annualRevenueVnd ?? monitoring?.payments?.annualRevenueVnd ?? null;
@@ -36,9 +36,9 @@ function SubscriptionKPICards({ plans, monitoring }) {
       tone: 'from-primary-light/50 to-primary-xlight',
     },
     {
-      key: 'premiumUsers',
-      label: t('kpi.premiumUsers'),
-      value: formatNumber(premiumUsers, locale),
+      key: 'paidUsers',
+      label: t('kpi.paidUsers', 'Người dùng gói trả phí'),
+      value: formatNumber(paidUsers, locale),
       icon: Crown,
       tone: 'from-warning-light to-warning-light/40',
     },
