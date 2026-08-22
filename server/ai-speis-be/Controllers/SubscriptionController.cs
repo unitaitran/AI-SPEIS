@@ -43,10 +43,10 @@ public class SubscriptionController : ControllerBase
         var activeTerm = await _context.SubscriptionTerms
             .Include(term => term.Price)
             .Where(term => term.UserSubscription.UserId == userId
-                && (term.Status == SubscriptionTermStatus.Active || (term.Status == SubscriptionTermStatus.Scheduled && term.EndsAt > now))
+                && term.Status == SubscriptionTermStatus.Active
+                && term.StartsAt <= now
                 && term.EndsAt > now)
-            .OrderByDescending(term => term.Price.BillingCycle)
-            .ThenByDescending(term => term.StartsAt)
+            .OrderByDescending(term => term.StartsAt)
             .FirstOrDefaultAsync(cancellationToken);
 
         await _context.SaveChangesAsync(cancellationToken);

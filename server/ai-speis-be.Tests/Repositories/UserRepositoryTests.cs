@@ -82,6 +82,51 @@ namespace ai_speis_be.Tests.Repositories
         }
 
         [Fact]
+        public async Task GetUsersAsync_WithDynamicVipCode_ReturnsOnlyVipSubscriber()
+        {
+            var vip = new SubscriptionPlan
+            {
+                Code = "VIP",
+                Name = "VIP",
+                InterviewQuota = 30,
+                QuotaResetDays = 30,
+                IsFree = false,
+                IsActive = true,
+                AiTier = "ADVANCED"
+            };
+            _context.SubscriptionPlans.Add(vip);
+            var vipUser = await AddUserAsync();
+            var premiumUser = await AddUserAsync();
+            await _context.SaveChangesAsync();
+            _context.UserSubscriptions.AddRange(
+                new UserSubscription
+                {
+                    UserId = vipUser.UserId,
+                    PlanId = vip.PlanId,
+                    Status = UserSubscriptionStatus.Active,
+                    StartedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddMonths(1),
+                    CreatedAt = DateTime.UtcNow
+                },
+                new UserSubscription
+                {
+                    UserId = premiumUser.UserId,
+                    PlanId = 2,
+                    Status = UserSubscriptionStatus.Active,
+                    StartedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddMonths(1),
+                    CreatedAt = DateTime.UtcNow
+                });
+            await _context.SaveChangesAsync();
+
+            var result = await _repository.GetUsersAsync(new AdminUserQueryDto { Package = "vip" });
+
+            var item = Assert.Single(result.Items);
+            Assert.Equal(vipUser.UserId, item.UserId);
+            Assert.Equal("VIP", item.Package);
+        }
+
+        [Fact]
         public async Task GetAdminUserDetailAsync_WithoutProfile_ReturnsNullProfile()
         {
             var user = await AddUserAsync();

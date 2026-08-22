@@ -18,15 +18,24 @@ public class AdminSubscriptionMonitoringController : ControllerBase
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
-        var activePremiumUsers = await _context.UserSubscriptions.CountAsync(item =>
-            item.Plan.Code == "PREMIUM" && item.ExpiresAt > now && item.Status == UserSubscriptionStatus.Active,
-            cancellationToken);
+        var activePaidUsers = await _context.UserSubscriptions
+            .AsNoTracking()
+            .Where(item => !item.Plan.IsFree
+                && item.ExpiresAt > now
+                && item.Status == UserSubscriptionStatus.Active)
+            .Select(item => item.UserId)
+            .Distinct()
+            .CountAsync(cancellationToken);
         var planSubscriberCounts = await _context.UserSubscriptions
             .AsNoTracking()
+            .Where(item => item.Status == UserSubscriptionStatus.Active
+                && (item.Plan.IsFree || item.ExpiresAt > now))
             .GroupBy(item => item.PlanId)
             .Select(group => new
             {
                 planId = group.Key,
+                planCode = group.Select(item => item.Plan.Code).First(),
+                planName = group.Select(item => item.Plan.Name).First(),
                 subscriberCount = group.Select(item => item.UserId).Distinct().Count()
             })
             .ToListAsync(cancellationToken);
@@ -54,7 +63,7 @@ public class AdminSubscriptionMonitoringController : ControllerBase
         return Ok(new
         {
             generatedAt = now,
-            activePremiumUsers,
+            activePaidUsers,
             planSubscriberCounts,
             quota = quota ?? new { totalQuota = 0, usedQuota = 0, reservedQuota = 0 },
             payments = payments ?? new { paidOrders = 0, failedOrders = 0, revenueVnd = 0m, rewardDiscountVnd = 0m },

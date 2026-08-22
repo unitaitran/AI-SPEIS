@@ -24,6 +24,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { userService } from '../../../services/UserService';
+import subscriptionPlanService from '../../../services/SubscriptionPlanService';
 import { getAvatarUrl } from '../../../routes/auth';
 import notify from '../../../utils/notification';
 import '../../../styles/admin/UserManagementPage.css';
@@ -56,6 +57,7 @@ function UserManagementPage() {
   const [sortOrder, setSortOrder] = useState('asc');
   const [roleModal, setRoleModal] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
   const startIndex = totalUsers === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -128,6 +130,23 @@ function UserManagementPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  useEffect(() => {
+    let isMounted = true;
+    subscriptionPlanService.getPlans()
+      .then((plans) => {
+        if (!isMounted) return;
+        const normalized = Array.isArray(plans) ? plans : [];
+        setSubscriptionPlans(normalized.slice().sort((left, right) =>
+          Number(left.displayOrder ?? 0) - Number(right.displayOrder ?? 0)));
+      })
+      .catch(() => {
+        if (isMounted) setSubscriptionPlans([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Handle filter changes
   const handleFilterChange = (e) => {
@@ -806,9 +825,11 @@ function UserManagementPage() {
                 className="filter-select"
               >
                 <option value="all">{t('allPackages')}</option>
-                <option value="free">{t('free')}</option>
-                <option value="premium">{t('premium')}</option>
-                <option value="pro">{t('pro')}</option>
+                {subscriptionPlans.map((plan) => (
+                  <option key={plan.planId ?? plan.code} value={plan.code}>
+                    {plan.name} ({plan.code})
+                  </option>
+                ))}
               </select>
 
               <button

@@ -41,7 +41,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
         if (isMounted) {
           setRemainingInterviewQuota(quota.remainingInterviewQuota);
           setMaxInterviewQuota(quota.maxInterviewQuota ?? null);
-          const isPrem = quota.planName === 'Premium';
+          const isPrem = Boolean(quota.planName && String(quota.planName).toLowerCase() !== 'free');
           setPlanName(quota.planName || 'Free');
 
           const userStr = localStorage.getItem('user');
@@ -160,6 +160,7 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   };
 
   const isLastAttempt = remainingInterviewQuota === 1;
+  const isPaidPlan = Boolean(planName && String(planName).toLowerCase() !== 'free');
 
   return (
     <header className="h-[85px] bg-surface-2 border-b border-border flex items-center justify-between px-6 shrink-0 z-10 sticky top-0">
@@ -176,11 +177,11 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
           </span>
         </div>
 
-        <div className={`hidden sm:inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold shadow-sm ${planName === 'Premium' ? 'border-[#FFD700] bg-[#FFF8DC] text-[#DAA520]' : 'border-border bg-surface-1 text-text-secondary'}`}>
-          {planName === 'Premium' ? (
+        <div className={`hidden sm:inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold shadow-sm ${isPaidPlan ? 'border-[#FFD700] bg-[#FFF8DC] text-[#DAA520]' : 'border-border bg-surface-1 text-text-secondary'}`}>
+          {isPaidPlan ? (
             <div className="flex items-center space-x-1">
               <Crown size={14} className="text-[#FFD700]" />
-              <span className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-transparent bg-clip-text">Premium</span>
+              <span className="bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-transparent bg-clip-text">{planName}</span>
             </div>
           ) : (
             planName
