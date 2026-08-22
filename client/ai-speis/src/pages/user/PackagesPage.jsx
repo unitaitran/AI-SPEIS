@@ -525,8 +525,16 @@ function PackagesPage() {
               </div>
             )}
 
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {PACKAGES.map((pkg) => {
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto justify-center">
+              {PACKAGES.filter((pkg) => {
+                if (isPremiumUser && currentPlanCode !== 'FREE') {
+                  if (pkg.isFree) return false;
+                  if (pkg.planCode && pkg.planCode !== currentPlanCode && Number(pkg.interviewQuota ?? 0) <= currentQuotaLimit) {
+                    return false;
+                  }
+                }
+                return true;
+              }).map((pkg) => {
                 const isFree = pkg.isFree;
                 const isLoadingThis = isCreating && loadingPackageId === pkg.priceId;
                 

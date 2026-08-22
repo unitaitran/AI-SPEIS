@@ -246,8 +246,12 @@ namespace ai_speis_be.Services.PaymentService
                 var secretKey = _configuration["MoMo:SecretKey"] ?? "";
                 var apiEndpoint = _configuration["MoMo:ApiEndpoint"] ?? "";
 
-                // Local test / Dev fallback when MoMo credentials are not configured
-                if (string.IsNullOrWhiteSpace(partnerCode) || string.IsNullOrWhiteSpace(apiEndpoint))
+                var isDev = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase)
+                    || string.IsNullOrWhiteSpace(partnerCode)
+                    || string.IsNullOrWhiteSpace(apiEndpoint);
+
+                // Local test / Dev fallback when MoMo credentials are not configured or in development mode
+                if (isDev)
                 {
                     if (resultCode == 0 || resultCode == null)
                     {
@@ -542,59 +546,87 @@ namespace ai_speis_be.Services.PaymentService
             var redirectUrl = _configuration["MoMo:RedirectUrl"] ?? "";
             var ipnUrl = _configuration["MoMo:IpnUrl"] ?? "";
 
-            // Local dev fallback when MoMo credentials are not configured
-            if (string.IsNullOrWhiteSpace(partnerCode) || string.IsNullOrWhiteSpace(apiEndpoint))
+            var isDev = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(partnerCode)
+                || string.IsNullOrWhiteSpace(apiEndpoint);
+
+            string GetDevFallbackUrl()
             {
                 var frontendUrl = _configuration["Frontend:LoginUrl"] ?? "http://localhost:3000";
                 var baseHost = frontendUrl.Contains('#') ? frontendUrl.Substring(0, frontendUrl.IndexOf('#')) : frontendUrl;
-                return $"{baseHost.TrimEnd('/')}/packages?orderId={payment.OrderCode}&resultCode=0";
+                return $"{baseHost.TrimEnd('/')}/user/packages?orderId={payment.OrderCode}&resultCode=0";
             }
 
-            var purchasedPlanName = await _context.SubscriptionPrices
-                .AsNoTracking()
-                .Where(price => price.PriceId == payment.PriceId)
-                .Select(price => price.Plan.Name)
-                .FirstOrDefaultAsync(cancellationToken)
-                ?? "AI-SPEIS";
-            var orderInfo = $"Thanh toan goi {purchasedPlanName} AI-SPEIS: {payment.OrderCode}";
-            var amount = Convert.ToInt64(decimal.Round(payment.Amount, 0, MidpointRounding.AwayFromZero)).ToString();
-            var requestId = Guid.NewGuid().ToString();
-            var extraData = "";
-            var requestType = "captureWallet";
-
-            var rawHash = $"accessKey={accessKey}&amount={amount}&extraData={extraData}&ipnUrl={ipnUrl}&orderId={payment.OrderCode}&orderInfo={orderInfo}&partnerCode={partnerCode}&redirectUrl={redirectUrl}&requestId={requestId}&requestType={requestType}";
-            var signature = ComputeHmacSha256(rawHash, secretKey);
-
-            var requestData = new
+            // Local dev fallback when MoMo credentials are not configured
+            if (string.IsNullOrWhiteSpace(partnerCode) || string.IsNullOrWhiteSpace(apiEndpoint))
             {
-                partnerCode,
-                partnerName = "AI-SPEIS",
-                storeId = "MomoTestStore",
-                requestId,
-                amount,
-                orderId = payment.OrderCode,
-                orderInfo,
-                redirectUrl,
-                ipnUrl,
-                lang = "vi",
-                extraData,
-                requestType,
-                signature
-            };
+                return GetDevFallbackUrl();
+            }
 
-            var client = _httpClientFactory.CreateClient();
-            var content = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync($"{apiEndpoint}/v2/gateway/api/create", content, cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            try
             {
+                var purchasedPlanName = await _context.SubscriptionPrices
+                    .AsNoTracking()
+                    .Where(price => price.PriceId == payment.PriceId)
+                    .Select(price => price.Plan.Name)
+                    .FirstOrDefaultAsync(cancellationToken)
+                    ?? "AI-SPEIS";
+                var orderInfo = $"Thanh toan goi {purchasedPlanName} AI-SPEIS: {payment.OrderCode}";
+                var amount = Convert.ToInt64(decimal.Round(payment.Amount, 0, MidpointRounding.AwayFromZero)).ToString();
+                var requestId = Guid.NewGuid().ToString();
+                var extraData = "";
+                var requestType = "captureWallet";
+
+                var rawHash = $"accessKey={accessKey}&amount={amount}&extraData={extraData}&ipnUrl={ipnUrl}&orderId={payment.OrderCode}&orderInfo={orderInfo}&partnerCode={partnerCode}&redirectUrl={redirectUrl}&requestId={requestId}&requestType={requestType}";
+                var signature = ComputeHmacSha256(rawHash, secretKey);
+
+                var requestData = new
+                {
+                    partnerCode,
+                    partnerName = "AI-SPEIS",
+                    storeId = "MomoTestStore",
+                    requestId,
+                    amount,
+                    orderId = payment.OrderCode,
+                    orderInfo,
+                    redirectUrl,
+                    ipnUrl,
+                    lang = "vi",
+                    extraData,
+                    requestType,
+                    signature
+                };
+
+                var client = _httpClientFactory.CreateClient();
+                var content = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
+
+                var response = await client.PostAsync($"{apiEndpoint}/v2/gateway/api/create", content, cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                    Console.WriteLine($"[MoMo Gateway Error] HTTP {response.StatusCode}: {errorBody}");
+                    if (isDev) return GetDevFallbackUrl();
+                    return null;
+                }
+
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                var momoResponse = JsonSerializer.Deserialize<MoMoCreateResponse>(responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (!string.IsNullOrEmpty(momoResponse?.PayUrl))
+                {
+                    return momoResponse.PayUrl;
+                }
+
+                Console.WriteLine($"[MoMo Gateway Response without PayUrl] Code: {momoResponse?.ResultCode}, Message: {momoResponse?.Message}");
+                if (isDev) return GetDevFallbackUrl();
                 return null;
             }
-
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            var momoResponse = JsonSerializer.Deserialize<MoMoCreateResponse>(responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-            return momoResponse?.PayUrl;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MoMo Gateway Exception] {ex.Message}");
+                if (isDev) return GetDevFallbackUrl();
+                return null;
+            }
         }
 
         private static string ComputeHmacSha256(string message, string secretKey)

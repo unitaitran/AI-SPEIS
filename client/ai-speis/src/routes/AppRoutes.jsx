@@ -112,6 +112,16 @@ function AppRoutes() {
     return <UserRoutes pathname={pathname} />;
   }
 
+  if (pathname === '/packages' || pathname.startsWith('/packages/')) {
+    const search = window.location.search || '';
+    const target = `${USER_ROUTES.PACKAGES}${search}`;
+    return (
+      <RouteRedirect
+        to={session ? target : `${PUBLIC_ROUTES.LOGIN}${search}`}
+      />
+    );
+  }
+
   if (pathname === '/profile' || pathname === '/my-profile') {
     const legacyProfileTarget = session?.user.role === ROLES.USER
       ? USER_ROUTES.PROFILE
