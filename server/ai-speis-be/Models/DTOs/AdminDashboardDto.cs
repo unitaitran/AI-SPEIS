@@ -24,7 +24,7 @@ namespace ai_speis_be.Models.DTOs
     {
         public int TotalUsers { get; set; }
         public int ActiveUsers { get; set; }
-        public int PremiumUsers { get; set; }
+        public int PaidUsers { get; set; }
         public int FreeUsers { get; set; }
         public int NewUsersToday { get; set; }
         public int NewUsersThisMonth { get; set; }

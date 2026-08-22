@@ -77,7 +77,7 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
         });
         if (res.ok) {
           const data = await res.json();
-          const isPrem = data && data.planName === 'Premium';
+          const isPrem = Boolean(data?.planName && String(data.planName).toLowerCase() !== 'free');
           setIsPremium(isPrem);
           updateLocalUserIsPremium(isPrem);
         }
@@ -89,7 +89,7 @@ function UserSidebar({ isOpen, compact = false, onNavigate, onBeforeNavigate }) 
     const handleQuotaChanged = (event) => {
       const nextPlanName = event.detail?.planName;
       if (typeof nextPlanName === 'string') {
-        const isPrem = nextPlanName === 'Premium';
+        const isPrem = String(nextPlanName).toLowerCase() !== 'free';
         setIsPremium(isPrem);
         updateLocalUserIsPremium(isPrem);
       } else {

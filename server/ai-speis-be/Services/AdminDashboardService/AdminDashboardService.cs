@@ -43,8 +43,22 @@ namespace ai_speis_be.Services.AdminDashboardService
             // 1. Users & Overview Queries
             var totalUsers = await _context.Users.CountAsync(cancellationToken);
             var activeUsers = await _context.Users.CountAsync(u => u.Status, cancellationToken);
-            var premiumUsers = await _context.Users.CountAsync(u => u.IsPremium, cancellationToken);
-            var freeUsers = Math.Max(0, totalUsers - premiumUsers);
+            var paidPlanCounts = await _context.UserSubscriptions
+                .AsNoTracking()
+                .Where(subscription => subscription.Status == UserSubscriptionStatus.Active
+                    && !subscription.Plan.IsFree
+                    && subscription.ExpiresAt > now)
+                .GroupBy(subscription => new { subscription.Plan.Code, subscription.Plan.Name })
+                .Select(group => new
+                {
+                    group.Key.Code,
+                    group.Key.Name,
+                    Count = group.Select(subscription => subscription.UserId).Distinct().Count()
+                })
+                .OrderBy(item => item.Code)
+                .ToListAsync(cancellationToken);
+            var paidUsers = paidPlanCounts.Sum(item => item.Count);
+            var freeUsers = Math.Max(0, totalUsers - paidUsers);
             var newUsersToday = await _context.Users.CountAsync(u => u.CreatedAt >= startOfToday, cancellationToken);
             var newUsersThisMonth = await _context.Users.CountAsync(u => u.CreatedAt >= startOfCurrentMonth, cancellationToken);
 
@@ -69,7 +83,7 @@ namespace ai_speis_be.Services.AdminDashboardService
             {
                 TotalUsers = totalUsers,
                 ActiveUsers = activeUsers,
-                PremiumUsers = premiumUsers,
+                PaidUsers = paidUsers,
                 FreeUsers = freeUsers,
                 NewUsersToday = newUsersToday,
                 NewUsersThisMonth = newUsersThisMonth,
@@ -77,21 +91,45 @@ namespace ai_speis_be.Services.AdminDashboardService
             };
 
             // 2. Subscriptions
-            var freeSubCount = await _context.UserSubscriptions.CountAsync(s => s.PlanId == 1 && s.Status == UserSubscriptionStatus.Active, cancellationToken);
-            var monthlySubCount = await _context.UserSubscriptions.CountAsync(s => s.PlanId == 2 && s.Status == UserSubscriptionStatus.Active, cancellationToken);
-            var yearlySubCount = await _context.UserSubscriptions.CountAsync(s => s.PlanId == 3 && s.Status == UserSubscriptionStatus.Active, cancellationToken);
+            var freeSubCount = freeUsers;
+            var monthlySubCount = await _context.SubscriptionTerms.CountAsync(term =>
+                term.Status == SubscriptionTermStatus.Active
+                && term.StartsAt <= now
+                && term.EndsAt > now
+                && !term.Price.Plan.IsFree
+                && term.Price.BillingCycle == BillingCycle.Monthly,
+                cancellationToken);
+            var yearlySubCount = await _context.SubscriptionTerms.CountAsync(term =>
+                term.Status == SubscriptionTermStatus.Active
+                && term.StartsAt <= now
+                && term.EndsAt > now
+                && !term.Price.Plan.IsFree
+                && term.Price.BillingCycle == BillingCycle.Yearly,
+                cancellationToken);
             var expiredSubCount = await _context.UserSubscriptions.CountAsync(s => s.Status == UserSubscriptionStatus.Expired, cancellationToken);
             var renewTodayCount = await _context.SubscriptionTerms.CountAsync(t => t.StartsAt >= startOfToday, cancellationToken);
             var renewThisMonthCount = await _context.SubscriptionTerms.CountAsync(t => t.StartsAt >= startOfCurrentMonth, cancellationToken);
 
-            var totalSubs = freeSubCount + monthlySubCount + yearlySubCount + expiredSubCount;
+            var totalCurrentEntitlements = freeSubCount + paidUsers;
             var subDistribution = new List<DashboardDistributionPointDto>
             {
-                new() { Label = "Free Plan", Count = freeSubCount, Percentage = totalSubs > 0 ? Math.Round((double)freeSubCount / totalSubs * 100, 1) : 0 },
-                new() { Label = "Premium Monthly", Count = monthlySubCount, Percentage = totalSubs > 0 ? Math.Round((double)monthlySubCount / totalSubs * 100, 1) : 0 },
-                new() { Label = "Premium Yearly", Count = yearlySubCount, Percentage = totalSubs > 0 ? Math.Round((double)yearlySubCount / totalSubs * 100, 1) : 0 },
-                new() { Label = "Expired", Count = expiredSubCount, Percentage = totalSubs > 0 ? Math.Round((double)expiredSubCount / totalSubs * 100, 1) : 0 }
+                new()
+                {
+                    Label = "FREE",
+                    Count = freeSubCount,
+                    Percentage = totalCurrentEntitlements > 0
+                        ? Math.Round((double)freeSubCount / totalCurrentEntitlements * 100, 1)
+                        : 0
+                }
             };
+            subDistribution.AddRange(paidPlanCounts.Select(plan => new DashboardDistributionPointDto
+            {
+                Label = plan.Code,
+                Count = plan.Count,
+                Percentage = totalCurrentEntitlements > 0
+                    ? Math.Round((double)plan.Count / totalCurrentEntitlements * 100, 1)
+                    : 0
+            }));
 
             var subscriptionsDto = new DashboardSubscriptionsDto
             {
