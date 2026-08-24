@@ -366,8 +366,15 @@ namespace ai_speis_be.TechnicalInterviews.V2
                 }
                 return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "ALREADY_ANSWERED", "This canonical question already has an answer.");
             }
-            if (question.Status != TechnicalSessionQuestionStatus.Asked)
+            if (question.Status == TechnicalSessionQuestionStatus.Pending && question.Answer is null)
+            {
+                question.Status = TechnicalSessionQuestionStatus.Asked;
+                question.AskedAt ??= DateTime.UtcNow;
+            }
+            else if (question.Status != TechnicalSessionQuestionStatus.Asked)
+            {
                 return Failure<TechnicalV2SubmitAnswerResponseDto>(TechnicalV2OperationStatus.Conflict, "QUESTION_NOT_ACTIVE", "This question is not awaiting an answer.");
+            }
 
             var answer = new TechnicalAnswer
             {
@@ -685,13 +692,11 @@ namespace ai_speis_be.TechnicalInterviews.V2
             var valid = ai.Success
                 && ai.Data is not null
                 && !string.IsNullOrWhiteSpace(ai.Data.OverallTechnicalAssessment)
-                && strengths.Count is >= 2 and <= 4
-                && gaps.Count is >= 2 and <= 4
-                && recommendations.Count is >= 3 and <= 5;
+                && (strengths.Count > 0 || gaps.Count > 0);
             if (valid)
             {
                 var assessment = ai.Data!.OverallTechnicalAssessment.Trim();
-                ApplyFinalFeedback(result, assessment, strengths, gaps, recommendations, assessment, "COMPLETED");
+                ApplyFinalFeedback(result, assessment, strengths.Take(5).ToList(), gaps.Take(5).ToList(), recommendations.Take(5).ToList(), assessment, "COMPLETED");
                 result.FinalFeedbackError = null;
             }
             else

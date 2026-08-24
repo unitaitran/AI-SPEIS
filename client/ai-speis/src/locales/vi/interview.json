@@ -58,6 +58,8 @@
     "systemDifficulty": "Độ khó hệ thống:",
     "interviewType": "Loại phỏng vấn",
     "language": "Ngôn ngữ phỏng vấn",
+    "aiProvider": "AI Provider",
+    "localAiNotSupported": "(Model Local AI chưa được hỗ trợ trên production)",
     "practiceRoundsTitle": "Vòng luyện tập",
     "practiceRoundsDescription": "Chọn riêng từng vòng và số câu hỏi muốn luyện trong campaign này.",
     "selectRounds": "Chọn vòng muốn luyện tập",

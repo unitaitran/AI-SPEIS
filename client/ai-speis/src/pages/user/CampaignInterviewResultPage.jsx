@@ -197,10 +197,10 @@ function FeedbackList({ icon: Icon, title, items, tone = 'neutral' }) {
   if (!items?.length) return null;
   return (
     <div className={`p-4 rounded-xl border flex flex-col gap-2 ${tone === 'positive'
-        ? 'bg-success-light/30 border-success/30 text-success-dark'
-        : tone === 'focus'
-          ? 'bg-warning-light/30 border-warning/30 text-warning-dark'
-          : 'bg-primary-xlight/30 border-primary/30 text-primary-dark'
+      ? 'bg-success-light/30 border-success/30 text-success-dark'
+      : tone === 'focus'
+        ? 'bg-warning-light/30 border-warning/30 text-warning-dark'
+        : 'bg-primary-xlight/30 border-primary/30 text-primary-dark'
       }`}>
       <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
         <Icon size={16} /> {title}
@@ -382,8 +382,47 @@ function CampaignInterviewResultPage({ campaignId }) {
   const activeSessionObj = useMemo(() => {
     const fromCampaign = (campaignData?.sessions || []).find((s) => s.interviewSessionId === activeRoundSessionId);
     const fromResult = (campaignResult?.rounds || []).find((r) => r.interviewSessionId === activeRoundSessionId);
-    return { ...fromCampaign, ...fromResult };
-  }, [activeRoundSessionId, campaignData?.sessions, campaignResult?.rounds]);
+    const fromReview = roundsReviewMap[activeRoundSessionId] || (roundReview?.questions ? roundReview : null);
+
+    const isGenericFallback = (items) => {
+      if (!Array.isArray(items) || items.length === 0) return true;
+      return items.every((s) => typeof s === 'string' && (s.includes('là phần thể hiện tốt nhất') || s.includes('Tiếp tục tăng độ sâu')));
+    };
+
+    const summary = fromReview?.summary
+      || fromReview?.feedbackSummary
+      || fromResult?.summary
+      || campaignResult?.feedback?.executiveSummary
+      || campaignResult?.feedback?.summary
+      || fromCampaign?.summary
+      || '';
+
+    const strengths = (!isGenericFallback(fromReview?.strengths))
+      ? fromReview.strengths
+      : (!isGenericFallback(fromResult?.strengths)
+        ? fromResult.strengths
+        : (fromReview?.strengths?.length ? fromReview.strengths : (fromResult?.strengths?.length ? fromResult.strengths : (campaignResult?.feedback?.strengths || fromCampaign?.strengths || []))));
+
+    const areasForImprovement = (!isGenericFallback(fromReview?.areasForImprovement))
+      ? fromReview.areasForImprovement
+      : (!isGenericFallback(fromResult?.areasForImprovement)
+        ? fromResult.areasForImprovement
+        : (fromReview?.areasForImprovement?.length ? fromReview.areasForImprovement : (fromResult?.areasForImprovement?.length ? fromResult.areasForImprovement : (campaignResult?.feedback?.areasForImprovement || fromCampaign?.areasForImprovement || fromReview?.missingPoints || []))));
+
+    const levelAssessment = fromReview?.levelAssessment || fromResult?.levelAssessment || fromCampaign?.levelAssessment || '';
+    const finalFeedbackStatus = fromReview?.finalFeedbackStatus || fromResult?.finalFeedbackStatus || fromCampaign?.finalFeedbackStatus;
+
+    return {
+      ...fromCampaign,
+      ...fromResult,
+      ...fromReview,
+      summary,
+      strengths,
+      areasForImprovement,
+      levelAssessment,
+      finalFeedbackStatus,
+    };
+  }, [activeRoundSessionId, campaignData?.sessions, campaignResult?.rounds, campaignResult?.feedback, roundsReviewMap, roundReview]);
 
   const isFeedbackProcessing = useMemo(() => {
     if (!activeSessionObj) return false;
@@ -1121,8 +1160,8 @@ function CampaignInterviewResultPage({ campaignId }) {
                                       >
                                         <div className="flex items-center justify-between">
                                           <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded uppercase ${subQ.questionType === 'Clarification'
-                                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
                                             }`}>
                                             {subQ.questionType === 'Clarification' ? copy.review.clarificationBadge : copy.review.followUpBadge}
                                           </span>

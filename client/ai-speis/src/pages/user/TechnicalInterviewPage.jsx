@@ -244,6 +244,8 @@ function TechnicalInterviewPage({ sessionId }) {
     return t(`error.${code}`, { defaultValue: t('error.UNKNOWN_ERROR') });
   }, [t]);
 
+  const lastFailedTranscriptRef = useRef('');
+
   const handleSubmit = async () => {
     stopTimer();
     const transcript = recorder.transcript.trim();
@@ -261,10 +263,12 @@ function TechnicalInterviewPage({ sessionId }) {
         durationSeconds: recorder.elapsedSeconds,
       });
       if (result?.accepted) {
+        lastFailedTranscriptRef.current = '';
         saveDraft(resolvedSessionId, questionId, '');
         recorder.reset();
       }
     } catch (submitError) {
+      lastFailedTranscriptRef.current = transcript;
       setLocalError(submitError);
     }
   };
@@ -275,9 +279,11 @@ function TechnicalInterviewPage({ sessionId }) {
 
   const autoSubmittingRef = useRef(false);
   useEffect(() => {
+    const currentTranscript = recorder.transcript.trim();
     if (
       recorder.recordingStatus === RecordingStatus.READY
-      && recorder.transcript.trim()
+      && currentTranscript
+      && currentTranscript !== lastFailedTranscriptRef.current
       && !isSubmitting
       && !autoSubmittingRef.current
     ) {
