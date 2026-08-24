@@ -44,7 +44,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="wwwroot\AvatarImage\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="wwwroot\AvatarImage\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

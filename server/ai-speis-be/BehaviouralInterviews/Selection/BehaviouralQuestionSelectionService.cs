@@ -194,32 +194,26 @@ namespace ai_speis_be.BehaviouralInterviews.Selection
             {
                 if (_ragClient is null)
                 {
-                    _logger.LogWarning("Ollama/Qwen provider selected for Behavioral interview, but IRagQuestionRetrievalClient is null.");
-                    return (Array.Empty<Question>(), "none", "RAG_SERVICE_UNAVAILABLE");
+                    _logger.LogWarning("Ollama/Qwen provider selected for Behavioral interview, but IRagQuestionRetrievalClient is null. Falling back to DB question bank.");
                 }
-
-                var ragResult = await _ragClient.RetrieveQuestionsAsync(
-                    context.JobRole,
-                    context.ExperienceLevel,
-                    context.RequiredSkills,
-                    context.Language,
-                    50,
-                    "behavioral",
-                    cancellationToken);
-
-                if (!ragResult.Success)
+                else
                 {
-                    _logger.LogWarning("RAG Retrieval failed for Behavioral interview: ErrorCode={ErrorCode}, Detail={Detail}", ragResult.ErrorCode, ragResult.ErrorDetail);
-                    return (Array.Empty<Question>(), "none", ragResult.ErrorCode ?? "RAG_SERVICE_UNAVAILABLE");
-                }
+                    var ragResult = await _ragClient.RetrieveQuestionsAsync(
+                        context.JobRole,
+                        context.ExperienceLevel,
+                        context.RequiredSkills,
+                        context.Language,
+                        50,
+                        "behavioral",
+                        cancellationToken);
 
-                if (ragResult.Questions.Count == 0)
-                {
-                    _logger.LogWarning("RAG Retrieval returned 0 behavioral candidates for role '{JobRole}'", context.JobRole);
-                    return (Array.Empty<Question>(), "none", "NO_ELIGIBLE_RAG_QUESTION");
-                }
+                    if (ragResult.Success && ragResult.Questions.Count > 0)
+                    {
+                        return (ragResult.Questions, "rag", null);
+                    }
 
-                return (ragResult.Questions, "rag", null);
+                    _logger.LogWarning("RAG Retrieval failed or returned 0 behavioral candidates (ErrorCode={ErrorCode}, Detail={Detail}). Gracefully falling back to DB question bank.", ragResult.ErrorCode, ragResult.ErrorDetail);
+                }
             }
 
             var roleTargets = new List<string> { context.JobRole };
