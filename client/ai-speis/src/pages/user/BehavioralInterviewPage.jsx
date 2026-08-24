@@ -326,6 +326,7 @@ function BehavioralInterviewPage({ sessionId }) {
         durationSeconds: recorder.elapsedSeconds,
       });
       if (result?.accepted) {
+        lastFailedTranscriptRef.current = '';
         try {
           localStorage.removeItem(
             `behavioral-interview:${resolvedSessionId}:${room.currentQuestion?.sessionQuestionId}:draft`,
@@ -336,6 +337,7 @@ function BehavioralInterviewPage({ sessionId }) {
         recorder.reset();
       }
     } catch (submitError) {
+      lastFailedTranscriptRef.current = transcript;
       setLocalError(submitError);
     }
   }, [recorder, room, stopTimer, resolvedSessionId]);
@@ -345,11 +347,14 @@ function BehavioralInterviewPage({ sessionId }) {
   });
 
   const autoSubmittingRef = useRef(false);
+  const lastFailedTranscriptRef = useRef('');
 
   useEffect(() => {
+    const currentTranscript = recorder.transcript.trim();
     if (
       recorder.recordingStatus === RecordingStatus.READY
-      && recorder.transcript.trim()
+      && currentTranscript
+      && currentTranscript !== lastFailedTranscriptRef.current
       && !isSubmitting
       && !autoSubmittingRef.current
     ) {

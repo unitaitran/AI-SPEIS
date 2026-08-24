@@ -58,6 +58,8 @@
     "systemDifficulty": "System difficulty:",
     "interviewType": "Interview type",
     "language": "Interview language",
+    "aiProvider": "AI Provider",
+    "localAiNotSupported": "(Local AI model is not supported on production)",
     "practiceRoundsTitle": "Practice rounds",
     "practiceRoundsDescription": "Choose each round and the number of questions for this campaign.",
     "selectRounds": "Choose practice rounds",

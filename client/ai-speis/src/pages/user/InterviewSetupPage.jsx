@@ -745,7 +745,12 @@ function InterviewSetupPage() {
                   </div>
 
                   <div className="setup-field">
-                    <label htmlFor="setup-ai-provider">AI Provider</label>
+                    <label htmlFor="setup-ai-provider">
+                      {t('setup.aiProvider', { defaultValue: 'AI Provider' })}
+                      <span className="setup-field-hint">
+                        {t('setup.localAiNotSupported', { defaultValue: '(Model Local AI chưa được hỗ trợ trên production)' })}
+                      </span>
+                    </label>
                     <div className="setup-control-wrap">
                       <select
                         id="setup-ai-provider"

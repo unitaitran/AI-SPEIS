@@ -477,7 +477,12 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
                     BehaviouralOperationStatus.Conflict, "ROUND_COMPLETED", "Behavioural round is already completed.");
             }
 
-            if (sessionQuestion.Status != BehaviourQuestionStatus.Asked)
+            if (sessionQuestion.Status == BehaviourQuestionStatus.Pending && sessionQuestion.BehaviourAnswerAnswer is null)
+            {
+                sessionQuestion.Status = BehaviourQuestionStatus.Asked;
+                sessionQuestion.AskedAt ??= DateTime.UtcNow;
+            }
+            else if (sessionQuestion.Status != BehaviourQuestionStatus.Asked)
             {
                 return Failure<BehaviouralSubmitAnswerResponseDto>(
                     BehaviouralOperationStatus.Conflict, "QUESTION_NOT_ACTIVE", "This question is not awaiting an answer.");
@@ -1963,9 +1968,7 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             var valid = summaryResult.Success
                 && summaryResult.Data is not null
                 && !string.IsNullOrWhiteSpace(summaryResult.Data.OverallBehavioralAssessment)
-                && strengths.Count is >= 2 and <= 4
-                && weaknesses.Count is >= 2 and <= 4
-                && recommendations.Count is >= 3 and <= 5;
+                && (strengths.Count > 0 || weaknesses.Count > 0);
 
             roundResult.FinalFeedbackModel = summaryResult.Model;
             roundResult.FinalFeedbackPromptVersion = BehaviouralPromptVersions.Summary;
@@ -1976,17 +1979,20 @@ namespace ai_speis_be.BehaviouralInterviews.Orchestration
             if (valid)
             {
                 var data = summaryResult.Data!;
+                var cleanStrengths = strengths.Take(5).ToList();
+                var cleanWeaknesses = weaknesses.Take(5).ToList();
+                var cleanRecommendations = recommendations.Take(5).ToList();
                 var feedback = new BehaviouralFinalSummaryDto
                 {
                     OverallBehavioralAssessment = data.OverallBehavioralAssessment.Trim(),
                     ExecutiveSummary = data.OverallBehavioralAssessment.Trim(),
-                    Strengths = strengths,
-                    CompetencyStrengths = strengths,
-                    Weaknesses = weaknesses,
-                    CompetencyGaps = weaknesses,
+                    Strengths = cleanStrengths,
+                    CompetencyStrengths = cleanStrengths,
+                    Weaknesses = cleanWeaknesses,
+                    CompetencyGaps = cleanWeaknesses,
                     LevelAssessment = data.OverallBehavioralAssessment.Trim(),
-                    RecommendationsForImprovement = recommendations,
-                    TopRecommendations = recommendations,
+                    RecommendationsForImprovement = cleanRecommendations,
+                    TopRecommendations = cleanRecommendations,
                     FinalBehavioralScore = roundResult.OverallScore ?? 0m
                 };
                 roundResult.FinalFeedbackJson = JsonSerializer.Serialize(feedback, SnapshotJsonOptions);
