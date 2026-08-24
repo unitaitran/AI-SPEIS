@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from src.config import get_settings
 from src.cv_parser import normalize_cv_profile
 from src.interview_service import InterviewService
+from src.question_sync_service import QuestionSyncService
 from src.scoring import RubricScorer
 from src.session_manager import InterviewSessionManager
 
@@ -18,6 +19,7 @@ settings = get_settings()
 service = InterviewService(settings)
 scorer = RubricScorer(settings.rubric_path)
 sessions = InterviewSessionManager(service)
+sync_service = QuestionSyncService(service.store, settings)
 ROOT = Path(__file__).resolve().parent
 warmup_status = {"status": "starting", "detail": "Preparing local models"}
 
@@ -51,6 +53,13 @@ class RetrieveRequest(BaseModel):
     count: int = Field(default=3, ge=1, le=3)
     language: Literal["vi", "en"] = "vi"
 
+
+class QuestionSyncRequest(BaseModel):
+    question: dict[str, Any]
+
+
+class QuestionBatchSyncRequest(BaseModel):
+    questions: list[dict[str, Any]]
 
 
 class EvaluateRequest(BaseModel):
@@ -137,6 +146,33 @@ def retrieve_questions(body: RetrieveRequest) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+@app.post("/questions/sync")
+@app.post("/questions/upsert")
+def sync_question(body: QuestionSyncRequest) -> dict[str, Any]:
+    """Synchronize a single question from SQL Server into Qdrant."""
+    try:
+        return sync_service.sync_question(body.question)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/questions/{question_id}")
+def delete_question(question_id: int) -> dict[str, Any]:
+    """Delete a question from Qdrant question collections."""
+    try:
+        return sync_service.delete_question(question_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/questions/upsert-batch")
+def sync_questions_batch(body: QuestionBatchSyncRequest) -> dict[str, Any]:
+    """Synchronize a batch of questions from SQL Server into Qdrant."""
+    try:
+        return sync_service.sync_batch(body.questions)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/answers/evaluate")

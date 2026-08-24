@@ -439,5 +439,14 @@ namespace ai_speis_be.Repositories.QuestionRepo
                 ? null
                 : value.Trim();
         }
+
+        public async Task<IReadOnlyList<int>> GetAllActiveQuestionIdsAsync(CancellationToken cancellationToken = default)
+        {
+            return await _context.Questions
+                .AsNoTracking()
+                .Where(q => !q.IsDeleted)
+                .Select(q => q.QuestionId)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

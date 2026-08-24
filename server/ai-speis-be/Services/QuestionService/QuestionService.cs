@@ -2,6 +2,7 @@ using ai_speis_be.Models.DTOs;
 using ai_speis_be.Models;
 using ai_speis_be.Models.Enums;
 using ai_speis_be.Repositories.QuestionRepo;
+using Hangfire;
 using Microsoft.AspNetCore.Http;
 using System.IO.Compression;
 using System.Text.Json;
@@ -72,9 +73,14 @@ namespace ai_speis_be.Services.QuestionService
             "http://schemas.openxmlformats.org/package/2006/relationships";
 
         private readonly IQuestionRepoitory _repository;
-        public QuestionService (IQuestionRepoitory repository)
+        private readonly Hangfire.IBackgroundJobClient _backgroundJobs;
+
+        public QuestionService(
+            IQuestionRepoitory repository,
+            Hangfire.IBackgroundJobClient backgroundJobs)
         {
             _repository = repository;
+            _backgroundJobs = backgroundJobs;
         }
 
         public async Task<QuestionFiltersDto> GetQuestionFiltersAsync(CancellationToken cancellationToken = default)
@@ -141,6 +147,9 @@ namespace ai_speis_be.Services.QuestionService
                 question,
                 cancellationToken);
 
+            _backgroundJobs.Enqueue<ai_speis_be.BackgroundJobs.QuestionSyncJob>(
+                job => job.SyncQuestionAsync(createdQuestion.QuestionId, CancellationToken.None));
+
             return new QuestionOperationResult(
                 QuestionOperationOutcome.Created,
                 MapToDto(createdQuestion));
@@ -171,6 +180,9 @@ namespace ai_speis_be.Services.QuestionService
             ApplyQuestionMutation(question, request, actingUserId);
 
             await _repository.UpdateQuestionAsync(question, cancellationToken);
+
+            _backgroundJobs.Enqueue<ai_speis_be.BackgroundJobs.QuestionSyncJob>(
+                job => job.SyncQuestionAsync(question.QuestionId, CancellationToken.None));
 
             return new QuestionOperationResult(
                 QuestionOperationOutcome.Updated,
@@ -213,6 +225,9 @@ namespace ai_speis_be.Services.QuestionService
 
             await _repository.UpdateQuestionAsync(question, cancellationToken);
 
+            _backgroundJobs.Enqueue<ai_speis_be.BackgroundJobs.QuestionSyncJob>(
+                job => job.SyncQuestionAsync(question.QuestionId, CancellationToken.None));
+
             return new QuestionOperationResult(
                 QuestionOperationOutcome.Deleted,
                 MapToDto(question));
@@ -238,6 +253,10 @@ namespace ai_speis_be.Services.QuestionService
             question.LastPurgeError = null;
             question.UpdatedAt = DateTime.UtcNow;
             await _repository.UpdateQuestionAsync(question, cancellationToken);
+
+            _backgroundJobs.Enqueue<ai_speis_be.BackgroundJobs.QuestionSyncJob>(
+                job => job.SyncQuestionAsync(question.QuestionId, CancellationToken.None));
+
             return new QuestionOperationResult(QuestionOperationOutcome.Restored, MapToDto(question));
         }
 
@@ -350,6 +369,16 @@ namespace ai_speis_be.Services.QuestionService
                 validQuestions,
                 cancellationToken);
 
+            if (validQuestions.Count > 0)
+            {
+                var questionIds = validQuestions.Select(q => q.QuestionId).Where(id => id > 0).ToList();
+                if (questionIds.Count > 0)
+                {
+                    _backgroundJobs.Enqueue<ai_speis_be.BackgroundJobs.QuestionSyncJob>(
+                        job => job.SyncBatchAsync(questionIds, CancellationToken.None));
+                }
+            }
+
             return new QuestionImportOperationResult(
                 QuestionImportOutcome.Imported,
                 new QuestionImportSummaryDto
@@ -365,6 +394,17 @@ namespace ai_speis_be.Services.QuestionService
         {
             var question =await _repository.GetQuestionByIdAdminAsync(questionId);
             return question != null ? MapToAdminListItemDto(question) : null;
+        }
+
+        public async Task<int> ReindexAllVectorsAsync(CancellationToken cancellationToken = default)
+        {
+            var activeIds = await _repository.GetAllActiveQuestionIdsAsync(cancellationToken);
+            if (activeIds.Count > 0)
+            {
+                _backgroundJobs.Enqueue<ai_speis_be.BackgroundJobs.QuestionSyncJob>(
+                    job => job.SyncBatchAsync(activeIds.ToList(), CancellationToken.None));
+            }
+            return activeIds.Count;
         }
 
         public async Task<QuestionResponseDto?> GetQuestionByIdAsync(int questionId)
