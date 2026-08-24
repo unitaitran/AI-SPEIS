@@ -43,9 +43,9 @@
     <Content Update="Services\CodingService\Rubrics\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\**</DefaultItemExcludes>
-  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="wwwroot\AvatarImage\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <Watch Remove="wwwroot\**" />

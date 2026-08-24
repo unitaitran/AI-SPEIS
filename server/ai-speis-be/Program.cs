@@ -512,9 +512,9 @@ else
     });
 }
 
+app.UseCors("AllowAll");
 app.UseStaticFiles();
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
 app.UseWebSockets();
 
 // Catch Google OAuth Correlation failed errors and redirect gracefully
