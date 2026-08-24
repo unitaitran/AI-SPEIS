@@ -1,4 +1,3 @@
 <Solution>
   <Project Path="ai-speis-be.csproj" />
-  <Project Path="tests\AiSpeis.BackgroundJobs.Tests\AiSpeis.BackgroundJobs.Tests.csproj" />
 </Solution>

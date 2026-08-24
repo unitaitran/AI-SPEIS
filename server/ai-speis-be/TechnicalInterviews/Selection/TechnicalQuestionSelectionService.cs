@@ -205,20 +205,16 @@ namespace ai_speis_be.TechnicalInterviews.Selection
                     _options.StandardMainQuestionCount,
                     cancellationToken);
 
-                if (!ragResult.Success)
+                if (ragResult.Success && ragResult.Questions.Count > 0)
                 {
-                    _logger.LogWarning("Qwen RAG question retrieval failed: {ErrorCode} - {Detail}", ragResult.ErrorCode, ragResult.ErrorDetail);
                     return new TechnicalQuestionPoolResult
                     {
-                        ErrorCode = ragResult.ErrorCode ?? "RAG_SERVICE_UNAVAILABLE"
+                        Candidates = ragResult.Questions,
+                        Relaxation = "qdrant-rag"
                     };
                 }
 
-                return new TechnicalQuestionPoolResult
-                {
-                    Candidates = ragResult.Questions,
-                    Relaxation = "qdrant-rag"
-                };
+                _logger.LogWarning("Qwen RAG question retrieval failed or returned 0 questions: {ErrorCode} - {Detail}. Gracefully falling back to standard Question Bank.", ragResult.ErrorCode, ragResult.ErrorDetail);
             }
 
             var roleTargets = TechnicalQuestionMetadata.ResolveRoleAliases(context.JobRole);
