@@ -13,9 +13,14 @@ import { NOTIFICATION_STATE_RESET_EVENT } from '../../../features/notifications/
 function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
   const { t, i18n } = useTranslation('dashboard');
   const [user, setUser] = useState(null);
+  const [avatarError, setAvatarError] = useState(false);
   const [remainingInterviewQuota, setRemainingInterviewQuota] = useState(null);
   const [maxInterviewQuota, setMaxInterviewQuota] = useState(null);
   const [planName, setPlanName] = useState('Free');
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar, propUser?.avatar]);
 
   useEffect(() => {
     if (propUser) {
@@ -212,9 +217,14 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
             className="flex items-center space-x-2 p-1 pl-2 pr-3 hover:bg-surface-3 rounded-full transition-colors border border-transparent hover:border-border group"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white shadow-sm overflow-hidden">
-              {user && user.avatar ? (
-                <img src={getAvatarUrl(user.avatar)} alt="Avatar" className="w-full h-full object-cover" />
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white shadow-sm overflow-hidden shrink-0">
+              {user && user.avatar && !avatarError ? (
+                <img
+                  src={getAvatarUrl(user.avatar)}
+                  alt={user.fullName || "Avatar"}
+                  onError={() => setAvatarError(true)}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <User size={16} />
               )}

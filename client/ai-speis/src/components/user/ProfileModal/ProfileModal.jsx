@@ -22,8 +22,13 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
   const [interviewLanguage, setInterviewLanguage] = useState('en');
   const [originalInterviewLanguage, setOriginalInterviewLanguage] = useState('en');
   const [avatar, setAvatar] = useState('');
+  const [avatarError, setAvatarError] = useState(false);
   const [hasPassword, setHasPassword] = useState(true);
   const [isPhoneEditable, setIsPhoneEditable] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatar]);
 
   // Password change states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -449,8 +454,13 @@ function ProfileModal({ onClose = () => {}, onUserUpdated = () => {} }) {
               {/* Avatar section */}
               <div className="flex flex-col items-center gap-2">
                 <div className="relative w-24 h-24 rounded-full border border-border bg-surface-1 flex items-center justify-center overflow-hidden group shadow-sm">
-                  {avatar ? (
-                    <img src={getAvatarUrl(avatar)} alt="Avatar" className="w-full h-full object-cover" />
+                  {avatar && !avatarError ? (
+                    <img
+                      src={getAvatarUrl(avatar)}
+                      alt="Avatar"
+                      onError={() => setAvatarError(true)}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <User size={40} className="text-text-secondary" />
                   )}
