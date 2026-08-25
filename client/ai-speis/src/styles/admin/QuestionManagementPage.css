@@ -641,7 +641,7 @@
 }
 
 .modal-card.edit-modal {
-  width: min(650px, 100%);
+  width: min(720px, 100%);
 }
 
 @keyframes modalSlideIn {

@@ -72,5 +72,20 @@
   "moveToTrashConfirmText": "Bạn có chắc chắn muốn chuyển {{count}} câu hỏi đã chọn vào Thùng rác không? Bạn vẫn có thể khôi phục sau đó.",
   "processing": "Đang xử lý...",
   "purgeRequestAction": "Đánh dấu chờ purge",
-  "moveToTrashAction": "Chuyển vào Thùng rác ({{count}})"
+  "moveToTrashAction": "Chuyển vào Thùng rác ({{count}})",
+  "expectedKeyPointsLabel": "Ý chính gợi ý (Expected Key Points / Tips)",
+  "expectedKeyPointsPlaceholder": "Các ý chính câu trả lời cần đạt được...",
+  "questionContentPlaceholder": "Nhập nội dung câu hỏi...",
+  "selectRolePlaceholder": "-- Chọn vai trò --",
+  "experienceLevelLabel": "Cấp độ kinh nghiệm",
+  "clarificationQuestionLabel": "Câu hỏi làm rõ",
+  "clarificationQuestionPlaceholder": "Câu hỏi làm rõ khi ứng viên trả lời mơ hồ...",
+  "followUp1Label": "Câu hỏi đào sâu 1",
+  "followUp1Placeholder": "Câu hỏi mở rộng hoặc probe sâu hơn...",
+  "followUp2Label": "Câu hỏi đào sâu 2 ",
+  "followUp2Placeholder": "Câu hỏi tình huống thử thách nâng cao...",
+  "createQuestionSuccess": "Thêm câu hỏi mới thành công.",
+  "updateQuestionSuccess": "Cập nhật câu hỏi thành công.",
+  "createQuestionError": "Không thể thêm câu hỏi",
+  "updateQuestionError": "Không thể cập nhật câu hỏi"
 }

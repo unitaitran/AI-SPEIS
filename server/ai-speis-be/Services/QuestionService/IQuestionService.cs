@@ -42,6 +42,6 @@ namespace ai_speis_be.Services.QuestionService
             CancellationToken cancellationToken = default);
         Task<QuestionResponseDto?> GetQuestionByIdAsync(int questionId);
         Task<AdminQuestionListItemDto?> GetQuestionByIdAdminAsync(int questionId);
-
+        Task<int> ReindexAllVectorsAsync(CancellationToken cancellationToken = default);
     }
 }

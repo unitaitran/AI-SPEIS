@@ -44,6 +44,7 @@ namespace ai_speis_be.Repositories.QuestionRepo
         Task<IReadOnlyList<Question>> GetBehaviouralCandidatesAsync(
             BehaviouralQuestionCandidateQuery query,
             CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<int>> GetAllActiveQuestionIdsAsync(CancellationToken cancellationToken = default);
     }
 
     public sealed class BehaviouralQuestionCandidateQuery
