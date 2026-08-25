@@ -1,7 +1,8 @@
 import React from 'react';
 import { USER_ROUTES } from '../../../routes/routePaths';
-import { getStoredSession } from '../../../routes/auth';
+import { getStoredSession, getDefaultRouteForRole } from '../../../routes/auth';
 import { beginNewInterviewCampaign } from '../../../utils/interviewContext';
+import { navigate } from '../../../routes/navigation';
 
 const navItems = [
   { key: 'home', href: '#hero' },
@@ -51,14 +52,27 @@ function Navbar({ currentHash = '', onToggleLanguage, t, i18n }) {
             <span className="text-base mr-1">{flagIcon}</span>
             <span>{currentLang}</span>
           </button>
-          <a className="home-button home-button--ghost home-button--compact" href="#login">
-            {t('buttons.login', 'Đăng nhập')}
+          <a
+            className="home-button home-button--ghost home-button--compact"
+            href={session ? getDefaultRouteForRole(session?.user?.role) : '#login'}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(session ? getDefaultRouteForRole(session?.user?.role) : '#login');
+            }}
+          >
+            {session ? t('buttons.dashboard', 'Dashboard') : t('buttons.login', 'Đăng nhập')}
           </a>
           <a
             className="home-button home-button--primary home-button--compact"
             href={session ? USER_ROUTES.INTERVIEW_MODE : '#login'}
-            onClick={() => {
-              if (session) beginNewInterviewCampaign();
+            onClick={(e) => {
+              e.preventDefault();
+              if (session) {
+                beginNewInterviewCampaign();
+                navigate(USER_ROUTES.INTERVIEW_MODE);
+              } else {
+                navigate('#login');
+              }
             }}
           >
             <span>{t('buttons.startInterview', 'Luyện tập ngay')}</span>

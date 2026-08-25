@@ -1662,6 +1662,200 @@
   .comparison-table-wrapper {
     overflow-x: auto;
   }
+
+  /* SIMULATOR WINDOW MOBILE */
+  .simulator-window {
+    border-radius: 18px;
+    margin: 0;
+  }
+
+  .simulator-window__header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .simulator-dots {
+    order: 1;
+  }
+
+  .simulator-badge-live {
+    order: 2;
+    margin-left: auto;
+    font-size: 0.68rem;
+  }
+
+  .simulator-tabs {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 3px;
+    gap: 4px;
+    border-radius: 10px;
+  }
+
+  .simulator-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .simulator-tab {
+    flex: 1 0 auto;
+    padding: 7px 12px;
+    font-size: 0.76rem;
+    white-space: nowrap;
+    justify-content: center;
+    border-radius: 7px;
+  }
+
+  .simulator-window__body {
+    padding: 14px 12px;
+    min-height: auto;
+  }
+
+  /* CV & JD PANEL MOBILE */
+  .cv-demo-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .cv-card-box,
+  .cv-analysis-box {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .cv-card-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .cv-card-header h4 {
+    font-size: 0.82rem;
+    word-break: break-all;
+    line-height: 1.35;
+    margin: 0 0 2px;
+  }
+
+  .status-badge-success {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    margin-left: auto;
+  }
+
+  .cv-skills-tags {
+    gap: 5px;
+  }
+
+  .skill-chip {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  .match-score-bar .flex {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .match-score-bar .font-bold.text-sm {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .match-score-bar .font-extrabold.text-base {
+    font-size: 0.92rem;
+  }
+
+  .analysis-insights {
+    margin-top: 12px;
+    gap: 8px;
+  }
+
+  .insight-item {
+    font-size: 0.76rem;
+    line-height: 1.45;
+    padding: 10px;
+    gap: 8px;
+    border-radius: 8px;
+  }
+
+  /* VOICE DEMO PANEL MOBILE */
+  .voice-studio-grid {
+    gap: 12px;
+  }
+
+  .ai-interviewer-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .avatar-glow-ring {
+    width: 44px;
+    height: 44px;
+  }
+
+  .speech-bubble-ai {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    padding: 10px 12px;
+    border-radius: 12px;
+    width: 100%;
+  }
+
+  .candidate-voice-card {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .voice-control-bar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .recording-status-text {
+    width: 100%;
+    font-size: 0.76rem;
+  }
+
+  .live-transcription {
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .transcription-text {
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  /* CODING DEMO PANEL MOBILE */
+  .coding-demo-panel {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .code-editor-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .code-editor-mock {
+    font-size: 0.72rem;
+    overflow-x: auto;
+  }
+
+  .code-console-mock {
+    font-size: 0.72rem;
+    padding: 10px;
+  }
 }
 
 /* UTILITIES FOR HOMEPAGE COMPONENTS */
