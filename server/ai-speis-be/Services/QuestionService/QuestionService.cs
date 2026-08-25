@@ -133,9 +133,14 @@ namespace ai_speis_be.Services.QuestionService
                 UserId = actingUserId,
                 QuestionContent = request.GetQuestionContent(),
                 SuggestedAnswer = request.GetSuggestedAnswer(),
+                ExpectedKeyPoints = request.GetExpectedKeyPoints(),
                 Difficulty = request.Difficulty!.Value,
                 RoleTarget = request.GetRoleTarget(),
                 Major = request.GetMajor(),
+                ExperienceLevel = request.GetExperienceLevel(),
+                ClarificationQuestion = request.GetClarificationQuestion(),
+                FollowUp1 = request.GetFollowUp1(),
+                FollowUp2 = request.GetFollowUp2(),
                 IsDeleted = isDeleted,
                 CreatedAt = now,
                 UpdatedAt = null,
@@ -440,9 +445,14 @@ namespace ai_speis_be.Services.QuestionService
 
             question.QuestionContent = request.GetQuestionContent();
             question.SuggestedAnswer = request.GetSuggestedAnswer();
+            question.ExpectedKeyPoints = request.GetExpectedKeyPoints();
             question.Difficulty = request.Difficulty!.Value;
             question.RoleTarget = request.GetRoleTarget();
             question.Major = request.GetMajor();
+            question.ExperienceLevel = request.GetExperienceLevel();
+            question.ClarificationQuestion = request.GetClarificationQuestion();
+            question.FollowUp1 = request.GetFollowUp1();
+            question.FollowUp2 = request.GetFollowUp2();
             question.UpdatedAt = now;
 
             if (status == AdminQuestionStatus.Inactive)
@@ -1030,6 +1040,10 @@ namespace ai_speis_be.Services.QuestionService
                 Difficulty = question.Difficulty,
                 RoleTarget = question.RoleTarget,
                 Major = question.Major,
+                ExperienceLevel = question.ExperienceLevel,
+                ClarificationQuestion = question.ClarificationQuestion,
+                FollowUp1 = question.FollowUp1,
+                FollowUp2 = question.FollowUp2,
                 Language = question.Language,
                 IsDeleted = question.IsDeleted,
                 Status = GetQuestionStatus(question),
@@ -1055,6 +1069,10 @@ namespace ai_speis_be.Services.QuestionService
                 Difficulty = question.Difficulty,
                 RoleTarget = question.RoleTarget,
                 Major = question.Major,
+                ExperienceLevel = question.ExperienceLevel,
+                ClarificationQuestion = question.ClarificationQuestion,
+                FollowUp1 = question.FollowUp1,
+                FollowUp2 = question.FollowUp2,
                 Language = question.Language,
                 IsDeleted = question.IsDeleted,
                 Status = GetQuestionStatus(question),

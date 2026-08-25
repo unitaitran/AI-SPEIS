@@ -28,6 +28,21 @@ namespace ai_speis_be.Models.DTOs
         [StringLength(4000, ErrorMessage = "Câu trả lời gợi ý không được vượt quá 4000 ký tự.")]
         public string? SuggestedAnswer { get; set; }
 
+        [StringLength(4000, ErrorMessage = "Ý chính gợi ý không được vượt quá 4000 ký tự.")]
+        public string? ExpectedKeyPoints { get; set; }
+
+        [StringLength(100, ErrorMessage = "Cấp độ kinh nghiệm không được vượt quá 100 ký tự.")]
+        public string? ExperienceLevel { get; set; }
+
+        [StringLength(4000, ErrorMessage = "Câu hỏi làm rõ không được vượt quá 4000 ký tự.")]
+        public string? ClarificationQuestion { get; set; }
+
+        [StringLength(4000, ErrorMessage = "Câu hỏi đào sâu 1 không được vượt quá 4000 ký tự.")]
+        public string? FollowUp1 { get; set; }
+
+        [StringLength(4000, ErrorMessage = "Câu hỏi đào sâu 2 không được vượt quá 4000 ký tự.")]
+        public string? FollowUp2 { get; set; }
+
         [StringLength(20, ErrorMessage = "Trạng thái không được vượt quá 20 ký tự.")]
         public string? Status { get; set; }
 
@@ -100,6 +115,31 @@ namespace ai_speis_be.Models.DTOs
         public string GetSuggestedAnswer()
         {
             return NormalizeSuggestedAnswer() ?? string.Empty;
+        }
+
+        public string? GetExpectedKeyPoints()
+        {
+            return Normalize(ExpectedKeyPoints);
+        }
+
+        public string? GetExperienceLevel()
+        {
+            return Normalize(ExperienceLevel);
+        }
+
+        public string? GetClarificationQuestion()
+        {
+            return Normalize(ClarificationQuestion);
+        }
+
+        public string? GetFollowUp1()
+        {
+            return Normalize(FollowUp1);
+        }
+
+        public string? GetFollowUp2()
+        {
+            return Normalize(FollowUp2);
         }
 
         public AdminQuestionStatus GetStatus()
@@ -206,6 +246,10 @@ namespace ai_speis_be.Models.DTOs
         public QuestionDifficultyEnum Difficulty { get; set; }
         public string RoleTarget { get; set; } = string.Empty;
         public string Major { get; set; } = string.Empty;
+        public string? ExperienceLevel { get; set; }
+        public string? ClarificationQuestion { get; set; }
+        public string? FollowUp1 { get; set; }
+        public string? FollowUp2 { get; set; }
         public string? Language { get; set; }
         public bool IsDeleted { get; set; }
         public string Status { get; set; } = string.Empty;
@@ -229,6 +273,10 @@ namespace ai_speis_be.Models.DTOs
         public QuestionDifficultyEnum Difficulty { get; set; }
         public string RoleTarget { get; set; } = string.Empty;
         public string Major { get; set; } = string.Empty;
+        public string? ExperienceLevel { get; set; }
+        public string? ClarificationQuestion { get; set; }
+        public string? FollowUp1 { get; set; }
+        public string? FollowUp2 { get; set; }
         public string? Language { get; set; }
         public bool IsDeleted { get; set; } = false;
         public string Status { get; set; } = string.Empty;

@@ -72,5 +72,20 @@
   "moveToTrashConfirmText": "Move {{count}} selected question(s) to Trash? You can restore them later.",
   "processing": "Processing...",
   "purgeRequestAction": "Mark for purge",
-  "moveToTrashAction": "Move to Trash ({{count}})"
+  "moveToTrashAction": "Move to Trash ({{count}})",
+  "expectedKeyPointsLabel": "Expected Key Points / Tips",
+  "expectedKeyPointsPlaceholder": "Key points that the answer should cover...",
+  "questionContentPlaceholder": "Enter question content...",
+  "selectRolePlaceholder": "-- Select role --",
+  "experienceLevelLabel": "Experience Level",
+  "clarificationQuestionLabel": "Clarification Question",
+  "clarificationQuestionPlaceholder": "Clarification question when candidate answer is vague...",
+  "followUp1Label": "Follow-up Question 1",
+  "followUp1Placeholder": "Follow-up or deeper probe question...",
+  "followUp2Label": "Follow-up Question 2",
+  "followUp2Placeholder": "Advanced scenario or challenging follow-up...",
+  "createQuestionSuccess": "Question added successfully.",
+  "updateQuestionSuccess": "Question updated successfully.",
+  "createQuestionError": "Unable to add question",
+  "updateQuestionError": "Unable to update question"
 }

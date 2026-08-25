@@ -21,6 +21,15 @@ import notify from '../../../utils/notification';
 import '../../../styles/admin/QuestionManagementPage.css';
 
 const DIFFICULTY_OPTIONS = ['all', 'Easy', 'Medium', 'Hard'];
+const EXPERIENCE_LEVEL_OPTIONS = [
+  'Intern/Fresher',
+  'Fresher/Junior',
+  'Junior',
+  'Junior/Middle',
+  'Middle',
+  'Middle/Senior',
+  'Senior',
+];
 const DEFAULT_ROLES = [
   'Backend Developer',
   'Frontend Developer',
@@ -68,10 +77,15 @@ function QuestionManagementPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newQuestion, setNewQuestion] = useState({
     questionContent: '',
+    expectedKeyPoints: '',
     suggestedAnswer: '',
     difficulty: 'Easy',
     roleTarget: '',
     major: '',
+    experienceLevel: 'Fresher/Junior',
+    clarificationQuestion: '',
+    followUp1: '',
+    followUp2: '',
   });
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -226,6 +240,10 @@ function QuestionManagementPage() {
     setQuestionToEdit({
       ...question,
       expectedKeyPoints: question.expectedKeyPoints || question.suggestedAnswer || '',
+      experienceLevel: question.experienceLevel || 'Fresher/Junior',
+      clarificationQuestion: question.clarificationQuestion || '',
+      followUp1: question.followUp1 || '',
+      followUp2: question.followUp2 || '',
     });
     setIsEditModalOpen(true);
   };
@@ -245,13 +263,17 @@ function QuestionManagementPage() {
         expectedKeyPoints: keyPoints,
         suggestedAnswer: questionToEdit.suggestedAnswer || keyPoints,
         major: questionToEdit.major && questionToEdit.major.trim() !== '' ? questionToEdit.major : defaultMajor,
+        experienceLevel: questionToEdit.experienceLevel || 'Fresher/Junior',
+        clarificationQuestion: questionToEdit.clarificationQuestion || '',
+        followUp1: questionToEdit.followUp1 || '',
+        followUp2: questionToEdit.followUp2 || '',
       };
       await questionService.updateAdminQuestion(questionToEdit.questionId, payload);
       closeEditModal();
       fetchQuestions();
-      notify.success('Cập nhật câu hỏi thành công.');
+      notify.success(t('updateQuestionSuccess', 'Cập nhật câu hỏi thành công.'));
     } catch (err) {
-      notify.error(err.message || 'Không thể cập nhật câu hỏi');
+      notify.error(err.message || t('updateQuestionError', 'Không thể cập nhật câu hỏi'));
     }
   };
 
@@ -263,7 +285,18 @@ function QuestionManagementPage() {
   const openAddModal = () => setIsAddModalOpen(true);
   const closeAddModal = () => {
     setIsAddModalOpen(false);
-    setNewQuestion({ questionContent: '', expectedKeyPoints: '', suggestedAnswer: '', difficulty: 'Easy', roleTarget: '', major: '' });
+    setNewQuestion({
+      questionContent: '',
+      expectedKeyPoints: '',
+      suggestedAnswer: '',
+      difficulty: 'Easy',
+      roleTarget: '',
+      major: '',
+      experienceLevel: 'Fresher/Junior',
+      clarificationQuestion: '',
+      followUp1: '',
+      followUp2: '',
+    });
   };
 
   const handleAddChange = (e) => {
@@ -280,13 +313,17 @@ function QuestionManagementPage() {
         expectedKeyPoints: keyPoints,
         suggestedAnswer: newQuestion.suggestedAnswer || keyPoints,
         major: newQuestion.major && newQuestion.major.trim() !== '' ? newQuestion.major : defaultMajor,
+        experienceLevel: newQuestion.experienceLevel || 'Fresher/Junior',
+        clarificationQuestion: newQuestion.clarificationQuestion || '',
+        followUp1: newQuestion.followUp1 || '',
+        followUp2: newQuestion.followUp2 || '',
       };
       await questionService.createAdminQuestion(payload);
       closeAddModal();
       fetchQuestions();
-      notify.success('Thêm câu hỏi mới thành công.');
+      notify.success(t('createQuestionSuccess', 'Thêm câu hỏi mới thành công.'));
     } catch (err) {
-      notify.error(err.message || 'Không thể thêm câu hỏi');
+      notify.error(err.message || t('createQuestionError', 'Không thể thêm câu hỏi'));
     }
   };
 
@@ -778,23 +815,25 @@ function QuestionManagementPage() {
             </div>
             <div className="modal-body">
               <div className="modal-form-group">
-                <label className="modal-label">{t('tableQuestion', 'Question Content')}</label>
+                <label className="modal-label">{t('tableQuestion', 'Question Content')} *</label>
                 <textarea
                   name="questionContent"
                   className="modal-input textarea"
                   value={questionToEdit.questionContent || ''}
                   onChange={handleEditChange}
-                  rows={4}
+                  rows={3}
+                  placeholder={t('questionContentPlaceholder', 'Nhập nội dung câu hỏi...')}
                 />
               </div>
               <div className="modal-form-group">
-                <label className="modal-label">Ý chính gợi ý (Expected Key Points / Tips)</label>
+                <label className="modal-label">{t('expectedKeyPointsLabel', 'Ý chính gợi ý (Expected Key Points / Tips)')}</label>
                 <textarea
                   name="expectedKeyPoints"
                   className="modal-input textarea"
                   value={questionToEdit.expectedKeyPoints || ''}
                   onChange={handleEditChange}
-                  rows={4}
+                  rows={3}
+                  placeholder={t('expectedKeyPointsPlaceholder', 'Các ý chính câu trả lời cần đạt được...')}
                 />
               </div>
               <div className="modal-form-row">
@@ -817,7 +856,7 @@ function QuestionManagementPage() {
                     value={questionToEdit.roleTarget || ''}
                     onChange={handleEditChange}
                   >
-                    <option value="">-- Chọn vai trò --</option>
+                    <option value="">{t('selectRolePlaceholder', '-- Chọn vai trò --')}</option>
                     {Array.from(new Set([...DEFAULT_ROLES, ...roleOptions.filter(r => r !== 'all')])).map(role => (
                       <option key={role} value={role}>{role}</option>
                     ))}
@@ -825,6 +864,54 @@ function QuestionManagementPage() {
                       <option value={questionToEdit.roleTarget}>{questionToEdit.roleTarget}</option>
                     )}
                   </select>
+                </div>
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('experienceLevelLabel', 'Cấp độ kinh nghiệm (Experience Level)')}</label>
+                  <select
+                    name="experienceLevel"
+                    className="modal-input"
+                    value={questionToEdit.experienceLevel || 'Fresher/Junior'}
+                    onChange={handleEditChange}
+                  >
+                    {EXPERIENCE_LEVEL_OPTIONS.map(lvl => (
+                      <option key={lvl} value={lvl}>{lvl}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-form-group">
+                <label className="modal-label">{t('clarificationQuestionLabel', 'Câu hỏi làm rõ (Clarification Question)')}</label>
+                <input
+                  type="text"
+                  name="clarificationQuestion"
+                  className="modal-input"
+                  value={questionToEdit.clarificationQuestion || ''}
+                  onChange={handleEditChange}
+                  placeholder={t('clarificationQuestionPlaceholder', 'Câu hỏi làm rõ khi ứng viên trả lời mơ hồ...')}
+                />
+              </div>
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('followUp1Label', 'Câu hỏi đào sâu 1 (Follow-up 1)')}</label>
+                  <input
+                    type="text"
+                    name="followUp1"
+                    className="modal-input"
+                    value={questionToEdit.followUp1 || ''}
+                    onChange={handleEditChange}
+                    placeholder={t('followUp1Placeholder', 'Câu hỏi mở rộng hoặc probe sâu hơn...')}
+                  />
+                </div>
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('followUp2Label', 'Câu hỏi đào sâu 2 (Follow-up 2)')}</label>
+                  <input
+                    type="text"
+                    name="followUp2"
+                    className="modal-input"
+                    value={questionToEdit.followUp2 || ''}
+                    onChange={handleEditChange}
+                    placeholder={t('followUp2Placeholder', 'Câu hỏi tình huống thử thách nâng cao...')}
+                  />
                 </div>
               </div>
             </div>
@@ -852,23 +939,25 @@ function QuestionManagementPage() {
             </div>
             <div className="modal-body">
               <div className="modal-form-group">
-                <label className="modal-label">{t('tableQuestion', 'Question Content')}</label>
+                <label className="modal-label">{t('tableQuestion', 'Question Content')} *</label>
                 <textarea
                   name="questionContent"
                   className="modal-input textarea"
                   value={newQuestion.questionContent || ''}
                   onChange={handleAddChange}
-                  rows={4}
+                  rows={3}
+                  placeholder={t('questionContentPlaceholder', 'Nhập nội dung câu hỏi...')}
                 />
               </div>
               <div className="modal-form-group">
-                <label className="modal-label">Ý chính gợi ý (Expected Key Points / Tips)</label>
+                <label className="modal-label">{t('expectedKeyPointsLabel', 'Ý chính gợi ý (Expected Key Points / Tips)')}</label>
                 <textarea
                   name="expectedKeyPoints"
                   className="modal-input textarea"
                   value={newQuestion.expectedKeyPoints || ''}
                   onChange={handleAddChange}
-                  rows={4}
+                  rows={3}
+                  placeholder={t('expectedKeyPointsPlaceholder', 'Các ý chính câu trả lời cần đạt được...')}
                 />
               </div>
               <div className="modal-form-row">
@@ -891,11 +980,59 @@ function QuestionManagementPage() {
                     value={newQuestion.roleTarget || ''}
                     onChange={handleAddChange}
                   >
-                    <option value="">-- Chọn vai trò --</option>
+                    <option value="">{t('selectRolePlaceholder', '-- Chọn vai trò --')}</option>
                     {Array.from(new Set([...DEFAULT_ROLES, ...roleOptions.filter(r => r !== 'all')])).map(role => (
                       <option key={role} value={role}>{role}</option>
                     ))}
                   </select>
+                </div>
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('experienceLevelLabel', 'Cấp độ kinh nghiệm (Experience Level)')}</label>
+                  <select
+                    name="experienceLevel"
+                    className="modal-input"
+                    value={newQuestion.experienceLevel || 'Fresher/Junior'}
+                    onChange={handleAddChange}
+                  >
+                    {EXPERIENCE_LEVEL_OPTIONS.map(lvl => (
+                      <option key={lvl} value={lvl}>{lvl}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-form-group">
+                <label className="modal-label">{t('clarificationQuestionLabel', 'Câu hỏi làm rõ (Clarification Question)')}</label>
+                <input
+                  type="text"
+                  name="clarificationQuestion"
+                  className="modal-input"
+                  value={newQuestion.clarificationQuestion || ''}
+                  onChange={handleAddChange}
+                  placeholder={t('clarificationQuestionPlaceholder', 'Câu hỏi làm rõ khi ứng viên trả lời mơ hồ...')}
+                />
+              </div>
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('followUp1Label', 'Câu hỏi đào sâu 1 (Follow-up 1)')}</label>
+                  <input
+                    type="text"
+                    name="followUp1"
+                    className="modal-input"
+                    value={newQuestion.followUp1 || ''}
+                    onChange={handleAddChange}
+                    placeholder={t('followUp1Placeholder', 'Câu hỏi mở rộng hoặc probe sâu hơn...')}
+                  />
+                </div>
+                <div className="modal-form-group">
+                  <label className="modal-label">{t('followUp2Label', 'Câu hỏi đào sâu 2 (Follow-up 2)')}</label>
+                  <input
+                    type="text"
+                    name="followUp2"
+                    className="modal-input"
+                    value={newQuestion.followUp2 || ''}
+                    onChange={handleAddChange}
+                    placeholder={t('followUp2Placeholder', 'Câu hỏi tình huống thử thách nâng cao...')}
+                  />
                 </div>
               </div>
             </div>
