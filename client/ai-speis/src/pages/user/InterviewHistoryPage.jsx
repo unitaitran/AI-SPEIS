@@ -452,37 +452,34 @@ function InterviewHistoryPage() {
           </Card>
         </section>
 
-        {/* Question Bank Styled Search & Filter Bar */}
-        <div className="flex flex-col sm:flex-row gap-2.5">
+        {/* Quick Mode Filter Tabs & New Interview Button */}
+        <div className="grid grid-cols-3 sm:flex sm:items-center gap-2 sm:gap-1.5">
+          {modeTabOptions.map((tab) => {
+            const isActive = modeFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setModeFilter(tab.id)}
+                className={`px-3 sm:px-4 py-3.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap cursor-pointer uppercase tracking-wider border shadow-sm text-center ${isActive
+                    ? 'border-primary bg-primary-xlight text-primary-dark'
+                    : 'border-border bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary'
+                  }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
 
-          {/* Quick Mode Filter Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {modeTabOptions.map((tab) => {
-              const isActive = modeFilter === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setModeFilter(tab.id)}
-                  className={`px-4 py-3.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap cursor-pointer uppercase tracking-wider border shadow-sm ${isActive
-                      ? 'border-primary bg-primary-xlight text-primary-dark'
-                      : 'border-border bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary'
-                    }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-
-            <button
-              type="button"
-              onClick={handleStartNewInterview}
-              className="bg-primary hover:bg-primary-dark hover:shadow-lg text-white text-xs font-bold px-6 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md flex items-center gap-1.5"
-            >
-              <Plus size={16} />
-              {copy.history.newInterviewBtn}
-            </button>
-          </div>
+          {/* New Interview Button - col-span-3 (full width) on mobile (< sm), inline next to tabs on desktop (>= sm) */}
+          <button
+            type="button"
+            onClick={handleStartNewInterview}
+            className="col-span-3 sm:col-auto sm:w-auto bg-primary hover:bg-primary-dark hover:shadow-lg text-white text-xs font-bold px-6 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md flex items-center justify-center gap-1.5 shrink-0"
+          >
+            <Plus size={16} />
+            <span>{copy.history.newInterviewBtn}</span>
+          </button>
         </div>
 
         {/* Content Area: Loading, Error, Empty, or Session Card Grid */}

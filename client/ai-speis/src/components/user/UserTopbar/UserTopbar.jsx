@@ -166,19 +166,41 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
 
   const isLastAttempt = remainingInterviewQuota === 1;
   const isPaidPlan = Boolean(planName && String(planName).toLowerCase() !== 'free');
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
-    <header className="h-[85px] bg-surface-2 border-b border-border flex items-center justify-between px-6 shrink-0 z-10 sticky top-0">
+    <header className="h-[85px] bg-surface-2 border-b border-border flex items-center justify-between px-4 sm:px-6 shrink-0 z-10 sticky top-0 w-full max-w-full">
 
-      {/* Spacer for desktop since logo is in sidebar */}
-      <div className="hidden lg:block flex-1"></div>
+      {/* Notification Bell on Left for Mobile ONLY */}
+      {isMobile ? (
+        <div className="flex items-center">
+          <NotificationBell variant="user" />
+        </div>
+      ) : (
+        /* Spacer for desktop since logo is in sidebar */
+        <div className="flex-1"></div>
+      )}
 
-      <div className="flex items-center space-x-4 ml-auto">
+      <div className="flex items-center space-x-2.5 sm:space-x-4 ml-auto">
         {/* Quota Badge */}
-        <div className="hidden sm:flex items-center bg-gradient-to-r from-primary-light to-primary-xlight border border-primary-light rounded-full px-3 py-1.5 text-sm font-semibold text-primary-dark shadow-sm">
-          <Ticket size={16} className="text-primary-dark mr-2" />
+        <div
+          className={`flex items-center rounded-full px-3 py-1.5 text-sm font-semibold shadow-sm border ${
+            isPaidPlan
+              ? 'border-[#FFD700] bg-gradient-to-r from-[#FFFDF0] to-[#FFF8DC] text-[#B8860B]'
+              : 'border-primary-light bg-gradient-to-r from-primary-light to-primary-xlight text-primary-dark'
+          }`}
+        >
+          <Ticket size={16} className={`mr-2 shrink-0 ${isPaidPlan ? 'text-[#DAA520]' : 'text-primary-dark'}`} />
           <span>
-            {remainingInterviewQuota ?? '—'} / {maxInterviewQuota ?? '—'} {t('topbar.quota_remaining', 'Interviews Left')}
+            {remainingInterviewQuota ?? '—'} / {maxInterviewQuota ?? '—'} <span className="hidden sm:inline">{t('topbar.quota_remaining', 'Interviews Left')}</span>
           </span>
         </div>
 
@@ -207,7 +229,10 @@ function UserTopbar({ onMenuClick, onOpenProfile, user: propUser }) {
           </div>
         )}
 
-        <NotificationBell variant="user" />
+        {/* Notification Bell on Right for Desktop ONLY */}
+        {!isMobile && (
+          <NotificationBell variant="user" />
+        )}
 
         <div className="w-px h-6 bg-border mx-1"></div>
 

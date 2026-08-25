@@ -15,7 +15,11 @@ function RouteRedirect({ to }) {
     navigate(to, { replace: true });
   }, [to]);
 
-  return null;
+  return (
+    <div className="flex min-h-screen w-full items-center justify-center bg-surface-1">
+      <div className="h-8 w-8 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+    </div>
+  );
 }
 
 function AppRoutes() {
@@ -112,6 +116,14 @@ function AppRoutes() {
     return <UserRoutes pathname={pathname} />;
   }
 
+  if (pathname === '/dashboard' || pathname === '/dashboard/') {
+    return (
+      <RouteRedirect
+        to={session ? getDefaultRouteForRole(session?.user?.role) : PUBLIC_ROUTES.LOGIN}
+      />
+    );
+  }
+
   if (pathname === '/packages' || pathname.startsWith('/packages/')) {
     const search = window.location.search || '';
     const target = `${USER_ROUTES.PACKAGES}${search}`;
@@ -136,7 +148,11 @@ function AppRoutes() {
 
   // Prevent flashing the landing page while OAuth callback is being processed in useEffect
   if (window.location.hash.startsWith('#dashboard?')) {
-    return null;
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-surface-1">
+        <div className="h-8 w-8 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   return <App />;

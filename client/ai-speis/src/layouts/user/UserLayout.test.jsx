@@ -6,9 +6,12 @@ jest.mock('../../components/user/UserSidebar/UserSidebar', () => ({ collapsed })
   <aside data-testid="user-sidebar" data-collapsed={String(collapsed)} />
 ));
 jest.mock('../../components/user/UserTopbar/UserTopbar', () => () => <header>Topbar</header>);
+jest.mock('../../components/user/UserBottomNav/UserBottomNav', () => () => (
+  <nav data-testid="user-bottom-nav">BottomNav</nav>
+));
 jest.mock('../../components/user/ProfileModal/ProfileModal', () => () => null);
 
-describe('UserLayout interview mode', () => {
+describe('UserLayout', () => {
   test('renders the sidebar collapsed immediately and restores the default when the mode is removed', () => {
     const { rerender } = render(
       <UserLayout collapseSidebar immersive>
@@ -18,6 +21,7 @@ describe('UserLayout interview mode', () => {
 
     expect(screen.getByTestId('user-sidebar')).toHaveAttribute('data-collapsed', 'true');
     expect(screen.getByText('Interview room').parentElement).toHaveClass('h-full');
+    expect(screen.queryByTestId('user-bottom-nav')).toBeNull();
 
     rerender(
       <UserLayout>
@@ -27,5 +31,6 @@ describe('UserLayout interview mode', () => {
 
     expect(screen.getByTestId('user-sidebar')).toHaveAttribute('data-collapsed', 'false');
     expect(screen.getByText('Dashboard').parentElement).toHaveClass('max-w-[1200px]');
+    expect(screen.getByTestId('user-bottom-nav')).toBeInTheDocument();
   });
 });

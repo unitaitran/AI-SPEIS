@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { USER_ROUTES } from '../../../routes/routePaths';
 import { getStoredSession } from '../../../routes/auth';
 import { beginNewInterviewCampaign } from '../../../utils/interviewContext';
+import { navigate } from '../../../routes/navigation';
 
 function CTASection({ t }) {
   const session = getStoredSession();
@@ -23,8 +24,14 @@ function CTASection({ t }) {
             <a
               className="home-button home-button--primary home-button--large"
               href={session ? USER_ROUTES.INTERVIEW_MODE : '#login'}
-              onClick={() => {
-                if (session) beginNewInterviewCampaign();
+              onClick={(e) => {
+                e.preventDefault();
+                if (session) {
+                  beginNewInterviewCampaign();
+                  navigate(USER_ROUTES.INTERVIEW_MODE);
+                } else {
+                  navigate('#login');
+                }
               }}
             >
               <span>{t('ctaBanner.button', 'Bắt đầu luyện tập ngay')}</span>
