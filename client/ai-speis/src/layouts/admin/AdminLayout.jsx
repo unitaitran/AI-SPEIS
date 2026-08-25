@@ -8,7 +8,7 @@ function AdminLayout({ children, pathname }) {
   const closeSidebar = () => setIsSidebarOpen(false);
 
   return (
-    <div className="flex min-h-screen w-full bg-surface-1">
+    <div className="flex min-h-screen w-full max-w-full overflow-x-hidden bg-surface-1">
       <AdminSidebar
         isOpen={isSidebarOpen}
         pathname={pathname}
@@ -22,10 +22,10 @@ function AdminLayout({ children, pathname }) {
         aria-label="Close navigation"
         onClick={closeSidebar}
       />
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col md:ml-[240px]">
+      <div className="flex min-h-screen min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden md:ml-[240px]">
         <AdminTopbar onMenuClick={() => setIsSidebarOpen(true)} />
-        <main className="flex-1 bg-surface-1 p-4 md:p-6 lg:p-8">
-          <div className="mx-auto w-full max-w-[1200px]">
+        <main className="flex-1 w-full max-w-full min-w-0 overflow-x-hidden bg-surface-1 p-4 md:p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-[1200px] min-w-0">
             {children}
           </div>
         </main>

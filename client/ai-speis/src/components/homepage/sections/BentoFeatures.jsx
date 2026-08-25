@@ -67,7 +67,7 @@ function BentoFeatures({ t }) {
           </div>
 
           {/* CARD 4: JUDGE0 CODING SANDBOX */}
-          <div className="bento-card">
+          <div className="bento-card bento-card--large">
             <div className="bento-card__badge">
               <Code2 size={14} />
               <span>{t('bento.card4.tag', 'Judge0 Sandbox')}</span>

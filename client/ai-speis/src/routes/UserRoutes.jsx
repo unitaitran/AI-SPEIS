@@ -38,30 +38,12 @@ function UserRoutes({ pathname }) {
   };
   const isUserRoot = pathname === USER_ROUTES.ROOT || pathname === `${USER_ROUTES.ROOT}/`;
   const isProfileRoute = pathname === USER_ROUTES.PROFILE;
-  const isKnownRoute =
-    pathname === USER_ROUTES.DASHBOARD ||
-    pathname === USER_ROUTES.PACKAGES ||
-    pathname === USER_ROUTES.CV ||
-    pathname === USER_ROUTES.CV_DETAIL ||
-    pathname === USER_ROUTES.QUESTIONS ||
-    pathname === USER_ROUTES.INTERVIEW_HISTORY ||
-    pathname === USER_ROUTES.INTERVIEW_MODE ||
-    pathname === USER_ROUTES.INTERVIEW_SETUP ||
-    pathname === USER_ROUTES.DEVICE_CHECK ||
-    isInterviewRoomRoute ||
-    isCodingInterviewRoomRoute ||
-    isInterviewResultRoute ||
-    pathname === USER_ROUTES.SINGLE_QUESTION_INTERVIEW ||
-    isCampaignResultRoute ||
-    isInterviewReviewRoute ||
-    pathname === USER_ROUTES.PAYMENT_RESULT ||
-    pathname === USER_ROUTES.NOTIFICATIONS;
 
   useEffect(() => {
-    if ((isUserRoot || !isKnownRoute) && !isProfileRoute) {
+    if (isUserRoot) {
       navigate(USER_ROUTES.DASHBOARD, { replace: true });
     }
-  }, [isKnownRoute, isUserRoot, isProfileRoute]);
+  }, [isUserRoot]);
 
   if (isProfileRoute) {
     return <ProfilePage />;
@@ -131,7 +113,7 @@ function UserRoutes({ pathname }) {
     return <CampaignInterviewResultPage campaignId={getRouteId(USER_ROUTES.CAMPAIGN_RESULT)} />;
   }
 
-  return isKnownRoute ? <DashboardPage /> : null;
+  return <DashboardPage />;
 }
 
 export default UserRoutes;

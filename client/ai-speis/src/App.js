@@ -21,7 +21,11 @@ function AuthRedirect() {
       navigate(getDefaultRouteForRole(session.user.role), { replace: true });
     }
   }, []);
-  return null;
+  return (
+    <div className="flex h-screen items-center justify-center bg-surface-1">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 }
 
 function App() {

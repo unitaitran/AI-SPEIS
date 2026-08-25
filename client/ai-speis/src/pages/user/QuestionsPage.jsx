@@ -349,7 +349,7 @@ function QuestionsPage() {
 
         {/* Search Bar */}
         <form onSubmit={handleSearchSubmit} className="flex gap-2.5">
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <input
               type="text"
               placeholder={t('questions.search_placeholder', 'Tìm câu hỏi phỏng vấn (VD: React Hooks, B-Tree, Xử lý xung đột...)')}
@@ -374,6 +374,7 @@ function QuestionsPage() {
               </button>
             )}
           </div>
+
           {/* Saved Toggle Filter Button */}
           <button
             type="button"
@@ -381,19 +382,19 @@ function QuestionsPage() {
               setShowSavedOnly(prev => !prev);
               setCurrentPage(1);
             }}
-            className={`flex items-center gap-2 px-5 py-3.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap cursor-pointer uppercase tracking-wider shadow-sm hover:-translate-y-0.5 hover:shadow-md border ${
+            className={`flex items-center gap-2 px-4 sm:px-5 py-3.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap cursor-pointer uppercase tracking-wider shadow-sm hover:-translate-y-0.5 hover:shadow-md border shrink-0 ${
               showSavedOnly
                 ? 'border-primary bg-primary-xlight text-primary-dark hover:bg-primary-light'
                 : 'border-transparent bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary'
             }`}
           >
             <Bookmark size={16} className={showSavedOnly ? 'fill-current text-primary-dark' : 'text-text-secondary'} />
-            {t('questions.filter_saved', 'Đã lưu')}
+            <span className="hidden sm:inline">{t('questions.filter_saved', 'Đã lưu')}</span>
           </button>
 
           <button
             type="submit"
-            className="bg-primary hover:bg-primary-dark hover:shadow-lg hover:-translate-y-0.5 text-white text-xs font-bold px-7 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md"
+            className="bg-primary hover:bg-primary-dark hover:shadow-lg hover:-translate-y-0.5 text-white text-xs font-bold px-5 sm:px-7 py-3.5 rounded-xl transition-all duration-300 cursor-pointer whitespace-nowrap uppercase tracking-wider shadow-md shrink-0"
           >
             {t('questions.search_button', 'Tìm kiếm')}
           </button>
@@ -407,13 +408,13 @@ function QuestionsPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
 
-            {/* Left Sidebar Filter Column - Sticky with top offset matching the sticky header height */}
-            <aside className="lg:col-span-1 space-y-4 sticky top-[93px] self-start">
+            {/* Left Sidebar Filter Column - Sticky only on Desktop */}
+            <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-[93px] lg:self-start">
 
               {/* 1. Mascot Studying Banner */}
               <div className="flex flex-col items-center text-center relative py-2">
                 {/* Speech Bubble Above Mascot */}
-                <div className="relative bg-primary-xlight text-primary-dark border border-primary-light/50 px-4 py-2.5 rounded-xl text-xs font-bold leading-relaxed max-w-[90%] mb-3.5 shadow-sm">
+                <div className="relative bg-primary-xlight text-primary-dark border border-primary-light/50 px-4 py-2 rounded-xl text-xs font-bold leading-relaxed max-w-[90%] mb-2.5 shadow-sm">
                   {/* Bubble tail arrow pointing down */}
                   <div className="absolute bottom-[-5px] left-1/2 transform -translate-x-1/2 rotate-45 w-2.5 h-2.5 bg-primary-xlight border-r border-b border-primary-light/50"></div>
                   {isVi ? 'Cùng ôn tập câu hỏi nhé!' : "Let's study questions!"}
@@ -422,115 +423,107 @@ function QuestionsPage() {
                 <img
                   src="/studying_mascot.jpg"
                   alt="Studying Mascot"
-                  className="w-48 h-48 object-cover rounded-full border-2 border-primary/20 shadow-md"
+                  className="w-28 h-28 sm:w-44 sm:h-44 object-cover rounded-full border-2 border-primary/20 shadow-md"
                 />
               </div>
 
-              {/* 2. NGÔN NGỮ */}
-              <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm">
-                <button
-                  onClick={() => toggleFilterSection('language')}
-                  className="w-full px-4 py-3.5 flex items-center justify-between bg-surface-1 border-b border-border text-sm font-bold text-text-primary uppercase tracking-wider cursor-pointer"
-                >
-                  <span>{t('questions.filter_language', 'Ngôn ngữ')}</span>
-                  <ChevronDown size={16} className={`transition-transform duration-300 transform ${expandedFilters.language ? 'rotate-180' : ''}`} />
-                </button>
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFilters.language ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="p-4 space-y-3">
-                    {[
-                      { code: 'vi', label: t('questions.lang_vi', 'Tiếng Việt'), flag: '🇻🇳' },
-                      { code: 'en', label: t('questions.lang_en', 'Tiếng Anh'), flag: '🇬🇧' }
-                    ].map(lang => (
-                      <label key={lang.code} className="flex items-center text-xs font-semibold text-text-secondary cursor-pointer hover:text-primary-dark transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={selectedLanguages.includes(lang.code)}
-                          onChange={() => handleCheckboxChange(lang.code, selectedLanguages, setSelectedLanguages)}
-                          className="mr-2.5 accent-primary h-4.5 w-4.5 rounded border-border-strong"
-                        />
-                        <span className="flex items-center gap-1.5">
-                          <span>{lang.flag}</span>
-                          <span>{lang.label}</span>
-                        </span>
-                        <span className="ml-auto text-[10px] text-text-disabled font-bold bg-surface-3 px-2 py-0.5 rounded border border-border/20">
-                          {questions.filter(q => {
-                            const qLang = (q.language || '').toLowerCase();
-                            if (lang.code === 'vi') return qLang === 'vi' || qLang === 'vietnamese' || !qLang;
-                            if (lang.code === 'en') return qLang === 'en' || qLang === 'english';
-                            return false;
-                          }).length}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              {/* Filters Grid: Language & Difficulty on one side, Role on the other */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
 
-              {/* 3. VỊ TRÍ (Role) */}
-              <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm">
-                <button
-                  onClick={() => toggleFilterSection('role')}
-                  className="w-full px-4 py-3.5 flex items-center justify-between bg-surface-1 border-b border-border text-sm font-bold text-text-primary uppercase tracking-wider cursor-pointer"
-                >
-                  <span>{t('questions.filter_role', 'Vị trí (Role)')}</span>
-                  <ChevronDown size={16} className={`transition-transform duration-300 transform ${expandedFilters.role ? 'rotate-180' : ''}`} />
-                </button>
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFilters.role ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="p-4 space-y-3 max-h-56 overflow-y-auto">
-                    {dynamicRoles.length === 0 ? (
-                      <p className="text-xs text-text-disabled italic">{t('questions.no_data', 'Không có dữ liệu')}</p>
-                    ) : (
-                      dynamicRoles.map(role => (
-                        <label key={role} className="flex items-center text-xs font-semibold text-text-secondary cursor-pointer hover:text-primary-dark transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={selectedRoles.includes(role)}
-                            onChange={() => handleCheckboxChange(role, selectedRoles, setSelectedRoles)}
-                            className="mr-2.5 accent-primary h-4.5 w-4.5 rounded border-border-strong"
-                          />
-                          <span>{role}</span>
-                          <span className="ml-auto text-[10px] text-text-disabled font-bold bg-surface-3 px-2 py-0.5 rounded border border-border/20">
-                            {questions.filter(q => q.roleTarget === role).length}
-                          </span>
-                        </label>
-                      ))
-                    )}
+                {/* Side 1: Language & Difficulty */}
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  {/* 2. NGÔN NGỮ */}
+                  <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm">
+                    <button
+                      onClick={() => toggleFilterSection('language')}
+                      className="w-full px-4 py-3 flex items-center justify-between bg-surface-1 border-b border-border text-sm font-bold text-text-primary uppercase tracking-wider cursor-pointer"
+                    >
+                      <span>{t('questions.filter_language', 'Ngôn ngữ')}</span>
+                      <ChevronDown size={16} className={`transition-transform duration-300 transform ${expandedFilters.language ? 'rotate-180' : ''}`} />
+                    </button>
+                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFilters.language ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                      <div className="p-3.5 space-y-2.5">
+                        {[
+                          { code: 'vi', label: t('questions.lang_vi', 'Tiếng Việt'), flag: '🇻🇳' },
+                          { code: 'en', label: t('questions.lang_en', 'Tiếng Anh'), flag: '🇬🇧' }
+                        ].map(lang => (
+                          <label key={lang.code} className="flex items-center text-xs font-semibold text-text-secondary cursor-pointer hover:text-primary-dark transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedLanguages.includes(lang.code)}
+                              onChange={() => handleCheckboxChange(lang.code, selectedLanguages, setSelectedLanguages)}
+                              className="mr-2.5 accent-primary h-4 w-4 rounded border-border-strong shrink-0"
+                            />
+                            <span className="flex items-center gap-1.5 truncate">
+                              <span>{lang.flag}</span>
+                              <span>{lang.label}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* 4. ĐỘ KHÓ */}
-              <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm">
-                <button
-                  onClick={() => toggleFilterSection('difficulty')}
-                  className="w-full px-4 py-3.5 flex items-center justify-between bg-surface-1 border-b border-border text-sm font-bold text-text-primary uppercase tracking-wider cursor-pointer"
-                >
-                  <span>{t('questions.filter_difficulty', 'Độ khó')}</span>
-                  <ChevronDown size={16} className={`transition-transform duration-300 transform ${expandedFilters.difficulty ? 'rotate-180' : ''}`} />
-                </button>
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFilters.difficulty ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="p-4 space-y-3">
-                    {['Easy', 'Medium', 'Hard'].map(d => (
-                      <label key={d} className="flex items-center text-xs font-semibold text-text-secondary cursor-pointer hover:text-primary-dark transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={selectedDifficulties.includes(d)}
-                          onChange={() => handleCheckboxChange(d, selectedDifficulties, setSelectedDifficulties)}
-                          className="mr-2.5 accent-primary h-4.5 w-4.5 rounded border-border-strong"
-                        />
-                        <span>{getDifficultyText(d)}</span>
-                        <span className="ml-auto text-[10px] text-text-disabled font-bold bg-surface-3 px-2 py-0.5 rounded border border-border/20">
-                          {questions.filter(q => {
-                            if (d === 'Easy') return q.difficulty === 'Easy' || q.difficulty === 0;
-                            if (d === 'Medium') return q.difficulty === 'Medium' || q.difficulty === 1;
-                            if (d === 'Hard') return q.difficulty === 'Hard' || q.difficulty === 2;
-                            return false;
-                          }).length}
-                        </span>
-                      </label>
-                    ))}
+                  {/* 4. ĐỘ KHÓ */}
+                  <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm">
+                    <button
+                      onClick={() => toggleFilterSection('difficulty')}
+                      className="w-full px-4 py-3 flex items-center justify-between bg-surface-1 border-b border-border text-sm font-bold text-text-primary uppercase tracking-wider cursor-pointer"
+                    >
+                      <span>{t('questions.filter_difficulty', 'Độ khó')}</span>
+                      <ChevronDown size={16} className={`transition-transform duration-300 transform ${expandedFilters.difficulty ? 'rotate-180' : ''}`} />
+                    </button>
+                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFilters.difficulty ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                      <div className="p-3.5 space-y-2.5">
+                        {['Easy', 'Medium', 'Hard'].map(d => (
+                          <label key={d} className="flex items-center text-xs font-semibold text-text-secondary cursor-pointer hover:text-primary-dark transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedDifficulties.includes(d)}
+                              onChange={() => handleCheckboxChange(d, selectedDifficulties, setSelectedDifficulties)}
+                              className="mr-2.5 accent-primary h-4 w-4 rounded border-border-strong shrink-0"
+                            />
+                            <span>{getDifficultyText(d)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* Side 2: Role */}
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  {/* 3. VỊ TRÍ (Role) */}
+                  <div className="bg-surface-2 border border-border rounded-xl overflow-hidden shadow-sm h-full flex flex-col">
+                    <button
+                      onClick={() => toggleFilterSection('role')}
+                      className="w-full px-4 py-3 flex items-center justify-between bg-surface-1 border-b border-border text-sm font-bold text-text-primary uppercase tracking-wider cursor-pointer shrink-0"
+                    >
+                      <span>{t('questions.filter_role', 'Vị trí (Role)')}</span>
+                      <ChevronDown size={16} className={`transition-transform duration-300 transform ${expandedFilters.role ? 'rotate-180' : ''}`} />
+                    </button>
+                    <div className={`overflow-hidden transition-all duration-300 ease-in-out flex-1 ${expandedFilters.role ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                      <div className="p-3.5 space-y-2.5 max-h-64 sm:max-h-72 overflow-y-auto">
+                        {dynamicRoles.length === 0 ? (
+                          <p className="text-xs text-text-disabled italic">{t('questions.no_data', 'Không có dữ liệu')}</p>
+                        ) : (
+                          dynamicRoles.map(role => (
+                            <label key={role} className="flex items-center text-xs font-semibold text-text-secondary cursor-pointer hover:text-primary-dark transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={selectedRoles.includes(role)}
+                                onChange={() => handleCheckboxChange(role, selectedRoles, setSelectedRoles)}
+                                className="mr-2.5 accent-primary h-4 w-4 rounded border-border-strong shrink-0"
+                              />
+                              <span className="truncate">{role}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </aside>
 
