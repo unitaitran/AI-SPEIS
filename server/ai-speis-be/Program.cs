@@ -283,6 +283,8 @@ builder.Services.AddHttpClient("PythonRAG", client =>
     client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
 builder.Services.AddScoped<ai_speis_be.Services.RagService.IRagQuestionRetrievalClient, ai_speis_be.Services.RagService.RagQuestionRetrievalClient>();
+builder.Services.AddScoped<ai_speis_be.Services.RagService.IQuestionVectorSyncClient, ai_speis_be.Services.RagService.QuestionVectorSyncClient>();
+builder.Services.AddScoped<ai_speis_be.BackgroundJobs.QuestionSyncJob>();
 
 builder.Services.AddScoped<ITechnicalQuestionSelectionService, TechnicalQuestionSelectionService>();
 builder.Services.AddScoped<ai_speis_be.TechnicalInterviews.V2.ITechnicalV2InterviewOrchestrator, ai_speis_be.TechnicalInterviews.V2.TechnicalV2InterviewOrchestrator>();

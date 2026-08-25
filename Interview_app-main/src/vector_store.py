@@ -60,6 +60,34 @@ class VectorStore:
     def point_id(namespace: str, key: str) -> str:
         return str(uuid.uuid5(uuid.NAMESPACE_URL, f"{namespace}:{key}"))
 
+    def delete_point(self, collection: str, point_id: int | str) -> bool:
+        """Idempotently delete a single point ID from a collection."""
+        if not self.collection_exists(collection):
+            return False
+        try:
+            self.client.delete(
+                collection_name=collection,
+                points_selector=models.PointIdsList(points=[point_id]),
+                wait=True,
+            )
+            return True
+        except Exception:
+            return False
+
+    def delete_points(self, collection: str, point_ids: list[int | str]) -> bool:
+        """Idempotently delete multiple point IDs from a collection."""
+        if not self.collection_exists(collection) or not point_ids:
+            return False
+        try:
+            self.client.delete(
+                collection_name=collection,
+                points_selector=models.PointIdsList(points=point_ids),
+                wait=True,
+            )
+            return True
+        except Exception:
+            return False
+
     def upsert(self, collection: str, records: list[dict[str, Any]], batch_size: int = 64) -> int:
         total = 0
         for start in range(0, len(records), batch_size):

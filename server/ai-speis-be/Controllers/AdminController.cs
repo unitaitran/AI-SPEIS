@@ -298,6 +298,24 @@ namespace ai_speis_be.Controllers
             };
         }
 
+        [HttpPost("questions/reindex-vectors")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<object>> ReindexVectors(CancellationToken cancellationToken)
+        {
+            if (!TryGetActingUserId(out _))
+            {
+                return Unauthorized(CreateInvalidAuthenticationProblem());
+            }
+
+            var count = await _questionService.ReindexAllVectorsAsync(cancellationToken);
+            return Ok(new
+            {
+                message = $"Enqueued vector reindexing for {count} active questions.",
+                totalEnqueued = count
+            });
+        }
+
         [HttpPatch("users/{userId:int}/lock")]
         [ProducesResponseType(
             typeof(LockUserResponseDto),
