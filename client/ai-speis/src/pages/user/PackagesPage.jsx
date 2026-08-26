@@ -381,7 +381,7 @@ function PackagesPage() {
                     <p className="text-sm text-text-secondary">
                       {isPremiumUser
                         ? t('premiumDesc', 'Tài khoản của bạn đang có {{quota}} lượt mỗi chu kỳ 30 ngày.', { quota: subscriptionData?.maxInterviewQuota || 15 })
-                        : t('freeDesc', 'Nâng cấp để nhận 15 lượt phỏng vấn mỗi chu kỳ 30 ngày.')}
+                        : t('freeDesc', 'Nâng cấp tài khoản để mở thêm các đặc quyền.')}
                     </p>
                   </div>
                 </div>
@@ -420,7 +420,7 @@ function PackagesPage() {
               {showQuotaResetCard && (
                 <div className="rounded-2xl border border-border bg-surface-1 p-6 shadow-sm flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">{t('quotaReset', 'Ngày sạc lại 15 lượt tiếp')}</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">{t('quotaReset', 'Ngày làm mới lượt tiếp theo')}</span>
                     <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
                       <RotateCcw size={20} />
                     </div>
@@ -479,7 +479,7 @@ function PackagesPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-text-primary mb-0.5">{t('quotaPolicy', 'Cơ chế làm mới')}</h3>
-                    <p className="text-xs text-text-secondary leading-relaxed">{isPremiumUser ? t('quotaPolicyDescPremium', 'Tự động làm mới 15 lượt sau mỗi 30 ngày') : t('quotaPolicyDescFree', 'Cố định 3 lượt dùng thử khi đăng ký')}</p>
+                    <p className="text-xs text-text-secondary leading-relaxed">{isPremiumUser ? t('quotaPolicyDescPremium', 'Tự động làm mới {{quota}} lượt sau mỗi 30 ngày', { quota: subscriptionData?.maxInterviewQuota ?? 15 }) : t('quotaPolicyDescFree', 'Cố định {{quota}} lượt dùng thử khi đăng ký', { quota: subscriptionData?.maxInterviewQuota ?? 3 })}</p>
                   </div>
                 </div>
               </div>
