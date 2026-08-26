@@ -97,7 +97,33 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
 
             var expected = rubric.Dimensions.ToList();
             var dimensions = evaluation.DimensionEvaluations;
-            var transcript = NormalizeEvidence(string.Join(" ", answerContext.Select(item => item.Answer)));
+
+            // Evidence must be grounded exclusively in the CURRENT question's answer (last item in answerContext)
+            var currentAnswer = answerContext.Count > 0 ? answerContext[^1].Answer : string.Empty;
+
+            // Hard check: If the candidate answer is a non-answer, force 0 score and empty evidence across all dimensions
+            if (IsNonAnswer(currentAnswer))
+            {
+                evaluation.DimensionEvaluations = expected.Select(dim => new BehaviouralAIDimensionEvaluation
+                {
+                    RubricCode = dim.Code,
+                    SuggestedScore = 0m,
+                    Evidence = new List<string>(),
+                    MissingEvidence = new List<string> { "Ứng viên chưa đưa ra câu trả lời cụ thể cho tình huống này." }
+                }).ToList();
+
+                return new BehaviouralEvaluationValidationResult(
+                    true,
+                    BehaviourResolvedAction.NextMainQuestion,
+                    null)
+                {
+                    IsPartial = false,
+                    NormalizedEvaluation = evaluation,
+                    InvalidCriterionCodes = Array.Empty<string>()
+                };
+            }
+
+            var transcript = NormalizeEvidence(currentAnswer);
             var normalized = new List<BehaviouralAIDimensionEvaluation>(expected.Count);
             var invalidCodes = new List<string>();
             var recognizableDimensions = dimensions
@@ -331,6 +357,54 @@ namespace ai_speis_be.BehaviouralInterviews.Validation
             }
 
             return Regex.Replace(builder.ToString().Trim(), @"\s+", " ");
+        }
+
+        public static bool IsNonAnswer(string? transcript)
+        {
+            if (string.IsNullOrWhiteSpace(transcript))
+            {
+                return true;
+            }
+
+            var clean = transcript.Trim().ToLowerInvariant();
+            var words = clean.Split(new[] { ' ', '\t', '\r', '\n', '.', ',', '!', '?', ';', ':', '-', '—' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 0)
+            {
+                return true;
+            }
+
+            var nonAnswerPhrases = new[]
+            {
+                "tôi không biết", "em không biết", "mình không biết", "không biết", "ko biết", "chưa biết",
+                "câu này khó quá", "khó quá", "chưa nghĩ ra", "bỏ qua", "tắt đi", "dừng lại",
+                "pass", "next", "skip", "i don't know", "i do not know", "no idea", "skip this",
+                "i have no idea", "not sure", "cannot answer", "can't answer"
+            };
+
+            foreach (var phrase in nonAnswerPhrases)
+            {
+                if (clean.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (words.Length <= 15)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if (words.Length <= 3)
+            {
+                var shortNonAnswers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "ok", "oke", "okay", "yes", "no", "không", "có", "dạ", "vâng", "chịu", "k biết", "ko", "k", "pass", "next"
+                };
+                if (words.All(w => shortNonAnswers.Contains(w)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
